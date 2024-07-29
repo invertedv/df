@@ -54,10 +54,9 @@ func toInt(xIn any, strict bool) (xOut any, err error) {
 	return nil, fmt.Errorf("cannot convert type to int")
 }
 
-func toDate1(x any, strict bool) (xout any, err error) {
-
-	if x, ok := x.(time.Time); ok {
-		return x, nil
+func toDate(xIn any, strict bool) (xOut any, err error) {
+	if xx, ok := xIn.(time.Time); ok {
+		return xx, nil
 	}
 
 	if strict {
@@ -69,18 +68,30 @@ func toDate1(x any, strict bool) (xout any, err error) {
 		"01/02/2006", "1/2/2006", "01-02-2006", "1-2-2006", "200601", "Jan 2 2006", "January 2 2006",
 		"Jan 2, 2006", "January 2, 2006", time.RFC3339}
 
-	xs, ok := x.(string)
+	xs, ok := xIn.(string)
 	if !ok {
 		return nil, fmt.Errorf("input not a string")
 	}
 	for _, format := range DateFormats {
-		xout, err = time.Parse(format, xs)
+		xOut, err = time.Parse(format, xs)
 		if err == nil {
-			return xout, nil
+			return xOut, nil
 		}
 	}
 
-	return xout, fmt.Errorf("cannot parse %s as date", xs)
+	return xOut, fmt.Errorf("cannot parse %s as date", xs)
+}
+
+func toString(xIn any, strict bool) (xOut any, err error) {
+	if x, ok := xIn.(string); ok {
+		return x, nil
+	}
+
+	if strict {
+		return nil, fmt.Errorf("conversion not allowed")
+	}
+
+	return fmt.Sprintf("%v", xIn), nil
 }
 
 func toDataType(x any, dt DataTypes, strict bool) (xout any, err error) {
@@ -90,7 +101,7 @@ func toDataType(x any, dt DataTypes, strict bool) (xout any, err error) {
 	case DTint:
 		return toInt(x, strict)
 	case DTdate:
-		return toDate1(x, strict)
+		return toDate(x, strict)
 	}
 
 	return nil, fmt.Errorf("not supported")
@@ -108,4 +119,31 @@ func SliceToDataType(col Column, dt DataTypes, strict bool) (xout any, err error
 	}
 
 	return xout, nil
+}
+
+func makeSlice(dt DataTypes) any {
+	var xout any
+	switch dt {
+	case DTfloat:
+		xout = make([]float64, 0)
+	case DTint:
+		xout = make([]int, 0)
+	case DTdate:
+		xout = make([]time.Time, 0)
+	}
+
+	return xout
+}
+
+func appendSlice(x, xadd any, dt DataTypes) any {
+	switch dt {
+	case DTfloat:
+		x = append(x.([]float64), xadd.(float64))
+	case DTint:
+		x = append(x.([]int), xadd.(int))
+	case DTdate:
+		x = append(x.([]time.Time), xadd.(time.Time))
+	}
+
+	return x
 }

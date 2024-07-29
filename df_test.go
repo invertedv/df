@@ -58,11 +58,11 @@ func TestDF_Apply(t *testing.T) {
 	//	_ = outCol
 	xc, _ := df.GetColumn("x")
 	yc, _ := df.GetColumn("y")
-	test, e := MemOp("test", "exp", xc)
-	assert.Nil(t, e)
-	_ = test
-
+	f := Functions["exp"]
+	e1 := df.Apply("test", &f, "x")
+	assert.Nil(t, e1)
 	_ = yc
+	_ = xc
 	/*
 		//	fn, e := Func1F1F("exp")
 		outCol1, e2 := Oper("test", "abs", xc)

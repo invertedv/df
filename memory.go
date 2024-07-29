@@ -22,9 +22,40 @@ func (fn Function) Check(cols ...Column) error {
 	return nil
 }
 
-func (fn Function) Run(xs ...any) (any, error) {
+func (fn Function) Run(cols ...Column) (outCol Column, err error) {
+	if len(cols) != len(fn.inputs) {
+		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(cols), fn.name, len(fn.inputs))
+	}
 
-	return fn.function(xs)
+	xOut := makeSlice(fn.output)
+
+	for ind := 0; ind < cols[0].N(); ind++ {
+		var xs []any
+		for j := 0; j < len(cols); j++ {
+			xadd, e := toDataType(cols[j].Element(ind), fn.inputs[j], true)
+			if e != nil {
+				return nil, e
+			}
+			xs = append(xs, xadd)
+		}
+
+		x, e := fn.function(xs...)
+		if e != nil {
+			return nil, e
+		}
+
+		xOut = appendSlice(xOut, x, fn.output)
+	}
+
+	outCol = &Memory{
+		name:   "",
+		n:      cols[0].N(),
+		dType:  fn.output,
+		data:   xOut,
+		catMap: nil,
+	}
+
+	return outCol, nil
 }
 
 type categoryMap map[any]uint32
@@ -54,7 +85,11 @@ func (mem *Memory) Data() any {
 	return mem.data
 }
 
-func (mem *Memory) Name() string {
+func (mem *Memory) Name(newName string) string {
+	if newName != "" {
+		mem.name = newName
+	}
+
 	return mem.name
 }
 
@@ -65,11 +100,13 @@ func (mem *Memory) To(dt DataTypes) (out any, err error) {
 func (mem *Memory) Element(row int) any {
 	switch mem.dType {
 	case DTfloat:
-		return mem.data.([]float64)[row]
+		return mem.Data().([]float64)[row]
 	case DTint:
-		return mem.data.([]int)[row]
+		return mem.Data().([]int)[row]
 	case DTstring:
-		return mem.data.([]string)[row]
+		return mem.Data().([]string)[row]
+	case DTdate:
+		return mem.Data().([]time.Time)[row]
 	}
 
 	return nil
@@ -133,68 +170,3 @@ func LoadFunctions() FunctionMap {
 }
 
 var Functions = LoadFunctions()
-
-func makeSlice(dt DataTypes) any {
-	var xout any
-	switch dt {
-	case DTfloat:
-		xout = make([]float64, 0)
-	case DTint:
-		xout = make([]int, 0)
-	case DTdate:
-		xout = make([]time.Time, 0)
-	}
-
-	return xout
-}
-
-func appendSlice(x, xadd any, dt DataTypes) any {
-	switch dt {
-	case DTfloat:
-		x = append(x.([]float64), xadd.(float64))
-	case DTint:
-		x = append(x.([]int), xadd.(int))
-	case DTdate:
-		x = append(x.([]time.Time), xadd.(time.Time))
-	}
-
-	return x
-}
-
-func MemOp(resultName, op string, cols ...Column) (out Column, err error) {
-	fn := Functions[op]
-
-	if len(cols) != len(fn.inputs) {
-		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(cols), op, len(fn.inputs))
-	}
-
-	xout := makeSlice(fn.output)
-
-	for ind := 0; ind < cols[0].N(); ind++ {
-		var xs []any
-		for j := 0; j < len(cols); j++ {
-			xadd, e := toDataType(cols[j].Element(ind), fn.inputs[j], true)
-			if e != nil {
-				return nil, e
-			}
-			xs = append(xs, xadd)
-		}
-
-		x, e := fn.function(xs...)
-		if e != nil {
-			return nil, e
-		}
-
-		xout = appendSlice(xout, x, Functions[op].output)
-	}
-
-	out = &Memory{
-		name:   resultName,
-		n:      cols[0].N(),
-		dType:  DTfloat,
-		data:   xout,
-		catMap: nil,
-	}
-
-	return out, nil
-}

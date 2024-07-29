@@ -23,7 +23,7 @@ const (
 //go:generate stringer -type=DataTypes
 
 type Column interface {
-	Name() string
+	Name(newName string) string
 	DataType() DataTypes
 	N() int
 	Data() any
@@ -104,7 +104,7 @@ func (dfl *DFlist) Tail() *DFlist {
 
 func (df *DF) getDFlist(colName string) (col *DFlist, err error) {
 	for h := df.head; h != nil; h = h.next {
-		if (h.col).Name() == colName {
+		if (h.col).Name("") == colName {
 			return h, nil
 		}
 	}
@@ -124,7 +124,7 @@ func (df *DF) GetColumn(colName string) (col Column, err error) {
 func (df *DF) Save(saver SaveFunc, to string, colNames ...string) error {
 	var cols []Column
 	for col := df.head; col != nil; col = df.head.next {
-		if colNames == nil || utilities.Has(col.col.Name(), "", colNames...) {
+		if colNames == nil || utilities.Has(col.col.Name(""), "", colNames...) {
 			cols = append(cols, col.col)
 		}
 	}
@@ -133,24 +133,35 @@ func (df *DF) Save(saver SaveFunc, to string, colNames ...string) error {
 }
 
 // what about N, name, dataType
-func (df *DF) Apply(resultName string, op OpFunc, colNames ...string) (out Column, err error) {
-	var inCols []Column
+func (df *DF) Apply(resultName string, op *Function, colNames ...string) error {
+	var (
+		inCols []Column
+		err    error
+	)
 
 	if op == nil {
-		return nil, fmt.Errorf("no operation defined in Apply")
+		return fmt.Errorf("no operation defined in Apply")
 	}
 
 	for ind := 0; ind < len(colNames); ind++ {
 		var dfcol *DFlist
 
 		if dfcol, err = df.getDFlist(colNames[ind]); err != nil {
-			return nil, err
+			return err
 		}
 
 		inCols = append(inCols, dfcol.col)
 	}
 
-	return op(resultName, inCols...)
+	col, e := op.Run(inCols...)
+	if e != nil {
+		return e
+	}
+
+	col.Name(resultName)
+	df.Append(col)
+
+	return nil
 }
 
 // what if df is nil?
