@@ -8,16 +8,16 @@ import (
 type DataTypes uint8
 
 const (
-	DTchar DataTypes = 0 + iota
-	DTdouble
-	DTinteger
+	DTstring DataTypes = 0 + iota
+	DTfloat
+	DTint
 	DTcategory
 	DTdate
 	DTdateTime
 	DTtime
-	DTslcChar
-	DTslcDouble
-	DTslcInteger
+	DTslcString
+	DTslcFloat
+	DTslcInt
 )
 
 //go:generate stringer -type=DataTypes

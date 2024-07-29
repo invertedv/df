@@ -13,14 +13,14 @@ func makeMemDF() (*DF, error) {
 	xCol := &Memory{
 		name:   "x",
 		n:      len(x),
-		dType:  DTdouble,
+		dType:  DTfloat,
 		data:   x,
 		catMap: nil,
 	}
 
 	yCol := &Memory{
 		n:     len(y),
-		dType: DTdouble,
+		dType: DTfloat,
 		name:  "y",
 		data:  y,
 	}
