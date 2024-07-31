@@ -28,20 +28,39 @@ type Column interface {
 	N() int
 	Data() any
 	To(dt DataTypes) (any, error)
-	Element(row int) any
 }
 
-type OpFunc func(resultName string, cols ...Column) (Column, error)
+type Function interface {
+	Run(cols ...Column) (outCol Column, err error)
+}
 
 type SaveFunc func(to string, cols ...Column) error
 
 type LoadFunc func(from string) ([]Column, error)
 
+type DFtype interface {
+	Rows() int
+	Cols() int
+	Apply(cols ...Column) (Column, error)
+}
+
 type DF struct {
-	ragged bool
-	hasSQL bool
+	rows int
 
 	head *DFlist
+}
+
+func (df *DF) Rows() int {
+	return df.rows
+}
+
+func (df *DF) Cols() int {
+	cols := 0
+	for c := df.head; c != nil; c = c.next {
+		cols++
+	}
+
+	return cols
 }
 
 type DFlist struct {
@@ -81,7 +100,7 @@ func NewDF(cols ...Column) (df *DF, err error) {
 		}
 	}
 
-	df = &DF{head: head}
+	df = &DF{head: head, rows: cols[0].N()}
 
 	return df, nil
 }
@@ -133,7 +152,7 @@ func (df *DF) Save(saver SaveFunc, to string, colNames ...string) error {
 }
 
 // what about N, name, dataType
-func (df *DF) Apply(resultName string, op *Function, colNames ...string) error {
+func (df *DF) Apply(resultName string, op Function, colNames ...string) error {
 	var (
 		inCols []Column
 		err    error
@@ -188,15 +207,3 @@ func (df *DF) Drop(colName string) error {
 
 	return nil
 }
-
-/*
-
-in memory vs in database
-
-db: fetch vs run on db
-on db: where put output? single query...
-
-Load
-Save
-
-*/

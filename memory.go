@@ -10,29 +10,47 @@ import (
 //go:embed funcs/funcs.txt
 var functions string
 
-type Function struct {
+type MemFunc struct {
 	name     string
 	inputs   []DataTypes
 	output   DataTypes
 	function AnyFunction
 }
 
-func (fn Function) Check(cols ...Column) error {
+func (fn MemFunc) Check(cols ...Column) error {
 
 	return nil
 }
 
-func (fn Function) Run(cols ...Column) (outCol Column, err error) {
+func Col2MemCol(cols ...Column) (mem []*MemCol, err error) {
+	var vals []*MemCol
+	for j := 0; j < len(cols); j++ {
+		val, ok := cols[j].(*MemCol)
+		if !ok {
+			return nil, fmt.Errorf("not *MemCol type")
+		}
+
+		vals = append(vals, val)
+	}
+
+	return vals, nil
+}
+
+func (fn MemFunc) Run(cols ...Column) (outCol Column, err error) {
 	if len(cols) != len(fn.inputs) {
 		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(cols), fn.name, len(fn.inputs))
 	}
 
 	xOut := makeSlice(fn.output)
+	var vals []*MemCol
+	if vals, err = Col2MemCol(cols...); err != nil {
+		return nil, err
+	}
 
-	for ind := 0; ind < cols[0].N(); ind++ {
+	for ind := 0; ind < vals[0].N(); ind++ {
 		var xs []any
-		for j := 0; j < len(cols); j++ {
-			xadd, e := toDataType(cols[j].Element(ind), fn.inputs[j], true)
+		for j := 0; j < len(vals); j++ {
+			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j], true)
 			if e != nil {
 				return nil, e
 			}
@@ -47,7 +65,7 @@ func (fn Function) Run(cols ...Column) (outCol Column, err error) {
 		xOut = appendSlice(xOut, x, fn.output)
 	}
 
-	outCol = &Memory{
+	outCol = &MemCol{
 		name:   "",
 		n:      cols[0].N(),
 		dType:  fn.output,
@@ -60,11 +78,11 @@ func (fn Function) Run(cols ...Column) (outCol Column, err error) {
 
 type categoryMap map[any]uint32
 
-type FunctionMap map[string]Function
+type FunctionMap map[string]*MemFunc
 
 type AnyFunction func(...any) (any, error)
 
-type Memory struct {
+type MemCol struct {
 	name  string
 	n     int
 	dType DataTypes
@@ -73,19 +91,19 @@ type Memory struct {
 	catMap categoryMap
 }
 
-func (mem *Memory) DataType() DataTypes {
+func (mem *MemCol) DataType() DataTypes {
 	return mem.dType
 }
 
-func (mem *Memory) N() int {
+func (mem *MemCol) N() int {
 	return mem.n
 }
 
-func (mem *Memory) Data() any {
+func (mem *MemCol) Data() any {
 	return mem.data
 }
 
-func (mem *Memory) Name(newName string) string {
+func (mem *MemCol) Name(newName string) string {
 	if newName != "" {
 		mem.name = newName
 	}
@@ -93,11 +111,11 @@ func (mem *Memory) Name(newName string) string {
 	return mem.name
 }
 
-func (mem *Memory) To(dt DataTypes) (out any, err error) {
+func (mem *MemCol) To(dt DataTypes) (out any, err error) {
 	return SliceToDataType(mem, dt, false)
 }
 
-func (mem *Memory) Element(row int) any {
+func (mem *MemCol) Element(row int) any {
 	switch mem.dType {
 	case DTfloat:
 		return mem.Data().([]float64)[row]
@@ -128,7 +146,7 @@ func MemLoad(from string) ([]Column, error) {
 	x := []float64{1, 2, 3}
 	y := []float64{4, 5, 6}
 
-	xCol := &Memory{
+	xCol := &MemCol{
 		name:   "x",
 		n:      len(x),
 		dType:  0,
@@ -136,7 +154,7 @@ func MemLoad(from string) ([]Column, error) {
 		catMap: nil,
 	}
 
-	yCol := &Memory{
+	yCol := &MemCol{
 		n:    len(y),
 		name: "y",
 		data: y,
@@ -152,14 +170,14 @@ func MemSave(to string, cols []Column) error {
 
 func LoadFunctions() FunctionMap {
 	fn := make(FunctionMap)
-	fn["addFloat"] = Function{
+	fn["addFloat"] = &MemFunc{
 		name:     "addFloat",
 		inputs:   []DataTypes{DTfloat, DTfloat},
 		output:   DTfloat,
 		function: addFloat,
 	}
 
-	fn["exp"] = Function{
+	fn["exp"] = &MemFunc{
 		name:     "exp",
 		inputs:   []DataTypes{DTfloat},
 		output:   DTfloat,

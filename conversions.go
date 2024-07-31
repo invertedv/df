@@ -107,7 +107,7 @@ func toDataType(x any, dt DataTypes, strict bool) (xout any, err error) {
 	return nil, fmt.Errorf("not supported")
 }
 
-func SliceToDataType(col Column, dt DataTypes, strict bool) (xout any, err error) {
+func SliceToDataType(col *MemCol, dt DataTypes, strict bool) (xout any, err error) {
 	xout = makeSlice(dt)
 
 	for ind := 0; ind < col.N(); ind++ {

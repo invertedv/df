@@ -1,32 +1,32 @@
 package df
 
-type SQL struct {
+type SQLcol struct {
 	name  string
-	n     uint32
+	n     int
 	dType DataTypes
 	sql   string
 
 	catMap categoryMap
 }
 
-func (s *SQL) DataType() DataTypes {
+func (s *SQLcol) DataType() DataTypes {
 	return s.dType
 }
 
-func (s *SQL) N() uint32 {
+func (s *SQLcol) N() int {
 	return s.n
 }
 
-func (s *SQL) Data() any {
+func (s *SQLcol) Data() any {
 	return s.sql
 }
 
-func (s *SQL) Name() string {
+func (s *SQLcol) Name() string {
 	return s.name
 }
 
-func SQLAdd(cols ...*SQL) (out *SQL, err error) {
-	out = &SQL{
+func SQLAdd(cols ...*SQLcol) (out *SQLcol, err error) {
+	out = &SQLcol{
 		name:   "",
 		n:      0,
 		dType:  0,

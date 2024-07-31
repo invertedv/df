@@ -1,6 +1,7 @@
 package df
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ func makeMemDF() (*DF, error) {
 	x := []float64{1, 2, 3}
 	y := []float64{4, 5, 6}
 
-	xCol := &Memory{
+	xCol := &MemCol{
 		name:   "x",
 		n:      len(x),
 		dType:  DTfloat,
@@ -18,14 +19,30 @@ func makeMemDF() (*DF, error) {
 		catMap: nil,
 	}
 
-	yCol := &Memory{
+	yCol := &MemCol{
 		n:     len(y),
 		dType: DTfloat,
 		name:  "y",
 		data:  y,
 	}
 
+	r, _ := NewDF(xCol)
+	r.Append(yCol)
+
 	return NewDF(xCol, yCol)
+}
+
+func makeSQLdf() (*DF, error) {
+	xCol := &SQLcol{
+		name:   "",
+		n:      0,
+		dType:  0,
+		sql:    "",
+		catMap: nil,
+	}
+
+	_ = xCol
+	return nil, nil
 }
 
 func TestNewDF(t *testing.T) {
@@ -59,10 +76,11 @@ func TestDF_Apply(t *testing.T) {
 	xc, _ := df.GetColumn("x")
 	yc, _ := df.GetColumn("y")
 	f := Functions["exp"]
-	e1 := df.Apply("test", &f, "x")
+	e1 := df.Apply("test", f, "x")
 	assert.Nil(t, e1)
 	_ = yc
 	_ = xc
+	fmt.Println(df.Rows(), df.Cols())
 	/*
 		//	fn, e := Func1F1F("exp")
 		outCol1, e2 := Oper("test", "abs", xc)
