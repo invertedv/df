@@ -7,54 +7,68 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func makeMemDF() (*DF, error) {
+func makeMemDF() *MemDF {
 	x := []float64{1, 2, 3}
 	y := []float64{4, 5, 6}
 
 	xCol := &MemCol{
-		name:   "x",
-		n:      len(x),
+		name: "x",
+		//		n:      len(x),
 		dType:  DTfloat,
 		data:   x,
 		catMap: nil,
 	}
 
 	yCol := &MemCol{
-		n:     len(y),
+		//		n:     len(y),
 		dType: DTfloat,
 		name:  "y",
 		data:  y,
 	}
 
-	r, _ := NewDF(xCol)
-	r.Append(yCol)
+	// this works
+	tmp, _ := NewDFlist(xCol, yCol)
 
-	return NewDF(xCol, yCol)
+	tmp1 := &MemDF{
+		rows:   0,
+		DFlist: tmp,
+	}
+
+	return tmp1
 }
 
-func makeSQLdf() (*DF, error) {
+func makeSQLdf() *SQLdf {
 	xCol := &SQLcol{
-		name:   "",
-		n:      0,
-		dType:  0,
-		sql:    "",
+		name:   "x",
+		n:      1,
+		dType:  DTfloat,
+		sql:    "x",
 		catMap: nil,
 	}
 
-	_ = xCol
-	return nil, nil
-}
+	yCol := &SQLcol{
+		name:   "y",
+		n:      1,
+		dType:  DTfloat,
+		sql:    "y",
+		catMap: nil,
+	}
 
-func TestNewDF(t *testing.T) {
-	df, e := makeMemDF()
-	assert.Nil(t, e)
-	_ = df
+	tmp, _ := NewDFlist(xCol, yCol)
+
+	tmp1 := &SQLdf{
+		sourceSQL: "",
+		destSQL:   "",
+		DFlist:    tmp,
+	}
+
+	return tmp1
 }
 
 func TestDF_GetColumn(t *testing.T) {
 	x := []float64{1, 2, 3}
 	y := []float64{4, 5, 6}
-	df, _ := makeMemDF()
+	df := makeMemDF()
 
 	yg, ey := df.GetColumn("y")
 	assert.Nil(t, ey)
@@ -69,27 +83,19 @@ func TestDF_GetColumn(t *testing.T) {
 }
 
 func TestDF_Apply(t *testing.T) {
-	df, _ := makeMemDF()
-	//	outCol, err := df.Apply("total", MemAdd, "x", "y")
-	//	assert.Nil(t, err)
-	//	_ = outCol
-	xc, _ := df.GetColumn("x")
-	yc, _ := df.GetColumn("y")
+	df := makeMemDF()
 	f := Functions["exp"]
 	e1 := df.Apply("test", f, "x")
 	assert.Nil(t, e1)
-	_ = yc
-	_ = xc
-	fmt.Println(df.Rows(), df.Cols())
-	/*
-		//	fn, e := Func1F1F("exp")
-		outCol1, e2 := Oper("test", "abs", xc)
-		assert.Nil(t, e2)
-		_ = outCol1
-		fn2, e1 := Func2F1F("add")
-		assert.Nil(t, e1)
+	fmt.Println(df.GetNames())
+	fmt.Println(df.NumCol())
 
-		fmt.Println(fn2(1, 2))
+}
 
-	*/
+func TestDFlist_Apply(t *testing.T) {
+	df := makeSQLdf()
+	f := SQLfunctions["exp"]
+	e1 := df.Apply("test", f, "x")
+	assert.Nil(t, e1)
+	_ = df
 }

@@ -147,3 +147,17 @@ func appendSlice(x, xadd any, dt DataTypes) any {
 
 	return x
 }
+
+func ToColumns(cols ...any) []Column {
+	var out []Column
+	for ind := 0; ind < len(cols); ind++ {
+		c, ok := cols[ind].(Column)
+		if !ok {
+			panic("input is not interface Column to ToColumns")
+		}
+
+		out = append(out, c)
+	}
+
+	return out
+}

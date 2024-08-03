@@ -17,7 +17,7 @@ type MemFunc struct {
 	function AnyFunction
 }
 
-func (fn MemFunc) Check(cols ...Column) error {
+func (fn *MemFunc) Check(cols ...Column) error {
 
 	return nil
 }
@@ -36,7 +36,7 @@ func Col2MemCol(cols ...Column) (mem []*MemCol, err error) {
 	return vals, nil
 }
 
-func (fn MemFunc) Run(cols ...Column) (outCol Column, err error) {
+func (fn *MemFunc) Run(cols ...Column) (outCol Column, err error) {
 	if len(cols) != len(fn.inputs) {
 		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(cols), fn.name, len(fn.inputs))
 	}
@@ -66,8 +66,8 @@ func (fn MemFunc) Run(cols ...Column) (outCol Column, err error) {
 	}
 
 	outCol = &MemCol{
-		name:   "",
-		n:      cols[0].N(),
+		name: "",
+		//		n:      cols[0].N(),
 		dType:  fn.output,
 		data:   xOut,
 		catMap: nil,
@@ -82,9 +82,13 @@ type FunctionMap map[string]*MemFunc
 
 type AnyFunction func(...any) (any, error)
 
+type MemDF struct {
+	rows int
+	*DFlist
+}
+
 type MemCol struct {
 	name  string
-	n     int
 	dType DataTypes
 	data  any
 
@@ -96,7 +100,18 @@ func (mem *MemCol) DataType() DataTypes {
 }
 
 func (mem *MemCol) N() int {
-	return mem.n
+	switch mem.dType {
+	case DTfloat:
+		return len(mem.Data().([]float64))
+	case DTint:
+		return len(mem.Data().([]int))
+	case DTstring:
+		return len(mem.Data().([]string))
+	case DTdate:
+		return len(mem.Data().([]time.Time))
+	}
+
+	return 0
 }
 
 func (mem *MemCol) Data() any {
@@ -147,15 +162,15 @@ func MemLoad(from string) ([]Column, error) {
 	y := []float64{4, 5, 6}
 
 	xCol := &MemCol{
-		name:   "x",
-		n:      len(x),
+		name: "x",
+		//		n:      len(x),
 		dType:  0,
 		data:   x,
 		catMap: nil,
 	}
 
 	yCol := &MemCol{
-		n:    len(y),
+		//		n:    len(y),
 		name: "y",
 		data: y,
 	}

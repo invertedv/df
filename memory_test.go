@@ -8,6 +8,6 @@ import (
 func TestMemLoad(t *testing.T) {
 	cols, err := MemLoad("")
 	assert.Nil(t, err)
-	_, e := NewDF(cols...)
+	_, e := NewDFlist(cols...)
 	assert.Nil(t, e)
 }
