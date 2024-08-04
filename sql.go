@@ -12,8 +12,6 @@ type SQLfunc struct {
 	function string
 }
 
-type SQLfunctionMap map[string]*SQLfunc
-
 func (fn *SQLfunc) Run(cols ...Column) (outCol Column, err error) {
 	if len(cols) != len(fn.inputs) {
 		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(cols), fn.name, len(fn.inputs))
@@ -35,6 +33,8 @@ func (fn *SQLfunc) Run(cols ...Column) (outCol Column, err error) {
 	return outCol, nil
 }
 
+type SQLfuncMap map[string]*SQLfunc
+
 type SQLcol struct {
 	name  string
 	n     int
@@ -54,7 +54,7 @@ func (s *SQLcol) DataType() DataTypes {
 	return s.dType
 }
 
-func (s *SQLcol) N() int {
+func (s *SQLcol) Len() int {
 	return s.n
 }
 
@@ -62,35 +62,23 @@ func (s *SQLcol) Data() any {
 	return s.sql
 }
 
-func (s *SQLcol) Name(newName string) string {
-	if newName != "" {
-		s.name = newName
+func (s *SQLcol) Name(renameTo string) string {
+	if renameTo != "" {
+		s.name = renameTo
 	}
 
 	return s.name
 }
 
-func (s *SQLcol) To(dt DataTypes) (any, error) {
+func (s *SQLcol) Cast(dt DataTypes) (any, error) {
 
 	return nil, nil
 }
 
-func SQLAdd(cols ...*SQLcol) (out *SQLcol, err error) {
-	out = &SQLcol{
-		name:   "",
-		n:      0,
-		dType:  0,
-		sql:    "",
-		catMap: nil,
-	}
+var SQLfunctions SQLfuncMap = LoadSQLfunctions()
 
-	return out, nil
-}
-
-var SQLfunctions SQLfunctionMap = LoadSQLfunctions()
-
-func LoadSQLfunctions() SQLfunctionMap {
-	fn := make(SQLfunctionMap)
+func LoadSQLfunctions() SQLfuncMap {
+	fn := make(SQLfuncMap)
 
 	fn["exp"] = &SQLfunc{
 		name:     "exp",

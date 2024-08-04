@@ -23,20 +23,20 @@ const (
 //go:generate stringer -type=DataTypes
 
 type Column interface {
-	Name(newName string) string
+	Name(reNameTo string) string
 	DataType() DataTypes
-	N() int
+	Len() int
 	Data() any
-	To(dt DataTypes) (any, error)
+	Cast(dt DataTypes) (any, error)
 }
 
 type Function interface {
 	Run(cols ...Column) (outCol Column, err error)
 }
 
-type SaveFunc func(to string, cols ...Column) error
+type Saver func(to string, cols ...Column) error
 
-type LoadFunc func(from string) ([]Column, error)
+type Loader func(from string) ([]Column, error)
 
 type DFlist struct {
 	col Column
@@ -57,7 +57,7 @@ func (df *DFlist) Prior() *DFlist {
 	return df.prior
 }
 
-func (df *DFlist) NumCol() int {
+func (df *DFlist) ColumnCount() int {
 	cols := 0
 	for c := df.Head(); c != nil; c = c.Next() {
 		cols++
@@ -82,7 +82,7 @@ func (df *DFlist) Tail() *DFlist {
 	return tail
 }
 
-func (df *DFlist) GetItem(colName string) (dfl *DFlist, err error) {
+func (df *DFlist) Node(colName string) (dfl *DFlist, err error) {
 	for h := df.Head(); h != nil; h = h.next {
 		if (h.Col()).Name("") == colName {
 			return h, nil
@@ -92,7 +92,7 @@ func (df *DFlist) GetItem(colName string) (dfl *DFlist, err error) {
 	return nil, fmt.Errorf("column %s not found", colName)
 }
 
-func (df *DFlist) GetNames() []string {
+func (df *DFlist) ColumnNames() []string {
 	var names []string
 
 	for h := df.Head(); h != nil; h = h.next {
@@ -102,9 +102,9 @@ func (df *DFlist) GetNames() []string {
 	return names
 }
 
-func (df *DFlist) GetColumn(colName string) (col Column, err error) {
+func (df *DFlist) Column(colName string) (col Column, err error) {
 	var dfl *DFlist
-	dfl, err = df.GetItem(colName)
+	dfl, err = df.Node(colName)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (df *DFlist) GetColumn(colName string) (col Column, err error) {
 	return dfl.Col(), err
 }
 
-func (df *DFlist) Save(saver SaveFunc, to string, colNames ...string) error {
+func (df *DFlist) Save(saver Saver, to string, colNames ...string) error {
 	var cols []Column
 	//	for col := df.head; col != nil; col = df.head.next {
 	//		if colNames == nil || utilities.Has(col.col.Name(""), "", colNames...) {
@@ -137,7 +137,7 @@ func (df *DFlist) Apply(resultName string, op Function, colNames ...string) erro
 	for ind := 0; ind < len(colNames); ind++ {
 		var dfcol Column
 
-		if dfcol, err = df.GetColumn(colNames[ind]); err != nil {
+		if dfcol, err = df.Column(colNames[ind]); err != nil {
 			return err
 		}
 
@@ -156,12 +156,12 @@ func (df *DFlist) Apply(resultName string, op Function, colNames ...string) erro
 
 // what if df is nil?
 func (df *DFlist) Append(col Column) error {
-	if utilities.Has(col.Name(""), "", df.GetNames()...) {
+	if utilities.Has(col.Name(""), "", df.ColumnNames()...) {
 		return fmt.Errorf("duplicate column name: %s", col.Name(""))
 	}
 
-	if col.N() != df.Col().N() {
-		return fmt.Errorf("length mismatch: dfList - %d, append col - %d", df.Col().N(), col.N())
+	if col.Len() != df.col.Len() {
+		return fmt.Errorf("length mismatch: dfList - %d, append col - %d", df.col.Len(), col.Len())
 	}
 
 	tail := df.Tail()
@@ -178,7 +178,7 @@ func (df *DFlist) Append(col Column) error {
 }
 
 func (df *DFlist) Drop(colName string) error {
-	col, err := df.GetItem(colName)
+	col, err := df.Node(colName)
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func NewDFlist(cols ...Column) (df *DFlist, err error) {
 	return head, nil
 }
 
-//func loadDF(loader LoadFunc) (df *DF, err error) {
+//func loadDF(loader Loader) (df *DF, err error) {
 //
 //	return nil, nil
 //}

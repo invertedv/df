@@ -3,7 +3,6 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	"math"
 	"time"
 )
 
@@ -15,11 +14,6 @@ type MemFunc struct {
 	inputs   []DataTypes
 	output   DataTypes
 	function AnyFunction
-}
-
-func (fn *MemFunc) Check(cols ...Column) error {
-
-	return nil
 }
 
 func Col2MemCol(cols ...Column) (mem []*MemCol, err error) {
@@ -47,10 +41,10 @@ func (fn *MemFunc) Run(cols ...Column) (outCol Column, err error) {
 		return nil, err
 	}
 
-	for ind := 0; ind < vals[0].N(); ind++ {
+	for ind := 0; ind < vals[0].Len(); ind++ {
 		var xs []any
 		for j := 0; j < len(vals); j++ {
-			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j], true)
+			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j], false)
 			if e != nil {
 				return nil, e
 			}
@@ -78,7 +72,7 @@ func (fn *MemFunc) Run(cols ...Column) (outCol Column, err error) {
 
 type categoryMap map[any]uint32
 
-type FunctionMap map[string]*MemFunc
+type MemFuncMap map[string]*MemFunc
 
 type AnyFunction func(...any) (any, error)
 
@@ -95,66 +89,54 @@ type MemCol struct {
 	catMap categoryMap
 }
 
-func (mem *MemCol) DataType() DataTypes {
-	return mem.dType
+func (m *MemCol) DataType() DataTypes {
+	return m.dType
 }
 
-func (mem *MemCol) N() int {
-	switch mem.dType {
+func (m *MemCol) Len() int {
+	switch m.dType {
 	case DTfloat:
-		return len(mem.Data().([]float64))
+		return len(m.Data().([]float64))
 	case DTint:
-		return len(mem.Data().([]int))
+		return len(m.Data().([]int))
 	case DTstring:
-		return len(mem.Data().([]string))
+		return len(m.Data().([]string))
 	case DTdate:
-		return len(mem.Data().([]time.Time))
+		return len(m.Data().([]time.Time))
 	}
 
 	return 0
 }
 
-func (mem *MemCol) Data() any {
-	return mem.data
+func (m *MemCol) Data() any {
+	return m.data
 }
 
-func (mem *MemCol) Name(newName string) string {
-	if newName != "" {
-		mem.name = newName
+func (m *MemCol) Name(renameTo string) string {
+	if renameTo != "" {
+		m.name = renameTo
 	}
 
-	return mem.name
+	return m.name
 }
 
-func (mem *MemCol) To(dt DataTypes) (out any, err error) {
-	return SliceToDataType(mem, dt, false)
+func (m *MemCol) Cast(dt DataTypes) (out any, err error) {
+	return SliceToDataType(m, dt, true)
 }
 
-func (mem *MemCol) Element(row int) any {
-	switch mem.dType {
+func (m *MemCol) Element(row int) any {
+	switch m.dType {
 	case DTfloat:
-		return mem.Data().([]float64)[row]
+		return m.Data().([]float64)[row]
 	case DTint:
-		return mem.Data().([]int)[row]
+		return m.Data().([]int)[row]
 	case DTstring:
-		return mem.Data().([]string)[row]
+		return m.Data().([]string)[row]
 	case DTdate:
-		return mem.Data().([]time.Time)[row]
+		return m.Data().([]time.Time)[row]
 	}
 
 	return nil
-}
-
-func addFloat(inputs ...any) (any, error) {
-	return inputs[0].(float64) + inputs[1].(float64), nil
-}
-
-func addInt(inputs ...any) (any, error) {
-	return inputs[0].(int) + inputs[1].(int), nil
-}
-
-func exp(xs ...any) (any, error) {
-	return math.Exp(xs[0].(float64)), nil
 }
 
 func MemLoad(from string) ([]Column, error) {
@@ -183,8 +165,8 @@ func MemSave(to string, cols []Column) error {
 	return nil
 }
 
-func LoadFunctions() FunctionMap {
-	fn := make(FunctionMap)
+func LoadFunctions() MemFuncMap {
+	fn := make(MemFuncMap)
 	fn["addFloat"] = &MemFunc{
 		name:     "addFloat",
 		inputs:   []DataTypes{DTfloat, DTfloat},

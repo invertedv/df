@@ -65,20 +65,20 @@ func makeSQLdf() *SQLdf {
 	return tmp1
 }
 
-func TestDF_GetColumn(t *testing.T) {
+func TestDF_Column(t *testing.T) {
 	x := []float64{1, 2, 3}
 	y := []float64{4, 5, 6}
 	df := makeMemDF()
 
-	yg, ey := df.GetColumn("y")
+	yg, ey := df.Column("y")
 	assert.Nil(t, ey)
 	assert.ElementsMatch(t, y, yg.Data())
 
-	xg, ex := df.GetColumn("x")
+	xg, ex := df.Column("x")
 	assert.Nil(t, ex)
 	assert.ElementsMatch(t, x, xg.Data())
 
-	_, e := df.GetColumn("nope")
+	_, e := df.Column("nope")
 	assert.NotNil(t, e)
 }
 
@@ -87,15 +87,16 @@ func TestDF_Apply(t *testing.T) {
 	f := Functions["exp"]
 	e1 := df.Apply("test", f, "x")
 	assert.Nil(t, e1)
-	fmt.Println(df.GetNames())
-	fmt.Println(df.NumCol())
-
+	fmt.Println(df.ColumnNames())
+	fmt.Println(df.ColumnCount())
+	c, _ := df.Column("test")
+	fmt.Println(c.Data())
 }
 
 func TestDFlist_Apply(t *testing.T) {
 	df := makeSQLdf()
-	f := SQLfunctions["exp"]
-	e1 := df.Apply("test", f, "x")
+	f := SQLfunctions["addFloat"]
+	e1 := df.Apply("test", f, "x", "y")
 	assert.Nil(t, e1)
 	_ = df
 }

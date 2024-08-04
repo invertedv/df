@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-func toFloat(xIn any, strict bool) (xOut any, err error) {
+func toFloat(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(float64); ok {
 		return x, nil
 	}
 
-	if strict {
+	if !cast {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
@@ -30,12 +30,12 @@ func toFloat(xIn any, strict bool) (xOut any, err error) {
 	return nil, fmt.Errorf("cannot convert type to float")
 }
 
-func toInt(xIn any, strict bool) (xOut any, err error) {
+func toInt(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(int); ok {
 		return x, nil
 	}
 
-	if strict {
+	if !cast {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
@@ -54,12 +54,12 @@ func toInt(xIn any, strict bool) (xOut any, err error) {
 	return nil, fmt.Errorf("cannot convert type to int")
 }
 
-func toDate(xIn any, strict bool) (xOut any, err error) {
+func toDate(xIn any, cast bool) (xOut any, err error) {
 	if xx, ok := xIn.(time.Time); ok {
 		return xx, nil
 	}
 
-	if strict {
+	if !cast {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
@@ -82,36 +82,36 @@ func toDate(xIn any, strict bool) (xOut any, err error) {
 	return xOut, fmt.Errorf("cannot parse %s as date", xs)
 }
 
-func toString(xIn any, strict bool) (xOut any, err error) {
+func toString(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(string); ok {
 		return x, nil
 	}
 
-	if strict {
+	if !cast {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
 	return fmt.Sprintf("%v", xIn), nil
 }
 
-func toDataType(x any, dt DataTypes, strict bool) (xout any, err error) {
+func toDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 	switch dt {
 	case DTfloat:
-		return toFloat(x, strict)
+		return toFloat(x, cast)
 	case DTint:
-		return toInt(x, strict)
+		return toInt(x, cast)
 	case DTdate:
-		return toDate(x, strict)
+		return toDate(x, cast)
 	}
 
 	return nil, fmt.Errorf("not supported")
 }
 
-func SliceToDataType(col *MemCol, dt DataTypes, strict bool) (xout any, err error) {
+func SliceToDataType(col *MemCol, dt DataTypes, cast bool) (xout any, err error) {
 	xout = makeSlice(dt)
 
-	for ind := 0; ind < col.N(); ind++ {
-		x, e := toDataType(col.Element(ind), dt, strict)
+	for ind := 0; ind < col.Len(); ind++ {
+		x, e := toDataType(col.Element(ind), dt, cast)
 		if e != nil {
 			return nil, e
 		}
