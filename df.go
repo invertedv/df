@@ -2,6 +2,7 @@ package df
 
 import (
 	"fmt"
+
 	"github.com/invertedv/utilities"
 )
 
@@ -18,7 +19,20 @@ const (
 	DTslcString
 	DTslcFloat
 	DTslcInt
+	DTany
+	DTunknown
 )
+
+func DTFromString(nm string) DataTypes {
+	const nms = "DTstring,DTfloat,DTint,DTcategory,DTdate,DTdateTime,DTtime,DTslcString,DTslcFloat,DTslcInt,DTany,DTunknown"
+
+	pos := utilities.Position(nm, ",", nms)
+	if pos < 0 {
+		return DTunknown
+	}
+
+	return DataTypes(uint8(pos))
+}
 
 //go:generate stringer -type=DataTypes
 
@@ -121,6 +135,17 @@ func (df *DFlist) Save(saver Saver, to string, colNames ...string) error {
 	//	}
 
 	return saver(to, cols...)
+}
+
+func (df *DFlist) Apply1(resultName string, op Function, inputs ...any) error {
+	col, e := op.Run(inputs)
+	if e != nil {
+		return e
+	}
+
+	col.Name(resultName)
+
+	return df.Append(col)
 }
 
 // what about N, name, dataType

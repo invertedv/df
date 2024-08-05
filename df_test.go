@@ -8,7 +8,7 @@ import (
 )
 
 func makeMemDF() *MemDF {
-	x := []float64{1, 2, 3}
+	x := []float64{1, -2, 3}
 	y := []float64{4, 5, 6}
 
 	xCol := &MemCol{
@@ -58,7 +58,6 @@ func makeSQLdf() *SQLdf {
 
 	tmp1 := &SQLdf{
 		sourceSQL: "",
-		destSQL:   "",
 		DFlist:    tmp,
 	}
 
@@ -84,7 +83,7 @@ func TestDF_Column(t *testing.T) {
 
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
-	f := Functions["exp"]
+	f := Functions["cast"]
 	e1 := df.Apply("test", f, "x")
 	assert.Nil(t, e1)
 	fmt.Println(df.ColumnNames())

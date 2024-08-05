@@ -1,6 +1,7 @@
 package df
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -45,8 +46,10 @@ type SQLcol struct {
 }
 
 type SQLdf struct {
-	sourceSQL string
-	destSQL   string
+	sourceSQL     string
+	destTableName string
+	db            *sql.DB
+
 	*DFlist
 }
 

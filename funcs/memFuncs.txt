@@ -1,0 +1,5 @@
+exp,DTfloat,DTfloat
+abs,DTfloat,DTfloat
+addInt,DTint,DTint
+addFloat,DTfloat,DTfloat,DTfloat
+cast,DTfloat,DTstring

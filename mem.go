@@ -3,11 +3,9 @@ package df
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"time"
 )
-
-//go:embed funcs/funcs.txt
-var functions string
 
 type MemFunc struct {
 	name     string
@@ -76,17 +74,21 @@ type MemFuncMap map[string]*MemFunc
 
 type AnyFunction func(...any) (any, error)
 
-type MemDF struct {
-	rows int
-	*DFlist
-}
-
 type MemCol struct {
 	name  string
 	dType DataTypes
 	data  any
 
 	catMap categoryMap
+}
+
+type MemDF struct {
+	sourceFileName string
+	destFileName   string
+	destFile       *os.File
+	rows           int
+
+	*DFlist
 }
 
 func (m *MemCol) DataType() DataTypes {
@@ -164,24 +166,3 @@ func MemSave(to string, cols []Column) error {
 
 	return nil
 }
-
-func LoadFunctions() MemFuncMap {
-	fn := make(MemFuncMap)
-	fn["addFloat"] = &MemFunc{
-		name:     "addFloat",
-		inputs:   []DataTypes{DTfloat, DTfloat},
-		output:   DTfloat,
-		function: addFloat,
-	}
-
-	fn["exp"] = &MemFunc{
-		name:     "exp",
-		inputs:   []DataTypes{DTfloat},
-		output:   DTfloat,
-		function: exp,
-	}
-
-	return fn
-}
-
-var Functions = LoadFunctions()

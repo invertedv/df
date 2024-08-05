@@ -102,6 +102,8 @@ func toDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 		return toInt(x, cast)
 	case DTdate:
 		return toDate(x, cast)
+	case DTstring:
+		return toString(x, cast)
 	}
 
 	return nil, fmt.Errorf("not supported")
@@ -130,6 +132,8 @@ func makeSlice(dt DataTypes) any {
 		xout = make([]int, 0)
 	case DTdate:
 		xout = make([]time.Time, 0)
+	case DTstring:
+		xout = make([]string, 0)
 	}
 
 	return xout
@@ -143,6 +147,8 @@ func appendSlice(x, xadd any, dt DataTypes) any {
 		x = append(x.([]int), xadd.(int))
 	case DTdate:
 		x = append(x.([]time.Time), xadd.(time.Time))
+	case DTstring:
+		x = append(x.([]string), xadd.(string))
 	}
 
 	return x
