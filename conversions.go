@@ -104,6 +104,8 @@ func toDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 		return toDate(x, cast)
 	case DTstring:
 		return toString(x, cast)
+	case DTany:
+		return x, nil
 	}
 
 	return nil, fmt.Errorf("not supported")
@@ -121,6 +123,22 @@ func SliceToDataType(col *MemCol, dt DataTypes, cast bool) (xout any, err error)
 	}
 
 	return xout, nil
+}
+
+func whatAmI(val any) DataTypes {
+	switch val.(type) {
+	case float64:
+		return DTfloat
+	case int:
+		return DTint
+	case string:
+		return DTstring
+	case time.Time:
+		return DTdate
+	default:
+		return DTunknown
+
+	}
 }
 
 func makeSlice(dt DataTypes) any {

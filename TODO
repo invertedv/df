@@ -1,3 +1,6 @@
 - Think about cases for SQL funcs
 - NewSQLcol and NewMemCol functions
 - load sql and mem functions
+- vApply for vector operations
+- stringer method for Column and df
+

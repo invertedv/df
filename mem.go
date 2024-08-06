@@ -14,35 +14,46 @@ type MemFunc struct {
 	function AnyFunction
 }
 
-func Col2MemCol(cols ...Column) (mem []*MemCol, err error) {
-	var vals []*MemCol
-	for j := 0; j < len(cols); j++ {
-		val, ok := cols[j].(*MemCol)
-		if !ok {
-			return nil, fmt.Errorf("not *MemCol type")
+func (fn *MemFunc) Run(inputs ...any) (outCol Column, err error) {
+	if len(inputs) != len(fn.inputs) {
+		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), fn.name, len(fn.inputs))
+	}
+
+	var (
+		vals   []*MemCol
+		params []any
+	)
+
+	for ind := 0; ind < len(inputs); ind++ {
+		var (
+			col *MemCol
+			ok  bool
+		)
+
+		if col, ok = inputs[ind].(*MemCol); ok {
+			vals = append(vals, col)
+		} else {
+			params = append(params, inputs[ind])
 		}
-
-		vals = append(vals, val)
 	}
 
-	return vals, nil
-}
-
-func (fn *MemFunc) Run(cols ...Column) (outCol Column, err error) {
-	if len(cols) != len(fn.inputs) {
-		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(cols), fn.name, len(fn.inputs))
-	}
-
-	xOut := makeSlice(fn.output)
-	var vals []*MemCol
-	if vals, err = Col2MemCol(cols...); err != nil {
-		return nil, err
-	}
-
+	var (
+		xOut    any
+		outType DataTypes
+	)
 	for ind := 0; ind < vals[0].Len(); ind++ {
 		var xs []any
+
+		for j := 0; j < len(params); j++ {
+			xadd, e := toDataType(params[j], fn.inputs[j], true)
+			if e != nil {
+				return nil, e
+			}
+			xs = append(xs, xadd)
+		}
+
 		for j := 0; j < len(vals); j++ {
-			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j], false)
+			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j+len(params)], false)
 			if e != nil {
 				return nil, e
 			}
@@ -54,13 +65,28 @@ func (fn *MemFunc) Run(cols ...Column) (outCol Column, err error) {
 			return nil, e
 		}
 
-		xOut = appendSlice(xOut, x, fn.output)
+		if ind == 0 {
+			outType = whatAmI(x)
+			if fn.output != DTany && fn.output != outType {
+				panic("function return not required type")
+			}
+		}
+
+		if whatAmI(x) != outType {
+			panic("inconsistent function return types")
+		}
+
+		// or have Run return a type?
+		if ind == 0 {
+			xOut = makeSlice(outType)
+		}
+
+		xOut = appendSlice(xOut, x, outType)
 	}
 
 	outCol = &MemCol{
-		name: "",
-		//		n:      cols[0].N(),
-		dType:  fn.output,
+		name:   "",
+		dType:  outType,
 		data:   xOut,
 		catMap: nil,
 	}

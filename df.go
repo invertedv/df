@@ -45,7 +45,7 @@ type Column interface {
 }
 
 type Function interface {
-	Run(cols ...Column) (outCol Column, err error)
+	Run(...any) (outCol Column, err error)
 }
 
 type Saver func(to string, cols ...Column) error
@@ -137,8 +137,8 @@ func (df *DFlist) Save(saver Saver, to string, colNames ...string) error {
 	return saver(to, cols...)
 }
 
-func (df *DFlist) Apply1(resultName string, op Function, inputs ...any) error {
-	col, e := op.Run(inputs)
+func (df *DFlist) Apply(resultName string, op Function, inputs ...any) error {
+	col, e := op.Run(inputs...)
 	if e != nil {
 		return e
 	}
@@ -149,7 +149,7 @@ func (df *DFlist) Apply1(resultName string, op Function, inputs ...any) error {
 }
 
 // what about N, name, dataType
-func (df *DFlist) Apply(resultName string, op Function, colNames ...string) error {
+func (df *DFlist) ApplyOLD(resultName string, op Function, colNames ...string) error {
 	var (
 		inCols []Column
 		err    error
@@ -169,11 +169,11 @@ func (df *DFlist) Apply(resultName string, op Function, colNames ...string) erro
 		inCols = append(inCols, dfcol)
 	}
 
-	col, e := op.Run(inCols...)
-	if e != nil {
-		return e
-	}
-
+	//col, e := op.Run(inCols...)
+	//	if e != nil {
+	//		return e
+	//	}
+	var col Column
 	col.Name(resultName)
 
 	return df.Append(col)

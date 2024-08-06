@@ -65,10 +65,10 @@ func MemLoadFunctions() MemFuncMap {
 
 func function(funcName string) AnyFunction {
 	names := []string{
-		"addFloat", "addInt", "exp", "abs", "cast",
+		"addFloat", "addInt", "exp", "abs", "cast", "add",
 	}
 	fns := []AnyFunction{
-		addFloat, addInt, exp, abs, cast,
+		addFloat, addInt, exp, abs, cast, add,
 	}
 
 	pos := utilities.Position(funcName, "", names...)
@@ -80,13 +80,35 @@ func function(funcName string) AnyFunction {
 }
 
 func cast(inputs ...any) (any, error) {
-	var dt DataTypes
-	//	if dt = DTFromString(inputs[0].(string)); dt == DTunknown {
-	//		return nil, fmt.Errorf("unknown datatype in cast")
-	//	}
-	dt = DTstring
+	dt := DTFromString(inputs[0].(string))
 
-	return toDataType(inputs[0], dt, true)
+	return toDataType(inputs[1], dt, true)
+}
+
+func add(inputs ...any) (any, error) {
+	dt0 := whatAmI(inputs[0])
+	dt1 := whatAmI(inputs[1])
+
+	switch {
+	case dt0 == DTfloat && dt1 == DTfloat:
+		return inputs[0].(float64) + inputs[1].(float64), nil
+	case dt0 == DTfloat && dt1 == DTint:
+		return inputs[0].(float64) + float64(inputs[1].(int)), nil
+	case dt0 == DTint && dt1 == DTfloat:
+		return float64(inputs[0].(int)) + inputs[1].(float64), nil
+	case dt0 == DTint && dt1 == DTint:
+		return inputs[0].(int) + inputs[1].(int), nil
+	case dt0 == DTstring:
+		if s, e := toString(inputs[1], true); e == nil {
+			return inputs[0].(string) + s.(string), nil
+		}
+	case dt1 == DTstring:
+		if s, e := toString(inputs[0], true); e == nil {
+			return s.(string) + inputs[1].(string), nil
+		}
+	}
+
+	return nil, fmt.Errorf("cannot add %s and %s", dt0, dt1)
 }
 
 func addFloat(inputs ...any) (any, error) {

@@ -9,7 +9,8 @@ import (
 
 func makeMemDF() *MemDF {
 	x := []float64{1, -2, 3}
-	y := []float64{4, 5, 6}
+	y := []int{4, 5, 6}
+	z := []string{"20221231", "20000101", "19900615"}
 
 	xCol := &MemCol{
 		name: "x",
@@ -21,13 +22,20 @@ func makeMemDF() *MemDF {
 
 	yCol := &MemCol{
 		//		n:     len(y),
-		dType: DTfloat,
+		dType: DTint,
 		name:  "y",
 		data:  y,
 	}
 
+	zCol := &MemCol{
+		//		n:     len(y),
+		dType: DTstring,
+		name:  "z",
+		data:  z,
+	}
+
 	// this works
-	tmp, _ := NewDFlist(xCol, yCol)
+	tmp, _ := NewDFlist(xCol, yCol, zCol)
 
 	tmp1 := &MemDF{
 		rows:   0,
@@ -84,18 +92,32 @@ func TestDF_Column(t *testing.T) {
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
 	f := Functions["cast"]
-	e1 := df.Apply("test", f, "x")
+	col, e := df.Column("z")
+	assert.Nil(t, e)
+	e1 := df.Apply("test", f, "DTdate", col)
+	c1, _ := df.Column("test")
+	fmt.Println(c1.Data())
+	//	assert.Nil(t, e1)
+	col, e = df.Column("x")
+	assert.Nil(t, e)
+	col1, e1 := df.Column("z")
 	assert.Nil(t, e1)
+	f = Functions["add"]
+	e1 = df.Apply("test1", f, col1, col)
 	fmt.Println(df.ColumnNames())
 	fmt.Println(df.ColumnCount())
-	c, _ := df.Column("test")
+	c, _ := df.Column("test1")
 	fmt.Println(c.Data())
 }
 
 func TestDFlist_Apply(t *testing.T) {
 	df := makeSQLdf()
 	f := SQLfunctions["addFloat"]
-	e1 := df.Apply("test", f, "x", "y")
+	col, e := df.Column("x")
+	assert.Nil(t, e)
+	col1, e1 := df.Column("y")
+	assert.Nil(t, e1)
+	e1 = df.Apply("test", f, col, col1)
 	assert.Nil(t, e1)
 	_ = df
 }

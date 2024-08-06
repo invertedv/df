@@ -13,21 +13,52 @@ type SQLfunc struct {
 	function string
 }
 
-func (fn *SQLfunc) Run(cols ...Column) (outCol Column, err error) {
-	if len(cols) != len(fn.inputs) {
-		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(cols), fn.name, len(fn.inputs))
+func (fn *SQLfunc) Run(inputs ...any) (outCol Column, err error) {
+	if len(inputs) != len(fn.inputs) {
+		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), fn.name, len(fn.inputs))
 	}
 
+	var (
+		vals   []*SQLcol
+		params []any
+	)
+
 	fnx := fn.function
-	for ind := 0; ind < len(cols); ind++ {
-		fnx = strings.Replace(fnx, fmt.Sprintf("X%d", ind), cols[ind].Name(""), 1)
+
+	for ind := 0; ind < len(inputs); ind++ {
+		var (
+			col *SQLcol
+			ok  bool
+		)
+
+		if col, ok = inputs[ind].(*SQLcol); ok {
+			vals = append(vals, col)
+		} else {
+			params = append(params, inputs[ind])
+		}
+	}
+
+	for ind := 0; ind < len(params); ind++ {
+		xadd, e := toDataType(params[ind], fn.inputs[ind], true)
+		if e != nil {
+			return nil, e
+		}
+		fnx = strings.Replace(fnx, fmt.Sprintf("P%d", ind), fmt.Sprintf("%d", xadd), 1)
+	}
+
+	for ind := 0; ind < len(vals); ind++ {
+		if vals[ind].DataType() != fn.inputs[ind+len(params)] {
+			return nil, fmt.Errorf("column %s is data type %d, need %d", vals[ind].Name(""), vals[ind].DataType(), fn.inputs[ind+len(params)])
+		}
+
+		fnx = strings.Replace(fnx, fmt.Sprintf("X%d", ind), vals[ind].Name(""), 1)
 	}
 
 	outCol = &SQLcol{
 		name:   "",
 		n:      1,
 		dType:  fn.output,
-		sql:    fn.function,
+		sql:    fnx,
 		catMap: nil,
 	}
 
@@ -87,14 +118,14 @@ func LoadSQLfunctions() SQLfuncMap {
 		name:     "exp",
 		inputs:   []DataTypes{DTfloat},
 		output:   DTfloat,
-		function: "exp(x0)",
+		function: "exp(X0)",
 	}
 
 	fn["addFloat"] = &SQLfunc{
 		name:     "addFloat",
 		inputs:   []DataTypes{DTfloat, DTfloat},
 		output:   DTfloat,
-		function: "x0 + x1",
+		function: "X0 + X1",
 	}
 
 	return fn
