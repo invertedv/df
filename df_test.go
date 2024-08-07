@@ -94,13 +94,14 @@ func TestDF_Apply(t *testing.T) {
 	f := Functions["cast"]
 	col, e := df.Column("z")
 	assert.Nil(t, e)
-	e1 := df.Apply("test", f, "DTdate", col)
+	e1 := df.Apply("test", f, "DTstring", col)
+	assert.Nil(t, e1)
 	c1, _ := df.Column("test")
 	fmt.Println(c1.Data())
 	//	assert.Nil(t, e1)
 	col, e = df.Column("x")
 	assert.Nil(t, e)
-	col1, e1 := df.Column("z")
+	col1, e1 := df.Column("y")
 	assert.Nil(t, e1)
 	f = Functions["add"]
 	e1 = df.Apply("test1", f, col1, col)

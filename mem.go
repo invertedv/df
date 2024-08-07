@@ -2,103 +2,11 @@ package df
 
 import (
 	_ "embed"
-	"fmt"
 	"os"
 	"time"
 )
 
-type MemFunc struct {
-	name     string
-	inputs   []DataTypes
-	output   DataTypes
-	function AnyFunction
-}
-
-func (fn *MemFunc) Run(inputs ...any) (outCol Column, err error) {
-	if len(inputs) != len(fn.inputs) {
-		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), fn.name, len(fn.inputs))
-	}
-
-	var (
-		vals   []*MemCol
-		params []any
-	)
-
-	for ind := 0; ind < len(inputs); ind++ {
-		var (
-			col *MemCol
-			ok  bool
-		)
-
-		if col, ok = inputs[ind].(*MemCol); ok {
-			vals = append(vals, col)
-		} else {
-			params = append(params, inputs[ind])
-		}
-	}
-
-	var (
-		xOut    any
-		outType DataTypes
-	)
-	for ind := 0; ind < vals[0].Len(); ind++ {
-		var xs []any
-
-		for j := 0; j < len(params); j++ {
-			xadd, e := toDataType(params[j], fn.inputs[j], true)
-			if e != nil {
-				return nil, e
-			}
-			xs = append(xs, xadd)
-		}
-
-		for j := 0; j < len(vals); j++ {
-			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j+len(params)], false)
-			if e != nil {
-				return nil, e
-			}
-			xs = append(xs, xadd)
-		}
-
-		x, e := fn.function(xs...)
-		if e != nil {
-			return nil, e
-		}
-
-		if ind == 0 {
-			outType = whatAmI(x)
-			if fn.output != DTany && fn.output != outType {
-				panic("function return not required type")
-			}
-		}
-
-		if whatAmI(x) != outType {
-			panic("inconsistent function return types")
-		}
-
-		// or have Run return a type?
-		if ind == 0 {
-			xOut = makeSlice(outType)
-		}
-
-		xOut = appendSlice(xOut, x, outType)
-	}
-
-	outCol = &MemCol{
-		name:   "",
-		dType:  outType,
-		data:   xOut,
-		catMap: nil,
-	}
-
-	return outCol, nil
-}
-
 type categoryMap map[any]uint32
-
-type MemFuncMap map[string]*MemFunc
-
-type AnyFunction func(...any) (any, error)
 
 type MemCol struct {
 	name  string
@@ -146,10 +54,6 @@ func (m *MemCol) Name(renameTo string) string {
 	}
 
 	return m.name
-}
-
-func (m *MemCol) Cast(dt DataTypes) (out any, err error) {
-	return SliceToDataType(m, dt, true)
 }
 
 func (m *MemCol) Element(row int) any {

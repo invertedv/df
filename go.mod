@@ -5,13 +5,13 @@ go 1.22
 toolchain go1.22.5
 
 require (
+	github.com/ClickHouse/clickhouse-go/v2 v2.18.0
 	github.com/invertedv/utilities v0.1.37
 	github.com/stretchr/testify v1.9.0
 )
 
 require (
 	github.com/ClickHouse/ch-go v0.61.2 // indirect
-	github.com/ClickHouse/clickhouse-go/v2 v2.18.0 // indirect
 	github.com/MetalBlueberry/go-plotly v0.4.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

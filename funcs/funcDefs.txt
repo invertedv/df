@@ -1,6 +1,4 @@
 exp,DTfloat,DTfloat
 abs,DTfloat,DTfloat
-addInt,DTint,DTint
-addFloat,DTfloat,DTfloat,DTfloat
 cast,DTstring,DTany,DTany
 add,DTany,DTany,DTany

@@ -1,91 +1,125 @@
 package df
 
 import (
-	_ "embed"
 	"fmt"
 	"math"
-	"strings"
-
-	"github.com/invertedv/utilities"
 )
 
-var (
-	//go:embed funcs/memFuncs.txt
-	memFuncs  string
-	Functions = MemLoadFunctions()
-)
+type MemFunc struct {
+	name     string
+	inputs   []DataTypes
+	output   DataTypes
+	function AnyFunction
+}
 
-func MemLoadFunctions() MemFuncMap {
-	fns := make(MemFuncMap)
-	fDetail := strings.Split(memFuncs, "\n")
-	for _, f := range fDetail {
-		if f == "" {
-			continue
-		}
+type MemFuncMap map[string]*MemFunc
 
-		detail := strings.Split(f, ",")
-		if len(detail) < 3 {
-			continue
-		}
+var Functions = memLoadFunctions()
 
+func (fn *MemFunc) Run(inputs ...any) (outCol Column, err error) {
+	if len(inputs) != len(fn.inputs) {
+		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), fn.name, len(fn.inputs))
+	}
+
+	var (
+		vals   []*MemCol
+		params []any
+	)
+
+	for ind := 0; ind < len(inputs); ind++ {
 		var (
-			output   DataTypes
-			inputs   []DataTypes
-			thisFunc AnyFunction
+			col *MemCol
+			ok  bool
 		)
 
-		name := detail[0]
-		if thisFunc = function(name); thisFunc == nil {
-			panic(fmt.Sprintf("unknown mem function: %s", name))
+		if col, ok = inputs[ind].(*MemCol); ok {
+			vals = append(vals, col)
+		} else {
+			params = append(params, inputs[ind])
 		}
+	}
 
-		if output = DTFromString(detail[len(detail)-1]); output == DTunknown {
-			panic(fmt.Sprintf("unknown DataTypes %s", detail[len(detail)-1]))
-		}
+	var (
+		xOut    any
+		outType DataTypes
+	)
+	for ind := 0; ind < vals[0].Len(); ind++ {
+		var xs []any
 
-		for ind := 1; ind < len(detail)-1; ind++ {
-			var val DataTypes
-			if val = DTFromString(detail[ind]); val == DTunknown {
-				panic(fmt.Sprintf("unknown DataTypes %s", detail[ind]))
+		for j := 0; j < len(params); j++ {
+			xadd, e := toDataType(params[j], fn.inputs[j], true)
+			if e != nil {
+				return nil, e
 			}
 
-			inputs = append(inputs, val)
+			xs = append(xs, xadd)
 		}
 
-		fns[name] = &MemFunc{
-			name:     name,
-			inputs:   inputs,
-			output:   output,
-			function: thisFunc,
+		for j := 0; j < len(vals); j++ {
+			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j+len(params)], false)
+			if e != nil {
+				return nil, e
+			}
+
+			xs = append(xs, xadd)
+		}
+
+		x, e := fn.function(xs...)
+		if e != nil {
+			return nil, e
+		}
+
+		if ind == 0 {
+			outType = whatAmI(x)
+			if fn.output != DTany && fn.output != outType {
+				panic("function return not required type")
+			}
+		}
+
+		if whatAmI(x) != outType {
+			panic("inconsistent function return types")
+		}
+
+		// or have Run return a type?
+		if ind == 0 {
+			xOut = makeSlice(outType)
+		}
+
+		xOut = appendSlice(xOut, x, outType)
+	}
+
+	outCol = &MemCol{
+		name:   "",
+		dType:  outType,
+		data:   xOut,
+		catMap: nil,
+	}
+
+	return outCol, nil
+}
+
+func memLoadFunctions() MemFuncMap {
+	fns := make(MemFuncMap)
+	names, inputs, outputs, fnsx := funcDetails(true)
+	for ind := 0; ind < len(names); ind++ {
+		fns[names[ind]] = &MemFunc{
+			name:     names[ind],
+			inputs:   inputs[ind],
+			output:   outputs[ind],
+			function: fnsx[ind],
 		}
 	}
 
 	return fns
 }
 
-func function(funcName string) AnyFunction {
-	names := []string{
-		"addFloat", "addInt", "exp", "abs", "cast", "add",
-	}
-	fns := []AnyFunction{
-		addFloat, addInt, exp, abs, cast, add,
-	}
-
-	pos := utilities.Position(funcName, "", names...)
-	if pos < 0 {
-		return nil
-	}
-
-	return fns[pos]
-}
-
-func cast(inputs ...any) (any, error) {
+func memCast(inputs ...any) (any, error) {
 	dt := DTFromString(inputs[0].(string))
 
 	return toDataType(inputs[1], dt, true)
 }
 
-func add(inputs ...any) (any, error) {
+func memAdd(inputs ...any) (any, error) {
 	dt0 := whatAmI(inputs[0])
 	dt1 := whatAmI(inputs[1])
 
@@ -111,16 +145,8 @@ func add(inputs ...any) (any, error) {
 	return nil, fmt.Errorf("cannot add %s and %s", dt0, dt1)
 }
 
-func addFloat(inputs ...any) (any, error) {
-	return inputs[0].(float64) + inputs[1].(float64), nil
-}
-
-func addInt(inputs ...any) (any, error) {
-	return inputs[0].(int) + inputs[1].(int), nil
-}
-
-func exp(xs ...any) (any, error) {
+func memExp(xs ...any) (any, error) {
 	return math.Exp(xs[0].(float64)), nil
 }
 
-func abs(xs ...any) (any, error) { return math.Abs(xs[0].(float64)), nil }
+func memAbs(xs ...any) (any, error) { return math.Abs(xs[0].(float64)), nil }

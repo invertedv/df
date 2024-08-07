@@ -3,69 +3,8 @@ package df
 import (
 	"database/sql"
 	"fmt"
-	"strings"
+	"reflect"
 )
-
-type SQLfunc struct {
-	name     string
-	inputs   []DataTypes
-	output   DataTypes
-	function string
-}
-
-func (fn *SQLfunc) Run(inputs ...any) (outCol Column, err error) {
-	if len(inputs) != len(fn.inputs) {
-		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), fn.name, len(fn.inputs))
-	}
-
-	var (
-		vals   []*SQLcol
-		params []any
-	)
-
-	fnx := fn.function
-
-	for ind := 0; ind < len(inputs); ind++ {
-		var (
-			col *SQLcol
-			ok  bool
-		)
-
-		if col, ok = inputs[ind].(*SQLcol); ok {
-			vals = append(vals, col)
-		} else {
-			params = append(params, inputs[ind])
-		}
-	}
-
-	for ind := 0; ind < len(params); ind++ {
-		xadd, e := toDataType(params[ind], fn.inputs[ind], true)
-		if e != nil {
-			return nil, e
-		}
-		fnx = strings.Replace(fnx, fmt.Sprintf("P%d", ind), fmt.Sprintf("%d", xadd), 1)
-	}
-
-	for ind := 0; ind < len(vals); ind++ {
-		if vals[ind].DataType() != fn.inputs[ind+len(params)] {
-			return nil, fmt.Errorf("column %s is data type %d, need %d", vals[ind].Name(""), vals[ind].DataType(), fn.inputs[ind+len(params)])
-		}
-
-		fnx = strings.Replace(fnx, fmt.Sprintf("X%d", ind), vals[ind].Name(""), 1)
-	}
-
-	outCol = &SQLcol{
-		name:   "",
-		n:      1,
-		dType:  fn.output,
-		sql:    fnx,
-		catMap: nil,
-	}
-
-	return outCol, nil
-}
-
-type SQLfuncMap map[string]*SQLfunc
 
 type SQLcol struct {
 	name  string
@@ -74,14 +13,6 @@ type SQLcol struct {
 	sql   string
 
 	catMap categoryMap
-}
-
-type SQLdf struct {
-	sourceSQL     string
-	destTableName string
-	db            *sql.DB
-
-	*DFlist
 }
 
 func (s *SQLcol) DataType() DataTypes {
@@ -104,29 +35,71 @@ func (s *SQLcol) Name(renameTo string) string {
 	return s.name
 }
 
-func (s *SQLcol) Cast(dt DataTypes) (any, error) {
+type SQLdf struct {
+	sourceSQL     string
+	destTableName string
+	db            *sql.DB
 
-	return nil, nil
+	*DFlist
 }
 
-var SQLfunctions SQLfuncMap = LoadSQLfunctions()
-
-func LoadSQLfunctions() SQLfuncMap {
-	fn := make(SQLfuncMap)
-
-	fn["exp"] = &SQLfunc{
-		name:     "exp",
-		inputs:   []DataTypes{DTfloat},
-		output:   DTfloat,
-		function: "exp(X0)",
+func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
+	df := &SQLdf{
+		sourceSQL:     query,
+		destTableName: "",
+		db:            db,
+		DFlist:        nil,
 	}
 
-	fn["addFloat"] = &SQLfunc{
-		name:     "addFloat",
-		inputs:   []DataTypes{DTfloat, DTfloat},
-		output:   DTfloat,
-		function: "X0 + X1",
+	var (
+		err      error
+		rows     *sql.Rows
+		colTypes []*sql.ColumnType
+		cols     []Column
+	)
+
+	// just get one row...TRY: just query and see if it runs one row at a time
+	qry := fmt.Sprintf("WITH d AS (%s) SELECT * FROM d LIMIT 1", query)
+	rows, err = db.Query(qry)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	if colTypes, err = rows.ColumnTypes(); err != nil {
+		return nil, err
 	}
 
-	return fn
+	for ind := 0; ind < len(colTypes); ind++ {
+		var dt DataTypes
+		switch t := colTypes[ind].ScanType().Kind(); t {
+		case reflect.Float64, reflect.Float32:
+			dt = DTfloat
+		case reflect.Int, reflect.Int64, reflect.Int32:
+			dt = DTint
+		case reflect.String:
+			dt = DTstring
+		case reflect.Struct:
+			dt = DTdate
+		default:
+			return nil, fmt.Errorf("unsupported db field type: %v", t)
+		}
+
+		sqlCol := &SQLcol{
+			name:   colTypes[ind].Name(),
+			n:      1,
+			dType:  dt,
+			sql:    "",
+			catMap: nil,
+		}
+
+		cols = append(cols, sqlCol)
+
+	}
+
+	if df.DFlist, err = NewDFlist(cols...); err != nil {
+		return nil, err
+	}
+
+	return df, nil
 }

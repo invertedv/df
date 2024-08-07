@@ -1,12 +1,17 @@
 package df
 
 import (
+	_ "embed"
 	"fmt"
+	"strings"
 
 	"github.com/invertedv/utilities"
 )
 
 type DataTypes uint8
+
+//go:embed funcs/funcDefs.txt
+var memFuncs string
 
 const (
 	DTstring DataTypes = 0 + iota
@@ -41,7 +46,7 @@ type Column interface {
 	DataType() DataTypes
 	Len() int
 	Data() any
-	Cast(dt DataTypes) (any, error)
+	//	Cast(dt DataTypes) (any, error)
 }
 
 type Function interface {
@@ -148,37 +153,6 @@ func (df *DFlist) Apply(resultName string, op Function, inputs ...any) error {
 	return df.Append(col)
 }
 
-// what about N, name, dataType
-func (df *DFlist) ApplyOLD(resultName string, op Function, colNames ...string) error {
-	var (
-		inCols []Column
-		err    error
-	)
-
-	if op == nil {
-		return fmt.Errorf("no operation defined in Apply")
-	}
-
-	for ind := 0; ind < len(colNames); ind++ {
-		var dfcol Column
-
-		if dfcol, err = df.Column(colNames[ind]); err != nil {
-			return err
-		}
-
-		inCols = append(inCols, dfcol)
-	}
-
-	//col, e := op.Run(inCols...)
-	//	if e != nil {
-	//		return e
-	//	}
-	var col Column
-	col.Name(resultName)
-
-	return df.Append(col)
-}
-
 // what if df is nil?
 func (df *DFlist) Append(col Column) error {
 	if utilities.Has(col.Name(""), "", df.ColumnNames()...) {
@@ -248,3 +222,74 @@ func NewDFlist(cols ...Column) (df *DFlist, err error) {
 //
 //	return nil, nil
 //}
+
+type AnyFunction func(...any) (any, error)
+
+func functions(funcName string, wantMemFunc bool) AnyFunction {
+	names := []string{
+		"exp", "abs", "cast", "add",
+	}
+
+	mem := []AnyFunction{
+		memExp, memAbs, memCast, memAdd,
+	}
+
+	sql := []AnyFunction{
+		sqlExp, sqlAbs, sqlCast, sqlAdd,
+	}
+
+	pos := utilities.Position(funcName, "", names...)
+	if pos < 0 {
+		return nil
+	}
+	if wantMemFunc {
+		return mem[pos]
+	}
+
+	return sql[pos]
+}
+
+func funcDetails(wantMemFuncs bool) (names []string, inputs [][]DataTypes, outputs []DataTypes, fns []AnyFunction) {
+	fDetail := strings.Split(memFuncs, "\n")
+	for _, f := range fDetail {
+		if f == "" {
+			continue
+		}
+
+		detail := strings.Split(f, ",")
+		if len(detail) < 3 {
+			continue
+		}
+
+		var (
+			outs     DataTypes
+			inps     []DataTypes
+			thisFunc AnyFunction
+		)
+
+		name := detail[0]
+		if thisFunc = functions(name, wantMemFuncs); thisFunc == nil {
+			panic(fmt.Sprintf("unknown function: %s", name))
+		}
+
+		if outs = DTFromString(detail[len(detail)-1]); outs == DTunknown {
+			panic(fmt.Sprintf("unknown DataTypes %s", detail[len(detail)-1]))
+		}
+
+		for ind := 1; ind < len(detail)-1; ind++ {
+			var val DataTypes
+			if val = DTFromString(detail[ind]); val == DTunknown {
+				panic(fmt.Sprintf("unknown DataTypes %s", detail[ind]))
+			}
+
+			inps = append(inps, val)
+		}
+
+		names = append(names, name)
+		inputs = append(inputs, inps)
+		outputs = append(outputs, outs)
+		fns = append(fns, thisFunc)
+	}
+
+	return names, inputs, outputs, fns
+}

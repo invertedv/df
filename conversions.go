@@ -48,7 +48,7 @@ func toInt(xIn any, cast bool) (xOut any, err error) {
 		if tmp, err = strconv.ParseInt(x, 10, 32); err != nil {
 			return nil, err
 		}
-		return tmp, nil
+		return int(tmp), nil
 	}
 
 	return nil, fmt.Errorf("cannot convert type to int")
