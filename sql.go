@@ -40,7 +40,7 @@ type SQLdf struct {
 	destTableName string
 	db            *sql.DB
 
-	*DFlist
+	*DF
 }
 
 func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
@@ -48,7 +48,7 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 		sourceSQL:     query,
 		destTableName: "",
 		db:            db,
-		DFlist:        nil,
+		DF:            nil,
 	}
 
 	var (
@@ -97,9 +97,11 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 
 	}
 
-	if df.DFlist, err = NewDFlist(cols...); err != nil {
+	var tmp *DF
+	if tmp, err = NewDF(cols...); err != nil {
 		return nil, err
 	}
+	df.DF = tmp
 
 	return df, nil
 }

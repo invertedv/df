@@ -22,7 +22,7 @@ type MemDF struct {
 	destFile       *os.File
 	rows           int
 
-	*DFlist
+	*DF
 }
 
 func (m *MemCol) DataType() DataTypes {

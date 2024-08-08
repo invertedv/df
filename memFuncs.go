@@ -5,45 +5,18 @@ import (
 	"math"
 )
 
-type MemFunc struct {
-	name     string
-	inputs   []DataTypes
-	output   DataTypes
-	function AnyFunction
-}
+var MemFunctions = LoadFunctions(true)
 
-type MemFuncMap map[string]*MemFunc
-
-var Functions = memLoadFunctions()
-
-func (fn *MemFunc) Run(inputs ...any) (outCol Column, err error) {
-	if len(inputs) != len(fn.inputs) {
+func MemRun(fn *Func, params []any, inputs ...Column) (outCol Column, err error) {
+	if len(inputs)+len(params) != len(fn.inputs) {
 		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), fn.name, len(fn.inputs))
-	}
-
-	var (
-		vals   []*MemCol
-		params []any
-	)
-
-	for ind := 0; ind < len(inputs); ind++ {
-		var (
-			col *MemCol
-			ok  bool
-		)
-
-		if col, ok = inputs[ind].(*MemCol); ok {
-			vals = append(vals, col)
-		} else {
-			params = append(params, inputs[ind])
-		}
 	}
 
 	var (
 		xOut    any
 		outType DataTypes
 	)
-	for ind := 0; ind < vals[0].Len(); ind++ {
+	for ind := 0; ind < inputs[0].Len(); ind++ {
 		var xs []any
 
 		for j := 0; j < len(params); j++ {
@@ -55,8 +28,8 @@ func (fn *MemFunc) Run(inputs ...any) (outCol Column, err error) {
 			xs = append(xs, xadd)
 		}
 
-		for j := 0; j < len(vals); j++ {
-			xadd, e := toDataType(vals[j].Element(ind), fn.inputs[j+len(params)], false)
+		for j := 0; j < len(inputs); j++ {
+			xadd, e := toDataType(inputs[j].(*MemCol).Element(ind), fn.inputs[j+len(params)], false)
 			if e != nil {
 				return nil, e
 			}
@@ -64,7 +37,7 @@ func (fn *MemFunc) Run(inputs ...any) (outCol Column, err error) {
 			xs = append(xs, xadd)
 		}
 
-		x, e := fn.function(xs...)
+		x, _, e := fn.function(xs...)
 		if e != nil {
 			return nil, e
 		}
@@ -98,55 +71,53 @@ func (fn *MemFunc) Run(inputs ...any) (outCol Column, err error) {
 	return outCol, nil
 }
 
-func memLoadFunctions() MemFuncMap {
-	fns := make(MemFuncMap)
-	names, inputs, outputs, fnsx := funcDetails(true)
-	for ind := 0; ind < len(names); ind++ {
-		fns[names[ind]] = &MemFunc{
-			name:     names[ind],
-			inputs:   inputs[ind],
-			output:   outputs[ind],
-			function: fnsx[ind],
-		}
-	}
-
-	return fns
-}
-
-func memCast(inputs ...any) (any, error) {
+func memCast(inputs ...any) (any, DataTypes, error) {
 	dt := DTFromString(inputs[0].(string))
 
-	return toDataType(inputs[1], dt, true)
+	x, e := toDataType(inputs[1], dt, true)
+	return x, dt, e
 }
 
-func memAdd(inputs ...any) (any, error) {
+func memAdd(inputs ...any) (any, DataTypes, error) {
 	dt0 := whatAmI(inputs[0])
 	dt1 := whatAmI(inputs[1])
 
 	switch {
 	case dt0 == DTfloat && dt1 == DTfloat:
-		return inputs[0].(float64) + inputs[1].(float64), nil
+		return inputs[0].(float64) + inputs[1].(float64), DTfloat, nil
 	case dt0 == DTfloat && dt1 == DTint:
-		return inputs[0].(float64) + float64(inputs[1].(int)), nil
+		return inputs[0].(float64) + float64(inputs[1].(int)), DTfloat, nil
 	case dt0 == DTint && dt1 == DTfloat:
-		return float64(inputs[0].(int)) + inputs[1].(float64), nil
+		return float64(inputs[0].(int)) + inputs[1].(float64), DTfloat, nil
 	case dt0 == DTint && dt1 == DTint:
-		return inputs[0].(int) + inputs[1].(int), nil
+		return inputs[0].(int) + inputs[1].(int), DTint, nil
 	case dt0 == DTstring:
 		if s, e := toString(inputs[1], true); e == nil {
-			return inputs[0].(string) + s.(string), nil
+			return inputs[0].(string) + s.(string), DTstring, nil
 		}
 	case dt1 == DTstring:
 		if s, e := toString(inputs[0], true); e == nil {
-			return s.(string) + inputs[1].(string), nil
+			return s.(string) + inputs[1].(string), DTstring, nil
 		}
 	}
 
-	return nil, fmt.Errorf("cannot add %s and %s", dt0, dt1)
+	return nil, DTunknown, fmt.Errorf("cannot add %s and %s", dt0, dt1)
 }
 
-func memExp(xs ...any) (any, error) {
-	return math.Exp(xs[0].(float64)), nil
+func memExp(xs ...any) (any, DataTypes, error) {
+	return math.Exp(xs[0].(float64)), DTfloat, nil
 }
 
-func memAbs(xs ...any) (any, error) { return math.Abs(xs[0].(float64)), nil }
+func memAbs(inputs ...any) (any, DataTypes, error) {
+	switch x := inputs[0].(type) {
+	case float64:
+		return math.Abs(x), DTfloat, nil
+	case int:
+		if x < 0 {
+			return -x, DTint, nil
+		}
+		return x, DTint, nil
+	default:
+		return nil, DTunknown, fmt.Errorf("abs requires float or int")
+	}
+}

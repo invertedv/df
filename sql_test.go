@@ -3,11 +3,10 @@ package df
 import (
 	"database/sql"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 // NewConnect established a new connection to ClickHouse.
@@ -54,12 +53,13 @@ func TestNewSQLdf(t *testing.T) {
 	defer func() { _ = df.db.Close() }()
 
 	f := SQLfunctions["add"]
-	col, e := df.Column("q10")
+	col, e := df.Column("cbsa")
 	assert.Nil(t, e)
 	col1, e1 := df.Column("q25")
 	assert.Nil(t, e1)
+	_, _ = col, col1
 
-	e1 = df.Apply("test", f, col, col1)
+	e1 = df.Apply("test", SQLrun, f, "q10", "q25")
 	assert.Nil(t, e1)
 
 	r, e2 := df.Column("test")
