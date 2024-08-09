@@ -112,6 +112,8 @@ func TestDF_Apply(t *testing.T) {
 	fmt.Println(c.Data())
 	e1 = df.Apply("xyz", MemRun, nil, "z")
 	assert.Nil(t, e1)
+	e1 = df.Drop("test1")
+	assert.Nil(t, e1)
 }
 
 /*

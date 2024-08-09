@@ -2,11 +2,12 @@ package df
 
 import (
 	"database/sql"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 // NewConnect established a new connection to ClickHouse.

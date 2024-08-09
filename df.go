@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/invertedv/utilities"
+	u "github.com/invertedv/utilities"
 )
 
 type DataTypes uint8
@@ -32,7 +32,7 @@ const (
 func DTFromString(nm string) DataTypes {
 	const nms = "DTstring,DTfloat,DTint,DTcategory,DTdate,DTdateTime,DTtime,DTslcString,DTslcFloat,DTslcInt,DTany,DTunknown"
 
-	pos := utilities.Position(nm, ",", nms)
+	pos := u.Position(nm, ",", nms)
 	if pos < 0 {
 		return DTunknown
 	}
@@ -49,10 +49,8 @@ type Column interface {
 	Data() any
 }
 
-type Saver func(cols ...Column) error
-
 type DF struct {
-	head *DFlist
+	head *columnList
 }
 
 func NewDF(cols ...Column) (df *DF, err error) {
@@ -60,9 +58,9 @@ func NewDF(cols ...Column) (df *DF, err error) {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
 
-	var head, priorNode *DFlist
+	var head, priorNode *columnList
 	for ind := 0; ind < len(cols); ind++ {
-		node := &DFlist{
+		node := &columnList{
 			col: cols[ind],
 
 			prior: priorNode,
@@ -83,9 +81,13 @@ func NewDF(cols ...Column) (df *DF, err error) {
 	return &DF{head: head}, nil
 }
 
+func (df *DF) RowCount() int {
+	return df.head.col.Len()
+}
+
 func (df *DF) ColumnCount() int {
 	cols := 0
-	for c := df.head; c != nil; c = c.Next() {
+	for c := df.head; c != nil; c = c.next {
 		cols++
 	}
 
@@ -96,32 +98,34 @@ func (df *DF) ColumnNames() []string {
 	var names []string
 
 	for h := df.head; h != nil; h = h.next {
-		names = append(names, h.Col().Name(""))
+		names = append(names, h.col.Name(""))
 	}
 
 	return names
 }
 
 func (df *DF) Column(colName string) (col Column, err error) {
-	var dfl *DFlist
-	dfl, err = df.head.Node(colName)
-	if err != nil {
-		return nil, err
+	for h := df.head; h != nil; h = h.next {
+		if (h.col).Name("") == colName {
+			return h.col, nil
+		}
 	}
 
-	return dfl.Col(), err
+	return nil, fmt.Errorf("column %s not found", colName)
 }
 
 func (df *DF) Save(saver Saver, colNames ...string) error {
 	var cols []Column
 	for col := df.head; col != nil; col = col.next {
-		if colNames == nil || utilities.Has(col.col.Name(""), "", colNames...) {
+		if colNames == nil || u.Has(col.col.Name(""), "", colNames...) {
 			cols = append(cols, col.col)
 		}
 	}
 
 	return saver(cols...)
 }
+
+type Saver func(cols ...Column) error
 
 func (df *DF) Apply(resultName string, op Runner, fn *Func, inputs ...string) error {
 	if fn == nil {
@@ -161,17 +165,19 @@ func (df *DF) Apply(resultName string, op Runner, fn *Func, inputs ...string) er
 type Runner func(fn *Func, params []any, inputs []Column) (Column, error)
 
 func (df *DF) Append(col Column) error {
-	if utilities.Has(col.Name(""), "", df.ColumnNames()...) {
+	if u.Has(col.Name(""), "", df.ColumnNames()...) {
 		return fmt.Errorf("duplicate column name: %s", col.Name(""))
 	}
 
-	if col.Len() != df.head.col.Len() {
+	if col.Len() != df.RowCount() {
 		return fmt.Errorf("length mismatch: dfList - %d, append col - %d", df.head.col.Len(), col.Len())
 	}
 
-	tail := df.head.Tail()
+	var tail *columnList
+	for tail = df.head; tail.next != nil; tail = tail.next {
+	}
 
-	dfl := &DFlist{
+	dfl := &columnList{
 		col:   col,
 		prior: tail,
 		next:  nil,
@@ -182,66 +188,45 @@ func (df *DF) Append(col Column) error {
 	return nil
 }
 
-func (df *DF) Drop(colName string) error {
-	col, err := df.head.Node(colName)
-	if err != nil {
-		return err
-	}
-
-	if col == df.head {
-		df.head = col
-		return nil
-	}
-
-	col.prior.next = col.next
-	col.next.prior = col.prior
-
-	return nil
-}
-
-type DFlist struct {
-	col Column
-
-	prior *DFlist
-	next  *DFlist
-}
-
-func (df *DFlist) Col() Column {
-	return df.col
-}
-
-func (df *DFlist) Next() *DFlist {
-	return df.next
-}
-
-func (df *DFlist) Prior() *DFlist {
-	return df.prior
-}
-
-func (df *DFlist) Head() *DFlist {
-	var head *DFlist
-	for head = df; head.prior != nil; head = head.prior {
-	}
-
-	return head
-}
-
-func (df *DFlist) Tail() *DFlist {
-	var tail *DFlist
-	for tail = df; tail.next != nil; tail = tail.next {
-	}
-
-	return tail
-}
-
-func (df *DFlist) Node(colName string) (dfl *DFlist, err error) {
-	for h := df.Head(); h != nil; h = h.next {
-		if (h.Col()).Name("") == colName {
+func (df *DF) node(colName string) (node *columnList, err error) {
+	for h := df.head; h != nil; h = h.next {
+		if h.col.Name("") == colName {
 			return h, nil
 		}
 	}
 
 	return nil, fmt.Errorf("column %s not found", colName)
+}
+
+func (df *DF) Drop(colName string) error {
+	col, err := df.node(colName)
+	if err != nil {
+		return err
+	}
+
+	if col == df.head {
+		if df.head.next == nil {
+			df.head = nil
+			return fmt.Errorf("no columns left")
+		}
+
+		df.head = df.head.next
+		return nil
+	}
+
+	col.prior.next = col.next
+	if col.next != nil {
+		col.next.prior = col.prior
+	}
+
+	return nil
+}
+
+type columnList struct {
+	col Column
+
+	prior *columnList
+	next  *columnList
 }
 
 //func loadDF(loader Loader) (df *DF, err error) {
@@ -333,7 +318,7 @@ func functions(funcName string, wantMemFunc bool) AnyFunction {
 		sqlExp, sqlAbs, sqlCast, sqlAdd,
 	}
 
-	pos := utilities.Position(funcName, "", names...)
+	pos := u.Position(funcName, "", names...)
 	if pos < 0 {
 		return nil
 	}
