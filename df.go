@@ -55,6 +55,34 @@ type DF struct {
 	head *DFlist
 }
 
+func NewDF(cols ...Column) (df *DF, err error) {
+	if cols == nil {
+		return nil, fmt.Errorf("no columns in NewDF")
+	}
+
+	var head, priorNode *DFlist
+	for ind := 0; ind < len(cols); ind++ {
+		node := &DFlist{
+			col: cols[ind],
+
+			prior: priorNode,
+			next:  nil,
+		}
+
+		if priorNode != nil {
+			priorNode.next = node
+		}
+
+		priorNode = node
+
+		if ind == 0 {
+			head = node
+		}
+	}
+
+	return &DF{head: head}, nil
+}
+
 func (df *DF) ColumnCount() int {
 	cols := 0
 	for c := df.head; c != nil; c = c.Next() {
@@ -120,7 +148,7 @@ func (df *DF) Apply(resultName string, op Runner, fn *Func, inputs ...string) er
 		}
 	}
 
-	col, e := op(fn, params, vals...)
+	col, e := op(fn, params, vals)
 	if e != nil {
 		return e
 	}
@@ -130,7 +158,7 @@ func (df *DF) Apply(resultName string, op Runner, fn *Func, inputs ...string) er
 	return df.Append(col)
 }
 
-type Runner func(fn *Func, params []any, inputs ...Column) (Column, error)
+type Runner func(fn *Func, params []any, inputs []Column) (Column, error)
 
 func (df *DF) Append(col Column) error {
 	if utilities.Has(col.Name(""), "", df.ColumnNames()...) {
@@ -214,34 +242,6 @@ func (df *DFlist) Node(colName string) (dfl *DFlist, err error) {
 	}
 
 	return nil, fmt.Errorf("column %s not found", colName)
-}
-
-func NewDF(cols ...Column) (df *DF, err error) {
-	if cols == nil {
-		return nil, fmt.Errorf("no columns in NewDFlist")
-	}
-
-	var head, priorNode *DFlist
-	for ind := 0; ind < len(cols); ind++ {
-		node := &DFlist{
-			col: cols[ind],
-
-			prior: priorNode,
-			next:  nil,
-		}
-
-		if priorNode != nil {
-			priorNode.next = node
-		}
-
-		priorNode = node
-
-		if ind == 0 {
-			head = node
-		}
-	}
-
-	return &DF{head}, nil
 }
 
 //func loadDF(loader Loader) (df *DF, err error) {
