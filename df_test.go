@@ -35,7 +35,7 @@ func makeMemDF() *MemDF {
 	}
 
 	// this works
-	tmp, _ := NewDF(xCol, yCol, zCol)
+	tmp, _ := NewDF(MemRun, LoadFunctions(true), xCol, yCol, zCol)
 
 	tmp1 := &MemDF{
 		rows: 0,
@@ -62,7 +62,7 @@ func makeSQLdf() *SQLdf {
 		catMap: nil,
 	}
 
-	tmp, _ := NewDF(xCol, yCol)
+	tmp, _ := NewDF(MemRun, LoadFunctions(true), xCol, yCol)
 
 	tmp1 := &SQLdf{
 		sourceSQL: "",
@@ -91,10 +91,9 @@ func TestDF_Column(t *testing.T) {
 
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
-	f := MemFunctions["cast"]
 	col, e := df.Column("z")
 	assert.Nil(t, e)
-	e1 := df.Apply("test", MemRun, MemFunctions["cast"], "DTstring", "z")
+	e1 := df.Apply("test", "cast", "DTstring", "z")
 	assert.Nil(t, e1)
 	c1, _ := df.Column("test")
 	fmt.Println(c1.Data())
@@ -104,13 +103,12 @@ func TestDF_Apply(t *testing.T) {
 	col1, e1 := df.Column("y")
 	_, _ = col, col1
 	assert.Nil(t, e1)
-	f = MemFunctions["add"]
-	e1 = df.Apply("test1", MemRun, f, "x", "y")
+	e1 = df.Apply("test1", "add", "x", "y")
 	fmt.Println(df.ColumnNames())
 	fmt.Println(df.ColumnCount())
 	c, _ := df.Column("test1")
 	fmt.Println(c.Data())
-	e1 = df.Apply("xyz", MemRun, nil, "z")
+	e1 = df.Apply("xyz", "aaa", "z")
 	assert.Nil(t, e1)
 	e1 = df.Drop("test1")
 	assert.Nil(t, e1)

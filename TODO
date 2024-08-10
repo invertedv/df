@@ -4,4 +4,5 @@
 - vApply for vector operations
 - stringer method for Column and df
 
-- rename DFlist to ColList or some such
+
+- get rid of global vars

@@ -5,8 +5,6 @@ import (
 	"math"
 )
 
-var MemFunctions = LoadFunctions(true)
-
 func MemRun(fn *Func, params []any, inputs []Column) (outCol Column, err error) {
 	if len(inputs)+len(params) != len(fn.inputs) {
 		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), fn.name, len(fn.inputs))

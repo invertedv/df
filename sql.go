@@ -98,7 +98,7 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 	}
 
 	var tmp *DF
-	if tmp, err = NewDF(cols...); err != nil {
+	if tmp, err = NewDF(SQLrun, LoadFunctions(false), cols...); err != nil {
 		return nil, err
 	}
 	df.DF = tmp

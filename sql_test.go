@@ -53,14 +53,13 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	defer func() { _ = df.db.Close() }()
 
-	f := SQLfunctions["add"]
 	col, e := df.Column("cbsa")
 	assert.Nil(t, e)
 	col1, e1 := df.Column("q25")
 	assert.Nil(t, e1)
 	_, _ = col, col1
 
-	e1 = df.Apply("test", SQLrun, f, "q10", "q25")
+	e1 = df.Apply("test", "add", "q10", "q25")
 	assert.Nil(t, e1)
 
 	r, e2 := df.Column("test")

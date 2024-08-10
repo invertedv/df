@@ -9,10 +9,10 @@ import (
 	u "github.com/invertedv/utilities"
 )
 
-type DataTypes uint8
-
 //go:embed funcs/funcDefs.txt
 var funcDefs string
+
+type DataTypes uint8
 
 const (
 	DTstring DataTypes = 0 + iota
@@ -50,10 +50,34 @@ type Column interface {
 }
 
 type DF struct {
-	head *columnList
+	head  *columnList
+	funcs FuncMap
+	run   Runner
 }
 
-func NewDF(cols ...Column) (df *DF, err error) {
+type columnList struct {
+	col Column
+
+	prior *columnList
+	next  *columnList
+}
+
+type FuncMap map[string]*Func
+
+type Func struct {
+	name     string
+	inputs   []DataTypes
+	output   DataTypes
+	function AnyFunction
+}
+
+type AnyFunction func(...any) (any, DataTypes, error)
+
+type Runner func(fn *Func, params []any, inputs []Column) (Column, error)
+
+///////////// DF methods
+
+func NewDF(run Runner, funcs FuncMap, cols ...Column) (df *DF, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -78,7 +102,7 @@ func NewDF(cols ...Column) (df *DF, err error) {
 		}
 	}
 
-	return &DF{head: head}, nil
+	return &DF{head: head, funcs: funcs, run: run}, nil
 }
 
 func (df *DF) RowCount() int {
@@ -127,16 +151,19 @@ func (df *DF) Save(saver Saver, colNames ...string) error {
 
 type Saver func(cols ...Column) error
 
-func (df *DF) Apply(resultName string, op Runner, fn *Func, inputs ...string) error {
-	if fn == nil {
-		log.Printf("op to create %s not defined, operation skipped", resultName)
-		return nil
-	}
-
+func (df *DF) Apply(resultName, opName string, inputs ...string) error {
 	var (
 		vals   []Column
 		params []any
+		fn     *Func
+		ok     bool
 	)
+
+	if fn, ok = df.funcs[opName]; !ok {
+		log.Printf("op to create %s not defined, operation skipped", resultName)
+		return nil
+		//		return fmt.Errorf("function %s not found", opName)
+	}
 
 	doneParams := false
 	for ind := 0; ind < len(inputs); ind++ {
@@ -152,8 +179,12 @@ func (df *DF) Apply(resultName string, op Runner, fn *Func, inputs ...string) er
 		}
 	}
 
-	col, e := op(fn, params, vals)
-	if e != nil {
+	var (
+		col Column
+		e   error
+	)
+
+	if col, e = df.run(fn, params, vals); e != nil {
 		return e
 	}
 
@@ -161,8 +192,6 @@ func (df *DF) Apply(resultName string, op Runner, fn *Func, inputs ...string) er
 
 	return df.Append(col)
 }
-
-type Runner func(fn *Func, params []any, inputs []Column) (Column, error)
 
 func (df *DF) Append(col Column) error {
 	if u.Has(col.Name(""), "", df.ColumnNames()...) {
@@ -222,28 +251,7 @@ func (df *DF) Drop(colName string) error {
 	return nil
 }
 
-type columnList struct {
-	col Column
-
-	prior *columnList
-	next  *columnList
-}
-
-//func loadDF(loader Loader) (df *DF, err error) {
-//
-//	return nil, nil
-//}
-
-type FuncMap map[string]*Func
-
-type Func struct {
-	name     string
-	inputs   []DataTypes
-	output   DataTypes
-	function AnyFunction
-}
-
-type AnyFunction func(...any) (any, DataTypes, error)
+///////////// Function funcs
 
 func LoadFunctions(wantMemFuncs bool) FuncMap {
 	fns := make(FuncMap)
