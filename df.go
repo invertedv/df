@@ -9,8 +9,26 @@ import (
 	u "github.com/invertedv/utilities"
 )
 
-//go:embed funcs/funcDefs.txt
-var funcDefs string
+type DF struct {
+	head  *columnList
+	funcs FuncMap
+	run   Runner
+}
+
+type columnList struct {
+	col Column
+
+	prior *columnList
+	next  *columnList
+}
+
+type Column interface {
+	Name(reNameTo string) string
+	DataType() DataTypes
+	Len() int
+	Data() any
+	Copy() Column
+}
 
 type DataTypes uint8
 
@@ -29,38 +47,7 @@ const (
 	DTunknown
 )
 
-func DTFromString(nm string) DataTypes {
-	const nms = "DTstring,DTfloat,DTint,DTcategory,DTdate,DTdateTime,DTtime,DTslcString,DTslcFloat,DTslcInt,DTany,DTunknown"
-
-	pos := u.Position(nm, ",", nms)
-	if pos < 0 {
-		return DTunknown
-	}
-
-	return DataTypes(uint8(pos))
-}
-
 //go:generate stringer -type=DataTypes
-
-type Column interface {
-	Name(reNameTo string) string
-	DataType() DataTypes
-	Len() int
-	Data() any
-}
-
-type DF struct {
-	head  *columnList
-	funcs FuncMap
-	run   Runner
-}
-
-type columnList struct {
-	col Column
-
-	prior *columnList
-	next  *columnList
-}
 
 type FuncMap map[string]*Func
 
@@ -251,7 +238,45 @@ func (df *DF) Drop(colName string) error {
 	return nil
 }
 
-///////////// Function funcs
+func (df *DF) Subset(keepColumns ...string) (*DF, error) {
+	var subHead, tail *columnList
+
+	for ind := 0; ind < len(keepColumns); ind++ {
+		var (
+			col Column
+			err error
+		)
+
+		if col, err = df.Column(keepColumns[ind]); err != nil {
+			return nil, err
+		}
+
+		newNode := &columnList{
+			col:   col,
+			prior: nil,
+			next:  nil,
+		}
+
+		if subHead == nil {
+			subHead, tail = newNode, newNode
+			continue
+		}
+
+		newNode.prior = tail
+		tail.next = newNode
+		tail = newNode
+	}
+
+	subsetDF := &DF{
+		head:  subHead,
+		funcs: df.funcs,
+		run:   df.run,
+	}
+
+	return subsetDF, nil
+}
+
+///////////// FuncMap funcs
 
 func LoadFunctions(wantMemFuncs bool) FuncMap {
 	fns := make(FuncMap)
@@ -267,6 +292,9 @@ func LoadFunctions(wantMemFuncs bool) FuncMap {
 
 	return fns
 }
+
+//go:embed funcs/funcDefs.txt
+var funcDefs string
 
 func funcDetails(wantMemFuncs bool) (names []string, inputs [][]DataTypes, outputs []DataTypes, fns []AnyFunction) {
 	fDetail := strings.Split(funcDefs, "\n")
@@ -335,4 +363,17 @@ func functions(funcName string, wantMemFunc bool) AnyFunction {
 	}
 
 	return sql[pos]
+}
+
+/////////// DataTypes
+
+func DTFromString(nm string) DataTypes {
+	const nms = "DTstring,DTfloat,DTint,DTcategory,DTdate,DTdateTime,DTtime,DTslcString,DTslcFloat,DTslcInt,DTany,DTunknown"
+
+	pos := u.Position(nm, ",", nms)
+	if pos < 0 {
+		return DTunknown
+	}
+
+	return DataTypes(uint8(pos))
 }

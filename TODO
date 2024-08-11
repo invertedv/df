@@ -5,4 +5,4 @@
 - stringer method for Column and df
 
 
-- get rid of global vars
+- do I used method with receiver or access directly? Be consistent.

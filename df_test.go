@@ -2,6 +2,7 @@ package df
 
 import (
 	"fmt"
+	u "github.com/invertedv/utilities"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -114,18 +115,13 @@ func TestDF_Apply(t *testing.T) {
 	assert.Nil(t, e1)
 }
 
-/*
-func TestDFlist_Apply(t *testing.T) {
-	df := makeSQLdf()
-	f := SQLfunctions["addFloat"]
-	col, e := df.Column("x")
+func TestDF_Subset(t *testing.T) {
+	df := makeMemDF()
+	df1, e := df.Subset("z", "x")
 	assert.Nil(t, e)
-	col1, e1 := df.Column("y")
-	assert.Nil(t, e1)
-	e1 = df.Apply("test",MemRun, f, col, col1)
-	assert.Nil(t, e1)
-	_ = df
+	names := df1.ColumnNames()
+	assert.True(t, u.Has("z", "", names...))
+	assert.True(t, u.Has("x", "", names...))
+	assert.False(t, u.Has("y", "", names...))
+
 }
-
-
-*/

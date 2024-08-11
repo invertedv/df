@@ -14,6 +14,7 @@ func MemRun(fn *Func, params []any, inputs []Column) (outCol Column, err error) 
 		xOut    any
 		outType DataTypes
 	)
+
 	for ind := 0; ind < inputs[0].Len(); ind++ {
 		var xs []any
 

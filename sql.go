@@ -6,6 +6,14 @@ import (
 	"reflect"
 )
 
+type SQLdf struct {
+	sourceSQL     string
+	destTableName string
+	db            *sql.DB
+
+	*DF
+}
+
 type SQLcol struct {
 	name  string
 	n     int
@@ -35,22 +43,17 @@ func (s *SQLcol) Name(renameTo string) string {
 	return s.name
 }
 
-type SQLdf struct {
-	sourceSQL     string
-	destTableName string
-	db            *sql.DB
-
-	*DF
+func (s *SQLcol) Copy() Column {
+	return &SQLcol{
+		name:   s.name,
+		n:      s.n,
+		dType:  s.dType,
+		sql:    s.sql,
+		catMap: s.catMap,
+	}
 }
 
 func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
-	df := &SQLdf{
-		sourceSQL:     query,
-		destTableName: "",
-		db:            db,
-		DF:            nil,
-	}
-
 	var (
 		err      error
 		rows     *sql.Rows
@@ -101,7 +104,13 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 	if tmp, err = NewDF(SQLrun, LoadFunctions(false), cols...); err != nil {
 		return nil, err
 	}
-	df.DF = tmp
+
+	df := &SQLdf{
+		sourceSQL:     query,
+		destTableName: "",
+		db:            db,
+		DF:            tmp,
+	}
 
 	return df, nil
 }

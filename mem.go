@@ -8,14 +8,6 @@ import (
 
 type categoryMap map[any]uint32
 
-type MemCol struct {
-	name  string
-	dType DataTypes
-	data  any
-
-	catMap categoryMap
-}
-
 type MemDF struct {
 	sourceFileName string
 	destFileName   string
@@ -23,6 +15,14 @@ type MemDF struct {
 	rows           int
 
 	*DF
+}
+
+type MemCol struct {
+	name  string
+	dType DataTypes
+	data  any
+
+	catMap categoryMap
 }
 
 func (m *MemCol) DataType() DataTypes {
@@ -69,6 +69,34 @@ func (m *MemCol) Element(row int) any {
 	}
 
 	return nil
+}
+
+func (m *MemCol) Copy() Column {
+	var copiedData any
+	n := m.Len()
+	switch m.dType {
+	case DTfloat:
+		copiedData = make([]float64, n)
+		copy(copiedData.([]float64), m.data.([]float64))
+	case DTint:
+		copiedData = make([]int, n)
+		copy(copiedData.([]int), m.data.([]int))
+	case DTstring:
+		copiedData = make([]string, n)
+		copy(copiedData.([]string), m.data.([]string))
+	case DTdate:
+		copiedData = make([]time.Time, n)
+		copy(copiedData.([]time.Time), m.data.([]time.Time))
+	}
+
+	col := &MemCol{
+		name:   m.name,
+		dType:  m.dType,
+		data:   copiedData,
+		catMap: m.catMap,
+	}
+
+	return col
 }
 
 func MemLoad(from string) ([]Column, error) {
