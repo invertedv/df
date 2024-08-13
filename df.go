@@ -276,6 +276,11 @@ func (df *DF) Subset(keepColumns ...string) (*DF, error) {
 	return subsetDF, nil
 }
 
+func (df *DF) Sort(keys ...string) error {
+
+	return nil
+}
+
 ///////////// FuncMap funcs
 
 func LoadFunctions(wantMemFuncs bool) FuncMap {

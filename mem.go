@@ -3,6 +3,7 @@ package df
 import (
 	_ "embed"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -13,6 +14,7 @@ type MemDF struct {
 	destFileName   string
 	destFile       *os.File
 	rows           int
+	by             []*MemCol
 
 	*DF
 }
@@ -23,6 +25,68 @@ type MemCol struct {
 	data  any
 
 	catMap categoryMap
+}
+
+func (df *MemDF) Less(i, j int) bool {
+	for ind := 0; ind < len(df.by); ind++ {
+		less := df.by[ind].Less(i, j)
+
+		// if greater, it's false
+		if !less {
+			return false
+		}
+
+		// if < (rather than <=) it's true
+		if df.by[ind].Less(i, j) && !df.by[ind].Less(j, i) {
+			return true
+		}
+
+		// equal -- keep checking
+	}
+
+	return true
+}
+
+func (df *MemDF) Swap(i, j int) {
+	for h := df.head; h != nil; h = h.next {
+		data := h.col.(*MemCol).data
+		switch h.col.DataType() {
+		case DTfloat:
+			data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
+		case DTint:
+			data.([]int)[i], data.([]int)[j] = data.([]int)[j], data.([]int)[i]
+		case DTstring:
+			data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
+		case DTdate:
+			data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
+		}
+	}
+}
+
+func (df *MemDF) Sort(cols ...string) error {
+	var by []*MemCol
+	for ind := 0; ind < len(cols); ind++ {
+		var (
+			x Column
+			e error
+		)
+
+		if x, e = df.Column(cols[ind]); e != nil {
+			return e
+		}
+
+		by = append(by, x.(*MemCol))
+	}
+
+	df.by = by
+
+	sort.Sort(df)
+
+	return nil
+}
+
+func (df *MemDF) Len() int {
+	return df.head.col.Len()
 }
 
 func (m *MemCol) DataType() DataTypes {
@@ -97,6 +161,21 @@ func (m *MemCol) Copy() Column {
 	}
 
 	return col
+}
+
+func (m *MemCol) Less(i, j int) bool {
+	switch m.dType {
+	case DTfloat:
+		return m.data.([]float64)[i] <= m.data.([]float64)[j]
+	case DTint:
+		return m.data.([]int)[i] <= m.data.([]int)[j]
+	case DTstring:
+		return m.data.([]string)[i] <= m.data.([]string)[j]
+	case DTdate:
+		return !m.data.([]time.Time)[i].After(m.data.([]time.Time)[j])
+	}
+
+	panic("error in Less")
 }
 
 func MemLoad(from string) ([]Column, error) {

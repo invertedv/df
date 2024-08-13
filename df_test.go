@@ -2,16 +2,17 @@ package df
 
 import (
 	"fmt"
-	u "github.com/invertedv/utilities"
 	"testing"
+
+	u "github.com/invertedv/utilities"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func makeMemDF() *MemDF {
-	x := []float64{1, -2, 3}
-	y := []int{4, 5, 6}
-	z := []string{"p20221231", "20000101", "19900615"}
+	x := []float64{1, -2, 3, 0, 2, -1}
+	y := []int{4, 5, 6, 1, 4, 4}
+	z := []string{"p20221231", "20000101", "19900615", "20220601", "20230915", "20060310"}
 
 	xCol := &MemCol{
 		name: "x",
@@ -123,5 +124,13 @@ func TestDF_Subset(t *testing.T) {
 	assert.True(t, u.Has("z", "", names...))
 	assert.True(t, u.Has("x", "", names...))
 	assert.False(t, u.Has("y", "", names...))
+}
 
+func TestDF_Sort(t *testing.T) {
+	df := makeMemDF()
+	df.Sort("y", "z")
+	x, _ := df.Column("x")
+	y, _ := df.Column("y")
+	z, _ := df.Column("z")
+	fmt.Println(x, y, z)
 }

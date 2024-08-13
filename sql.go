@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type SQLdf struct {
 	sourceSQL     string
 	destTableName string
 	db            *sql.DB
+	orderBy       string
 
 	*DF
 }
@@ -21,6 +23,17 @@ type SQLcol struct {
 	sql   string
 
 	catMap categoryMap
+}
+
+func (df *SQLdf) Sort(keys ...string) error {
+	for _, k := range keys {
+		if _, e := df.Column(k); e != nil {
+			return e
+		}
+	}
+
+	df.orderBy = strings.Join(keys, ",")
+	return nil
 }
 
 func (s *SQLcol) DataType() DataTypes {
