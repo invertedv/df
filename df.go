@@ -9,10 +9,24 @@ import (
 	u "github.com/invertedv/utilities"
 )
 
+type DataFrame interface {
+	RowCount() int
+	ColumnCount() int
+	ColumnNames() []string
+	Column(colName string) (col Column, err error)
+	Apply(resultName, opName string, inputs ...string) error
+	Append(col Column) error
+	Drop(colName string) error
+	Subset(keepColumns ...string) (*DF, error)
+
+	Sort(keys ...string) error
+}
+
 type DF struct {
-	head  *columnList
+	head *columnList
+
 	funcs FuncMap
-	run   Runner
+	run   RunFunc
 }
 
 type columnList struct {
@@ -60,11 +74,11 @@ type Func struct {
 
 type AnyFunction func(...any) (any, DataTypes, error)
 
-type Runner func(fn *Func, params []any, inputs []Column) (Column, error)
+type RunFunc func(fn *Func, params []any, inputs []Column) (Column, error)
 
 ///////////// DF methods
 
-func NewDF(run Runner, funcs FuncMap, cols ...Column) (df *DF, err error) {
+func NewDF(run RunFunc, funcs FuncMap, cols ...Column) (df *DF, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -274,11 +288,6 @@ func (df *DF) Subset(keepColumns ...string) (*DF, error) {
 	}
 
 	return subsetDF, nil
-}
-
-func (df *DF) Sort(keys ...string) error {
-
-	return nil
 }
 
 ///////////// FuncMap funcs

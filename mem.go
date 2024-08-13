@@ -27,6 +27,8 @@ type MemCol struct {
 	catMap categoryMap
 }
 
+/////////// MemDF methods
+
 func (df *MemDF) Less(i, j int) bool {
 	for ind := 0; ind < len(df.by); ind++ {
 		less := df.by[ind].Less(i, j)
@@ -88,6 +90,8 @@ func (df *MemDF) Sort(cols ...string) error {
 func (df *MemDF) Len() int {
 	return df.head.col.Len()
 }
+
+//////////// MemCol methods
 
 func (m *MemCol) DataType() DataTypes {
 	return m.dType
@@ -176,30 +180,4 @@ func (m *MemCol) Less(i, j int) bool {
 	}
 
 	panic("error in Less")
-}
-
-func MemLoad(from string) ([]Column, error) {
-	x := []float64{1, 2, 3}
-	y := []float64{4, 5, 6}
-
-	xCol := &MemCol{
-		name: "x",
-		//		n:      len(x),
-		dType:  0,
-		data:   x,
-		catMap: nil,
-	}
-
-	yCol := &MemCol{
-		//		n:    len(y),
-		name: "y",
-		data: y,
-	}
-
-	return []Column{xCol, yCol}, nil
-}
-
-func MemSave(to string, cols []Column) error {
-
-	return nil
 }
