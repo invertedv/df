@@ -5,26 +5,45 @@ import (
 	"os"
 	"sort"
 	"time"
-)
 
-type categoryMap map[any]uint32
+	d "github.com/invertedv/df"
+)
 
 type MemDF struct {
 	sourceFileName string
 	destFileName   string
 	destFile       *os.File
-	rows           int
 	by             []*MemCol
 
-	*DF
+	*d.DFcore
 }
 
 type MemCol struct {
 	name  string
-	dType DataTypes
+	dType d.DataTypes
 	data  any
 
-	catMap categoryMap
+	catMap d.CategoryMap
+}
+
+func NewMemDF(run d.RunFunc, fmap d.FuncMap, cols ...*MemCol) (*MemDF, error) {
+	var cc []d.Column
+	for ind := 0; ind < len(cols); ind++ {
+		cc = append(cc, cols[ind])
+	}
+
+	var (
+		df *d.DFcore
+		e  error
+	)
+
+	if df, e = d.NewDF(run, fmap, cc...); e != nil {
+		return nil, e
+	}
+
+	outDF := &MemDF{DFcore: df}
+
+	return outDF, nil
 }
 
 /////////// MemDF methods
@@ -50,16 +69,16 @@ func (df *MemDF) Less(i, j int) bool {
 }
 
 func (df *MemDF) Swap(i, j int) {
-	for h := df.head; h != nil; h = h.next {
-		data := h.col.(*MemCol).data
-		switch h.col.DataType() {
-		case DTfloat:
+	for h := df.Next(true); h != nil; h = df.Next(false) {
+		data := h.(*MemCol).data
+		switch h.DataType() {
+		case d.DTfloat:
 			data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
-		case DTint:
+		case d.DTint:
 			data.([]int)[i], data.([]int)[j] = data.([]int)[j], data.([]int)[i]
-		case DTstring:
+		case d.DTstring:
 			data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
-		case DTdate:
+		case d.DTdate:
 			data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
 		}
 	}
@@ -69,7 +88,7 @@ func (df *MemDF) Sort(cols ...string) error {
 	var by []*MemCol
 	for ind := 0; ind < len(cols); ind++ {
 		var (
-			x Column
+			x d.Column
 			e error
 		)
 
@@ -87,25 +106,25 @@ func (df *MemDF) Sort(cols ...string) error {
 	return nil
 }
 
+// Len() is required for sort
 func (df *MemDF) Len() int {
-	return df.head.col.Len()
+	return df.RowCount()
 }
 
-//////////// MemCol methods
-
-func (m *MemCol) DataType() DataTypes {
+// ////////// MemCol methods
+func (m *MemCol) DataType() d.DataTypes {
 	return m.dType
 }
 
 func (m *MemCol) Len() int {
 	switch m.dType {
-	case DTfloat:
+	case d.DTfloat:
 		return len(m.Data().([]float64))
-	case DTint:
+	case d.DTint:
 		return len(m.Data().([]int))
-	case DTstring:
+	case d.DTstring:
 		return len(m.Data().([]string))
-	case DTdate:
+	case d.DTdate:
 		return len(m.Data().([]time.Time))
 	}
 
@@ -126,33 +145,33 @@ func (m *MemCol) Name(renameTo string) string {
 
 func (m *MemCol) Element(row int) any {
 	switch m.dType {
-	case DTfloat:
+	case d.DTfloat:
 		return m.Data().([]float64)[row]
-	case DTint:
+	case d.DTint:
 		return m.Data().([]int)[row]
-	case DTstring:
+	case d.DTstring:
 		return m.Data().([]string)[row]
-	case DTdate:
+	case d.DTdate:
 		return m.Data().([]time.Time)[row]
 	}
 
 	return nil
 }
 
-func (m *MemCol) Copy() Column {
+func (m *MemCol) Copy() d.Column {
 	var copiedData any
 	n := m.Len()
 	switch m.dType {
-	case DTfloat:
+	case d.DTfloat:
 		copiedData = make([]float64, n)
 		copy(copiedData.([]float64), m.data.([]float64))
-	case DTint:
+	case d.DTint:
 		copiedData = make([]int, n)
 		copy(copiedData.([]int), m.data.([]int))
-	case DTstring:
+	case d.DTstring:
 		copiedData = make([]string, n)
 		copy(copiedData.([]string), m.data.([]string))
-	case DTdate:
+	case d.DTdate:
 		copiedData = make([]time.Time, n)
 		copy(copiedData.([]time.Time), m.data.([]time.Time))
 	}
@@ -169,15 +188,32 @@ func (m *MemCol) Copy() Column {
 
 func (m *MemCol) Less(i, j int) bool {
 	switch m.dType {
-	case DTfloat:
+	case d.DTfloat:
 		return m.data.([]float64)[i] <= m.data.([]float64)[j]
-	case DTint:
+	case d.DTint:
 		return m.data.([]int)[i] <= m.data.([]int)[j]
-	case DTstring:
+	case d.DTstring:
 		return m.data.([]string)[i] <= m.data.([]string)[j]
-	case DTdate:
+	case d.DTdate:
 		return !m.data.([]time.Time)[i].After(m.data.([]time.Time)[j])
 	}
 
 	panic("error in Less")
+}
+
+// ///////////////
+
+func SliceToDataTypeX(col *MemCol, dt d.DataTypes, cast bool) (xout any, err error) {
+	xout = d.MakeSlice(dt)
+
+	for ind := 0; ind < col.Len(); ind++ {
+		x, e := d.ToDataType(col.Element(ind), dt, cast)
+		if e != nil {
+			return nil, e
+		}
+
+		xout = d.AppendSlice(xout, x, dt)
+	}
+
+	return xout, nil
 }

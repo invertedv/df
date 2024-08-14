@@ -1,8 +1,9 @@
-package df
+package sql
 
 import (
 	"database/sql"
 	"fmt"
+	d "github.com/invertedv/df"
 	"reflect"
 	"strings"
 )
@@ -13,16 +14,16 @@ type SQLdf struct {
 	db            *sql.DB
 	orderBy       string
 
-	*DF
+	*d.DFcore
 }
 
 type SQLcol struct {
 	name  string
 	n     int
-	dType DataTypes
+	dType d.DataTypes
 	sql   string
 
-	catMap categoryMap
+	catMap d.CategoryMap
 }
 
 func (df *SQLdf) Sort(keys ...string) error {
@@ -36,7 +37,7 @@ func (df *SQLdf) Sort(keys ...string) error {
 	return nil
 }
 
-func (s *SQLcol) DataType() DataTypes {
+func (s *SQLcol) DataType() d.DataTypes {
 	return s.dType
 }
 
@@ -56,7 +57,7 @@ func (s *SQLcol) Name(renameTo string) string {
 	return s.name
 }
 
-func (s *SQLcol) Copy() Column {
+func (s *SQLcol) Copy() d.Column {
 	return &SQLcol{
 		name:   s.name,
 		n:      s.n,
@@ -71,7 +72,7 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 		err      error
 		rows     *sql.Rows
 		colTypes []*sql.ColumnType
-		cols     []Column
+		cols     []d.Column
 	)
 
 	// just get one row...TRY: just query and see if it runs one row at a time
@@ -87,16 +88,16 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 	}
 
 	for ind := 0; ind < len(colTypes); ind++ {
-		var dt DataTypes
+		var dt d.DataTypes
 		switch t := colTypes[ind].ScanType().Kind(); t {
 		case reflect.Float64, reflect.Float32:
-			dt = DTfloat
+			dt = d.DTfloat
 		case reflect.Int, reflect.Int64, reflect.Int32:
-			dt = DTint
+			dt = d.DTint
 		case reflect.String:
-			dt = DTstring
+			dt = d.DTstring
 		case reflect.Struct:
-			dt = DTdate
+			dt = d.DTdate
 		default:
 			return nil, fmt.Errorf("unsupported db field type: %v", t)
 		}
@@ -113,8 +114,8 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 
 	}
 
-	var tmp *DF
-	if tmp, err = NewDF(SQLrun, LoadFunctions(false), cols...); err != nil {
+	var tmp *d.DFcore
+	if tmp, err = d.NewDF(Run, d.LoadFunctions(Functions), cols...); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +123,7 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 		sourceSQL:     query,
 		destTableName: "",
 		db:            db,
-		DF:            tmp,
+		DFcore:        tmp,
 	}
 
 	return df, nil

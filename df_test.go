@@ -2,6 +2,7 @@ package df
 
 import (
 	"fmt"
+	"github.com/invertedv/df/sql"
 	"testing"
 
 	u "github.com/invertedv/utilities"
@@ -40,15 +41,17 @@ func makeMemDF() *MemDF {
 	tmp, _ := NewDF(MemRun, LoadFunctions(true), xCol, yCol, zCol)
 
 	tmp1 := &MemDF{
-		rows: 0,
-		DF:   tmp,
+		//		rows:   0,
+		DFcore: tmp,
 	}
+	_ = tmp1
+	tmp2, _ := NewMemDF(MemRun, LoadFunctions(true), xCol, yCol, zCol)
 
-	return tmp1
+	return tmp2
 }
 
-func makeSQLdf() *SQLdf {
-	xCol := &SQLcol{
+func makeSQLdf() *sql.SQLdf {
+	xCol := &sql.SQLcol{
 		name:   "x",
 		n:      1,
 		dType:  DTfloat,
@@ -56,7 +59,7 @@ func makeSQLdf() *SQLdf {
 		catMap: nil,
 	}
 
-	yCol := &SQLcol{
+	yCol := &sql.SQLcol{
 		name:   "y",
 		n:      1,
 		dType:  DTfloat,
@@ -66,9 +69,9 @@ func makeSQLdf() *SQLdf {
 
 	tmp, _ := NewDF(MemRun, LoadFunctions(true), xCol, yCol)
 
-	tmp1 := &SQLdf{
+	tmp1 := &sql.SQLdf{
 		sourceSQL: "",
-		DF:        tmp,
+		DFcore:    tmp,
 	}
 
 	return tmp1
@@ -124,13 +127,4 @@ func TestDF_Subset(t *testing.T) {
 	assert.True(t, u.Has("z", "", names...))
 	assert.True(t, u.Has("x", "", names...))
 	assert.False(t, u.Has("y", "", names...))
-}
-
-func TestDF_Sort(t *testing.T) {
-	df := makeMemDF()
-	df.Sort("y", "z")
-	x, _ := df.Column("x")
-	y, _ := df.Column("y")
-	z, _ := df.Column("z")
-	fmt.Println(x, y, z)
 }

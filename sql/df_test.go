@@ -1,4 +1,4 @@
-package df
+package sql
 
 import (
 	"database/sql"
@@ -35,8 +35,13 @@ func df4test() (*SQLdf, error) {
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
-	db, e := newConnect(host, user, password)
-	if e != nil {
+
+	var (
+		db *sql.DB
+		e  error
+	)
+
+	if db, e = newConnect(host, user, password); e != nil {
 		return nil, e
 	}
 

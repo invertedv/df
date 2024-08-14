@@ -2,11 +2,11 @@ package df
 
 import (
 	"fmt"
-	"strconv"
+	u "github.com/invertedv/utilities"
 	"time"
 )
 
-func toFloat(xIn any, cast bool) (xOut any, err error) {
+func ToFloat(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(float64); ok {
 		return x, nil
 	}
@@ -15,22 +15,14 @@ func toFloat(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	if x, ok := xIn.(int); ok {
-		return float64(x), nil
+	if xOut, err = u.Any2Float64(xIn); err != nil {
+		return nil, err
 	}
 
-	if x, ok := xIn.(string); ok {
-		var tmp float64
-		if tmp, err = strconv.ParseFloat(x, 64); err != nil {
-			return nil, err
-		}
-		return tmp, nil
-	}
-
-	return nil, fmt.Errorf("cannot convert type to float")
+	return xOut, nil
 }
 
-func toInt(xIn any, cast bool) (xOut any, err error) {
+func ToInt(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(int); ok {
 		return x, nil
 	}
@@ -39,22 +31,13 @@ func toInt(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	if x, ok := xIn.(float64); ok {
-		return int(x), nil
+	if xOut, err = u.Any2Int(xIn); err != nil {
+		return nil, err
 	}
-
-	if x, ok := xIn.(string); ok {
-		var tmp int64
-		if tmp, err = strconv.ParseInt(x, 10, 32); err != nil {
-			return nil, err
-		}
-		return int(tmp), nil
-	}
-
-	return nil, fmt.Errorf("cannot convert type to int")
+	return xOut, nil
 }
 
-func toDate(xIn any, cast bool) (xOut any, err error) {
+func ToDate(xIn any, cast bool) (xOut any, err error) {
 	if xx, ok := xIn.(time.Time); ok {
 		return xx, nil
 	}
@@ -63,26 +46,13 @@ func toDate(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	// DateFormats are formats to try when guessing the field type in Impute()
-	var DateFormats = []string{"2006-01-02", "2006-1-2", "2006/01/02", "2006/1/2", "20060102", "01022006",
-		"01/02/2006", "1/2/2006", "01-02-2006", "1-2-2006", "200601", "Jan 2 2006", "January 2 2006",
-		"Jan 2, 2006", "January 2, 2006", time.RFC3339}
-
-	xs, ok := xIn.(string)
-	if !ok {
-		return nil, fmt.Errorf("input not a string")
+	if xOut, err = u.Any2Date(xIn); err != nil {
+		return nil, err
 	}
-	for _, format := range DateFormats {
-		xOut, err = time.Parse(format, xs)
-		if err == nil {
-			return xOut, nil
-		}
-	}
-
-	return xOut, fmt.Errorf("cannot parse %s as date", xs)
+	return xOut, nil
 }
 
-func toString(xIn any, cast bool) (xOut any, err error) {
+func ToString(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(string); ok {
 		return x, nil
 	}
@@ -91,19 +61,19 @@ func toString(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	return fmt.Sprintf("%v", xIn), nil
+	return u.Any2String(xIn), nil
 }
 
-func toDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
+func ToDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 	switch dt {
 	case DTfloat:
-		return toFloat(x, cast)
+		return ToFloat(x, cast)
 	case DTint:
-		return toInt(x, cast)
+		return ToInt(x, cast)
 	case DTdate:
-		return toDate(x, cast)
+		return ToDate(x, cast)
 	case DTstring:
-		return toString(x, cast)
+		return ToString(x, cast)
 	case DTany:
 		return x, nil
 	}
@@ -111,21 +81,7 @@ func toDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 	return nil, fmt.Errorf("not supported")
 }
 
-func SliceToDataType(col *MemCol, dt DataTypes, cast bool) (xout any, err error) {
-	xout = makeSlice(dt)
-
-	for ind := 0; ind < col.Len(); ind++ {
-		x, e := toDataType(col.Element(ind), dt, cast)
-		if e != nil {
-			return nil, e
-		}
-		xout = appendSlice(xout, x, dt)
-	}
-
-	return xout, nil
-}
-
-func whatAmI(val any) DataTypes {
+func WhatAmI(val any) DataTypes {
 	switch val.(type) {
 	case float64:
 		return DTfloat
@@ -137,11 +93,24 @@ func whatAmI(val any) DataTypes {
 		return DTdate
 	default:
 		return DTunknown
-
 	}
 }
 
-func makeSlice(dt DataTypes) any {
+func ToColumnsXXX(cols ...any) []Column {
+	var out []Column
+	for ind := 0; ind < len(cols); ind++ {
+		c, ok := cols[ind].(Column)
+		if !ok {
+			panic("input is not interface Column to ToColumns")
+		}
+
+		out = append(out, c)
+	}
+
+	return out
+}
+
+func MakeSlice(dt DataTypes) any {
 	var xout any
 	switch dt {
 	case DTfloat:
@@ -157,7 +126,7 @@ func makeSlice(dt DataTypes) any {
 	return xout
 }
 
-func appendSlice(x, xadd any, dt DataTypes) any {
+func AppendSlice(x, xadd any, dt DataTypes) any {
 	switch dt {
 	case DTfloat:
 		x = append(x.([]float64), xadd.(float64))
@@ -170,18 +139,4 @@ func appendSlice(x, xadd any, dt DataTypes) any {
 	}
 
 	return x
-}
-
-func ToColumns(cols ...any) []Column {
-	var out []Column
-	for ind := 0; ind < len(cols); ind++ {
-		c, ok := cols[ind].(Column)
-		if !ok {
-			panic("input is not interface Column to ToColumns")
-		}
-
-		out = append(out, c)
-	}
-
-	return out
 }
