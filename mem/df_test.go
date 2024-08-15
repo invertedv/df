@@ -36,7 +36,7 @@ func makeMemDF() *MemDF {
 
 	// this works
 
-	tmp2, _ := NewMemDF(Run, d.LoadFunctions(Functions), xCol, yCol, zCol)
+	tmp2, _ := NewMemDF(Run, StandardFunctions(), xCol, yCol, zCol)
 
 	return tmp2
 }

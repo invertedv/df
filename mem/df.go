@@ -26,7 +26,7 @@ type MemCol struct {
 	catMap d.CategoryMap
 }
 
-func NewMemDF(run d.RunFunc, fmap d.FuncMap, cols ...*MemCol) (*MemDF, error) {
+func NewMemDF(run d.RunFunc, fmap d.Functions, cols ...*MemCol) (*MemDF, error) {
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
 		cc = append(cc, cols[ind])

@@ -3,10 +3,8 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	"log"
-	"strings"
-
 	u "github.com/invertedv/utilities"
+	"log"
 )
 
 type DF interface {
@@ -25,12 +23,13 @@ type DF interface {
 	Sort(keys ...string) error
 }
 
-// DFcore is the data plus functions to operate on it
+// DFcore is the data plus functions to operate on it -- it is the core structure of DF that is embedded
+// in specific implementations
 type DFcore struct {
 	head    *columnList
 	current *columnList
 
-	funcs FuncMap
+	funcs Functions
 	run   RunFunc
 }
 
@@ -41,6 +40,7 @@ type columnList struct {
 	next  *columnList
 }
 
+// Column interface defines the methods the columns of DFcore that must be supported
 type Column interface {
 	Name(reNameTo string) string
 	DataType() DataTypes
@@ -49,10 +49,13 @@ type Column interface {
 	Copy() Column
 }
 
+// DataTypes are the types of data that the package supports
 type DataTypes uint8
 
+// values of DataTypes
 const (
-	DTstring DataTypes = 0 + iota
+	DTunknown DataTypes = 0 + iota
+	DTstring
 	DTfloat
 	DTint
 	DTcategory
@@ -63,30 +66,28 @@ const (
 	DTslcFloat
 	DTslcInt
 	DTany
-	DTunknown
 )
+
+// max value of DataTypes type
+const MaxDT = DTany
 
 //go:generate stringer -type=DataTypes
 
-type FuncMap map[string]*Func
+type Functions []AnyFunction
 
-type Func struct {
-	Name     string
-	Inputs   []DataTypes
-	Output   DataTypes
-	Function AnyFunction
-}
+type AnyFunction func(info bool, inputs ...any) *FuncReturn
 
 type FuncReturn struct {
 	Value any
-	DT    DataTypes
-	Name  string
-	Err   error
+
+	Name   string
+	Output DataTypes
+	Inputs []DataTypes
+
+	Err error
 }
 
-type AnyFunction func(...any) *FuncReturn
-
-func NewDF(run RunFunc, funcs FuncMap, cols ...Column) (df *DFcore, err error) {
+func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -114,9 +115,9 @@ func NewDF(run RunFunc, funcs FuncMap, cols ...Column) (df *DFcore, err error) {
 	return &DFcore{head: head, funcs: funcs, run: run}, nil
 }
 
-type RunFunc func(fn *Func, params []any, inputs []Column) (Column, error)
+type RunFunc func(fn AnyFunction, params []any, inputs []Column) (Column, error)
 
-///////////// DF methods
+///////////// DFcor methods
 
 func (df *DFcore) Next(reset bool) Column {
 	if reset || df.current == nil {
@@ -183,11 +184,10 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	var (
 		vals   []Column
 		params []any
-		fn     *Func
-		ok     bool
+		fn     AnyFunction
 	)
 
-	if fn, ok = df.funcs[opName]; !ok {
+	if fn = df.funcs.Get(opName); fn == nil {
 		log.Printf("op to create %s not defined, operation skipped", resultName)
 		return nil
 		//		return fmt.Errorf("function %s not found", opName)
@@ -323,103 +323,32 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	return subsetDF, nil
 }
 
-///////////// FuncMap funcs
-
-// TODO: can I combined funcDetails into this?
-func LoadFunctions(functions FunctionList) FuncMap {
-	fns := make(FuncMap)
-	names, inputs, outputs, fnsx := funcDetails(functions)
-	for ind := 0; ind < len(names); ind++ {
-		fns[names[ind]] = &Func{
-			Name:     names[ind],
-			Inputs:   inputs[ind],
-			Output:   outputs[ind],
-			Function: fnsx[ind],
-		}
-	}
-
-	return fns
-}
-
-//go:embed funcs/funcDefs.txt
-var funcDefs string
-
-func funcDetails(functions FunctionList) (names []string, inputs [][]DataTypes, outputs []DataTypes, fns []AnyFunction) {
-	fDetail := strings.Split(funcDefs, "\n")
-	for _, f := range fDetail {
-		if f == "" {
-			continue
-		}
-
-		detail := strings.Split(f, ",")
-		if len(detail) < 3 {
-			continue
-		}
-
-		var (
-			outs     DataTypes
-			inps     []DataTypes
-			thisFunc AnyFunction
-		)
-
-		name := detail[0]
-		if thisFunc = functions.Get(name); thisFunc == nil {
-			panic(fmt.Sprintf("unknown function: %s", name))
-		}
-
-		if outs = DTFromString(detail[len(detail)-1]); outs == DTunknown {
-			panic(fmt.Sprintf("unknown DataTypes %s", detail[len(detail)-1]))
-		}
-
-		for ind := 1; ind < len(detail)-1; ind++ {
-			var val DataTypes
-			if val = DTFromString(detail[ind]); val == DTunknown {
-				panic(fmt.Sprintf("unknown DataTypes %s", detail[ind]))
-			}
-
-			inps = append(inps, val)
-		}
-
-		names = append(names, name)
-		inputs = append(inputs, inps)
-		outputs = append(outputs, outs)
-		fns = append(fns, thisFunc)
-	}
-
-	return names, inputs, outputs, fns
-}
-
-type GetFunction func(funcName string) AnyFunction
-
-type FunctionList []AnyFunction
-
-func (f FunctionList) Get(fnName string) AnyFunction {
-	var names []string
-
-	for ind := 0; ind < len(f); ind++ {
-		fnr := f[ind](nil)
-		names = append(names, fnr.Name)
-	}
-
-	pos := u.Position(fnName, "", names...)
-	if pos < 0 {
-		return nil
-	}
-	return f[pos]
-
-}
-
 /////////// DataTypes
 
 func DTFromString(nm string) DataTypes {
-	const nms = "DTstring,DTfloat,DTint,DTcategory,DTdate,DTdateTime,DTtime,DTslcString,DTslcFloat,DTslcInt,DTany,DTunknown"
+	var nms []string
+	for ind := DataTypes(0); ind <= MaxDT; ind++ {
+		nms = append(nms, fmt.Sprintf("%v", ind))
+	}
 
-	pos := u.Position(nm, ",", nms)
+	pos := u.Position(nm, "", nms...)
 	if pos < 0 {
 		return DTunknown
 	}
 
 	return DataTypes(uint8(pos))
+}
+
+//////// Functions Methods
+
+func (fs Functions) Get(fnName string) AnyFunction {
+	for _, f := range fs {
+		if f(true, nil).Name == fnName {
+			return f
+		}
+	}
+
+	return nil
 }
 
 ////////////////

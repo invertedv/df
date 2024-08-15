@@ -3,12 +3,14 @@ package sql
 import (
 	"database/sql"
 	"fmt"
-	d "github.com/invertedv/df"
 	"reflect"
 	"strings"
+
+	d "github.com/invertedv/df"
 )
 
 type SQLdf struct {
+	n             int
 	sourceSQL     string
 	destTableName string
 	db            *sql.DB
@@ -115,7 +117,7 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 	}
 
 	var tmp *d.DFcore
-	if tmp, err = d.NewDF(Run, d.LoadFunctions(Functions), cols...); err != nil {
+	if tmp, err = d.NewDF(Run, StandardFunctions(), cols...); err != nil {
 		return nil, err
 	}
 
