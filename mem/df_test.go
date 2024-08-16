@@ -1,8 +1,12 @@
 package df
 
 import (
+	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -49,4 +53,45 @@ func TestDF_Sort(t *testing.T) {
 	y, _ := df.Column("y")
 	z, _ := df.Column("z")
 	fmt.Println(x, y, z)
+}
+
+// NewConnect established a new connection to ClickHouse.
+// host is IP address (assumes port 9000), memory is max_memory_usage
+func newConnect(host, user, password string) (db *sql.DB, err error) {
+	db = clickhouse.OpenDB(
+		&clickhouse.Options{
+			Addr: []string{host + ":9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: user,
+				Password: password,
+			},
+			DialTimeout: 300 * time.Second,
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+				Level:  0,
+			},
+		})
+
+	return db, db.Ping()
+}
+
+func TestLoadSQL(t *testing.T) {
+	user := os.Getenv("user")
+	host := os.Getenv("host")
+	password := os.Getenv("password")
+
+	var (
+		db *sql.DB
+		e  error
+	)
+
+	db, e = newConnect(host, user, password)
+	assert.Nil(t, e)
+	memDF, e1 := LoadSQL("SELECT * FROM zip.zip3 LIMIT 10", db)
+	assert.Nil(t, e1)
+	col, e2 := memDF.Column("prop_zip3")
+	assert.Nil(t, e2)
+	fmt.Println(col.Data())
+
 }

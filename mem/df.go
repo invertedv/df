@@ -1,6 +1,7 @@
 package df
 
 import (
+	"database/sql"
 	_ "embed"
 	"fmt"
 	"os"
@@ -8,12 +9,14 @@ import (
 	"time"
 
 	d "github.com/invertedv/df"
+	s "github.com/invertedv/df/sql"
 )
 
 type MemDF struct {
 	sourceFileName string
 	destFileName   string
 	destFile       *os.File
+	sourceQuery    string
 	by             []*MemCol
 
 	rowCount int
@@ -54,6 +57,79 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 	outDF := &MemDF{DFcore: df, rowCount: cols[0].Len()}
 
 	return outDF, nil
+}
+
+func LoadSQL(qry string, db *sql.DB) (*MemDF, error) {
+	var (
+		df *s.SQLdf
+		e  error
+	)
+	if df, e = s.NewSQLdf(qry, db); e != nil {
+		return nil, e
+	}
+
+	columnNames := df.ColumnNames()
+	columnTypes := df.ColumnTypes()
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if rows, err = db.Query(qry); err != nil {
+		return nil, err
+	}
+
+	r := make([]any, df.ColumnCount())
+	for ind := range r {
+		var x any
+		r[ind] = &x
+	}
+
+	var memData []any
+	for ind := 0; ind < len(columnTypes); ind++ {
+		memData = append(memData, d.MakeSlice(columnTypes[ind], df.RowCount()))
+	}
+
+	xind := 0
+	for rows.Next() {
+		var rx []any
+		for ind := 0; ind < len(columnTypes); ind++ {
+			rx = append(rx, d.Address(memData[ind], df.ColumnTypes()[ind], xind))
+		}
+
+		xind++
+		if e := rows.Scan(rx...); e != nil {
+			return nil, e
+		}
+
+	}
+
+	var memDF *MemDF
+	for ind := 0; ind < len(columnTypes); ind++ {
+		var (
+			col *MemCol
+			e   error
+		)
+
+		if col, e = NewMemCol(columnNames[ind], memData[ind]); e != nil {
+			return nil, e
+		}
+
+		if ind == 0 {
+			if memDF, e = NewMemDF(Run, StandardFunctions(), col); e != nil {
+				return nil, e
+			}
+			continue
+		}
+
+		if e = memDF.AppendColumn(col); e != nil {
+			return nil, e
+		}
+	}
+
+	memDF.sourceQuery = qry
+
+	return memDF, nil
 }
 
 func (df *MemDF) Less(i, j int) bool {

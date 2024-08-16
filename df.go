@@ -3,9 +3,8 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	"log"
-
 	u "github.com/invertedv/utilities"
+	"log"
 )
 
 type DF interface {
@@ -366,3 +365,5 @@ func (fs Functions) Get(fnName string) AnyFunction {
 ////////////////
 
 type CategoryMap map[any]uint32
+
+////////////////

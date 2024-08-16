@@ -77,6 +77,5 @@ func TestNewSQLdf(t *testing.T) {
 
 	fmt.Println(df.RowCount())
 	fmt.Println(df.MakeQuery())
-	df.ToMemDF()
 
 }
