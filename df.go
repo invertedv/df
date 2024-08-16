@@ -9,7 +9,6 @@ import (
 
 type DF interface {
 	// generic from DFcore
-	RowCount() int
 	ColumnCount() int
 	ColumnNames() []string
 	Column(colName string) (col Column, err error)
@@ -20,17 +19,19 @@ type DF interface {
 	Next(reset bool) Column
 
 	// specific to underlying data source
+	RowCount() int
 	Sort(keys ...string) error
 }
 
 // DFcore is the data plus functions to operate on it -- it is the core structure of DF that is embedded
 // in specific implementations
 type DFcore struct {
-	head    *columnList
-	current *columnList
+	head *columnList
 
 	funcs Functions
 	run   RunFunc
+
+	current *columnList
 }
 
 type columnList struct {
@@ -68,10 +69,10 @@ const (
 	DTany
 )
 
+//go:generate stringer -type=DataTypes
+
 // max value of DataTypes type
 const MaxDT = DTany
-
-//go:generate stringer -type=DataTypes
 
 type Functions []AnyFunction
 
@@ -117,7 +118,7 @@ func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error)
 
 type RunFunc func(fn AnyFunction, params []any, inputs []Column) (Column, error)
 
-///////////// DFcor methods
+///////////// DFcore methods
 
 func (df *DFcore) Next(reset bool) Column {
 	if reset || df.current == nil {
@@ -132,10 +133,6 @@ func (df *DFcore) Next(reset bool) Column {
 
 	df.current = df.current.next
 	return df.current.col
-}
-
-func (df *DFcore) RowCount() int {
-	return df.head.col.Len()
 }
 
 func (df *DFcore) ColumnCount() int {
@@ -226,7 +223,8 @@ func (df *DFcore) AppendColumn(col Column) error {
 		return fmt.Errorf("duplicate column name: %s", col.Name(""))
 	}
 
-	if col.Len() != df.RowCount() {
+	// col.Len() = -1 means length is not meaningful here
+	if col.Len() > 0 && col.Len() != df.head.col.Len() {
 		return fmt.Errorf("length mismatch: dfList - %d, append col - %d", df.head.col.Len(), col.Len())
 	}
 

@@ -2,6 +2,7 @@ package sql
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -67,9 +68,9 @@ func TestNewSQLdf(t *testing.T) {
 	e1 = df.Apply("test", "add", "q10", "q25")
 	assert.Nil(t, e1)
 
-	r, e2 := df.Column("test")
+	_, e2 := df.Column("test")
 	assert.Nil(t, e2)
-	_ = r
-	_ = df
+
+	fmt.Println(df.RowCount())
 
 }

@@ -42,7 +42,6 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 
 	outCol = &SQLcol{
 		name:   "",
-		n:      1,
 		dType:  info.Output,
 		sql:    fnx,
 		catMap: nil,

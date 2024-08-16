@@ -8,4 +8,3 @@
 - do I used method with receiver or access directly? Be consistent.
 - df to have function that checks a list of columns all are in df
 
-- Incorporate inputs/outputs etc from funcDefs into actual function -- just have 1 struct for everything....

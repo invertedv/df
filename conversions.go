@@ -83,13 +83,13 @@ func ToDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 
 func WhatAmI(val any) DataTypes {
 	switch val.(type) {
-	case float64:
+	case float64, []float64:
 		return DTfloat
-	case int:
+	case int, []int:
 		return DTint
-	case string:
+	case string, []string:
 		return DTstring
-	case time.Time:
+	case time.Time, []time.Time:
 		return DTdate
 	default:
 		return DTunknown

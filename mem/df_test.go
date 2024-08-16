@@ -2,43 +2,18 @@ package df
 
 import (
 	"fmt"
-	d "github.com/invertedv/df"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func makeMemDF() *MemDF {
-	x := []float64{1, -2, 3, 0, 2, -1}
-	y := []int{4, 5, 6, 1, 4, 4}
-	z := []string{"p20221231", "20000101", "19900615", "20220601", "20230915", "20060310"}
+	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, -1})
+	y, _ := NewMemCol("y", []int{4, 5, 6, 1, 4, 4})
+	z, _ := NewMemCol("z", []string{"p20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
+	df, _ := NewMemDF(Run, StandardFunctions(), x, y, z)
 
-	xCol := &MemCol{
-		name: "x",
-		//		n:      len(x),
-		dType:  d.DTfloat,
-		data:   x,
-		catMap: nil,
-	}
-
-	yCol := &MemCol{
-		//		n:     len(y),
-		dType: d.DTint,
-		name:  "y",
-		data:  y,
-	}
-
-	zCol := &MemCol{
-		//		n:     len(y),
-		dType: d.DTstring,
-		name:  "z",
-		data:  z,
-	}
-
-	// this works
-
-	tmp2, _ := NewMemDF(Run, StandardFunctions(), xCol, yCol, zCol)
-
-	return tmp2
+	return df
 }
 
 func TestDF_Apply(t *testing.T) {
@@ -68,7 +43,8 @@ func TestDF_Apply(t *testing.T) {
 
 func TestDF_Sort(t *testing.T) {
 	df := makeMemDF()
-	df.Sort("y", "z")
+	e := df.Sort("y", "z")
+	assert.Nil(t, e)
 	x, _ := df.Column("x")
 	y, _ := df.Column("y")
 	z, _ := df.Column("z")

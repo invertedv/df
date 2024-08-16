@@ -2,6 +2,7 @@ package df
 
 import (
 	_ "embed"
+	"fmt"
 	"os"
 	"sort"
 	"time"
@@ -15,6 +16,8 @@ type MemDF struct {
 	destFile       *os.File
 	by             []*MemCol
 
+	rowCount int
+
 	*d.DFcore
 }
 
@@ -26,9 +29,16 @@ type MemCol struct {
 	catMap d.CategoryMap
 }
 
-func NewMemDF(run d.RunFunc, fmap d.Functions, cols ...*MemCol) (*MemDF, error) {
+/////////// MemDF
+
+func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error) {
+	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
+		if cols[ind].Len() != rowCount {
+			return nil, fmt.Errorf("all MemCols must have same length")
+		}
+
 		cc = append(cc, cols[ind])
 	}
 
@@ -37,16 +47,14 @@ func NewMemDF(run d.RunFunc, fmap d.Functions, cols ...*MemCol) (*MemDF, error) 
 		e  error
 	)
 
-	if df, e = d.NewDF(run, fmap, cc...); e != nil {
+	if df, e = d.NewDF(run, funcs, cc...); e != nil {
 		return nil, e
 	}
 
-	outDF := &MemDF{DFcore: df}
+	outDF := &MemDF{DFcore: df, rowCount: cols[0].Len()}
 
 	return outDF, nil
 }
-
-/////////// MemDF methods
 
 func (df *MemDF) Less(i, j int) bool {
 	for ind := 0; ind < len(df.by); ind++ {
@@ -106,12 +114,33 @@ func (df *MemDF) Sort(cols ...string) error {
 	return nil
 }
 
+func (df *MemDF) RowCount() int {
+	return df.rowCount
+}
+
 // Len() is required for sort
 func (df *MemDF) Len() int {
 	return df.RowCount()
 }
 
-// ////////// MemCol methods
+///////////// MemCol
+
+func NewMemCol(name string, data any) (*MemCol, error) {
+	var dt d.DataTypes
+	if dt = d.WhatAmI(data); dt == d.DTunknown {
+		return nil, fmt.Errorf("unsupported data type in NewMemCol")
+	}
+
+	c := &MemCol{
+		name:   name,
+		dType:  dt,
+		data:   data,
+		catMap: nil,
+	}
+
+	return c, nil
+}
+
 func (m *MemCol) DataType() d.DataTypes {
 	return m.dType
 }
@@ -128,7 +157,7 @@ func (m *MemCol) Len() int {
 		return len(m.Data().([]time.Time))
 	}
 
-	return 0
+	return -1
 }
 
 func (m *MemCol) Data() any {
@@ -199,21 +228,4 @@ func (m *MemCol) Less(i, j int) bool {
 	}
 
 	panic("error in Less")
-}
-
-// ///////////////
-
-func SliceToDataTypeX(col *MemCol, dt d.DataTypes, cast bool) (xout any, err error) {
-	xout = d.MakeSlice(dt)
-
-	for ind := 0; ind < col.Len(); ind++ {
-		x, e := d.ToDataType(col.Element(ind), dt, cast)
-		if e != nil {
-			return nil, e
-		}
-
-		xout = d.AppendSlice(xout, x, dt)
-	}
-
-	return xout, nil
 }
