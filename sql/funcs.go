@@ -2,7 +2,6 @@ package sql
 
 import (
 	"fmt"
-	"strings"
 
 	d "github.com/invertedv/df"
 )
@@ -13,12 +12,7 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
-	var fnr *d.FuncReturn
-	if fnr = fn(false, ""); fnr.Err != nil {
-		return nil, fnr.Err
-	}
-
-	fnx := fnr.Value.(string)
+	var xs []any
 	for ind := 0; ind < len(params); ind++ {
 		var (
 			xadd any
@@ -28,22 +22,22 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 		if xadd, e = d.ToDataType(params[ind], info.Inputs[ind], true); e != nil {
 			return nil, e
 		}
-
-		fnx = strings.Replace(fnx, fmt.Sprintf("P%d", ind), fmt.Sprintf("%d", xadd), 1)
+		xs = append(xs, xadd)
 	}
 
 	for ind := 0; ind < len(inputs); ind++ {
 		if info.Inputs[ind+len(params)] != d.DTany && inputs[ind].DataType() != info.Inputs[ind+len(params)] {
 			return nil, fmt.Errorf("column %s is data type %d, need %d", inputs[ind].Name(""), inputs[ind].DataType(), info.Inputs[ind+len(params)])
 		}
-
-		fnx = strings.Replace(fnx, fmt.Sprintf("X%d", ind), inputs[ind].Name(""), 1)
+		xs = append(xs, inputs[ind])
 	}
+
+	r := fn(false, xs...)
 
 	outCol = &SQLcol{
 		name:   "",
-		dType:  info.Output,
-		sql:    fnx,
+		dType:  r.Output,
+		sql:    r.Value.(string),
 		catMap: nil,
 	}
 
@@ -61,6 +55,8 @@ func exp(info bool, inputs ...any) *d.FuncReturn {
 		return &d.FuncReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
 
+	sql := fmt.Sprintf("abs(%s)", inputs[0].(d.Column).Name(""))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 	return &d.FuncReturn{Value: "exp(X0)", Err: nil}
 }
 
@@ -69,7 +65,8 @@ func abs(info bool, inputs ...any) *d.FuncReturn {
 		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
 
-	return &d.FuncReturn{Value: "abs(X0)", Err: nil}
+	sql := fmt.Sprintf("abs(%s)", inputs[0].(d.Column).Name(""))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
 func add(info bool, inputs ...any) *d.FuncReturn {
@@ -77,23 +74,27 @@ func add(info bool, inputs ...any) *d.FuncReturn {
 		return &d.FuncReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
 	}
 
-	return &d.FuncReturn{Value: "X0+X1", Err: nil}
+	sql := fmt.Sprintf("%s + %s", inputs[0].(d.Column).Name(""), inputs[1].(d.Column).Name(""))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
 func cast(info bool, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}}
+		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
 	}
+
+	x := inputs[1].(d.Column).Name("")
+	sql := fmt.Sprintf("cast(%s AS", x)
 
 	switch inputs[0].(string) {
 	case "DTfloat":
-		return &d.FuncReturn{Value: "cast(X0 AS Float64)", Err: nil}
+		return &d.FuncReturn{Value: sql + " Float64)", Output: d.DTfloat, Err: nil}
 	case "DTint":
-		return &d.FuncReturn{Value: "cast(X0 AS Int64)", Err: nil}
+		return &d.FuncReturn{Value: sql + " Int64)", Output: d.DTint, Err: nil}
 	case "DTstring":
-		return &d.FuncReturn{Value: "cast(X0 AS String)", Err: nil}
+		return &d.FuncReturn{Value: sql + " String)", Output: d.DTstring, Err: nil}
 	case "DTdate":
-		return &d.FuncReturn{Value: "cast(cast(X0 AS String) AS Date", Err: nil}
+		return &d.FuncReturn{Value: "cast(" + sql + " String) AS Date", Output: d.DTdate, Err: nil}
 	}
 
 	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot cast to %s", inputs[0].(string))}

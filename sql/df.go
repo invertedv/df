@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
@@ -56,9 +57,134 @@ func (df *SQLdf) Sort(keys ...string) error {
 	return nil
 }
 
-func (df *SQLdf) ToMemDF() (*m.MemDF, error) {
+func (df *SQLdf) MakeQuery() string {
+	var fields []string
+	for c := df.Next(true); c != nil; c = df.Next(false) {
+		var field string
+		field = c.Name("")
+		if fn := c.Data().(string); fn != "" {
+			field = fmt.Sprintf("%s AS %s", fn, c.Name(""))
+		}
 
-	return nil, nil
+		fields = append(fields, field)
+	}
+
+	qry := fmt.Sprintf("WITH d AS (%s) SELECT %s FROM d", df.sourceSQL, strings.Join(fields, ","))
+
+	return qry
+}
+
+func (df *SQLdf) ToMemDF() (*m.MemDF, error) {
+	qry := df.MakeQuery()
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if rows, err = df.db.Query(qry); err != nil {
+		return nil, err
+	}
+
+	r := make([]any, df.ColumnCount())
+	for ind := range r {
+		var x any
+		r[ind] = &x
+	}
+
+	memData := make([][]any, df.ColumnCount())
+	for rows.Next() {
+		rx := df.ScanSlice()
+		if e := rows.Scan(rx...); e != nil {
+			return nil, e
+		}
+		for ind := 0; ind < len(rx); ind++ {
+			memData[ind] = append(memData[ind], rx[ind])
+		}
+	}
+
+	colNames := df.ColumnNames()
+	colTypes := df.ColumnTypes()
+	var memDF *m.MemDF
+
+	x := memData[0][0]
+	y := *x.(*interface{})
+	_ = y
+
+	for ind := 0; ind < len(colNames); ind++ {
+		var (
+			col *m.MemCol
+			e   error
+		)
+
+		if col, e = m.NewMemCol(colNames[ind], ScanInverter(memData[ind], colTypes[ind])); e != nil {
+			return nil, e
+		}
+
+		if ind == 0 {
+			if memDF, e = m.NewMemDF(m.Run, m.StandardFunctions(), col); e != nil {
+				return nil, e
+			}
+
+			continue
+		}
+
+		if e1 := memDF.AppendColumn(col); e1 != nil {
+			return nil, e1
+		}
+
+	}
+
+	return memDF, nil
+}
+
+func ScanInverter(xScan []any, dt d.DataTypes) any {
+	x := d.MakeSlice(dt, len(xScan))
+
+	for ind, xs := range xScan {
+		var (
+			y any
+			e error
+		)
+
+		if y, e = d.ToDataType(*xs.(*interface{}), dt, true); e != nil {
+			panic(e)
+		}
+
+		switch dt {
+		case d.DTfloat:
+			x.([]float64)[ind] = y.(float64)
+		case d.DTint:
+			x.([]int)[ind] = y.(int)
+		case d.DTstring:
+			x.([]string)[ind] = y.(string)
+		case d.DTdate:
+			x.([]time.Time)[ind] = y.(time.Time)
+		}
+	}
+
+	return x
+}
+
+func (df *SQLdf) ScanSlice() []any {
+	var s []any
+
+	for c := df.Next(true); c != nil; c = df.Next(false) {
+		var x any
+
+		switch c.DataType() {
+		case d.DTfloat:
+			x = float64(0)
+		case d.DTint:
+			x = int(0)
+		case d.DTstring:
+			x = ""
+		case d.DTdate:
+			x = time.Date(2006, 1, 2, 0, 0, 0, 0, time.UTC)
+		}
+
+		s = append(s, &x)
+	}
+
+	return s
 }
 
 /////////// SQLcol

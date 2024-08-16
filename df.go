@@ -3,14 +3,16 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	u "github.com/invertedv/utilities"
 	"log"
+
+	u "github.com/invertedv/utilities"
 )
 
 type DF interface {
 	// generic from DFcore
 	ColumnCount() int
 	ColumnNames() []string
+	ColumnTypes() []DataTypes
 	Column(colName string) (col Column, err error)
 	Apply(resultName, opName string, inputs ...string) error
 	AppendColumn(col Column) error
@@ -153,6 +155,18 @@ func (df *DFcore) ColumnNames() []string {
 
 	return names
 }
+
+func (df *DFcore) ColumnTypes() []DataTypes {
+	var types []DataTypes
+
+	for h := df.head; h != nil; h = h.next {
+		types = append(types, h.col.DataType())
+	}
+
+	return types
+}
+
+//TODO: add ColumnTypes
 
 func (df *DFcore) Column(colName string) (col Column, err error) {
 	for h := df.head; h != nil; h = h.next {

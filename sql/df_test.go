@@ -46,7 +46,7 @@ func df4test() (*SQLdf, error) {
 		return nil, e
 	}
 
-	df, e1 := NewSQLdf("SELECT * FROM econGo.final", db)
+	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 100", db)
 	if e1 != nil {
 		return nil, e1
 	}
@@ -59,18 +59,24 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	defer func() { _ = df.db.Close() }()
 
-	col, e := df.Column("cbsa")
-	assert.Nil(t, e)
-	col1, e1 := df.Column("q25")
-	assert.Nil(t, e1)
-	_, _ = col, col1
+	/*	col, e := df.Column("cbsa")
+		assert.Nil(t, e)
+		col1, e1 := df.Column("q25")
+		assert.Nil(t, e1)
+		_, _ = col, col1
 
-	e1 = df.Apply("test", "add", "q10", "q25")
+
+	*/
+	e1 := df.Apply("test", "add", "latitude", "longitude")
 	assert.Nil(t, e1)
+	e = df.Apply("test1", "cast", "DTstring", "latitude")
+	assert.Nil(t, e)
 
 	_, e2 := df.Column("test")
 	assert.Nil(t, e2)
 
 	fmt.Println(df.RowCount())
+	fmt.Println(df.MakeQuery())
+	df.ToMemDF()
 
 }

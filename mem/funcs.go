@@ -65,7 +65,7 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 
 		// or have Run return a type?
 		if ind == 0 {
-			xOut = d.MakeSlice(outType)
+			xOut = d.MakeSlice(outType, 0)
 		}
 
 		xOut = d.AppendSlice(xOut, fnr.Value, outType)

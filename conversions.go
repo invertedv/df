@@ -19,7 +19,7 @@ func ToFloat(xIn any, cast bool) (xOut any, err error) {
 		return nil, err
 	}
 
-	return xOut, nil
+	return *xOut.(*float64), nil
 }
 
 func ToInt(xIn any, cast bool) (xOut any, err error) {
@@ -34,7 +34,7 @@ func ToInt(xIn any, cast bool) (xOut any, err error) {
 	if xOut, err = u.Any2Int(xIn); err != nil {
 		return nil, err
 	}
-	return xOut, nil
+	return *xOut.(*int), nil
 }
 
 func ToDate(xIn any, cast bool) (xOut any, err error) {
@@ -49,7 +49,7 @@ func ToDate(xIn any, cast bool) (xOut any, err error) {
 	if xOut, err = u.Any2Date(xIn); err != nil {
 		return nil, err
 	}
-	return xOut, nil
+	return *xOut.(*time.Time), nil
 }
 
 func ToString(xIn any, cast bool) (xOut any, err error) {
@@ -110,17 +110,17 @@ func ToColumnsXXX(cols ...any) []Column {
 	return out
 }
 
-func MakeSlice(dt DataTypes) any {
+func MakeSlice(dt DataTypes, n int) any {
 	var xout any
 	switch dt {
 	case DTfloat:
-		xout = make([]float64, 0)
+		xout = make([]float64, n)
 	case DTint:
-		xout = make([]int, 0)
+		xout = make([]int, n)
 	case DTdate:
-		xout = make([]time.Time, 0)
+		xout = make([]time.Time, n)
 	case DTstring:
-		xout = make([]string, 0)
+		xout = make([]string, n)
 	}
 
 	return xout
