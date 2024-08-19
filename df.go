@@ -1,11 +1,37 @@
 package df
 
 import (
+	"database/sql"
 	_ "embed"
 	"fmt"
 	u "github.com/invertedv/utilities"
 	"log"
+	"strings"
 )
+
+var (
+	//go:embed skeletons/chCreate.txt
+	chCreate string
+
+	//go:embed skeletons/chTypes.txt
+	chTypes string
+
+	//go:embed skeletons/chFields.txt
+	chFields string
+)
+
+func Skeletons(dbName string) (dbCreate, dbType, dbFields string, err error) {
+	switch strings.ToLower(dbName) {
+	case "clickhouse":
+		return chCreate, chTypes, chFields, nil
+	case "postgress":
+		return "", "", "", nil
+	case "mysql":
+		return "", "", "", nil
+	}
+
+	return "", "", "", fmt.Errorf("no skeletons for database %s", dbName)
+}
 
 type DF interface {
 	// generic from DFcore
@@ -189,6 +215,20 @@ func (df *DFcore) Save(saver Saver, colNames ...string) error {
 }
 
 type Saver func(cols ...Column) error
+
+func (df *DFcore) CreateTable(tableName, dbName string, db *sql.DB, orderBy ...string) error {
+	var (
+		e    error
+		stmt string
+	)
+
+	if stmt, e = CreateStatement(tableName, dbName, df.ColumnNames(), df.ColumnTypes(), orderBy...); e != nil {
+		return e
+	}
+
+	_, e = db.Exec(stmt)
+	return e
+}
 
 func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	var (

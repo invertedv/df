@@ -88,10 +88,13 @@ func TestLoadSQL(t *testing.T) {
 
 	db, e = newConnect(host, user, password)
 	assert.Nil(t, e)
-	memDF, e1 := LoadSQL("SELECT * FROM zip.zip3 LIMIT 10", db)
+	memDF, e1 := LoadDB("SELECT * FROM zip.zip3 LIMIT 10", db)
 	assert.Nil(t, e1)
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)
 	fmt.Println(col.Data())
+
+	ed := memDF.CreateTable("tmp.aaa", "clickhouse", db, "prop_zip3")
+	assert.Nil(t, ed)
 
 }

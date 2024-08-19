@@ -8,3 +8,4 @@
 - do I used method with receiver or access directly? Be consistent.
 - df to have function that checks a list of columns all are in df
 
+- SQL save for MemDF and SQLdf

@@ -59,7 +59,7 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 	return outDF, nil
 }
 
-func LoadSQL(qry string, db *sql.DB) (*MemDF, error) {
+func LoadDB(qry string, db *sql.DB) (*MemDF, error) {
 	var (
 		df *s.SQLdf
 		e  error

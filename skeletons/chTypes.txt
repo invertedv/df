@@ -1,0 +1,4 @@
+DTstring,String
+DTint,Int32
+DTfloat,Float64
+DTdate,Date
