@@ -77,9 +77,9 @@ func TestNewSQLdf(t *testing.T) {
 
 	fmt.Println(df.RowCount())
 	fmt.Println(df.MakeQuery())
-	e = df.DBcreateTable("tmp.aaa", "", true)
+	e = df.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3")
 	assert.Nil(t, e)
-	//	e = df.DBsave("tmp.aaa")
-	//	assert.Nil(t, e)
+	e = df.DBsave("tmp.aaa", true)
+	assert.Nil(t, e)
 
 }

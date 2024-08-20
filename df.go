@@ -4,15 +4,17 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	u "github.com/invertedv/utilities"
 	"log"
+	"strings"
+
+	u "github.com/invertedv/utilities"
 )
 
 type DF interface {
 	// generic from DFcore
 	ColumnCount() int
 	ColumnNames() []string
-	ColumnTypes() []DataTypes
+	ColumnTypes(cols ...string) ([]DataTypes, error)
 	Column(colName string) (col Column, err error)
 	Apply(resultName, opName string, inputs ...string) error
 	AppendColumn(col Column) error
@@ -20,13 +22,13 @@ type DF interface {
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
 	SetDB(dbName string, db *sql.DB) error
-	DBcreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
+	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	Fn(fn Ereturn) error
 
 	// specific to underlying data source
 	RowCount() int
 	Sort(keys ...string) error
-	DBsave(tableName string, cols ...string) error
+	DBsave(tableName string, overwrite bool, cols ...string) error
 }
 
 type Ereturn func() error
@@ -41,7 +43,7 @@ type DFcore struct {
 
 	current *columnList
 
-	dx *Dialect
+	*Dialect
 }
 
 type columnList struct {
@@ -132,17 +134,17 @@ type RunFunc func(fn AnyFunction, params []any, inputs []Column) (Column, error)
 
 func (df *DFcore) SetDB(dialect string, db *sql.DB) error {
 	var e error
-	df.dx, e = NewDialect(dialect, db)
+	df.Dialect, e = NewDialect(dialect, db)
 
 	return e
 }
 
 func (df *DFcore) DB() *sql.DB {
-	return df.dx.db
+	return df.db
 }
 
 func (df *DFcore) DBdialect() string {
-	return df.dx.dialect
+	return df.dialect
 }
 
 func (df *DFcore) Next(reset bool) Column {
@@ -224,13 +226,13 @@ Save DB -> DB
 
 */
 
-func (df *DFcore) DBcreateTable(tableName, orderBy string, overwrite bool, cols ...string) error {
+func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error {
 	var (
 		e   error
 		dts []DataTypes
 	)
 
-	if df.dx == nil {
+	if df.Dialect == nil {
 		return fmt.Errorf("no database defined")
 	}
 
@@ -238,11 +240,26 @@ func (df *DFcore) DBcreateTable(tableName, orderBy string, overwrite bool, cols 
 		cols = df.ColumnNames()
 	}
 
+	if orderBy != "" && !df.HasColumns(strings.Split(orderBy, ",")...) {
+		return fmt.Errorf("not all columns present in OrderBy %s", orderBy)
+	}
+
 	if dts, e = df.ColumnTypes(cols...); e != nil {
 		return e
 	}
 
-	return df.dx.Create(tableName, orderBy, cols, dts, overwrite)
+	return df.Create(tableName, orderBy, cols, dts, overwrite)
+}
+
+func (df *DFcore) HasColumns(cols ...string) bool {
+	dfCols := df.ColumnNames()
+	for _, c := range cols {
+		if !u.Has(c, "", dfCols...) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {

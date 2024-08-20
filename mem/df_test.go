@@ -95,7 +95,7 @@ func TestLoadSQL(t *testing.T) {
 	assert.Nil(t, e2)
 	fmt.Println(col.Data())
 
-	ed := memDF.DBcreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
+	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
 	assert.Nil(t, ed)
 	a := db.Stats()
 	_ = a

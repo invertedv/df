@@ -138,7 +138,7 @@ func LoadDB(qry, dbName string, db *sql.DB) (*MemDF, error) {
 	return memDF, nil
 }
 
-func (df *MemDF) DBsave(tableName string, cols ...string) error {
+func (df *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
 
 	return nil
 }

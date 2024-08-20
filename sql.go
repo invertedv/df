@@ -21,6 +21,9 @@ var (
 
 	//go:embed skeletons/chDropIf.txt
 	chDropIf string
+
+	//go:embed skeletons/chInsert.xt
+	chInsert string
 )
 
 type Dialect struct {
@@ -44,7 +47,7 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	var types string
 	switch strings.ToLower(dialect) {
 	case "clickhouse":
-		d.create, d.fields, d.dropIf = chCreate, chFields, chDropIf
+		d.create, d.fields, d.dropIf, d.insert = chCreate, chFields, chDropIf, chInsert
 		types = chTypes
 	case "postgress":
 		d.create = ""
@@ -106,6 +109,16 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	create = strings.Replace(create, "?fields", strings.Join(flds, ","), 1)
 
 	_, e := d.db.Exec(create)
+
+	return e
+}
+
+func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
+	qry := strings.Replace(d.insert, "?TableName", tableName, 1)
+	qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)
+	qry = strings.Replace(qry, "?Fields", fields, 1)
+
+	_, e := d.db.Exec(qry)
 
 	return e
 }

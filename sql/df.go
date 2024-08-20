@@ -27,18 +27,18 @@ type SQLcol struct {
 	catMap d.CategoryMap
 }
 
-func (df *SQLdf) DBsave(tableName string, cols ...string) error {
+func (df *SQLdf) DBsave(tableName string, overwrite bool, cols ...string) error {
 	if cols == nil {
 		cols = df.ColumnNames()
 	}
 
-	fn := func() error {
-		qry := fmt.Sprintf("INSERT INTO %s WITH xa AS (%s) SELECT %s FROM xa", tableName, df.MakeQuery(), strings.Join(cols, ","))
-		_, e := df.DB().Exec(qry)
-		return e
+	if overwrite {
+		if e := df.CreateTable(tableName, "", overwrite, cols...); e != nil {
+			return e
+		}
 	}
 
-	return df.Fn(fn)
+	return df.Insert(tableName, df.MakeQuery(), strings.Join(cols, ","))
 }
 
 func (df *SQLdf) RowCount() int {

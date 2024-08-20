@@ -1,0 +1,1 @@
+INSERT INTO ?TableName WITH xa AS (?MakeQuery) SELECT ?Fields FROM xa
