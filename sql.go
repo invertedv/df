@@ -1,14 +1,60 @@
 package df
 
 import (
+	"database/sql"
+	_ "embed"
 	"fmt"
 	"strings"
 
 	u "github.com/invertedv/utilities"
 )
 
-func DBTypes(list string) (DTtypes, DBtypes []string, err error) {
-	l := strings.Split(list, "\n")
+var (
+	//go:embed skeletons/chCreate.txt
+	chCreate string
+
+	//go:embed skeletons/chTypes.txt
+	chTypes string
+
+	//go:embed skeletons/chFields.txt
+	chFields string
+
+	//go:embed skeletons/chDropIf.txt
+	chDropIf string
+)
+
+type Dialect struct {
+	db      *sql.DB
+	dialect string
+
+	dtTypes []string
+	dbTypes []string
+
+	create string
+	insert string
+	dropIf string
+	exists string
+
+	fields string
+}
+
+func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
+	d := &Dialect{db: db, dialect: strings.ToLower(dialect)}
+
+	var types string
+	switch strings.ToLower(dialect) {
+	case "clickhouse":
+		d.create, d.fields, d.dropIf = chCreate, chFields, chDropIf
+		types = chTypes
+	case "postgress":
+		d.create = ""
+	case "mysql":
+		d.create = ""
+	default:
+		return nil, fmt.Errorf("no skeletons for database %s", dialect)
+	}
+
+	l := strings.Split(types, "\n")
 	for _, lm := range l {
 		if strings.Trim(lm, " ") == "" {
 			continue
@@ -16,61 +62,50 @@ func DBTypes(list string) (DTtypes, DBtypes []string, err error) {
 
 		t := strings.Split(lm, ",")
 		if len(t) != 2 {
-			return nil, nil, fmt.Errorf("cannot parse DBTypes line %s", lm)
+			return nil, nil
 		}
 
 		if DTFromString(t[0]) == DTunknown {
-			return nil, nil, fmt.Errorf("cannot parse %s into DataTypes", t[0])
+			return nil, nil
 		}
 
-		DTtypes = append(DTtypes, t[0])
-		DBtypes = append(DBtypes, t[1])
+		d.dtTypes = append(d.dtTypes, t[0])
+		d.dbTypes = append(d.dbTypes, t[1])
 	}
 
-	return DTtypes, DBtypes, nil
+	return d, nil
 }
 
-func CreateStatement(tableName, dbName string, fields []string, types []DataTypes, orderBy ...string) (string, error) {
-	var (
-		e                error
-		dtTypes, dbTypes []string
-		cSk, tSk, fSk    string
-	)
-
-	if orderBy == nil {
-		orderBy = []string{fields[0]}
-	}
-
-	for _, o := range orderBy {
-		if !u.Has(o, "", fields...) {
-			return "", fmt.Errorf("orderBy/key field %s not in table", o)
+func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {
+	if overwrite {
+		qry := strings.Replace(d.dropIf, "?TableName", tableName, 1)
+		if _, ex := d.db.Exec(qry); ex != nil {
+			return ex
 		}
 	}
 
-	if cSk, tSk, fSk, e = Skeletons(dbName); e != nil {
-		return "", e
+	if orderBy == "" {
+		orderBy = fields[0]
 	}
 
-	if dtTypes, dbTypes, e = DBTypes(tSk); e != nil {
-		return "", e
-	}
-
-	create := strings.Replace(cSk, "?TableName", tableName, 1)
-	create = strings.Replace(create, "?OrderBy", strings.Join(orderBy, ","), 1)
+	create := strings.Replace(d.create, "?TableName", tableName, 1)
+	create = strings.Replace(create, "?OrderBy", orderBy, 1)
 
 	var flds []string
 	for ind := 0; ind < len(fields); ind++ {
 		var pos int
-		if pos = u.Position(types[ind].String(), "", dtTypes...); pos < 0 {
-			return "", fmt.Errorf("unknown data type %v in CreateTable", types[ind])
+		if pos = u.Position(types[ind].String(), "", d.dtTypes...); pos < 0 {
+			return fmt.Errorf("unknown data type %v in CreateTable", types[ind])
 		}
-		field := strings.Replace(fSk, "?Field", fields[ind], 1)
-		field = strings.Replace(field, "?Type", dbTypes[pos], 1)
+
+		field := strings.Replace(d.fields, "?Field", fields[ind], 1)
+		field = strings.Replace(field, "?Type", d.dbTypes[pos], 1)
 		flds = append(flds, field)
 	}
 
 	create = strings.Replace(create, "?fields", strings.Join(flds, ","), 1)
-	fmt.Println(create)
 
-	return create, nil
+	_, e := d.db.Exec(create)
+
+	return e
 }

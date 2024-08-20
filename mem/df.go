@@ -59,17 +59,18 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 	return outDF, nil
 }
 
-func LoadDB(qry string, db *sql.DB) (*MemDF, error) {
+func LoadDB(qry, dbName string, db *sql.DB) (*MemDF, error) {
 	var (
 		df *s.SQLdf
 		e  error
 	)
-	if df, e = s.NewSQLdf(qry, db); e != nil {
+
+	if df, e = s.NewSQLdf(qry, dbName, db); e != nil {
 		return nil, e
 	}
 
 	columnNames := df.ColumnNames()
-	columnTypes := df.ColumnTypes()
+	columnTypes, _ := df.ColumnTypes()
 
 	var (
 		rows *sql.Rows
@@ -91,15 +92,16 @@ func LoadDB(qry string, db *sql.DB) (*MemDF, error) {
 	}
 
 	xind := 0
+	ct, _ := df.ColumnTypes()
 	for rows.Next() {
 		var rx []any
 		for ind := 0; ind < len(columnTypes); ind++ {
-			rx = append(rx, d.Address(memData[ind], df.ColumnTypes()[ind], xind))
+			rx = append(rx, d.Address(memData[ind], ct[ind], xind))
 		}
 
 		xind++
-		if e := rows.Scan(rx...); e != nil {
-			return nil, e
+		if ex := rows.Scan(rx...); ex != nil {
+			return nil, ex
 		}
 
 	}
@@ -129,7 +131,16 @@ func LoadDB(qry string, db *sql.DB) (*MemDF, error) {
 
 	memDF.sourceQuery = qry
 
+	if ex := memDF.SetDB(dbName, db); ex != nil {
+		return nil, ex
+	}
+
 	return memDF, nil
+}
+
+func (df *MemDF) DBsave(tableName string, cols ...string) error {
+
+	return nil
 }
 
 func (df *MemDF) Less(i, j int) bool {
@@ -197,6 +208,16 @@ func (df *MemDF) RowCount() int {
 // Len() is required for sort
 func (df *MemDF) Len() int {
 	return df.RowCount()
+}
+
+func (df *MemDF) Save2DB(table string, db *sql.DB, orderBy []string, cols ...string) error {
+
+	return nil
+}
+
+func (df *MemDF) Save2File(fileName string, cols ...string) error {
+
+	return nil
 }
 
 ///////////// MemCol

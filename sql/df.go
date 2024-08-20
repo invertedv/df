@@ -3,16 +3,16 @@ package sql
 import (
 	"database/sql"
 	"fmt"
-	d "github.com/invertedv/df"
 	"reflect"
 	"strings"
+
+	d "github.com/invertedv/df"
 )
 
 type SQLdf struct {
 	rowCount      int
 	sourceSQL     string
 	destTableName string
-	db            *sql.DB
 	orderBy       string
 
 	*d.DFcore
@@ -27,6 +27,20 @@ type SQLcol struct {
 	catMap d.CategoryMap
 }
 
+func (df *SQLdf) DBsave(tableName string, cols ...string) error {
+	if cols == nil {
+		cols = df.ColumnNames()
+	}
+
+	fn := func() error {
+		qry := fmt.Sprintf("INSERT INTO %s WITH xa AS (%s) SELECT %s FROM xa", tableName, df.MakeQuery(), strings.Join(cols, ","))
+		_, e := df.DB().Exec(qry)
+		return e
+	}
+
+	return df.Fn(fn)
+}
+
 func (df *SQLdf) RowCount() int {
 	if df.rowCount != 0 {
 		return df.rowCount
@@ -34,7 +48,7 @@ func (df *SQLdf) RowCount() int {
 
 	var n int32
 	qry := fmt.Sprintf("WITH d AS (%s) SELECT cast(count(*) AS Int32) AS n FROM d", df.sourceSQL)
-	row := df.db.QueryRow(qry)
+	row := df.DB().QueryRow(qry)
 	if e := row.Scan(&n); e != nil {
 		panic(e)
 	}
@@ -68,7 +82,23 @@ func (df *SQLdf) MakeQuery() string {
 
 	qry := fmt.Sprintf("WITH d AS (%s) SELECT %s FROM d", df.sourceSQL, strings.Join(fields, ","))
 
+	if df.orderBy != "" {
+		qry = fmt.Sprintf("%s ORDER BY %s", qry, df.orderBy)
+	}
+
 	return qry
+}
+
+func (df *SQLdf) Save2DB(table string, cols ...string) error {
+	orderBy := strings.Split(df.orderBy, ",")
+	_ = orderBy
+
+	return nil
+}
+
+func (df *SQLdf) Save2File(fileName string, cols ...string) error {
+
+	return nil
 }
 
 /////////// SQLcol
@@ -103,7 +133,7 @@ func (s *SQLcol) Copy() d.Column {
 	}
 }
 
-func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
+func NewSQLdf(query, dbName string, db *sql.DB) (*SQLdf, error) {
 	var (
 		err      error
 		rows     *sql.Rows
@@ -114,7 +144,6 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 	df := &SQLdf{
 		sourceSQL:     query,
 		destTableName: "",
-		db:            db,
 	}
 
 	// just get one row...TRY: just query and see if it runs one row at a time
@@ -158,6 +187,10 @@ func NewSQLdf(query string, db *sql.DB) (*SQLdf, error) {
 	var tmp *d.DFcore
 	if tmp, err = d.NewDF(Run, StandardFunctions(), cols...); err != nil {
 		return nil, err
+	}
+
+	if e := tmp.SetDB(dbName, db); e != nil {
+		return nil, e
 	}
 
 	df.DFcore = tmp

@@ -46,7 +46,7 @@ func df4test() (*SQLdf, error) {
 		return nil, e
 	}
 
-	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 100", db)
+	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", "clickhouse", db)
 	if e1 != nil {
 		return nil, e1
 	}
@@ -57,7 +57,7 @@ func df4test() (*SQLdf, error) {
 func TestNewSQLdf(t *testing.T) {
 	df, e := df4test()
 	assert.Nil(t, e)
-	defer func() { _ = df.db.Close() }()
+	defer func() { _ = df.DB().Close() }()
 
 	/*	col, e := df.Column("cbsa")
 		assert.Nil(t, e)
@@ -77,5 +77,9 @@ func TestNewSQLdf(t *testing.T) {
 
 	fmt.Println(df.RowCount())
 	fmt.Println(df.MakeQuery())
+	e = df.DBcreateTable("tmp.aaa", "", true)
+	assert.Nil(t, e)
+	//	e = df.DBsave("tmp.aaa")
+	//	assert.Nil(t, e)
 
 }

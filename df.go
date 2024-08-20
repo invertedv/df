@@ -6,32 +6,7 @@ import (
 	"fmt"
 	u "github.com/invertedv/utilities"
 	"log"
-	"strings"
 )
-
-var (
-	//go:embed skeletons/chCreate.txt
-	chCreate string
-
-	//go:embed skeletons/chTypes.txt
-	chTypes string
-
-	//go:embed skeletons/chFields.txt
-	chFields string
-)
-
-func Skeletons(dbName string) (dbCreate, dbType, dbFields string, err error) {
-	switch strings.ToLower(dbName) {
-	case "clickhouse":
-		return chCreate, chTypes, chFields, nil
-	case "postgress":
-		return "", "", "", nil
-	case "mysql":
-		return "", "", "", nil
-	}
-
-	return "", "", "", fmt.Errorf("no skeletons for database %s", dbName)
-}
 
 type DF interface {
 	// generic from DFcore
@@ -44,11 +19,17 @@ type DF interface {
 	DropColumns(colNames ...string) error
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
+	SetDB(dbName string, db *sql.DB) error
+	DBcreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
+	Fn(fn Ereturn) error
 
 	// specific to underlying data source
 	RowCount() int
 	Sort(keys ...string) error
+	DBsave(tableName string, cols ...string) error
 }
+
+type Ereturn func() error
 
 // DFcore is the data plus functions to operate on it -- it is the core structure of DF that is embedded
 // in specific implementations
@@ -59,6 +40,8 @@ type DFcore struct {
 	run   RunFunc
 
 	current *columnList
+
+	dx *Dialect
 }
 
 type columnList struct {
@@ -147,6 +130,21 @@ type RunFunc func(fn AnyFunction, params []any, inputs []Column) (Column, error)
 
 ///////////// DFcore methods
 
+func (df *DFcore) SetDB(dialect string, db *sql.DB) error {
+	var e error
+	df.dx, e = NewDialect(dialect, db)
+
+	return e
+}
+
+func (df *DFcore) DB() *sql.DB {
+	return df.dx.db
+}
+
+func (df *DFcore) DBdialect() string {
+	return df.dx.dialect
+}
+
 func (df *DFcore) Next(reset bool) Column {
 	if reset || df.current == nil {
 		df.current = df.head
@@ -181,17 +179,28 @@ func (df *DFcore) ColumnNames() []string {
 	return names
 }
 
-func (df *DFcore) ColumnTypes() []DataTypes {
+func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 	var types []DataTypes
 
-	for h := df.head; h != nil; h = h.next {
-		types = append(types, h.col.DataType())
+	if colNames == nil {
+		colNames = df.ColumnNames()
 	}
 
-	return types
-}
+	for ind := 0; ind < len(colNames); ind++ {
+		var (
+			c Column
+			e error
+		)
+		if c, e = df.Column(colNames[ind]); e != nil {
+			return nil, e
+		}
 
-//TODO: add ColumnTypes
+		types = append(types, c.DataType())
+
+	}
+
+	return types, nil
+}
 
 func (df *DFcore) Column(colName string) (col Column, err error) {
 	for h := df.head; h != nil; h = h.next {
@@ -203,31 +212,37 @@ func (df *DFcore) Column(colName string) (col Column, err error) {
 	return nil, fmt.Errorf("column %s not found", colName)
 }
 
-func (df *DFcore) Save(saver Saver, colNames ...string) error {
-	var cols []Column
-	for col := df.head; col != nil; col = col.next {
-		if colNames == nil || u.Has(col.col.Name(""), "", colNames...) {
-			cols = append(cols, col.col)
-		}
-	}
-
-	return saver(cols...)
+func (df *DFcore) Fn(fn Ereturn) error {
+	return fn()
 }
 
-type Saver func(cols ...Column) error
+/*
+Save DB -> DB
+     DB -> file
+     Mem -> DB
+     Mem -> file
 
-func (df *DFcore) CreateTable(tableName, dbName string, db *sql.DB, orderBy ...string) error {
+*/
+
+func (df *DFcore) DBcreateTable(tableName, orderBy string, overwrite bool, cols ...string) error {
 	var (
-		e    error
-		stmt string
+		e   error
+		dts []DataTypes
 	)
 
-	if stmt, e = CreateStatement(tableName, dbName, df.ColumnNames(), df.ColumnTypes(), orderBy...); e != nil {
+	if df.dx == nil {
+		return fmt.Errorf("no database defined")
+	}
+
+	if cols == nil {
+		cols = df.ColumnNames()
+	}
+
+	if dts, e = df.ColumnTypes(cols...); e != nil {
 		return e
 	}
 
-	_, e = db.Exec(stmt)
-	return e
+	return df.dx.Create(tableName, orderBy, cols, dts, overwrite)
 }
 
 func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
