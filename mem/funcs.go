@@ -82,7 +82,7 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{exp, abs, cast, add}
+	return d.Functions{exp, abs, cast, add, log}
 
 }
 
@@ -153,4 +153,17 @@ func abs(info bool, inputs ...any) *d.FuncReturn {
 	default:
 		return &d.FuncReturn{Value: nil, Output: d.DTunknown, Err: fmt.Errorf("abs requires float or int")}
 	}
+}
+
+func log(info bool, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+	}
+
+	x := inputs[0].(float64)
+	if x <= 0 {
+		return &d.FuncReturn{Err: fmt.Errorf("log of non-positive number")}
+	}
+
+	return &d.FuncReturn{Value: math.Log(x), Output: d.DTfloat, Err: nil}
 }

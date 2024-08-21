@@ -305,6 +305,46 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	return df.AppendColumn(col)
 }
 
+func (df *DFcore) ApplyX(resultName, opName string, inputs ...string) error {
+	var (
+		vals   []Column
+		params []any
+		fn     AnyFunction
+	)
+
+	if fn = df.funcs.Get(opName); fn == nil {
+		log.Printf("op to create %s not defined, operation skipped", resultName)
+		return nil
+	}
+
+	doneParams := false
+	for ind := 0; ind < len(inputs); ind++ {
+		if c, e := df.Column(inputs[ind]); e == nil {
+			doneParams = true
+			vals = append(vals, c)
+		} else {
+			if doneParams {
+				return fmt.Errorf("missing column? %s", inputs[ind])
+			}
+
+			params = append(params, inputs[ind])
+		}
+	}
+
+	var (
+		col Column
+		e   error
+	)
+
+	if col, e = df.run(fn, params, vals); e != nil {
+		return e
+	}
+
+	col.Name(resultName)
+
+	return df.AppendColumn(col)
+}
+
 func (df *DFcore) AppendColumn(col Column) error {
 	if u.Has(col.Name(""), "", df.ColumnNames()...) {
 		return fmt.Errorf("duplicate column name: %s", col.Name(""))

@@ -45,7 +45,7 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{exp, abs, cast, add}
+	return d.Functions{exp, abs, cast, add, log}
 
 }
 
@@ -55,9 +55,17 @@ func exp(info bool, inputs ...any) *d.FuncReturn {
 		return &d.FuncReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
 
-	sql := fmt.Sprintf("abs(%s)", inputs[0].(d.Column).Name(""))
+	sql := fmt.Sprintf("exp(%s)", inputs[0].(d.Column).Name(""))
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
-	return &d.FuncReturn{Value: "exp(X0)", Err: nil}
+}
+
+func log(info bool, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+	}
+
+	sql := fmt.Sprintf("log(%s)", inputs[0].(d.Column).Name(""))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
 func abs(info bool, inputs ...any) *d.FuncReturn {

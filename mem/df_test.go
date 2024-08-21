@@ -23,6 +23,10 @@ func makeMemDF() *MemDF {
 
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
+
+	e1x := df.Apply("aexp", "exp", "x")
+	assert.Nil(t, e1x)
+
 	col, e := df.Column("z")
 	assert.Nil(t, e)
 	e1 := df.Apply("test", "cast", "DTstring", "z")
@@ -44,6 +48,9 @@ func TestDF_Apply(t *testing.T) {
 	assert.Nil(t, e1)
 	e1 = df.DropColumns("test1")
 	assert.Nil(t, e1)
+
+	c, _ = df.Column("aexp")
+	fmt.Println(c.Data())
 }
 
 func TestDF_Sort(t *testing.T) {
