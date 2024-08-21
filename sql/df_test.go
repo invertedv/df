@@ -3,6 +3,7 @@ package sql
 import (
 	"database/sql"
 	"fmt"
+	df2 "github.com/invertedv/df"
 	"os"
 	"testing"
 	"time"
@@ -46,7 +47,10 @@ func df4test() (*SQLdf, error) {
 		return nil, e
 	}
 
-	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", "clickhouse", db)
+	var dialect *df2.Dialect
+	dialect, e = df2.NewDialect("clickhouse", db)
+
+	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", dialect)
 	if e1 != nil {
 		return nil, e1
 	}
@@ -81,5 +85,7 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	e = df.DBsave("tmp.aaa", true)
 	assert.Nil(t, e)
+
+	fmt.Println(df.RowCount())
 
 }

@@ -1,7 +1,6 @@
 package df
 
 import (
-	"database/sql"
 	_ "embed"
 	"fmt"
 	"os"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	d "github.com/invertedv/df"
-	s "github.com/invertedv/df/sql"
 )
 
 type MemDF struct {
@@ -59,59 +57,25 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 	return outDF, nil
 }
 
-func LoadDB(qry, dbName string, db *sql.DB) (*MemDF, error) {
+func LoadDB(qry string, dialect *d.Dialect) (*MemDF, error) {
 	var (
-		df *s.SQLdf
-		e  error
+		columnNames []string
+		columnTypes []d.DataTypes
+		e           error
 	)
 
-	if df, e = s.NewSQLdf(qry, dbName, db); e != nil {
+	if columnNames, columnTypes, e = dialect.Types(qry); e != nil {
 		return nil, e
 	}
 
-	columnNames := df.ColumnNames()
-	columnTypes, _ := df.ColumnTypes()
-
-	var (
-		rows *sql.Rows
-		err  error
-	)
-	if rows, err = db.Query(qry); err != nil {
-		return nil, err
-	}
-
-	r := make([]any, df.ColumnCount())
-	for ind := range r {
-		var x any
-		r[ind] = &x
-	}
-
 	var memData []any
-	for ind := 0; ind < len(columnTypes); ind++ {
-		memData = append(memData, d.MakeSlice(columnTypes[ind], df.RowCount()))
-	}
-
-	xind := 0
-	ct, _ := df.ColumnTypes()
-	for rows.Next() {
-		var rx []any
-		for ind := 0; ind < len(columnTypes); ind++ {
-			rx = append(rx, d.Address(memData[ind], ct[ind], xind))
-		}
-
-		xind++
-		if ex := rows.Scan(rx...); ex != nil {
-			return nil, ex
-		}
-
+	if memData, e = dialect.Read(qry); e != nil {
+		return nil, e
 	}
 
 	var memDF *MemDF
 	for ind := 0; ind < len(columnTypes); ind++ {
-		var (
-			col *MemCol
-			e   error
-		)
+		var col *MemCol
 
 		if col, e = NewMemCol(columnNames[ind], memData[ind]); e != nil {
 			return nil, e
@@ -130,10 +94,7 @@ func LoadDB(qry, dbName string, db *sql.DB) (*MemDF, error) {
 	}
 
 	memDF.sourceQuery = qry
-
-	if ex := memDF.SetDB(dbName, db); ex != nil {
-		return nil, ex
-	}
+	memDF.Dialect = dialect
 
 	return memDF, nil
 }
@@ -175,6 +136,8 @@ func (df *MemDF) Swap(i, j int) {
 			data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
 		case d.DTdate:
 			data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
+		default:
+			panic(fmt.Errorf("unsupported data type in Swap"))
 		}
 	}
 }
@@ -195,7 +158,6 @@ func (df *MemDF) Sort(cols ...string) error {
 	}
 
 	df.by = by
-
 	sort.Sort(df)
 
 	return nil
@@ -208,16 +170,6 @@ func (df *MemDF) RowCount() int {
 // Len() is required for sort
 func (df *MemDF) Len() int {
 	return df.RowCount()
-}
-
-func (df *MemDF) Save2DB(table string, db *sql.DB, orderBy []string, cols ...string) error {
-
-	return nil
-}
-
-func (df *MemDF) Save2File(fileName string, cols ...string) error {
-
-	return nil
 }
 
 ///////////// MemCol
@@ -252,9 +204,9 @@ func (m *MemCol) Len() int {
 		return len(m.Data().([]string))
 	case d.DTdate:
 		return len(m.Data().([]time.Time))
+	default:
+		return -1
 	}
-
-	return -1
 }
 
 func (m *MemCol) Data() any {
@@ -279,9 +231,9 @@ func (m *MemCol) Element(row int) any {
 		return m.Data().([]string)[row]
 	case d.DTdate:
 		return m.Data().([]time.Time)[row]
+	default:
+		panic(fmt.Errorf("unsupported data type in Element"))
 	}
-
-	return nil
 }
 
 func (m *MemCol) Copy() d.Column {
@@ -300,6 +252,8 @@ func (m *MemCol) Copy() d.Column {
 	case d.DTdate:
 		copiedData = make([]time.Time, n)
 		copy(copiedData.([]time.Time), m.data.([]time.Time))
+	default:
+		panic(fmt.Errorf("unsupported data type in Copy"))
 	}
 
 	col := &MemCol{
@@ -322,7 +276,7 @@ func (m *MemCol) Less(i, j int) bool {
 		return m.data.([]string)[i] <= m.data.([]string)[j]
 	case d.DTdate:
 		return !m.data.([]time.Time)[i].After(m.data.([]time.Time)[j])
+	default:
+		panic(fmt.Errorf("unsupported data type in Less"))
 	}
-
-	panic("error in Less")
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/invertedv/df"
 	"os"
 	"testing"
 	"time"
@@ -89,7 +90,10 @@ func TestLoadSQL(t *testing.T) {
 	db, e = newConnect(host, user, password)
 	assert.Nil(t, e)
 
-	memDF, e1 := LoadDB("SELECT * FROM zip.zip3 LIMIT 10", "clickhouse", db)
+	var dialect *df.Dialect
+	dialect, e = df.NewDialect("clickhouse", db)
+	assert.Nil(t, e)
+	memDF, e1 := LoadDB("SELECT * FROM zip.zip3 LIMIT 10", dialect)
 	assert.Nil(t, e1)
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)

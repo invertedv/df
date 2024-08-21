@@ -1,9 +1,7 @@
 package sql
 
 import (
-	"database/sql"
 	"fmt"
-	"reflect"
 	"strings"
 
 	d "github.com/invertedv/df"
@@ -46,14 +44,12 @@ func (df *SQLdf) RowCount() int {
 		return df.rowCount
 	}
 
-	var n int32
-	qry := fmt.Sprintf("WITH d AS (%s) SELECT cast(count(*) AS Int32) AS n FROM d", df.sourceSQL)
-	row := df.DB().QueryRow(qry)
-	if e := row.Scan(&n); e != nil {
+	var e error
+	df.rowCount, e = df.Dialect.RowCount(df.sourceSQL)
+	if e != nil {
 		panic(e)
 	}
 
-	df.rowCount = int(n)
 	return df.rowCount
 }
 
@@ -133,50 +129,26 @@ func (s *SQLcol) Copy() d.Column {
 	}
 }
 
-func NewSQLdf(query, dbName string, db *sql.DB) (*SQLdf, error) {
+func NewSQLdf(query string, dialect *d.Dialect) (*SQLdf, error) {
 	var (
-		err      error
-		rows     *sql.Rows
-		colTypes []*sql.ColumnType
+		e        error
+		colTypes []d.DataTypes
+		colNames []string
 		cols     []d.Column
 	)
+
+	if colNames, colTypes, e = dialect.Types(query); e != nil {
+		return nil, e
+	}
 
 	df := &SQLdf{
 		sourceSQL:     query,
 		destTableName: "",
 	}
-
-	// just get one row...TRY: just query and see if it runs one row at a time
-	qry := fmt.Sprintf("WITH d AS (%s) SELECT * FROM d LIMIT 1", query)
-	rows, err = db.Query(qry)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	if colTypes, err = rows.ColumnTypes(); err != nil {
-		return nil, err
-	}
-
 	for ind := 0; ind < len(colTypes); ind++ {
-		var dt d.DataTypes
-		switch t := colTypes[ind].ScanType().Kind(); t {
-		case reflect.Float64, reflect.Float32:
-			dt = d.DTfloat
-		case reflect.Int, reflect.Int64, reflect.Int32:
-			dt = d.DTint
-		case reflect.String:
-			dt = d.DTstring
-		case reflect.Struct:
-			dt = d.DTdate
-		default:
-			return nil, fmt.Errorf("unsupported db field type: %v", t)
-		}
-
 		sqlCol := &SQLcol{
-			name: colTypes[ind].Name(),
-			//			n:      df.n,
-			dType:  dt,
+			name:   colNames[ind],
+			dType:  colTypes[ind],
 			sql:    "",
 			catMap: nil,
 		}
@@ -185,13 +157,11 @@ func NewSQLdf(query, dbName string, db *sql.DB) (*SQLdf, error) {
 	}
 
 	var tmp *d.DFcore
-	if tmp, err = d.NewDF(Run, StandardFunctions(), cols...); err != nil {
-		return nil, err
-	}
-
-	if e := tmp.SetDB(dbName, db); e != nil {
+	if tmp, e = d.NewDF(Run, StandardFunctions(), cols...); e != nil {
 		return nil, e
 	}
+
+	tmp.Dialect = dialect
 
 	df.DFcore = tmp
 

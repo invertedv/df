@@ -25,6 +25,9 @@ type DF interface {
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	Fn(fn Ereturn) error
 
+	// generic from Dialect
+	Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error
+
 	// specific to underlying data source
 	RowCount() int
 	Sort(keys ...string) error
@@ -272,7 +275,6 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	if fn = df.funcs.Get(opName); fn == nil {
 		log.Printf("op to create %s not defined, operation skipped", resultName)
 		return nil
-		//		return fmt.Errorf("function %s not found", opName)
 	}
 
 	doneParams := false
@@ -409,9 +411,11 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 /////////// DataTypes
 
 func DTFromString(nm string) DataTypes {
+	const skeleton = "%v"
+
 	var nms []string
 	for ind := DataTypes(0); ind <= MaxDT; ind++ {
-		nms = append(nms, fmt.Sprintf("%v", ind))
+		nms = append(nms, fmt.Sprintf(skeleton, ind))
 	}
 
 	pos := u.Position(nm, "", nms...)
