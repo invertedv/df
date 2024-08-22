@@ -2,8 +2,9 @@ package df
 
 import (
 	"fmt"
-	u "github.com/invertedv/utilities"
 	"time"
+
+	u "github.com/invertedv/utilities"
 )
 
 func ToFloat(xIn any, cast bool) (xOut any, err error) {

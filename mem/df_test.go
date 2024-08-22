@@ -3,29 +3,33 @@ package df
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/invertedv/df"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/invertedv/df"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func makeMemDF() *MemDF {
-	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, -1})
+	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2})
 	y, _ := NewMemCol("y", []int{4, 5, 6, 1, 4, 4})
 	z, _ := NewMemCol("z", []string{"p20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
-	df, _ := NewMemDF(Run, StandardFunctions(), x, y, z)
+	dfx, e := NewMemDF(Run, StandardFunctions(), x, y, z)
+	_ = e
 
-	return df
+	return dfx
 }
 
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
 
-	e1x := df.Apply("aexp", "exp", "x")
+	e1x := df.Apply("aexp", "exp", "1")
 	assert.Nil(t, e1x)
+	cc, _ := df.Column("aexp")
+	fmt.Println(cc.Data())
 
 	col, e := df.Column("z")
 	assert.Nil(t, e)

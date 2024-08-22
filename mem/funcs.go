@@ -2,14 +2,15 @@ package df
 
 import (
 	"fmt"
+	l "log"
 	"math"
 
 	d "github.com/invertedv/df"
 )
 
-func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, err error) {
+func Run(fn d.AnyFunction, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
-	if len(inputs)+len(params) != len(info.Inputs) {
+	if len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
@@ -18,21 +19,17 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 		outType d.DataTypes
 	)
 
-	for ind := 0; ind < inputs[0].Len(); ind++ {
-		var xs []any
-
-		for j := 0; j < len(params); j++ {
-			var (
-				xadd any
-				e    error
-			)
-
-			if xadd, e = d.ToDataType(params[j], info.Inputs[j], true); e != nil {
-				return nil, e
+	n := 1
+	for _, inp := range inputs {
+		if c, ok := inp.(*MemCol); ok {
+			if nc := c.Len(); nc > n {
+				n = nc
 			}
-
-			xs = append(xs, xadd)
 		}
+	}
+
+	for ind := 0; ind < n; ind++ {
+		var xs []any
 
 		for j := 0; j < len(inputs); j++ {
 			var (
@@ -40,7 +37,21 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 				e    error
 			)
 
-			if xadd, e = d.ToDataType(inputs[j].(*MemCol).Element(ind), info.Inputs[j+len(params)], false); e != nil {
+			if c, ok := inputs[j].(*MemCol); ok {
+				indx := ind % c.Len()
+				if ind >= c.Len() && c.Len() > 1 {
+					l.Println("warning unequal lengths in MemDF")
+				}
+
+				if xadd, e = d.ToDataType(c.Element(indx), info.Inputs[j], false); e != nil {
+					return nil, e
+				}
+
+				xs = append(xs, xadd)
+				continue
+			}
+
+			if xadd, e = d.ToDataType(inputs[j], info.Inputs[j], true); e != nil {
 				return nil, e
 			}
 
@@ -83,7 +94,6 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 
 func StandardFunctions() d.Functions {
 	return d.Functions{exp, abs, cast, add, log}
-
 }
 
 ///////// Standard Functions

@@ -131,7 +131,7 @@ func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error)
 	return &DFcore{head: head, funcs: funcs, run: run}, nil
 }
 
-type RunFunc func(fn AnyFunction, params []any, inputs []Column) (Column, error)
+type RunFunc func(fn AnyFunction, inputs []any) (Column, error)
 
 ///////////// DFcore methods
 
@@ -267,9 +267,8 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 
 func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	var (
-		vals   []Column
-		params []any
-		fn     AnyFunction
+		vals []any
+		fn   AnyFunction
 	)
 
 	if fn = df.funcs.Get(opName); fn == nil {
@@ -277,17 +276,11 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 		return nil
 	}
 
-	doneParams := false
 	for ind := 0; ind < len(inputs); ind++ {
 		if c, e := df.Column(inputs[ind]); e == nil {
-			doneParams = true
 			vals = append(vals, c)
 		} else {
-			if doneParams {
-				return fmt.Errorf("missing column? %s", inputs[ind])
-			}
-
-			params = append(params, inputs[ind])
+			vals = append(vals, inputs[ind])
 		}
 	}
 
@@ -296,47 +289,7 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 		e   error
 	)
 
-	if col, e = df.run(fn, params, vals); e != nil {
-		return e
-	}
-
-	col.Name(resultName)
-
-	return df.AppendColumn(col)
-}
-
-func (df *DFcore) ApplyX(resultName, opName string, inputs ...string) error {
-	var (
-		vals   []Column
-		params []any
-		fn     AnyFunction
-	)
-
-	if fn = df.funcs.Get(opName); fn == nil {
-		log.Printf("op to create %s not defined, operation skipped", resultName)
-		return nil
-	}
-
-	doneParams := false
-	for ind := 0; ind < len(inputs); ind++ {
-		if c, e := df.Column(inputs[ind]); e == nil {
-			doneParams = true
-			vals = append(vals, c)
-		} else {
-			if doneParams {
-				return fmt.Errorf("missing column? %s", inputs[ind])
-			}
-
-			params = append(params, inputs[ind])
-		}
-	}
-
-	var (
-		col Column
-		e   error
-	)
-
-	if col, e = df.run(fn, params, vals); e != nil {
+	if col, e = df.run(fn, vals); e != nil {
 		return e
 	}
 
@@ -346,14 +299,14 @@ func (df *DFcore) ApplyX(resultName, opName string, inputs ...string) error {
 }
 
 func (df *DFcore) AppendColumn(col Column) error {
-	if u.Has(col.Name(""), "", df.ColumnNames()...) {
-		return fmt.Errorf("duplicate column name: %s", col.Name(""))
-	}
+	//	if u.Has(col.Name(""), "", df.ColumnNames()...) {
+	//		return fmt.Errorf("duplicate column name: %s", col.Name(""))
+	//	}
 
 	// col.Len() = -1 means length is not meaningful here
-	if col.Len() > 0 && col.Len() != df.head.col.Len() {
-		return fmt.Errorf("length mismatch: dfList - %d, append col - %d", df.head.col.Len(), col.Len())
-	}
+	//	if col.Len() > 0 && col.Len() != df.head.col.Len() {
+	//		return fmt.Errorf("length mismatch: dfList - %d, append col - %d", df.head.col.Len(), col.Len())
+	//	}
 
 	var tail *columnList
 	for tail = df.head; tail.next != nil; tail = tail.next {

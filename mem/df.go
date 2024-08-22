@@ -33,12 +33,12 @@ type MemCol struct {
 /////////// MemDF
 
 func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error) {
-	rowCount := cols[0].Len()
+	//	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
-		if cols[ind].Len() != rowCount {
-			return nil, fmt.Errorf("all MemCols must have same length")
-		}
+		//		if cols[ind].Len() != rowCount {
+		//			return nil, fmt.Errorf("all MemCols must have same length")
+		//		}
 
 		cc = append(cc, cols[ind])
 	}
