@@ -14,8 +14,8 @@ import (
 )
 
 func makeMemDF() *MemDF {
-	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2})
-	y, _ := NewMemCol("y", []int{4, 5, 6, 1, 4, 4})
+	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
+	y, _ := NewMemCol("y", []int{4, 5, 6, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"p20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
 	dfx, e := NewMemDF(Run, StandardFunctions(), x, y, z)
 	_ = e
@@ -29,7 +29,14 @@ func TestDF_Apply(t *testing.T) {
 	e1x := df.Apply("aexp", "exp", "1")
 	assert.Nil(t, e1x)
 	cc, _ := df.Column("aexp")
-	fmt.Println(cc.Data())
+	fmt.Println("constant ", cc.Data())
+	fmt.Println("row count: ", df.RowCount())
+	e1x = df.Sort("x")
+	assert.Nil(t, e1x)
+	cc, _ = df.Column("x")
+	fmt.Println("sorted x", cc.Data())
+	cc, _ = df.Column("z")
+	fmt.Println("sorted z", cc.Data())
 
 	col, e := df.Column("z")
 	assert.Nil(t, e)

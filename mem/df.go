@@ -17,7 +17,7 @@ type MemDF struct {
 	sourceQuery    string
 	by             []*MemCol
 
-	rowCount int
+	//	rowCount int
 
 	*d.DFcore
 }
@@ -52,7 +52,7 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 		return nil, e
 	}
 
-	outDF := &MemDF{DFcore: df, rowCount: cols[0].Len()}
+	outDF := &MemDF{DFcore: df} //, rowCount: cols[0].Len()}
 
 	return outDF, nil
 }
@@ -126,6 +126,10 @@ func (df *MemDF) Less(i, j int) bool {
 
 func (df *MemDF) Swap(i, j int) {
 	for h := df.Next(true); h != nil; h = df.Next(false) {
+		if h.Len() == 1 {
+			continue
+		}
+
 		data := h.(*MemCol).data
 		switch h.DataType() {
 		case d.DTfloat:
@@ -142,8 +146,33 @@ func (df *MemDF) Swap(i, j int) {
 	}
 }
 
+func (df *MemDF) Squarish() bool {
+	n := 0
+	for h := df.Next(true); h != nil; h = df.Next(false) {
+		l := h.Len()
+		if l == 1 {
+			continue
+		}
+
+		if n == 0 {
+			n = l
+			continue
+		}
+
+		if n != l {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (df *MemDF) Sort(cols ...string) error {
 	var by []*MemCol
+	if !df.Squarish() {
+		return fmt.Errorf("cannot sort non-squarish MemDF")
+	}
+
 	for ind := 0; ind < len(cols); ind++ {
 		var (
 			x d.Column
@@ -164,7 +193,14 @@ func (df *MemDF) Sort(cols ...string) error {
 }
 
 func (df *MemDF) RowCount() int {
-	return df.rowCount
+	n := 0
+	for c := df.Next(true); c != nil; c = df.Next(false) {
+		if m := c.Len(); m > n {
+			n = m
+		}
+	}
+
+	return n
 }
 
 // Len() is required for sort
