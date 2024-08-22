@@ -3,7 +3,6 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	"os"
 	"sort"
 	"time"
 
@@ -11,13 +10,8 @@ import (
 )
 
 type MemDF struct {
-	sourceFileName string
-	destFileName   string
-	destFile       *os.File
-	sourceQuery    string
-	by             []*MemCol
-
-	//	rowCount int
+	sourceQuery string
+	by          []*MemCol
 
 	*d.DFcore
 }
@@ -52,12 +46,12 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 		return nil, e
 	}
 
-	outDF := &MemDF{DFcore: df} //, rowCount: cols[0].Len()}
+	outDF := &MemDF{DFcore: df}
 
 	return outDF, nil
 }
 
-func LoadDB(qry string, dialect *d.Dialect) (*MemDF, error) {
+func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 	var (
 		columnNames []string
 		columnTypes []d.DataTypes
@@ -97,6 +91,10 @@ func LoadDB(qry string, dialect *d.Dialect) (*MemDF, error) {
 	memDF.Dialect = dialect
 
 	return memDF, nil
+}
+
+func (df *MemDF) SourceQuery() string {
+	return df.sourceQuery
 }
 
 func (df *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {

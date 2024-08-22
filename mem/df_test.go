@@ -111,7 +111,7 @@ func TestLoadSQL(t *testing.T) {
 	var dialect *df.Dialect
 	dialect, e = df.NewDialect("clickhouse", db)
 	assert.Nil(t, e)
-	memDF, e1 := LoadDB("SELECT * FROM zip.zip3 LIMIT 10", dialect)
+	memDF, e1 := DBLoad("SELECT * FROM zip.zip3 LIMIT 10", dialect)
 	assert.Nil(t, e1)
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)

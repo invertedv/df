@@ -80,6 +80,10 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	return d, nil
 }
 
+func (d *Dialect) DialectName() string {
+	return d.dialect
+}
+
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {
 	if overwrite {
 		qry := strings.Replace(d.dropIf, "?TableName", tableName, 1)

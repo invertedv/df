@@ -146,9 +146,9 @@ func (df *DFcore) DB() *sql.DB {
 	return df.db
 }
 
-func (df *DFcore) DBdialect() string {
-	return df.dialect
-}
+//func (df *DFcore) DBdialect() string {
+//	return df.dialect
+//}
 
 func (df *DFcore) Next(reset bool) Column {
 	if reset || df.current == nil {
@@ -272,7 +272,7 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	)
 
 	if fn = df.funcs.Get(opName); fn == nil {
-		log.Printf("op to create %s not defined, operation skipped", resultName)
+		log.Printf("op %s to create %s not defined, operation skipped", opName, resultName)
 		return nil
 	}
 
@@ -393,9 +393,10 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	}
 
 	subsetDF := &DFcore{
-		head:  subHead,
-		funcs: df.funcs,
-		run:   df.run,
+		head:    subHead,
+		funcs:   df.funcs,
+		run:     df.run,
+		Dialect: df.Dialect,
 	}
 
 	return subsetDF, nil
