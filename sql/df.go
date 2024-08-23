@@ -85,14 +85,14 @@ func (df *SQLdf) MakeQuery() string {
 	return qry
 }
 
-func (df *SQLdf) Save2DB(table string, cols ...string) error {
+func (df *SQLdf) Save2DBxxxx(table string, cols ...string) error {
 	orderBy := strings.Split(df.orderBy, ",")
 	_ = orderBy
 
 	return nil
 }
 
-func (df *SQLdf) Save2File(fileName string, cols ...string) error {
+func (df *SQLdf) Save2Filexxxx(fileName string, cols ...string) error {
 
 	return nil
 }
@@ -162,6 +162,7 @@ func NewSQLdf(query string, dialect *d.Dialect) (*SQLdf, error) {
 	}
 
 	tmp.Dialect = dialect
+	tmp.SetAddlArgs([]any{dialect})
 
 	df.DFcore = tmp
 

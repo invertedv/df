@@ -2,37 +2,39 @@ package sql
 
 import (
 	"fmt"
-
 	d "github.com/invertedv/df"
 )
 
-func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, err error) {
+func Run(fn d.AnyFunction, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
-	if len(inputs)+len(params) != len(info.Inputs) {
-		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), info.Name, len(info.Inputs))
+	if len(inputs) != len(info.Inputs) {
+		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
 	var xs []any
-	for ind := 0; ind < len(params); ind++ {
+	for ind := 0; ind < len(inputs); ind++ {
 		var (
 			xadd any
 			e    error
 		)
 
-		if xadd, e = d.ToDataType(params[ind], info.Inputs[ind], true); e != nil {
+		if c, ok := inputs[ind].(*SQLcol); ok {
+			xs = append(xs, c)
+			continue
+		}
+
+		if xadd, e = d.ToDataType(inputs[ind], info.Inputs[ind], true); e != nil {
 			return nil, e
 		}
+
 		xs = append(xs, xadd)
 	}
 
-	for ind := 0; ind < len(inputs); ind++ {
-		if info.Inputs[ind+len(params)] != d.DTany && inputs[ind].DataType() != info.Inputs[ind+len(params)] {
-			return nil, fmt.Errorf("column %s is data type %d, need %d", inputs[ind].Name(""), inputs[ind].DataType(), info.Inputs[ind+len(params)])
-		}
-		xs = append(xs, inputs[ind])
-	}
-
 	r := fn(false, xs...)
+
+	if r.Err != nil {
+		return nil, err
+	}
 
 	outCol = &SQLcol{
 		name:   "",
@@ -45,65 +47,87 @@ func Run(fn d.AnyFunction, params []any, inputs []d.Column) (outCol d.Column, er
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{exp, abs, cast, add, log}
-
+	return d.Functions{exp, abs, cast, add, log, c}
 }
 
 // ////////  Standard Functions
-func exp(info bool, inputs ...any) *d.FuncReturn {
-	if info {
-		return &d.FuncReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	sql := fmt.Sprintf("exp(%s)", inputs[0].(d.Column).Name(""))
-	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
-
-func log(info bool, inputs ...any) *d.FuncReturn {
-	if info {
-		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	sql := fmt.Sprintf("log(%s)", inputs[0].(d.Column).Name(""))
-	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
-
 func abs(info bool, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTany, d.DTfloat}, Output: d.DTfloat}
 	}
 
-	sql := fmt.Sprintf("abs(%s)", inputs[0].(d.Column).Name(""))
+	sql := fmt.Sprintf("abs(%s)", inputs[1].(d.Column).Name(""))
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
 func add(info bool, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
+		return &d.FuncReturn{Name: "add", Inputs: []d.DataTypes{d.DTany, d.DTfloat, d.DTfloat}, Output: d.DTfloat}
 	}
 
-	sql := fmt.Sprintf("%s + %s", inputs[0].(d.Column).Name(""), inputs[1].(d.Column).Name(""))
+	sql := fmt.Sprintf("%s + %s", inputs[1].(d.Column).Name(""), inputs[2].(d.Column).Name(""))
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
+}
+
+func c(info bool, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "c", Inputs: []d.DataTypes{d.DTany, d.DTstring, d.DTany}, Output: d.DTany}
+	}
+
+	var dt d.DataTypes
+	if dt = d.DTFromString(inputs[1].(string)); dt == d.DTunknown {
+		return &d.FuncReturn{Err: fmt.Errorf("cannot convert to %s", inputs[0].(string))}
+	}
+
+	dialect := inputs[0].(*d.Dialect)
+	var (
+		sql string
+		e   error
+	)
+
+	if sql, e = dialect.CastConstant(inputs[2].(string), dt); e != nil {
+		return &d.FuncReturn{Err: e}
+	}
+
+	return &d.FuncReturn{Value: sql, Output: dt}
 }
 
 func cast(info bool, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
+		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTany, d.DTstring, d.DTany}, Output: d.DTany}
 	}
 
-	x := inputs[1].(d.Column).Name("")
-	sql := fmt.Sprintf("cast(%s AS", x)
-
-	switch inputs[0].(string) {
-	case "DTfloat":
-		return &d.FuncReturn{Value: sql + " Float64)", Output: d.DTfloat, Err: nil}
-	case "DTint":
-		return &d.FuncReturn{Value: sql + " Int64)", Output: d.DTint, Err: nil}
-	case "DTstring":
-		return &d.FuncReturn{Value: sql + " String)", Output: d.DTstring, Err: nil}
-	case "DTdate":
-		return &d.FuncReturn{Value: "cast(" + sql + " String) AS Date", Output: d.DTdate, Err: nil}
+	dialect := inputs[0].(*d.Dialect)
+	col := inputs[2].(d.Column)
+	var toDT d.DataTypes
+	if toDT = d.DTFromString(inputs[1].(string)); toDT == d.DTunknown {
+		return &d.FuncReturn{Err: fmt.Errorf("unknown data type %s", inputs[1].(string))}
+	}
+	var (
+		sql string
+		e   error
+	)
+	if sql, e = dialect.CastField(col.Name(""), toDT); e != nil {
+		return &d.FuncReturn{Err: e}
 	}
 
-	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot cast to %s", inputs[0].(string))}
+	return &d.FuncReturn{Value: sql, Output: toDT}
+}
+
+func exp(info bool, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "exp", Inputs: []d.DataTypes{d.DTany, d.DTfloat}, Output: d.DTfloat}
+	}
+
+	sql := fmt.Sprintf("exp(%s)", inputs[1].(d.Column).Name(""))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
+}
+
+func log(info bool, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTany, d.DTfloat}, Output: d.DTfloat}
+	}
+
+	sql := fmt.Sprintf("log(%s)", inputs[1].(d.Column).Name(""))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }

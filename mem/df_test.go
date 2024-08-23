@@ -26,9 +26,19 @@ func makeMemDF() *MemDF {
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
 
+	e2 := df.Apply("c", "c", "DTfloat", "1")
+	assert.Nil(t, e2)
+	cc, _ := df.Column("c")
+	fmt.Println(cc.Data())
+
+	e2 = df.Apply("cx", "add", "c", "y")
+	assert.Nil(t, e2)
+	cc, _ = df.Column("cx")
+	fmt.Println("cx", cc.DataType(), cc.Data())
+
 	e1x := df.Apply("aexp", "exp", "1")
 	assert.Nil(t, e1x)
-	cc, _ := df.Column("aexp")
+	cc, _ = df.Column("aexp")
 	fmt.Println("constant ", cc.Data())
 	fmt.Println("row count: ", df.RowCount())
 	e1x = df.Sort("x")
@@ -119,6 +129,4 @@ func TestLoadSQL(t *testing.T) {
 
 	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
 	assert.Nil(t, ed)
-	a := db.Stats()
-	_ = a
 }

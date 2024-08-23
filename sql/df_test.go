@@ -63,6 +63,13 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	defer func() { _ = df.DB().Close() }()
 
+	e2 := df.Apply("c", "c", "DTdate", "1999-12-31")
+	assert.Nil(t, e2)
+	fmt.Println(df.MakeQuery())
+
+	e = df.Apply("test1", "cast", "DTstring", "latitude")
+	assert.Nil(t, e)
+
 	/*	col, e := df.Column("cbsa")
 		assert.Nil(t, e)
 		col1, e1 := df.Column("q25")
@@ -73,10 +80,8 @@ func TestNewSQLdf(t *testing.T) {
 	*/
 	e1 := df.Apply("test", "add", "latitude", "longitude")
 	assert.Nil(t, e1)
-	e = df.Apply("test1", "cast", "DTstring", "latitude")
-	assert.Nil(t, e)
 
-	_, e2 := df.Column("test")
+	_, e2 = df.Column("test")
 	assert.Nil(t, e2)
 
 	fmt.Println(df.RowCount())

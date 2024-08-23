@@ -47,6 +47,8 @@ type DFcore struct {
 	current *columnList
 
 	*Dialect
+
+	addlArgs []any
 }
 
 type columnList struct {
@@ -140,6 +142,10 @@ func (df *DFcore) SetDB(dialect string, db *sql.DB) error {
 	df.Dialect, e = NewDialect(dialect, db)
 
 	return e
+}
+
+func (df *DFcore) SetAddlArgs(args []any) {
+	df.addlArgs = args
 }
 
 func (df *DFcore) DB() *sql.DB {
@@ -266,16 +272,14 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 }
 
 func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
-	var (
-		vals []any
-		fn   AnyFunction
-	)
+	var fn AnyFunction
 
 	if fn = df.funcs.Get(opName); fn == nil {
 		log.Printf("op %s to create %s not defined, operation skipped", opName, resultName)
 		return nil
 	}
 
+	vals := df.addlArgs
 	for ind := 0; ind < len(inputs); ind++ {
 		if c, e := df.Column(inputs[ind]); e == nil {
 			vals = append(vals, c)

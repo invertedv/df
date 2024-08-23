@@ -101,13 +101,16 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 
 	var flds []string
 	for ind := 0; ind < len(fields); ind++ {
-		var pos int
-		if pos = u.Position(types[ind].String(), "", d.dtTypes...); pos < 0 {
-			return fmt.Errorf("unknown data type %v in CreateTable", types[ind])
+		var (
+			dbType string
+			e      error
+		)
+		if dbType, e = d.dbtype(types[ind]); e != nil {
+			return e
 		}
 
 		field := strings.Replace(d.fields, "?Field", fields[ind], 1)
-		field = strings.Replace(field, "?Type", d.dbTypes[pos], 1)
+		field = strings.Replace(field, "?Type", dbType, 1)
 		flds = append(flds, field)
 	}
 
@@ -229,4 +232,51 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	}
 
 	return fieldNames, fieldTypes, nil
+}
+
+func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sql string, err error) {
+	var (
+		dbType string
+		e      error
+	)
+	if dbType, e = d.dbtype(toDT); e != nil {
+		return "", e
+	}
+
+	if d.dialect == "clickhouse" {
+		sql = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
+		return sql, nil
+	}
+
+	return "", fmt.Errorf("unknown error")
+}
+
+func (d *Dialect) CastConstant(constant string, toDT DataTypes) (sql string, err error) {
+	var (
+		dbType string
+		e      error
+	)
+	if dbType, e = d.dbtype(toDT); e != nil {
+		return "", e
+	}
+
+	if d.dialect == "clickhouse" {
+		sql = fmt.Sprintf("cast(%s AS %s)", constant, dbType)
+		if toDT == DTdate {
+			sql = fmt.Sprintf("cast('%s' AS %s)", constant, dbType)
+		}
+
+		return sql, nil
+	}
+
+	return "", fmt.Errorf("unknown error")
+}
+
+func (d *Dialect) dbtype(dt DataTypes) (string, error) {
+	pos := u.Position(dt.String(), "", d.dtTypes...)
+	if pos < 0 {
+		return "", fmt.Errorf("cannot find type %s to map to DB type", dt.String())
+	}
+
+	return d.dbTypes[pos], nil
 }

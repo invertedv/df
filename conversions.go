@@ -82,6 +82,26 @@ func ToDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 	return nil, fmt.Errorf("not supported")
 }
 
+func BestType(xIn any) (xOut any, dt DataTypes, err error) {
+	if x, e := ToDataType(xIn, DTdate, true); e == nil {
+		return x, DTdate, nil
+	}
+
+	if x, e := ToDataType(xIn, DTint, true); e == nil {
+		return x, DTint, nil
+	}
+
+	if x, e := ToDataType(xIn, DTfloat, true); e == nil {
+		return x, DTfloat, nil
+	}
+
+	if x, e := ToDataType(xIn, DTstring, true); e == nil {
+		return x, DTstring, nil
+	}
+
+	return nil, DTunknown, fmt.Errorf("cannot convert to BestType")
+}
+
 func WhatAmI(val any) DataTypes {
 	switch val.(type) {
 	case float64, []float64:

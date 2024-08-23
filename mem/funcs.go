@@ -11,7 +11,7 @@ import (
 func Run(fn d.AnyFunction, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
 	if len(inputs) != len(info.Inputs) {
-		return nil, fmt.Errorf("expected %d arguements to %s, got %d", len(inputs), info.Name, len(info.Inputs))
+		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
 	var (
@@ -93,20 +93,26 @@ func Run(fn d.AnyFunction, inputs []any) (outCol d.Column, err error) {
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{exp, abs, cast, add, log}
+	return d.Functions{exp, abs, cast, add, log, c}
 }
 
-///////// Standard Functions
-
-func cast(info bool, inputs ...any) *d.FuncReturn {
+// /////// Standard Functions
+func abs(info bool, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
+		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
 
-	dt := d.DTFromString(inputs[0].(string))
-
-	x, e := d.ToDataType(inputs[1], dt, true)
-	return &d.FuncReturn{Value: x, Output: dt, Err: e}
+	switch x := inputs[0].(type) {
+	case float64:
+		return &d.FuncReturn{Value: math.Abs(x), Output: d.DTfloat, Err: nil}
+	case int:
+		if x < 0 {
+			return &d.FuncReturn{Value: -x, Output: d.DTint, Err: nil}
+		}
+		return &d.FuncReturn{Value: x, Output: d.DTint, Err: nil}
+	default:
+		return &d.FuncReturn{Value: nil, Output: d.DTunknown, Err: fmt.Errorf("abs requires float or int")}
+	}
 }
 
 func add(info bool, inputs ...any) *d.FuncReturn {
@@ -139,30 +145,48 @@ func add(info bool, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot add %s and %s", dt0, dt1)}
 }
 
+func c(info bool, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "c", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
+	}
+
+	var (
+		x  any
+		dt d.DataTypes
+		e  error
+	)
+
+	if dt = d.DTFromString(inputs[0].(string)); dt == d.DTunknown {
+		return &d.FuncReturn{Err: fmt.Errorf("cannot convert to %s", inputs[0].(string))}
+	}
+
+	if x, e = d.ToDataType(inputs[1], dt, true); e != nil {
+		return &d.FuncReturn{Err: e}
+	}
+
+	return &d.FuncReturn{Value: x, Output: dt}
+}
+
+func cast(info bool, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
+	}
+
+	var dt d.DataTypes
+	if dt = d.DTFromString(inputs[0].(string)); dt == d.DTunknown {
+		return &d.FuncReturn{Err: fmt.Errorf("cannot convert to %s", inputs[0].(string))}
+	}
+
+	x, e := d.ToDataType(inputs[1], dt, true)
+	return &d.FuncReturn{Value: x, Output: dt, Err: e}
+}
+
 func exp(info bool, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
 
 	return &d.FuncReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
-}
-
-func abs(info bool, inputs ...any) *d.FuncReturn {
-	if info {
-		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	switch x := inputs[0].(type) {
-	case float64:
-		return &d.FuncReturn{Value: math.Abs(x), Output: d.DTfloat, Err: nil}
-	case int:
-		if x < 0 {
-			return &d.FuncReturn{Value: -x, Output: d.DTint, Err: nil}
-		}
-		return &d.FuncReturn{Value: x, Output: d.DTint, Err: nil}
-	default:
-		return &d.FuncReturn{Value: nil, Output: d.DTunknown, Err: fmt.Errorf("abs requires float or int")}
-	}
 }
 
 func log(info bool, inputs ...any) *d.FuncReturn {
