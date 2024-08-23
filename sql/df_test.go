@@ -70,14 +70,6 @@ func TestNewSQLdf(t *testing.T) {
 	e = df.Apply("test1", "cast", "DTstring", "latitude")
 	assert.Nil(t, e)
 
-	/*	col, e := df.Column("cbsa")
-		assert.Nil(t, e)
-		col1, e1 := df.Column("q25")
-		assert.Nil(t, e1)
-		_, _ = col, col1
-
-
-	*/
 	e1 := df.Apply("test", "add", "latitude", "longitude")
 	assert.Nil(t, e1)
 

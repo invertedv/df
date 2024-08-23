@@ -162,7 +162,7 @@ func NewSQLdf(query string, dialect *d.Dialect) (*SQLdf, error) {
 	}
 
 	tmp.Dialect = dialect
-	tmp.SetAddlArgs([]any{dialect})
+	tmp.SetContext(dialect)
 
 	df.DFcore = tmp
 

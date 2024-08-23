@@ -48,7 +48,7 @@ type DFcore struct {
 
 	*Dialect
 
-	addlArgs []any
+	context any
 }
 
 type columnList struct {
@@ -93,7 +93,7 @@ const MaxDT = DTany
 
 type Functions []AnyFunction
 
-type AnyFunction func(info bool, inputs ...any) *FuncReturn
+type AnyFunction func(info bool, context any, inputs ...any) *FuncReturn
 
 type FuncReturn struct {
 	Value any
@@ -133,7 +133,7 @@ func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error)
 	return &DFcore{head: head, funcs: funcs, run: run}, nil
 }
 
-type RunFunc func(fn AnyFunction, inputs []any) (Column, error)
+type RunFunc func(fn AnyFunction, context any, inputs []any) (Column, error)
 
 ///////////// DFcore methods
 
@@ -144,17 +144,13 @@ func (df *DFcore) SetDB(dialect string, db *sql.DB) error {
 	return e
 }
 
-func (df *DFcore) SetAddlArgs(args []any) {
-	df.addlArgs = args
+func (df *DFcore) SetContext(args any) {
+	df.context = args
 }
 
 func (df *DFcore) DB() *sql.DB {
 	return df.db
 }
-
-//func (df *DFcore) DBdialect() string {
-//	return df.dialect
-//}
 
 func (df *DFcore) Next(reset bool) Column {
 	if reset || df.current == nil {
@@ -279,7 +275,7 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 		return nil
 	}
 
-	vals := df.addlArgs
+	var vals []any
 	for ind := 0; ind < len(inputs); ind++ {
 		if c, e := df.Column(inputs[ind]); e == nil {
 			vals = append(vals, c)
@@ -293,7 +289,7 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 		e   error
 	)
 
-	if col, e = df.run(fn, vals); e != nil {
+	if col, e = df.run(fn, df.context, vals); e != nil {
 		return e
 	}
 
@@ -303,15 +299,6 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 }
 
 func (df *DFcore) AppendColumn(col Column) error {
-	//	if u.Has(col.Name(""), "", df.ColumnNames()...) {
-	//		return fmt.Errorf("duplicate column name: %s", col.Name(""))
-	//	}
-
-	// col.Len() = -1 means length is not meaningful here
-	//	if col.Len() > 0 && col.Len() != df.head.col.Len() {
-	//		return fmt.Errorf("length mismatch: dfList - %d, append col - %d", df.head.col.Len(), col.Len())
-	//	}
-
 	var tail *columnList
 	for tail = df.head; tail.next != nil; tail = tail.next {
 	}
