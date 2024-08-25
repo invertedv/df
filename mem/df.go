@@ -24,15 +24,15 @@ type MemCol struct {
 	catMap d.CategoryMap
 }
 
-/////////// MemDF
-
+// ///////// MemDF
+// TODO: incorporate context with length.  Allow lengths of n or 1
 func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error) {
-	//	rowCount := cols[0].Len()
+	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
-		//		if cols[ind].Len() != rowCount {
-		//			return nil, fmt.Errorf("all MemCols must have same length")
-		//		}
+		if cols[ind].Len() != rowCount {
+			return nil, fmt.Errorf("all MemCols must have same length")
+		}
 
 		cc = append(cc, cols[ind])
 	}
@@ -46,11 +46,14 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 		return nil, e
 	}
 
+	df.SetContext(d.NewContext(nil, rowCount, nil))
+
 	outDF := &MemDF{DFcore: df}
 
 	return outDF, nil
 }
 
+// TODO: look at RowCount and fix for 1 or n lengths
 func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 	var (
 		columnNames []string
@@ -89,6 +92,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 
 	memDF.sourceQuery = qry
 	memDF.Dialect = dialect
+	memDF.SetContext(d.NewContext(dialect, memDF.RowCount(), nil))
 
 	return memDF, nil
 }
@@ -98,7 +102,6 @@ func (df *MemDF) SourceQuery() string {
 }
 
 func (df *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
-
 	return nil
 }
 
@@ -144,32 +147,8 @@ func (df *MemDF) Swap(i, j int) {
 	}
 }
 
-func (df *MemDF) Squarish() bool {
-	n := 0
-	for h := df.Next(true); h != nil; h = df.Next(false) {
-		l := h.Len()
-		if l == 1 {
-			continue
-		}
-
-		if n == 0 {
-			n = l
-			continue
-		}
-
-		if n != l {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (df *MemDF) Sort(cols ...string) error {
 	var by []*MemCol
-	if !df.Squarish() {
-		return fmt.Errorf("cannot sort non-squarish MemDF")
-	}
 
 	for ind := 0; ind < len(cols); ind++ {
 		var (

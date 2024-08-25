@@ -8,7 +8,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
-func Run(fn d.AnyFunction, context any, inputs []any) (outCol d.Column, err error) {
+func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
 	if len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
@@ -97,7 +97,7 @@ func StandardFunctions() d.Functions {
 }
 
 // /////// Standard Functions
-func abs(info bool, context any, inputs ...any) *d.FuncReturn {
+func abs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
@@ -115,7 +115,7 @@ func abs(info bool, context any, inputs ...any) *d.FuncReturn {
 	}
 }
 
-func add(info bool, context any, inputs ...any) *d.FuncReturn {
+func add(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "add", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
 	}
@@ -145,7 +145,7 @@ func add(info bool, context any, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot add %s and %s", dt0, dt1)}
 }
 
-func c(info bool, context any, inputs ...any) *d.FuncReturn {
+func c(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "c", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
 	}
@@ -167,7 +167,7 @@ func c(info bool, context any, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: x, Output: dt}
 }
 
-func cast(info bool, context any, inputs ...any) *d.FuncReturn {
+func cast(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
 	}
@@ -181,7 +181,7 @@ func cast(info bool, context any, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: x, Output: dt, Err: e}
 }
 
-func exp(info bool, context any, inputs ...any) *d.FuncReturn {
+func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
@@ -189,7 +189,7 @@ func exp(info bool, context any, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
 }
 
-func log(info bool, context any, inputs ...any) *d.FuncReturn {
+func log(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}

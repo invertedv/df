@@ -6,7 +6,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
-func Run(fn d.AnyFunction, context any, inputs []any) (outCol d.Column, err error) {
+func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
 	if len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
@@ -53,7 +53,7 @@ func StandardFunctions() d.Functions {
 }
 
 // ////////  Standard Functions
-func abs(info bool, context any, inputs ...any) *d.FuncReturn {
+func abs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
@@ -62,7 +62,7 @@ func abs(info bool, context any, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
-func add(info bool, context any, inputs ...any) *d.FuncReturn {
+func add(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
 	}
@@ -71,7 +71,7 @@ func add(info bool, context any, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
-func c(info bool, context any, inputs ...any) *d.FuncReturn {
+func c(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "c", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
 	}
@@ -81,25 +81,23 @@ func c(info bool, context any, inputs ...any) *d.FuncReturn {
 		return &d.FuncReturn{Err: fmt.Errorf("cannot convert to %s", inputs[0].(string))}
 	}
 
-	dialect := context.(*d.Dialect)
 	var (
 		sql string
 		e   error
 	)
 
-	if sql, e = dialect.CastConstant(inputs[1].(string), dt); e != nil {
+	if sql, e = context.Dialect().CastConstant(inputs[1].(string), dt); e != nil {
 		return &d.FuncReturn{Err: e}
 	}
 
 	return &d.FuncReturn{Value: sql, Output: dt}
 }
 
-func cast(info bool, context any, inputs ...any) *d.FuncReturn {
+func cast(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
 	}
 
-	dialect := context.(*d.Dialect)
 	col := inputs[1].(d.Column)
 	var toDT d.DataTypes
 	if toDT = d.DTFromString(inputs[0].(string)); toDT == d.DTunknown {
@@ -109,14 +107,14 @@ func cast(info bool, context any, inputs ...any) *d.FuncReturn {
 		sql string
 		e   error
 	)
-	if sql, e = dialect.CastField(col.Name(""), toDT); e != nil {
+	if sql, e = context.Dialect().CastField(col.Name(""), toDT); e != nil {
 		return &d.FuncReturn{Err: e}
 	}
 
 	return &d.FuncReturn{Value: sql, Output: toDT}
 }
 
-func exp(info bool, context any, inputs ...any) *d.FuncReturn {
+func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
@@ -126,7 +124,7 @@ func exp(info bool, context any, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
-func log(info bool, context any, inputs ...any) *d.FuncReturn {
+func log(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}

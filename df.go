@@ -48,7 +48,7 @@ type DFcore struct {
 
 	*Dialect
 
-	context any
+	*Context
 }
 
 type columnList struct {
@@ -93,7 +93,7 @@ const MaxDT = DTany
 
 type Functions []AnyFunction
 
-type AnyFunction func(info bool, context any, inputs ...any) *FuncReturn
+type AnyFunction func(info bool, context *Context, inputs ...any) *FuncReturn
 
 type FuncReturn struct {
 	Value any
@@ -133,7 +133,7 @@ func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error)
 	return &DFcore{head: head, funcs: funcs, run: run}, nil
 }
 
-type RunFunc func(fn AnyFunction, context any, inputs []any) (Column, error)
+type RunFunc func(fn AnyFunction, context *Context, inputs []any) (Column, error)
 
 ///////////// DFcore methods
 
@@ -144,8 +144,8 @@ func (df *DFcore) SetDB(dialect string, db *sql.DB) error {
 	return e
 }
 
-func (df *DFcore) SetContext(args any) {
-	df.context = args
+func (df *DFcore) SetContext(c *Context) {
+	df.Context = c
 }
 
 func (df *DFcore) DB() *sql.DB {
@@ -289,7 +289,7 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 		e   error
 	)
 
-	if col, e = df.run(fn, df.context, vals); e != nil {
+	if col, e = df.run(fn, df.Context, vals); e != nil {
 		return e
 	}
 
@@ -298,7 +298,12 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	return df.AppendColumn(col)
 }
 
+// TODO: think about lengths...check context?? df.context.Len()
 func (df *DFcore) AppendColumn(col Column) error {
+	if df.Context != nil && df.Context.Len() != nil && col.Len() > 1 && *df.Context.Len() != col.Len() {
+		return fmt.Errorf("unequal lengths in AppendColumn")
+	}
+
 	var tail *columnList
 	for tail = df.head; tail.next != nil; tail = tail.next {
 	}
