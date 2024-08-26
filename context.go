@@ -7,20 +7,11 @@ type Context struct {
 	unassigned []any
 }
 
-func NewContext(dialect *Dialect, rowCount int, unassigned ...any) *Context {
-	var (
-		np int
-		nx *int
-	)
-
-	if rowCount > 0 {
-		np, nx = rowCount, &np
-	}
-
+func NewContext(dialect *Dialect, rowCount *int, unassigned ...any) *Context {
 	return &Context{
 		dialect:    dialect,
 		unassigned: unassigned,
-		n:          nx,
+		n:          rowCount,
 	}
 }
 

@@ -25,12 +25,12 @@ type MemCol struct {
 }
 
 // ///////// MemDF
-// TODO: incorporate context with length.  Allow lengths of n or 1
+
 func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error) {
 	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
-		if cols[ind].Len() != rowCount {
+		if rc := cols[ind].Len(); rc > 1 && rc != rowCount {
 			return nil, fmt.Errorf("all MemCols must have same length")
 		}
 
@@ -46,14 +46,13 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 		return nil, e
 	}
 
-	df.SetContext(d.NewContext(nil, rowCount, nil))
+	df.SetContext(d.NewContext(nil, &rowCount, nil))
 
 	outDF := &MemDF{DFcore: df}
 
 	return outDF, nil
 }
 
-// TODO: look at RowCount and fix for 1 or n lengths
 func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 	var (
 		columnNames []string
@@ -91,8 +90,9 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 	}
 
 	memDF.sourceQuery = qry
-	memDF.Dialect = dialect
-	memDF.SetContext(d.NewContext(dialect, memDF.RowCount(), nil))
+
+	rc := memDF.RowCount()
+	memDF.SetContext(d.NewContext(dialect, &rc, nil))
 
 	return memDF, nil
 }

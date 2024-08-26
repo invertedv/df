@@ -3,10 +3,11 @@ package sql
 import (
 	"database/sql"
 	"fmt"
-	df2 "github.com/invertedv/df"
 	"os"
 	"testing"
 	"time"
+
+	df2 "github.com/invertedv/df"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func df4test() (*SQLdf, error) {
 	var dialect *df2.Dialect
 	dialect, e = df2.NewDialect("clickhouse", db)
 
-	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", dialect)
+	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", df2.NewContext(dialect, 0))
 	if e1 != nil {
 		return nil, e1
 	}
@@ -61,7 +62,7 @@ func df4test() (*SQLdf, error) {
 func TestNewSQLdf(t *testing.T) {
 	df, e := df4test()
 	assert.Nil(t, e)
-	defer func() { _ = df.DB().Close() }()
+	defer func() { _ = df.Context.Dialect().DB().Close() }()
 
 	e2 := df.Apply("c", "c", "DTdate", "1999-12-31")
 	assert.Nil(t, e2)

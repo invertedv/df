@@ -80,8 +80,16 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	return d, nil
 }
 
+func (d *Dialect) DB() *sql.DB {
+	return d.db
+}
+
 func (d *Dialect) DialectName() string {
 	return d.dialect
+}
+
+func (d *Dialect) Close() error {
+	return d.db.Close()
 }
 
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {

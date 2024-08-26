@@ -36,7 +36,7 @@ func (df *SQLdf) DBsave(tableName string, overwrite bool, cols ...string) error 
 		}
 	}
 
-	return df.Insert(tableName, df.MakeQuery(), strings.Join(cols, ","))
+	return df.Dialect().Insert(tableName, df.MakeQuery(), strings.Join(cols, ","))
 }
 
 func (df *SQLdf) RowCount() int {
@@ -45,7 +45,7 @@ func (df *SQLdf) RowCount() int {
 	}
 
 	var e error
-	df.rowCount, e = df.Dialect.RowCount(df.sourceSQL)
+	df.rowCount, e = df.Dialect().RowCount(df.sourceSQL)
 	if e != nil {
 		panic(e)
 	}
@@ -129,7 +129,7 @@ func (s *SQLcol) Copy() d.Column {
 	}
 }
 
-func NewSQLdf(query string, dialect *d.Dialect) (*SQLdf, error) {
+func NewSQLdf(query string, context *d.Context) (*SQLdf, error) {
 	var (
 		e        error
 		colTypes []d.DataTypes
@@ -137,7 +137,10 @@ func NewSQLdf(query string, dialect *d.Dialect) (*SQLdf, error) {
 		cols     []d.Column
 	)
 
-	if colNames, colTypes, e = dialect.Types(query); e != nil {
+	if context.Dialect() == nil {
+		return nil, fmt.Errorf("no DB defined in Context for NewSQLdf")
+	}
+	if colNames, colTypes, e = context.Dialect().Types(query); e != nil {
 		return nil, e
 	}
 
@@ -161,8 +164,7 @@ func NewSQLdf(query string, dialect *d.Dialect) (*SQLdf, error) {
 		return nil, e
 	}
 
-	tmp.Dialect = dialect
-	tmp.SetContext(d.NewContext(dialect, 0, nil))
+	tmp.SetContext(context)
 
 	df.DFcore = tmp
 

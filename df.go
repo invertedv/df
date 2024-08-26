@@ -46,8 +46,6 @@ type DFcore struct {
 
 	current *columnList
 
-	*Dialect
-
 	*Context
 }
 
@@ -135,21 +133,9 @@ func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error)
 
 type RunFunc func(fn AnyFunction, context *Context, inputs []any) (Column, error)
 
-///////////// DFcore methods
-
-func (df *DFcore) SetDB(dialect string, db *sql.DB) error {
-	var e error
-	df.Dialect, e = NewDialect(dialect, db)
-
-	return e
-}
-
+// /////////// DFcore methods
 func (df *DFcore) SetContext(c *Context) {
 	df.Context = c
-}
-
-func (df *DFcore) DB() *sql.DB {
-	return df.db
 }
 
 func (df *DFcore) Next(reset bool) Column {
@@ -237,7 +223,7 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 		dts []DataTypes
 	)
 
-	if df.Dialect == nil {
+	if df.Context.dialect == nil {
 		return fmt.Errorf("no database defined")
 	}
 
@@ -253,7 +239,7 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 		return e
 	}
 
-	return df.Create(tableName, orderBy, cols, dts, overwrite)
+	return df.Context.dialect.Create(tableName, orderBy, cols, dts, overwrite)
 }
 
 func (df *DFcore) HasColumns(cols ...string) bool {
@@ -298,7 +284,6 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	return df.AppendColumn(col)
 }
 
-// TODO: think about lengths...check context?? df.context.Len()
 func (df *DFcore) AppendColumn(col Column) error {
 	if df.Context != nil && df.Context.Len() != nil && col.Len() > 1 && *df.Context.Len() != col.Len() {
 		return fmt.Errorf("unequal lengths in AppendColumn")
@@ -392,7 +377,7 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 		head:    subHead,
 		funcs:   df.funcs,
 		run:     df.run,
-		Dialect: df.Dialect,
+		Context: df.Context,
 	}
 
 	return subsetDF, nil
