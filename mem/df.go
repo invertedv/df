@@ -3,6 +3,7 @@ package df
 import (
 	_ "embed"
 	"fmt"
+	u "github.com/invertedv/utilities"
 	"sort"
 	"time"
 
@@ -46,7 +47,7 @@ func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error)
 		return nil, e
 	}
 
-	df.SetContext(d.NewContext(nil, &rowCount, nil))
+	df.SetContext(d.NewContext(nil, nil, &rowCount, nil))
 
 	outDF := &MemDF{DFcore: df}
 
@@ -92,7 +93,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 	memDF.sourceQuery = qry
 
 	rc := memDF.RowCount()
-	memDF.SetContext(d.NewContext(dialect, &rc, nil))
+	memDF.SetContext(d.NewContext(dialect, d.NewFiles(), &rc, nil))
 
 	return memDF, nil
 }
@@ -183,6 +184,58 @@ func (df *MemDF) RowCount() int {
 // Len() is required for sort
 func (df *MemDF) Len() int {
 	return df.RowCount()
+}
+
+func (df *MemDF) Row(rowNum int) []any {
+	if rowNum >= df.RowCount() {
+		return nil
+	}
+
+	var r []any
+	for cx := df.Next(true); cx != nil; cx = df.Next(false) {
+		var v any
+		i := u.MinInt(rowNum, cx.Len()-1)
+		switch cx.DataType() {
+		case d.DTfloat:
+			v = cx.Data().([]float64)[i]
+		case d.DTint:
+			v = cx.Data().([]int)[i]
+		case d.DTdate:
+			v = cx.Data().([]time.Time)[i]
+		case d.DTstring:
+			v = cx.Data().([]string)[i]
+		default:
+			panic(fmt.Errorf("unknown data type in Row"))
+		}
+		r = append(r, v)
+	}
+
+	return r
+}
+
+func (df *MemDF) FileSave(fileName string) error {
+	if e := df.Files().Create(fileName); e != nil {
+		return e
+	}
+	defer func() { _ = df.Files().Close() }()
+
+	df.Files().FieldNames = df.ColumnNames()
+
+	if e := df.Files().WriteHeader(); e != nil {
+		return e
+	}
+
+	for ind := 0; ind < df.RowCount(); ind++ {
+		var row []any
+		if row = df.Row(ind); row == nil {
+			return fmt.Errorf("unexpected end of MemDF")
+		}
+		if e := df.Files().WriteLine(row); e != nil {
+			return e
+		}
+	}
+
+	return nil
 }
 
 ///////////// MemCol

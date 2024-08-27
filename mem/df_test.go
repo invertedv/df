@@ -28,12 +28,17 @@ func makeMemDF() *MemDF {
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
 
-	e2 := df.Apply("c", "c", "DTfloat", "1")
+	e2 := df.Apply("c", "c", "DTstring", "1")
 	assert.Nil(t, e2)
 	cc, _ := df.Column("c")
 	fmt.Println(cc.Data())
 
-	e2 = df.Apply("cx", "add", "c", "y")
+	e2 = df.Apply("cx", "exp", "1")
+	assert.Nil(t, e2)
+	cc, _ = df.Column("cx")
+	fmt.Println("exp", cc.Data())
+
+	e2 = df.Apply("cx", "add", "10", "y")
 	assert.Nil(t, e2)
 	cc, _ = df.Column("cx")
 	fmt.Println("cx", cc.DataType(), cc.Data())
@@ -128,8 +133,16 @@ func TestLoadSQL(t *testing.T) {
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)
 	fmt.Println(col.Data())
+	e = memDF.Apply("abc", "cast", "DTstring", "abc")
+	assert.Nil(t, e)
+	e = memDF.Apply("abcd", "cast", "DTdate", "March 25, 1990")
+	assert.Nil(t, e)
+	e = memDF.Apply("abd", "cast", "DTstring", "latitude")
+	assert.Nil(t, e)
 
 	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
 	assert.Nil(t, ed)
 	fmt.Println("len", memDF.Len())
+	ed = memDF.FileSave("/home/will/tmp/test.csv")
+	assert.Nil(t, ed)
 }

@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	u "github.com/invertedv/utilities"
 )
+
+// All code interacting with a database is here
 
 var (
 	//go:embed skeletons/chCreate.txt
@@ -139,6 +142,46 @@ func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	return e
 }
 
+func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
+	var (
+		fieldTypes []DataTypes
+		e          error
+	)
+
+	if fieldNames, fieldTypes, e = d.Types(qry); e != nil {
+		return nil, nil, nil, e
+	}
+
+	if rows, e = d.db.Query(qry); e != nil {
+		return nil, nil, nil, e
+	}
+
+	var addr []any
+	for ind := 0; ind < len(fieldTypes); ind++ {
+		var (
+			vFt  float64
+			vInt int
+			vDt  time.Time
+			vStr string
+		)
+		switch fieldTypes[ind] {
+		case DTfloat:
+
+			addr = append(addr, &vFt)
+		case DTint:
+			addr = append(addr, &vInt)
+		case DTdate:
+			addr = append(addr, &vDt)
+		case DTstring:
+			addr = append(addr, &vStr)
+		default:
+			return nil, nil, nil, fmt.Errorf("unknown type in Rows")
+		}
+	}
+
+	return rows, addr, fieldNames, nil
+}
+
 func (d *Dialect) Read(qry string) ([]any, error) {
 	var (
 		e     error
@@ -150,9 +193,8 @@ func (d *Dialect) Read(qry string) ([]any, error) {
 		return nil, e
 	}
 
-	var (
-		rows *sql.Rows
-	)
+	var rows *sql.Rows
+
 	if rows, e = d.db.Query(qry); e != nil {
 		return nil, e
 	}
@@ -203,7 +245,7 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 }
 
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
-	const skeleton = "WITH d AS (%s) SELECT * FROM d LIMIT 1"
+	const skeleton = "WITH d3212 AS (%s) SELECT * FROM d3212 LIMIT 1"
 
 	q := fmt.Sprintf(skeleton, qry)
 
@@ -242,6 +284,32 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	return fieldNames, fieldTypes, nil
 }
 
+func (d *Dialect) CastConstant(constant string, toDT DataTypes) (sql string, err error) {
+	var (
+		dbType string
+		e      error
+	)
+
+	if _, ex := ToDataType(constant, toDT, true); ex != nil {
+		return "", ex
+	}
+
+	if dbType, e = d.dbtype(toDT); e != nil {
+		return "", e
+	}
+
+	if d.dialect == "clickhouse" {
+		sql = fmt.Sprintf("cast(%s AS %s)", constant, dbType)
+		if toDT == DTdate {
+			sql = fmt.Sprintf("cast('%s' AS %s)", constant, dbType)
+		}
+
+		return sql, nil
+	}
+
+	return "", fmt.Errorf("unknown error")
+}
+
 func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sql string, err error) {
 	var (
 		dbType string
@@ -253,27 +321,6 @@ func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sql string, err e
 
 	if d.dialect == "clickhouse" {
 		sql = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
-		return sql, nil
-	}
-
-	return "", fmt.Errorf("unknown error")
-}
-
-func (d *Dialect) CastConstant(constant string, toDT DataTypes) (sql string, err error) {
-	var (
-		dbType string
-		e      error
-	)
-	if dbType, e = d.dbtype(toDT); e != nil {
-		return "", e
-	}
-
-	if d.dialect == "clickhouse" {
-		sql = fmt.Sprintf("cast(%s AS %s)", constant, dbType)
-		if toDT == DTdate {
-			sql = fmt.Sprintf("cast('%s' AS %s)", constant, dbType)
-		}
-
 		return sql, nil
 	}
 

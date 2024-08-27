@@ -2,9 +2,8 @@ package sql
 
 import (
 	"fmt"
-	"strings"
-
 	d "github.com/invertedv/df"
+	"strings"
 )
 
 type SQLdf struct {
@@ -85,14 +84,32 @@ func (df *SQLdf) MakeQuery() string {
 	return qry
 }
 
-func (df *SQLdf) Save2DBxxxx(table string, cols ...string) error {
-	orderBy := strings.Split(df.orderBy, ",")
-	_ = orderBy
+func (df *SQLdf) FileSave(fileName string) error {
+	if e := df.Files().Create(fileName); e != nil {
+		return e
+	}
+	defer func() { _ = df.Files().Close() }()
 
-	return nil
-}
+	qry := df.MakeQuery()
+	rows, addr, fieldNames, e := df.Dialect().Rows(qry)
+	if e != nil {
+		return e
+	}
 
-func (df *SQLdf) Save2Filexxxx(fileName string, cols ...string) error {
+	df.Files().FieldNames = fieldNames
+	if ex := df.Files().WriteHeader(); ex != nil {
+		return ex
+	}
+
+	for rows.Next() {
+		if ex := rows.Scan(addr...); ex != nil {
+			return ex
+		}
+
+		if ex := df.Files().WriteLine(addr); ex != nil {
+			return ex
+		}
+	}
 
 	return nil
 }

@@ -51,7 +51,9 @@ func df4test() (*SQLdf, error) {
 	var dialect *df2.Dialect
 	dialect, e = df2.NewDialect("clickhouse", db)
 
-	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", df2.NewContext(dialect, 0))
+	// , ln_zb_dt
+	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", df2.NewContext(dialect, nil, nil))
+	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", df2.NewContext(dialect, nil, nil))
 	if e1 != nil {
 		return nil, e1
 	}
@@ -64,12 +66,23 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	defer func() { _ = df.Context.Dialect().DB().Close() }()
 
-	e2 := df.Apply("c", "c", "DTdate", "1999-12-31")
-	assert.Nil(t, e2)
-	fmt.Println(df.MakeQuery())
-
-	e = df.Apply("test1", "cast", "DTstring", "latitude")
+	e = df.Apply("test1", "c", "DTint", "1x")
 	assert.Nil(t, e)
+
+	e = df.Apply("test2", "cast", "DTstring", "latitude")
+	assert.Nil(t, e)
+
+	e2 := df.Apply("c", "add", "10", "latitude")
+	assert.Nil(t, e2)
+
+	e2 = df.Apply("d", "abs", "latitude")
+	assert.Nil(t, e2)
+
+	e2 = df.Apply("e", "exp", "1.1")
+	assert.Nil(t, e2)
+
+	//	e = df.Apply("test1", "cast", "DTstring", "latitude")
+	//	assert.Nil(t, e)
 
 	e1 := df.Apply("test", "add", "latitude", "longitude")
 	assert.Nil(t, e1)
@@ -79,11 +92,17 @@ func TestNewSQLdf(t *testing.T) {
 
 	fmt.Println(df.RowCount())
 	fmt.Println(df.MakeQuery())
-	e = df.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3")
+	r := df.MakeQuery()
+	_ = r
+	dx, _ := df.Column("latitude")
+	_ = dx
+	e = df.CreateTable("tmp.aaa", "prop_zip3", true)
 	assert.Nil(t, e)
 	e = df.DBsave("tmp.aaa", true)
 	assert.Nil(t, e)
 
 	fmt.Println(df.RowCount())
+	e = df.FileSave("/home/will/tmp/test.csv")
+	assert.Nil(t, e)
 
 }

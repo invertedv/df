@@ -2,14 +2,21 @@ package df
 
 type Context struct {
 	dialect *Dialect
+	files   *Files
 	n       *int
 
 	unassigned []any
 }
 
-func NewContext(dialect *Dialect, rowCount *int, unassigned ...any) *Context {
+func NewContext(dialect *Dialect, files *Files, rowCount *int, unassigned ...any) *Context {
+	// Fill with default values
+	if files == nil {
+		files = NewFiles()
+	}
+
 	return &Context{
 		dialect:    dialect,
+		files:      files,
 		unassigned: unassigned,
 		n:          rowCount,
 	}
@@ -17,6 +24,10 @@ func NewContext(dialect *Dialect, rowCount *int, unassigned ...any) *Context {
 
 func (c *Context) Dialect() *Dialect {
 	return c.dialect
+}
+
+func (c *Context) Files() *Files {
+	return c.files
 }
 
 func (c *Context) Len() *int {

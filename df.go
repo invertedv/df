@@ -1,7 +1,6 @@
 package df
 
 import (
-	"database/sql"
 	_ "embed"
 	"fmt"
 	"log"
@@ -21,17 +20,14 @@ type DF interface {
 	DropColumns(colNames ...string) error
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
-	SetDB(dbName string, db *sql.DB) error
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	Fn(fn Ereturn) error
-
-	// generic from Dialect
-	Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error
 
 	// specific to underlying data source
 	RowCount() int
 	Sort(keys ...string) error
 	DBsave(tableName string, overwrite bool, cols ...string) error
+	FileSave(fileName string) error
 }
 
 type Ereturn func() error
@@ -287,6 +283,10 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 func (df *DFcore) AppendColumn(col Column) error {
 	if df.Context != nil && df.Context.Len() != nil && col.Len() > 1 && *df.Context.Len() != col.Len() {
 		return fmt.Errorf("unequal lengths in AppendColumn")
+	}
+
+	if _, e := df.Column(col.Name("")); e == nil {
+		return fmt.Errorf("duplicate column name: %s", col.Name(""))
 	}
 
 	var tail *columnList
