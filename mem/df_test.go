@@ -38,9 +38,9 @@ func TestDF_Apply(t *testing.T) {
 	cc, _ = df.Column("cx")
 	fmt.Println("exp", cc.Data())
 
-	e2 = df.Apply("cx", "add", "10", "y")
+	e2 = df.Apply("cxa", "add", "10", "y")
 	assert.Nil(t, e2)
-	cc, _ = df.Column("cx")
+	cc, _ = df.Column("cxa")
 	fmt.Println("cx", cc.DataType(), cc.Data())
 
 	e1x := df.Apply("aexp", "exp", "1")

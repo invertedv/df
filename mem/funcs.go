@@ -2,7 +2,6 @@ package df
 
 import (
 	"fmt"
-	l "log"
 	"math"
 
 	d "github.com/invertedv/df"
@@ -37,13 +36,14 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 				e    error
 			)
 
-			if c, ok := inputs[j].(*MemCol); ok {
-				indx := ind % c.Len()
-				if ind >= c.Len() && c.Len() > 1 {
-					l.Println("warning unequal lengths in MemDF")
+			// fix this up...don't need mod. Use something other than c
+			if cx, ok := inputs[j].(*MemCol); ok {
+				indx := ind
+				if cx.Len() == 1 {
+					indx = 0
 				}
 
-				if xadd, e = d.ToDataType(c.Element(indx), info.Inputs[j], false); e != nil {
+				if xadd, e = d.ToDataType(cx.Element(indx), info.Inputs[j], false); e != nil {
 					return nil, e
 				}
 

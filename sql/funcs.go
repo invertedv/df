@@ -14,8 +14,6 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 
 	var xs []any
 	for ind := 0; ind < len(inputs); ind++ {
-		var xadd any
-
 		if cx, ok := inputs[ind].(*SQLcol); ok {
 			xs = append(xs, cx.Name(""))
 			continue
@@ -26,9 +24,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 			return nil, e
 		}
 
-		xadd = inputs[ind].(string)
-
-		xs = append(xs, xadd)
+		xs = append(xs, inputs[ind].(string))
 	}
 
 	r := fn(false, context, xs...)
