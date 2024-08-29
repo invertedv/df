@@ -327,6 +327,20 @@ func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sql string, err e
 	return "", fmt.Errorf("unknown error")
 }
 
+func (d *Dialect) Ifs(x, y, op string) (string, error) {
+	const ops = ">,>=,<,<=,==,!="
+	op = strings.ReplaceAll(op, " ", "")
+	if !u.Has(op, ",", ops) {
+		return "", fmt.Errorf("unknown comparison: %s", op)
+	}
+
+	if d.dialect == "clickhouse" {
+		return fmt.Sprintf("toInt32(%s%s%s)", x, op, y), nil
+	}
+
+	return "", fmt.Errorf("unknown error")
+}
+
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 	pos := u.Position(dt.String(), "", d.dtTypes...)
 	if pos < 0 {

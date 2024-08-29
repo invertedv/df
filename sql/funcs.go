@@ -44,10 +44,11 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, c, cast, exp, log}
+	return d.Functions{abs, add, c, cast, exp, log, ifs}
 }
 
 // ////////  Standard Functions
+
 func abs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
@@ -116,6 +117,17 @@ func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	sql := fmt.Sprintf("exp(%s)", inputs[0].(string))
 
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
+}
+
+func ifs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "if", Inputs: []d.DataTypes{d.DTstring, d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	ret := &d.FuncReturn{Output: d.DTint}
+	ret.Value, ret.Err = context.Dialect().Ifs(inputs[1].(string), inputs[2].(string), inputs[0].(string))
+
+	return ret
 }
 
 func log(info bool, context *d.Context, inputs ...any) *d.FuncReturn {

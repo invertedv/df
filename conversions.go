@@ -176,3 +176,67 @@ func Address(data any, dt DataTypes, indx int) any {
 
 	return nil
 }
+
+func GT(x, y any) (bool, error) {
+	var (
+		yy any
+		e  error
+	)
+
+	switch dx := x.(type) {
+	case float64:
+		if yy, e = ToFloat(y, true); e != nil {
+			return false, e
+		}
+
+		return dx > yy.(float64), nil
+	case int:
+		if yy, e = ToInt(y, true); e != nil {
+			return false, e
+		}
+
+		return dx > yy.(int), nil
+	case string:
+		if yy, e = ToString(y, true); e != nil {
+			return false, e
+		}
+
+		return dx > yy.(string), nil
+	case time.Time:
+		if yy, e = ToDate(y, true); e != nil {
+			return false, e
+		}
+
+		return dx.Sub(yy.(time.Time)).Minutes() > 0, nil
+	default:
+		return false, fmt.Errorf("unknown type in gt")
+	}
+}
+
+func Comparator(x, y any, op string) (bool, error) {
+	a, ea := GT(x, y)
+	if ea != nil {
+		return false, ea
+	}
+	b, eb := GT(y, x)
+	if eb != nil {
+		return false, eb
+	}
+
+	switch op {
+	case ">":
+		return a, nil
+	case "<":
+		return b, nil
+	case "==":
+		return !a && !b, nil
+	case ">=":
+		return !b, nil
+	case "<=":
+		return !a, nil
+	case "!=":
+		return a || b, nil
+	default:
+		return false, fmt.Errorf("invalid compare operator: %s", op)
+	}
+}

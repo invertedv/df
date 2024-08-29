@@ -66,6 +66,9 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	defer func() { _ = df.Context.Dialect().DB().Close() }()
 
+	e = df.Apply("testx", "if", ">", "latitude", "42.5")
+	assert.Nil(t, e)
+
 	e = df.Apply("test1", "c", "DTint", "1")
 	assert.Nil(t, e)
 

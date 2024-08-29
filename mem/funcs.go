@@ -18,15 +18,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 		outType d.DataTypes
 	)
 
-	n := 1
-	for _, inp := range inputs {
-		if c, ok := inp.(*MemCol); ok {
-			if nc := c.Len(); nc > n {
-				n = nc
-			}
-		}
-	}
-
+	n := *context.Len()
 	for ind := 0; ind < n; ind++ {
 		var xs []any
 
@@ -38,12 +30,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 
 			// fix this up...don't need mod. Use something other than c
 			if cx, ok := inputs[j].(*MemCol); ok {
-				indx := ind
-				if cx.Len() == 1 {
-					indx = 0
-				}
-
-				if xadd, e = d.ToDataType(cx.Element(indx), info.Inputs[j], false); e != nil {
+				if xadd, e = d.ToDataType(cx.Element(ind), info.Inputs[j], false); e != nil {
 					return nil, e
 				}
 
@@ -64,17 +51,16 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 		}
 
 		if ind == 0 {
-			outType = d.WhatAmI(fnr.Value)
+			outType = fnr.Output
 			if info.Output != d.DTany && info.Output != outType {
-				panic("function return not required type")
+				return nil, fmt.Errorf("inconsistent function return types: got %s need %s", info.Output, outType)
 			}
 		}
 
-		if d.WhatAmI(fnr.Value) != outType {
-			panic("inconsistent function return types")
+		if dt := d.WhatAmI(fnr.Value); dt != outType {
+			return nil, fmt.Errorf("inconsistent function return types: got %s need %s", dt, outType)
 		}
 
-		// or have Run return a type?
 		if ind == 0 {
 			xOut = d.MakeSlice(outType, 0)
 		}
@@ -93,10 +79,19 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, c, cast, exp, log}
+	return d.Functions{abs, add, c, cast, exp, log, ifs}
 }
 
 // /////// Standard Functions
+
+func where(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "if", Inputs: []d.DataTypes{d.DTstring, d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return &d.FuncReturn{}
+}
+
 func abs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
@@ -187,6 +182,20 @@ func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	}
 
 	return &d.FuncReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
+}
+
+func ifs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "if", Inputs: []d.DataTypes{d.DTstring, d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	var truth bool
+	ret := &d.FuncReturn{Value: int(0), Output: d.DTint}
+	if truth, ret.Err = d.Comparator(inputs[1], inputs[2], inputs[0].(string)); truth {
+		ret.Value = int(1)
+	}
+
+	return ret
 }
 
 func log(info bool, context *d.Context, inputs ...any) *d.FuncReturn {

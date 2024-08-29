@@ -2,8 +2,9 @@ package sql
 
 import (
 	"fmt"
-	d "github.com/invertedv/df"
 	"strings"
+
+	d "github.com/invertedv/df"
 )
 
 type SQLdf struct {

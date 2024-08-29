@@ -15,11 +15,11 @@ import (
 
 func makeMemDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
-	y, _ := NewMemCol("y", []int{4, 5, 6, 1, 4, 5})
+	y, _ := NewMemCol("y", []int{1, 5, 6, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"p20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
 	dfx, e := NewMemDF(Run, StandardFunctions(), x, y, z)
 	_ = e
-	xx, _ := NewMemCol("r", []float64{1, 2, 3, 1, 2, 3})
+	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
 	e = dfx.AppendColumn(xx)
 
 	return dfx
@@ -27,6 +27,11 @@ func makeMemDF() *MemDF {
 
 func TestDF_Apply(t *testing.T) {
 	df := makeMemDF()
+
+	ee := df.Apply("fir", "if", "==", "z", "p20221231")
+	assert.Nil(t, ee)
+	ce, _ := df.Column("fir")
+	fmt.Println("if", ce.Data())
 
 	e2 := df.Apply("c", "c", "DTstring", "1")
 	assert.Nil(t, e2)

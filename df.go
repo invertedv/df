@@ -281,7 +281,7 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 }
 
 func (df *DFcore) AppendColumn(col Column) error {
-	if df.Context != nil && df.Context.Len() != nil && col.Len() > 1 && *df.Context.Len() != col.Len() {
+	if df.Context != nil && df.Context.Len() != nil && *df.Context.Len() != col.Len() {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
 

@@ -128,9 +128,9 @@ func (df *MemDF) Less(i, j int) bool {
 
 func (df *MemDF) Swap(i, j int) {
 	for h := df.Next(true); h != nil; h = df.Next(false) {
-		if h.Len() == 1 {
-			continue
-		}
+		//		if h.Len() == 1 {
+		//			continue
+		//		}
 
 		data := h.(*MemCol).data
 		switch h.DataType() {
