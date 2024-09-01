@@ -14,3 +14,8 @@ If
 DropRows
 
 complex logicals
+
+
+a && bb || c
+
+Add OKName to check field name is OK

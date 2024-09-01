@@ -151,3 +151,16 @@ func TestLoadSQL(t *testing.T) {
 	ed = memDF.FileSave("/home/will/tmp/test.csv")
 	assert.Nil(t, ed)
 }
+
+func TestDBLoad(t *testing.T) {
+	dfx := makeMemDF()
+	eqn := " b^3*4/(exp(x+y)*abs(z)) + 3"
+	//	eqn = "-3*a*b"
+	fmt.Println(eqn)
+	op, e := df.NewOpTree(eqn, dfx.DFcore)
+	assert.Nil(t, e)
+	_ = op
+	e = op.Build()
+	assert.Nil(t, e)
+
+}

@@ -130,6 +130,10 @@ func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error)
 type RunFunc func(fn AnyFunction, context *Context, inputs []any) (Column, error)
 
 // /////////// DFcore methods
+func (df *DFcore) Funcs() Functions {
+	return df.funcs
+}
+
 func (df *DFcore) SetContext(c *Context) {
 	df.Context = c
 }
