@@ -154,13 +154,13 @@ func TestLoadSQL(t *testing.T) {
 
 func TestDBLoad(t *testing.T) {
 	dfx := makeMemDF()
-	eqn := " b^3*4/(exp(x+y)*abs(z)) + 3"
-	//	eqn = "-3*a*b"
+	eqn := " -3+b^3*4/(exp(x+y)*abs(zasdf,r)) + 3 + (b>=33)"
+
+	eqn = "-4*(-r+44)*a*b +/4"
 	fmt.Println(eqn)
 	op, e := df.NewOpTree(eqn, dfx.DFcore)
 	assert.Nil(t, e)
 	_ = op
 	e = op.Build()
 	assert.Nil(t, e)
-
 }

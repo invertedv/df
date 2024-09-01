@@ -20,7 +20,7 @@ const (
 	None
 )
 
-const ops = "^#*#/#+#-#!=#==#>=#>#<=#<#&&#||#("
+const ops = "^#*#/#+#-#!=#==#>#<#>#>=#<=#&&#||#("
 
 type OpTree struct {
 	expr string
@@ -33,7 +33,12 @@ type OpTree struct {
 
 	f *FuncReturn
 
-	df *DFcore
+	df        *DFcore
+	operators []string
+	fnNames   []string
+
+	fnName string
+	inputs []*OpTree
 }
 
 func findMatchParen(s string) int {
@@ -58,68 +63,18 @@ func findMatchParen(s string) int {
 	return -1
 }
 
-func preParse(s string, ops []string) []any {
-	var (
-		op string
-	)
-	minV := len(s)
-	position := -1
-	for _, o := range ops {
-		if indx := strings.Index(s, o); indx >= 0 && indx < minV {
-			minV = indx
-			position = indx
-			op = o
-		}
-	}
-
-	if position >= 0 {
-		// look for paren
-		var pp []any
-		if position > 0 {
-			pp = append(pp, s[:position])
-		}
-
-		remaining := s[position+len(op):]
-
-		if strings.Contains(op, "(") {
-			s1 := s[position:]
-			pos := findMatchParen(s1)
-			if pos < 0 {
-				panic("what???")
-			}
-			op = "r: " + s[position:pos+1]
-			remaining = ""
-			if pos+1 < len(s1) {
-				remaining = s1[pos+1:]
-			}
-		}
-
-		pp = append(pp, "op:"+op)
-		pp = append(pp, preParse(remaining, ops)...)
-		return pp
-	}
-
-	return []any{s}
-}
-
 func NewOpTree(expression string, df *DFcore) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
 	// check for illegals
 
 	opx := strings.Split(ops, "#")
+	fns := []string{}
 	for _, fn := range df.Funcs() {
-		opx = append(opx, fn(true, nil, nil).Name+"(")
+		//		opx = append(opx, fn(true, nil, nil).Name+"(")
+		fns = append(fns, fn(true, nil, nil).Name+"(")
 	}
 
-	/*	var pp []any
-		pp = preParse(expression, opx)
-		for ind := 0; ind < len(pp); ind++ {
-			fmt.Println(pp[ind])
-		}
-
-	*/
-
-	ot := &OpTree{expr: expression, df: df}
+	ot := &OpTree{expr: expression, df: df, operators: opx, fnNames: fns}
 	return ot, nil
 }
 
@@ -136,15 +91,8 @@ func trimParen(s string) string {
 }
 
 func (ot *OpTree) scan() (left, right, op string, err error) {
-	opx := strings.Split(ops, "#")
-	fns := []string{}
-	for _, fn := range ot.df.Funcs() {
-		//		opx = append(opx, fn(true, nil, nil).Name+"(")
-		fns = append(fns, fn(true, nil, nil).Name+"(")
-	}
-
 	haveFn, fnOp := false, ""
-	for _, f := range fns {
+	for _, f := range ot.fnNames {
 		if len(ot.expr) >= len(f) && ot.expr[:len(f)] == f {
 			fmt.Println("function: ", f, " : ", ot.expr)
 			haveFn, fnOp = true, f
@@ -152,7 +100,7 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 		}
 	}
 
-	for ind := len(opx) - 1; ind >= 0; ind-- {
+	for ind := len(ot.operators) - 1; ind >= 0; ind-- {
 		depth := 0
 		for j := 0; j < len(ot.expr); j++ {
 
@@ -170,11 +118,13 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 				continue
 			}
 
-			//			if len(ot.expr) > j+len(opx[ind])-1 && ot.expr[j:j+len(opx[ind])] == opx[ind] {
-			if string(ot.expr[j]) == opx[ind] {
+			if len(ot.expr) >= j+len(ot.operators[ind]) && ot.expr[j:j+len(ot.operators[ind])] == ot.operators[ind] {
+				if ot.operators[ind] != "(" && j == 0 {
+					continue
+				}
 				left = trimParen(ot.expr[:j])
-				right = trimParen(ot.expr[j+1:])
-				op = string(ot.expr[j])
+				right = trimParen(ot.expr[j+len(ot.operators[ind]):])
+				op = ot.operators[ind]
 				return left, right, op, nil
 			}
 		}
@@ -182,9 +132,43 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 
 	if haveFn {
 		fmt.Println("have function ", fnOp, " : ", ot.expr)
+
+		if e := ot.makeFn(fnOp); e != nil {
+			return "", "", "", e
+		}
 	}
 
 	return "", "", "", nil
+}
+
+func (ot *OpTree) makeFn(fnName string) error {
+	inner := strings.ReplaceAll(ot.expr, fnName, "")
+	inner = inner[:len(inner)-1]
+	x := strings.Split(inner, ",")
+
+	ot.fnName = fnName[:len(fnName)-1]
+
+	fmt.Println("Test ", ot.expr, x)
+	for ind := 0; ind < len(x); ind++ {
+		if x[ind] == "" {
+			continue
+		}
+		var (
+			op *OpTree
+			e  error
+		)
+		if op, e = NewOpTree(x[ind], ot.df); e != nil {
+			return e
+		}
+
+		if e = op.Build(); e != nil {
+			return e
+		}
+
+		ot.inputs = append(ot.inputs, op)
+	}
+
+	return nil
 }
 
 func (ot *OpTree) paren() error {
@@ -211,28 +195,37 @@ func (ot *OpTree) Build() error {
 		return nil
 	}
 
-	fmt.Println("left: ", l, "right: ", r, "op: ", op)
+	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", op)
 
 	ot.left = &OpTree{
-		expr:  l,
-		op:    0,
-		value: nil,
-		left:  nil,
-		right: nil,
-		df:    ot.df,
+		expr:      l,
+		op:        0,
+		value:     nil,
+		left:      nil,
+		right:     nil,
+		df:        ot.df,
+		operators: ot.operators,
+		fnNames:   ot.fnNames,
 	}
 
 	ot.right = &OpTree{
-		expr:  r,
-		op:    0,
-		value: nil,
-		left:  nil,
-		right: nil,
-		df:    ot.df,
+		expr:      r,
+		op:        0,
+		value:     nil,
+		left:      nil,
+		right:     nil,
+		df:        ot.df,
+		operators: ot.operators,
+		fnNames:   ot.fnNames,
 	}
 
-	_ = ot.right.Build()
-	_ = ot.left.Build()
+	if e := ot.right.Build(); e != nil {
+		return e
+	}
+
+	if e := ot.left.Build(); e != nil {
+		return e
+	}
 
 	return nil
 }
