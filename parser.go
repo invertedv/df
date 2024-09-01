@@ -20,57 +20,33 @@ const (
 	None
 )
 
-const ops = "^#*#/#+#-#!=#==#>#<#>#>=#<=#&&#||#("
+const ops = "^#*#/#+#-#!=#==#>#<#>#>=#<=#&&#||"
 
 type OpTree struct {
 	expr string
-	op   Operation
+	op   string
 
 	value Column
 
 	left  *OpTree
 	right *OpTree
 
-	f *FuncReturn
-
 	df        *DFcore
 	operators []string
 	fnNames   []string
 
-	fnName string
-	inputs []*OpTree
-}
-
-func findMatchParen(s string) int {
-	depth, start := 0, false
-	for ind := 0; ind < len(s); ind++ {
-		if s[ind] == '(' {
-			depth++
-			if depth == 1 {
-				start = true
-			}
-			continue
-		}
-
-		if s[ind] == ')' {
-			depth--
-			if depth == 0 && start {
-				return ind
-			}
-		}
-	}
-
-	return -1
+	fnName   string
+	fn       AnyFunction
+	fnReturn *FuncReturn
+	inputs   []*OpTree
 }
 
 func NewOpTree(expression string, df *DFcore) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
-	// check for illegals
 
 	opx := strings.Split(ops, "#")
-	fns := []string{}
+	var fns []string
 	for _, fn := range df.Funcs() {
-		//		opx = append(opx, fn(true, nil, nil).Name+"(")
 		fns = append(fns, fn(true, nil, nil).Name+"(")
 	}
 
@@ -78,20 +54,41 @@ func NewOpTree(expression string, df *DFcore) (*OpTree, error) {
 	return ot, nil
 }
 
-func trimParen(s string) string {
-	if len(s) <= 2 {
+// outerParen strips away parentheses that surround the entire expression.
+// For example, ((a+b)) becomes a+b
+// but (a+b)*3 is not changed.
+func outerParen(s string) string {
+	if len(s) <= 2 || s[0] != '(' {
 		return s
 	}
 
-	if s[0] == '(' && s[len(s)-1] == ')' {
-		return s[1 : len(s)-1]
+	depth := 0
+	for ind := 0; ind < len(s); ind++ {
+		if s[ind] == '(' {
+			depth++
+		}
+
+		if s[ind] == ')' {
+			depth--
+		}
+
+		if depth == 0 {
+			if ind == len(s)-1 {
+				return outerParen(s[1:ind])
+			}
+			return s
+		}
 	}
 
 	return s
+
 }
 
 func (ot *OpTree) scan() (left, right, op string, err error) {
+
+	// determine if expression starts with a function call
 	haveFn, fnOp := false, ""
+	expr := outerParen(ot.expr)
 	for _, f := range ot.fnNames {
 		if len(ot.expr) >= len(f) && ot.expr[:len(f)] == f {
 			fmt.Println("function: ", f, " : ", ot.expr)
@@ -100,38 +97,43 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 		}
 	}
 
+	// work through the operators in increasing order of precedence
 	for ind := len(ot.operators) - 1; ind >= 0; ind-- {
 		depth := 0
-		for j := 0; j < len(ot.expr); j++ {
-
-			val := string(ot.expr[j])
-			_ = val
-			if ot.expr[j] == '(' {
-				depth++
+		op = ot.operators[ind]
+		//		for j := 0; j < len(expr); j++ {
+		// go right-to-left to avoid the a-b-c problem.
+		for j := len(expr) - 1; j >= 0; j-- {
+			// ignore any operators that are within parentheses
+			if expr[j] == '(' {
+				depth--
 			}
 
-			if ot.expr[j] == ')' {
-				depth--
+			if expr[j] == ')' {
+				depth++
 			}
 
 			if depth > 0 {
 				continue
 			}
 
-			if len(ot.expr) >= j+len(ot.operators[ind]) && ot.expr[j:j+len(ot.operators[ind])] == ot.operators[ind] {
-				if ot.operators[ind] != "(" && j == 0 {
+			// got one?
+			if len(expr) >= j+len(ot.operators[ind]) && expr[j:j+len(ot.operators[ind])] == ot.operators[ind] {
+				// ignore if it is the first character
+				if j == 0 {
 					continue
 				}
-				left = trimParen(ot.expr[:j])
-				right = trimParen(ot.expr[j+len(ot.operators[ind]):])
-				op = ot.operators[ind]
+
+				left = expr[:j]
+				right = expr[j+len(ot.operators[ind]):]
+
 				return left, right, op, nil
 			}
 		}
 	}
 
 	if haveFn {
-		fmt.Println("have function ", fnOp, " : ", ot.expr)
+		fmt.Println("have function ", fnOp, " : ", expr)
 
 		if e := ot.makeFn(fnOp); e != nil {
 			return "", "", "", e
@@ -147,6 +149,7 @@ func (ot *OpTree) makeFn(fnName string) error {
 	x := strings.Split(inner, ",")
 
 	ot.fnName = fnName[:len(fnName)-1]
+	ot.op = "fn"
 
 	fmt.Println("Test ", ot.expr, x)
 	for ind := 0; ind < len(x); ind++ {
@@ -166,27 +169,23 @@ func (ot *OpTree) makeFn(fnName string) error {
 		}
 
 		ot.inputs = append(ot.inputs, op)
+		ot.fn = ot.df.Funcs().Get(ot.fnName)
+		ot.fnReturn = ot.fn(true, nil, nil)
 	}
 
 	return nil
 }
 
-func (ot *OpTree) paren() error {
-	if !strings.Contains(ot.expr, "(") {
-		return nil
-	}
-
+func (ot *OpTree) parenError() error {
 	if strings.Count(ot.expr, "(") != strings.Count(ot.expr, ")") {
 		return fmt.Errorf("mis-matched parens in %s", ot.expr)
 	}
-
-	//	strings.FieldsFunc()
 
 	return nil
 }
 
 func (ot *OpTree) Build() error {
-	if e := ot.paren(); e != nil {
+	if e := ot.parenError(); e != nil {
 		return e
 	}
 
@@ -195,36 +194,40 @@ func (ot *OpTree) Build() error {
 		return nil
 	}
 
+	ot.op = op
+
 	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", op)
 
-	ot.left = &OpTree{
-		expr:      l,
-		op:        0,
-		value:     nil,
-		left:      nil,
-		right:     nil,
-		df:        ot.df,
-		operators: ot.operators,
-		fnNames:   ot.fnNames,
+	if l != "" {
+		ot.left = &OpTree{
+			expr:      l,
+			op:        "",
+			value:     nil,
+			left:      nil,
+			right:     nil,
+			df:        ot.df,
+			operators: ot.operators,
+			fnNames:   ot.fnNames,
+		}
+		if e := ot.left.Build(); e != nil {
+			return e
+		}
 	}
 
-	ot.right = &OpTree{
-		expr:      r,
-		op:        0,
-		value:     nil,
-		left:      nil,
-		right:     nil,
-		df:        ot.df,
-		operators: ot.operators,
-		fnNames:   ot.fnNames,
-	}
-
-	if e := ot.right.Build(); e != nil {
-		return e
-	}
-
-	if e := ot.left.Build(); e != nil {
-		return e
+	if r != "" {
+		ot.right = &OpTree{
+			expr:      r,
+			op:        "",
+			value:     nil,
+			left:      nil,
+			right:     nil,
+			df:        ot.df,
+			operators: ot.operators,
+			fnNames:   ot.fnNames,
+		}
+		if e := ot.right.Build(); e != nil {
+			return e
+		}
 	}
 
 	return nil
