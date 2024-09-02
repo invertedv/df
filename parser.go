@@ -5,21 +5,6 @@ import (
 	"strings"
 )
 
-type Operation uint8
-
-const (
-	Function Operation = 0 + iota
-	Power
-	Multiply
-	Divide
-	Add
-	Subtract
-	Not
-	And
-	Or
-	None
-)
-
 const ops = "^#*#/#+#-#!=#==#>#<#>#>=#<=#&&#||"
 
 type OpTree struct {
@@ -31,26 +16,26 @@ type OpTree struct {
 	left  *OpTree
 	right *OpTree
 
-	df        *DFcore
-	operators []string
-	fnNames   []string
-
 	fnName   string
 	fn       AnyFunction
 	fnReturn *FuncReturn
 	inputs   []*OpTree
+
+	funcs     Functions
+	operators []string
+	fnNames   []string
 }
 
-func NewOpTree(expression string, df *DFcore) (*OpTree, error) {
+func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
 
 	opx := strings.Split(ops, "#")
 	var fns []string
-	for _, fn := range df.Funcs() {
+	for _, fn := range funcs {
 		fns = append(fns, fn(true, nil, nil).Name+"(")
 	}
 
-	ot := &OpTree{expr: expression, df: df, operators: opx, fnNames: fns}
+	ot := &OpTree{expr: expression, funcs: funcs, operators: opx, fnNames: fns}
 	return ot, nil
 }
 
@@ -81,35 +66,36 @@ func outerParen(s string) string {
 	}
 
 	return s
-
 }
 
-func (ot *OpTree) scan() (left, right, op string, err error) {
-
-	// determine if expression starts with a function call
-	haveFn, fnOp := false, ""
-	expr := outerParen(ot.expr)
+func (ot *OpTree) funcIndex() (haveFn bool, fnOp string) {
 	for _, f := range ot.fnNames {
 		if len(ot.expr) >= len(f) && ot.expr[:len(f)] == f {
 			fmt.Println("function: ", f, " : ", ot.expr)
-			haveFn, fnOp = true, f
-			break
+			return true, f
 		}
 	}
+
+	return false, ""
+}
+
+func (ot *OpTree) scan() (left, right, op string, err error) {
+	ot.expr = outerParen(ot.expr)
+	// determine if expression starts with a function call
+	haveFn, fnOp := ot.funcIndex()
 
 	// work through the operators in increasing order of precedence
 	for ind := len(ot.operators) - 1; ind >= 0; ind-- {
 		depth := 0
 		op = ot.operators[ind]
-		//		for j := 0; j < len(expr); j++ {
 		// go right-to-left to avoid the a-b-c problem.
-		for j := len(expr) - 1; j >= 0; j-- {
+		for j := len(ot.expr) - 1; j >= 0; j-- {
 			// ignore any operators that are within parentheses
-			if expr[j] == '(' {
+			if ot.expr[j] == '(' {
 				depth--
 			}
 
-			if expr[j] == ')' {
+			if ot.expr[j] == ')' {
 				depth++
 			}
 
@@ -118,14 +104,18 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 			}
 
 			// got one?
-			if len(expr) >= j+len(ot.operators[ind]) && expr[j:j+len(ot.operators[ind])] == ot.operators[ind] {
-				// ignore if it is the first character
+			if len(ot.expr) >= j+len(ot.operators[ind]) && ot.expr[j:j+len(ot.operators[ind])] == ot.operators[ind] {
+				// if the operator starts the expression...this may be OK or not
 				if j == 0 {
-					continue
+					if ot.operators[ind] == "+" || ot.operators[ind] == "-" {
+						continue
+					}
+
+					return "", "", "", fmt.Errorf("illegal operator placement in %s", ot.expr)
 				}
 
-				left = expr[:j]
-				right = expr[j+len(ot.operators[ind]):]
+				left = ot.expr[:j]
+				right = ot.expr[j+len(ot.operators[ind]):]
 
 				return left, right, op, nil
 			}
@@ -133,7 +123,7 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 	}
 
 	if haveFn {
-		fmt.Println("have function ", fnOp, " : ", expr)
+		fmt.Println("have function ", fnOp, " : ", ot.expr)
 
 		if e := ot.makeFn(fnOp); e != nil {
 			return "", "", "", e
@@ -143,10 +133,50 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 	return "", "", "", nil
 }
 
+func args(xIn string) ([]string, error) {
+	var (
+		xOut []string
+		arg  string
+	)
+	depth, start := 0, 0
+	for ind := 0; ind < len(xIn); ind++ {
+		if xIn[ind] == '(' {
+			depth++
+		}
+
+		if xIn[ind] == ')' {
+			depth--
+		}
+
+		if depth == 0 && xIn[ind] == ',' {
+			if arg = xIn[start:ind]; arg == "" {
+				return nil, fmt.Errorf("bad arguments: %s", xIn)
+			}
+
+			xOut = append(xOut, arg)
+			start = ind + 1
+		}
+	}
+
+	if arg = xIn[start:]; arg == "" {
+		return nil, fmt.Errorf("bad arguments: %s", xIn)
+	}
+
+	xOut = append(xOut, arg)
+
+	return xOut, nil
+}
+
 func (ot *OpTree) makeFn(fnName string) error {
 	inner := strings.ReplaceAll(ot.expr, fnName, "")
 	inner = inner[:len(inner)-1]
-	x := strings.Split(inner, ",")
+	var (
+		x []string
+		e error
+	)
+	if x, e = args(inner); e != nil {
+		return e
+	}
 
 	ot.fnName = fnName[:len(fnName)-1]
 	ot.op = "fn"
@@ -160,16 +190,16 @@ func (ot *OpTree) makeFn(fnName string) error {
 			op *OpTree
 			e  error
 		)
-		if op, e = NewOpTree(x[ind], ot.df); e != nil {
+		if op, e = NewOpTree(x[ind], ot.funcs); e != nil {
 			return e
 		}
 
-		if e = op.Build(); e != nil {
-			return e
+		if ex := op.Build(); ex != nil {
+			return ex
 		}
 
 		ot.inputs = append(ot.inputs, op)
-		ot.fn = ot.df.Funcs().Get(ot.fnName)
+		ot.fn = ot.funcs.Get(ot.fnName)
 		ot.fnReturn = ot.fn(true, nil, nil)
 	}
 
@@ -185,30 +215,34 @@ func (ot *OpTree) parenError() error {
 }
 
 func (ot *OpTree) Build() error {
-	if e := ot.parenError(); e != nil {
-		return e
+	if ex := ot.parenError(); ex != nil {
+		return ex
 	}
 
-	l, r, op, _ := ot.scan()
-	if op == "" {
+	var (
+		l, r string
+		err  error
+	)
+
+	l, r, ot.op, err = ot.scan()
+	if err != nil {
+		return err
+	}
+
+	if ot.op == "" {
 		return nil
 	}
 
-	ot.op = op
-
-	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", op)
+	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
 
 	if l != "" {
 		ot.left = &OpTree{
 			expr:      l,
-			op:        "",
-			value:     nil,
-			left:      nil,
-			right:     nil,
-			df:        ot.df,
+			funcs:     ot.funcs,
 			operators: ot.operators,
 			fnNames:   ot.fnNames,
 		}
+
 		if e := ot.left.Build(); e != nil {
 			return e
 		}
@@ -217,14 +251,11 @@ func (ot *OpTree) Build() error {
 	if r != "" {
 		ot.right = &OpTree{
 			expr:      r,
-			op:        "",
-			value:     nil,
-			left:      nil,
-			right:     nil,
-			df:        ot.df,
+			funcs:     ot.funcs,
 			operators: ot.operators,
 			fnNames:   ot.fnNames,
 		}
+
 		if e := ot.right.Build(); e != nil {
 			return e
 		}
