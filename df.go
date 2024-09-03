@@ -253,6 +253,34 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 	return true
 }
 
+func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
+	var fn AnyFunction
+
+	if fn = df.funcs.Get(opName); fn == nil {
+		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
+	}
+
+	var vals []any
+	for ind := 0; ind < len(inputs); ind++ {
+		if c, ok := inputs[ind].(Column); ok {
+			vals = append(vals, c)
+		} else {
+			vals = append(vals, inputs[ind])
+		}
+	}
+
+	var (
+		col Column
+		e   error
+	)
+
+	if col, e = df.run(fn, df.Context, vals); e != nil {
+		return nil, e
+	}
+
+	return col, nil
+}
+
 func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	var fn AnyFunction
 

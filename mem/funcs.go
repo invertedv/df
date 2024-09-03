@@ -79,7 +79,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, c, cast, exp, log, ifs}
+	return d.Functions{abs, add, c, cast, exp, log, ifs, toInt}
 }
 
 // /////// Standard Functions
@@ -174,6 +174,14 @@ func cast(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 
 	x, e := d.ToDataType(inputs[1], dt, true)
 	return &d.FuncReturn{Value: x, Output: dt, Err: e}
+}
+
+func toInt(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "int", Output: d.DTint, Inputs: []d.DataTypes{d.DTany}}
+	}
+
+	return cast(false, context, "DTint", inputs[0])
 }
 
 func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {

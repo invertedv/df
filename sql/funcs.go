@@ -2,7 +2,6 @@ package sql
 
 import (
 	"fmt"
-
 	d "github.com/invertedv/df"
 )
 
@@ -44,7 +43,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, c, cast, exp, log, ifs}
+	return d.Functions{abs, add, c, cast, exp, log, ifs, toInt}
 }
 
 // ////////  Standard Functions
@@ -107,6 +106,22 @@ func cast(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	}
 
 	return &d.FuncReturn{Value: sql, Output: toDT}
+}
+
+func toInt(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "int", Inputs: []d.DataTypes{d.DTany}, Output: d.DTint}
+	}
+
+	var (
+		sql string
+		e   error
+	)
+	if sql, e = context.Dialect().CastField(inputs[1].(string), d.DTint); e != nil {
+		return &d.FuncReturn{Err: e}
+	}
+
+	return &d.FuncReturn{Value: sql, Output: d.DTint}
 }
 
 func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {

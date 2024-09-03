@@ -9,9 +9,9 @@ const ops = "^#*#/#+#-#!=#==#>#<#>#>=#<=#&&#||"
 
 type OpTree struct {
 	expr string
-	op   string
 
-	value Column
+	op    string
+	value any
 
 	left  *OpTree
 	right *OpTree
@@ -68,7 +68,8 @@ func outerParen(s string) string {
 	return s
 }
 
-func (ot *OpTree) funcIndex() (haveFn bool, fnOp string) {
+// isFunction determines whether the expression starts with a function
+func (ot *OpTree) isFunction() (haveFn bool, fnOp string) {
 	for _, f := range ot.fnNames {
 		if len(ot.expr) >= len(f) && ot.expr[:len(f)] == f {
 			fmt.Println("function: ", f, " : ", ot.expr)
@@ -82,7 +83,7 @@ func (ot *OpTree) funcIndex() (haveFn bool, fnOp string) {
 func (ot *OpTree) scan() (left, right, op string, err error) {
 	ot.expr = outerParen(ot.expr)
 	// determine if expression starts with a function call
-	haveFn, fnOp := ot.funcIndex()
+	haveFn, fnOp := ot.isFunction()
 
 	// work through the operators in increasing order of precedence
 	for ind := len(ot.operators) - 1; ind >= 0; ind-- {
@@ -224,11 +225,11 @@ func (ot *OpTree) Build() error {
 		err  error
 	)
 
-	l, r, ot.op, err = ot.scan()
-	if err != nil {
+	if l, r, ot.op, err = ot.scan(); err != nil {
 		return err
 	}
 
+	// nothing to do
 	if ot.op == "" {
 		return nil
 	}
@@ -259,6 +260,122 @@ func (ot *OpTree) Build() error {
 		if e := ot.right.Build(); e != nil {
 			return e
 		}
+	}
+
+	return nil
+}
+
+func (ot *OpTree) mapOp() string {
+	switch ot.op {
+	case "+":
+		return "add"
+	case "-":
+		return "subtract"
+	case "*":
+		return "multiply"
+	case "/":
+		return "divide"
+	case "^":
+		return "pow"
+	default:
+		return ot.op
+	}
+}
+
+func (ot *OpTree) Eval(df *DFcore) error {
+	// bottom level -- either a constant or a member of df
+	if ot.op == "" && ot.fnName == "" {
+		ot.value = ot.expr
+		if c, e := df.Column(ot.expr); e == nil {
+			ot.value = c
+		}
+
+		return nil
+	}
+
+	// Do left/right Eval then function
+	if ot.left != nil {
+		if e := ot.left.Eval(df); e != nil {
+			return e
+		}
+
+		if e := ot.right.Eval(df); e != nil {
+			return e
+		}
+
+	}
+
+	var (
+		ex error
+		c  Column
+	)
+
+	// handle functions
+	if ot.inputs != nil {
+		for ind := 0; ind < len(ot.inputs); ind++ {
+			if e := ot.inputs[ind].Eval(df); e != nil {
+				return e
+			}
+		}
+
+		var inp []any
+		for ind := 0; ind < len(ot.inputs); ind++ {
+			inp = append(inp, ot.inputs[ind].value)
+		}
+		if c, ex = df.DoOp(ot.fnName, inp...); ex != nil {
+			return ex
+		}
+
+		ot.value = c
+
+		return nil
+	}
+
+	if c, ex = df.DoOp(ot.mapOp(), ot.left.value, ot.right.value); ex != nil {
+		return ex
+	}
+
+	ot.value = c
+
+	return nil
+}
+
+func (ot *OpTree) Value() any {
+	return ot.value
+}
+
+// TODO: change df to interface
+func Parse(eqn string, df *DFcore) error {
+	lr := strings.Split(strings.ReplaceAll(eqn, " ", ""), ":=")
+	if len(lr) != 2 {
+		return fmt.Errorf("not an equation: %s", eqn)
+	}
+
+	var (
+		ot  *OpTree
+		err error
+	)
+
+	// check valid name
+
+	if ot, err = NewOpTree(lr[1], df.Funcs()); err != nil {
+		return err
+	}
+
+	if e := ot.Build(); e != nil {
+		return e
+	}
+
+	if e := ot.Eval(df); e != nil {
+		return e
+	}
+
+	col := ot.Value().(Column)
+
+	col.Name(lr[0])
+
+	if e := df.AppendColumn(col); e != nil {
+		return e
 	}
 
 	return nil
