@@ -161,9 +161,10 @@ func TestDBLoad(t *testing.T) {
 	//	eqn = "a^b-c*cast(DTfloat,d)"
 	//eqn = "a - b - c - abs(d)"
 	//eqn = "4+exp(3+4, abs(4,4),3)"
-	eqn = "ab:=x+int(abs(-1)+log(1))"
+	eqn = "ab:=3-2+1-1"
+	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
-	e := df.Parse(eqn, dfx.DFcore)
+	e := df.Parse(eqn, dfx)
 	assert.Nil(t, e)
 	col, ex := dfx.Column("ab")
 	assert.Nil(t, ex)

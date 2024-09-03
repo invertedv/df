@@ -22,6 +22,8 @@ type DF interface {
 	Next(reset bool) Column
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	Fn(fn Ereturn) error
+	Funcs() Functions
+	DoOp(opName string, inputs ...any) (Column, error)
 
 	// specific to underlying data source
 	RowCount() int
@@ -312,13 +314,26 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 	return df.AppendColumn(col)
 }
 
+func (df *DFcore) ValidName(columnName string) bool {
+	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
+	if _, e := df.Column(columnName); e == nil {
+		return false
+	}
+
+	if strings.ContainsAny(columnName, illegal) {
+		return false
+	}
+
+	return true
+}
+
 func (df *DFcore) AppendColumn(col Column) error {
 	if df.Context != nil && df.Context.Len() != nil && *df.Context.Len() != col.Len() {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
 
-	if _, e := df.Column(col.Name("")); e == nil {
-		return fmt.Errorf("duplicate column name: %s", col.Name(""))
+	if !df.ValidName(col.Name("")) {
+		return fmt.Errorf("invalid column name: %s", col.Name(""))
 	}
 
 	var tail *columnList

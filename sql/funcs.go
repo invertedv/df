@@ -43,7 +43,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, c, cast, exp, log, ifs, toInt}
+	return d.Functions{abs, add, c, cast, divide, exp, log, ifs, multiply, toFloat, toInt}
 }
 
 // ////////  Standard Functions
@@ -63,6 +63,24 @@ func add(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	}
 
 	sql := fmt.Sprintf("%s + %s", inputs[0].(string), inputs[1].(string))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
+}
+
+func multiply(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
+	}
+
+	sql := fmt.Sprintf("%s * %s", inputs[0].(string), inputs[1].(string))
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
+}
+
+func divide(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "divide", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
+	}
+
+	sql := fmt.Sprintf("%s / %s", inputs[0].(string), inputs[1].(string))
 	return &d.FuncReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
@@ -122,6 +140,22 @@ func toInt(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	}
 
 	return &d.FuncReturn{Value: sql, Output: d.DTint}
+}
+
+func toFloat(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "float", Inputs: []d.DataTypes{d.DTany}, Output: d.DTfloat}
+	}
+
+	var (
+		sql string
+		e   error
+	)
+	if sql, e = context.Dialect().CastField(inputs[1].(string), d.DTfloat); e != nil {
+		return &d.FuncReturn{Err: e}
+	}
+
+	return &d.FuncReturn{Value: sql, Output: d.DTfloat}
 }
 
 func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {

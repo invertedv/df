@@ -85,6 +85,7 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 	// determine if expression starts with a function call
 	haveFn, fnOp := ot.isFunction()
 
+	// TODO: some operators have equal precedence: FIRST +, - or *, /
 	// work through the operators in increasing order of precedence
 	for ind := len(ot.operators) - 1; ind >= 0; ind-- {
 		depth := 0
@@ -282,14 +283,35 @@ func (ot *OpTree) mapOp() string {
 	}
 }
 
-func (ot *OpTree) Eval(df *DFcore) error {
+func constant(xIn string) (any, error) {
+	if xIn == "" {
+		return xIn, nil
+	}
+
+	if len(xIn) >= 2 && xIn[0:1] == "'" && xIn[len(xIn)-1:] == "'" {
+		return strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'"), nil
+	}
+
+	v, dt, e := BestType(xIn)
+	if e != nil || dt == DTunknown || dt == DTstring {
+		return nil, fmt.Errorf("cannot parse %v", xIn)
+	}
+
+	return v, nil
+}
+
+func (ot *OpTree) Eval(df DF) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
-		ot.value = ot.expr
 		if c, e := df.Column(ot.expr); e == nil {
 			ot.value = c
+			return nil
 		}
 
+		var e error
+		if ot.value, e = constant(ot.expr); e != nil {
+			return e
+		}
 		return nil
 	}
 
@@ -331,6 +353,7 @@ func (ot *OpTree) Eval(df *DFcore) error {
 		return nil
 	}
 
+	// handle the usual ops
 	if c, ex = df.DoOp(ot.mapOp(), ot.left.value, ot.right.value); ex != nil {
 		return ex
 	}
@@ -344,8 +367,7 @@ func (ot *OpTree) Value() any {
 	return ot.value
 }
 
-// TODO: change df to interface
-func Parse(eqn string, df *DFcore) error {
+func Parse(eqn string, df DF) error {
 	lr := strings.Split(strings.ReplaceAll(eqn, " ", ""), ":=")
 	if len(lr) != 2 {
 		return fmt.Errorf("not an equation: %s", eqn)
@@ -355,8 +377,6 @@ func Parse(eqn string, df *DFcore) error {
 		ot  *OpTree
 		err error
 	)
-
-	// check valid name
 
 	if ot, err = NewOpTree(lr[1], df.Funcs()); err != nil {
 		return err
