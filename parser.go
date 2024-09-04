@@ -119,6 +119,10 @@ func (ot *OpTree) Build() error {
 		}
 	}
 
+	if (ot.left == nil && ot.right != nil) || (ot.left != nil && ot.right == nil) {
+		return fmt.Errorf("invalid expression: %s", ot.expr)
+	}
+
 	return nil
 }
 
@@ -135,17 +139,6 @@ func (ot *OpTree) Eval(df DF) error {
 			return e
 		}
 		return nil
-	}
-
-	// Do left/right Eval then function
-	if ot.left != nil {
-		if e := ot.left.Eval(df); e != nil {
-			return e
-		}
-
-		if e := ot.right.Eval(df); e != nil {
-			return e
-		}
 	}
 
 	var (
@@ -175,6 +168,17 @@ func (ot *OpTree) Eval(df DF) error {
 		return nil
 	}
 
+	// Do left/right Eval then op for this node
+	if ot.left != nil {
+		if e := ot.left.Eval(df); e != nil {
+			return e
+		}
+
+		if e := ot.right.Eval(df); e != nil {
+			return e
+		}
+	}
+
 	// handle the usual ops
 	if c, ex = df.DoOp(ot.mapOp(), ot.left.value, ot.right.value); ex != nil {
 		return ex
@@ -190,7 +194,7 @@ func (ot *OpTree) Value() any {
 	return ot.value
 }
 
-// //////// unexported OpTree methods
+// //////// Unexported OpTree methods
 
 // mapOp maps an operation to a standard function that implements it
 func (ot *OpTree) mapOp() string {
@@ -418,7 +422,7 @@ func (oper operations) badStart(expr *string) error {
 			if strings.Index(*expr, oper[j][k]) == 0 {
 
 				if oper[j][k] != "+" && oper[j][k] != "-" {
-					return fmt.Errorf("illegal operation")
+					return fmt.Errorf("illegal operation in %s", *expr)
 				}
 
 				// if starts with a + or -, place a zero in front
@@ -441,7 +445,7 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 		return "", "", "", e
 	}
 
-	left, right, op = expr, "", ""
+	left, right, op = "", "", "" //CHANGED was expr, "", ""
 	depth := 0
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
