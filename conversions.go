@@ -2,6 +2,7 @@ package df
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	u "github.com/invertedv/utilities"
@@ -38,6 +39,26 @@ func ToInt(xIn any, cast bool) (xOut any, err error) {
 	return *xOut.(*int), nil
 }
 
+// Any2Date attempts to convert inVal to a date (time.Time). Returns nil if this fails.
+func Any2Date(inVal any) (*time.Time, error) {
+	switch x := inVal.(type) {
+	case string:
+		formats := []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006", "Jan 2 2006", "January 2 2006", "2006-01-02"}
+		for _, fmtx := range formats {
+			dt, e := time.Parse(fmtx, strings.ReplaceAll(x, "'", ""))
+			if e == nil {
+				return &dt, nil
+			}
+		}
+	case time.Time:
+		return &x, nil
+	case int, int32, int64:
+		return Any2Date(fmt.Sprintf("%d", x))
+	}
+
+	return nil, fmt.Errorf("cannot convert %v to date: Any2Date", inVal)
+}
+
 func ToDate(xIn any, cast bool) (xOut any, err error) {
 	if xx, ok := xIn.(time.Time); ok {
 		return xx, nil
@@ -47,7 +68,7 @@ func ToDate(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	if xOut, err = u.Any2Date(xIn); err != nil {
+	if xOut, err = Any2Date(xIn); err != nil {
 		return nil, err
 	}
 	return *xOut.(*time.Time), nil

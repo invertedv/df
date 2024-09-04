@@ -6,18 +6,16 @@ import (
 )
 
 type OpTree struct {
+	value any
+
 	expr string
 
 	op    string
 	left  *OpTree
 	right *OpTree
 
-	value any
-
-	fnName   string
-	fn       AnyFunction
-	fnReturn *FuncReturn
-	inputs   []*OpTree
+	fnName string
+	inputs []*OpTree
 
 	funcs   Functions
 	fnNames []string
@@ -133,7 +131,7 @@ func (ot *OpTree) Eval(df DF) error {
 		}
 
 		var e error
-		if ot.value, e = constant(ot.expr); e != nil {
+		if ot.value, e = constant(ot.expr, df); e != nil {
 			return e
 		}
 		return nil
@@ -187,6 +185,7 @@ func (ot *OpTree) Eval(df DF) error {
 	return nil
 }
 
+// Value returns the value of the node. It will either be a Column or a scalar value.
 func (ot *OpTree) Value() any {
 	return ot.value
 }
@@ -213,21 +212,26 @@ func (ot *OpTree) mapOp() string {
 
 // constant handles the leaf of the OpTree when it is a constant.
 // strings are surrounded by single quotes
-func constant(xIn string) (any, error) {
+func constant(xIn string, df DF) (any, error) {
 	if xIn == "" {
 		return xIn, nil
 	}
 
 	if len(xIn) >= 2 && xIn[0:1] == "'" && xIn[len(xIn)-1:] == "'" {
-		return strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'"), nil
+		xIn = strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'")
+		return df.MakeColumn(xIn)
 	}
 
-	v, dt, e := BestType(xIn)
-	if e != nil || dt == DTunknown || dt == DTstring {
-		return nil, fmt.Errorf("cannot parse %v", xIn)
+	var (
+		v  any
+		dt DataTypes
+		e  error
+	)
+	if v, dt, e = BestType(xIn); e != nil || dt == DTunknown || dt == DTstring {
+		return nil, fmt.Errorf("cannot interpret %v as a constant", xIn)
 	}
 
-	return v, nil
+	return df.MakeColumn(v)
 }
 
 // outerParen strips away parentheses that surround the entire expression.
@@ -329,10 +333,11 @@ func (ot *OpTree) args(xIn string) ([]string, error) {
 	return xOut, nil
 }
 
-// makeFn
+// makeFn populates the OpTree function fields
 func (ot *OpTree) makeFn(fnName string) error {
 	inner := strings.ReplaceAll(ot.expr, fnName, "")
 	inner = inner[:len(inner)-1]
+
 	var (
 		x []string
 		e error
@@ -341,8 +346,7 @@ func (ot *OpTree) makeFn(fnName string) error {
 		return e
 	}
 
-	ot.fnName = fnName[:len(fnName)-1]
-	ot.op = "fn"
+	ot.fnName, ot.op = fnName[:len(fnName)-1], ""
 
 	for ind := 0; ind < len(x); ind++ {
 		if x[ind] == "" {
@@ -351,10 +355,10 @@ func (ot *OpTree) makeFn(fnName string) error {
 
 		var (
 			op *OpTree
-			e  error
+			ex error
 		)
-		if op, e = NewOpTree(x[ind], ot.funcs); e != nil {
-			return e
+		if op, ex = NewOpTree(x[ind], ot.funcs); ex != nil {
+			return ex
 		}
 
 		if ex := op.Build(); ex != nil {
@@ -362,8 +366,6 @@ func (ot *OpTree) makeFn(fnName string) error {
 		}
 
 		ot.inputs = append(ot.inputs, op)
-		ot.fn = ot.funcs.Get(ot.fnName)
-		ot.fnReturn = ot.fn(true, nil, nil)
 	}
 
 	return nil
@@ -443,7 +445,12 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 	depth := 0
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
+			haveQuote := false
 			for loc := len(expr) - 1; loc > 0; loc-- {
+				if expr[loc:loc+1] == "'" {
+					haveQuote = !haveQuote
+				}
+
 				if expr[loc] == ')' {
 					depth++
 				}
@@ -452,7 +459,7 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 					depth--
 				}
 
-				if depth > 0 {
+				if depth > 0 || haveQuote {
 					continue
 				}
 

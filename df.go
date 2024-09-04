@@ -30,6 +30,7 @@ type DF interface {
 	Sort(keys ...string) error
 	DBsave(tableName string, overwrite bool, cols ...string) error
 	FileSave(fileName string) error
+	MakeColumn(value any) (Column, error)
 }
 
 type Ereturn func() error

@@ -115,6 +115,21 @@ func (df *SQLdf) FileSave(fileName string) error {
 	return nil
 }
 
+func (df *SQLdf) MakeColumn(value any) (d.Column, error) {
+	var dt d.DataTypes
+	if dt = d.WhatAmI(value); dt == d.DTunknown {
+		return nil, fmt.Errorf("unsupported data type")
+	}
+
+	cx := &SQLcol{
+		name:  "",
+		dType: dt,
+		sql:   fmt.Sprintf("%v", value),
+	}
+
+	return cx, nil
+}
+
 /////////// SQLcol
 
 func (s *SQLcol) DataType() d.DataTypes {

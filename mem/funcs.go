@@ -79,7 +79,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, c, cast, divide, exp, log, ifs, multiply, subtract, toFloat, toInt}
+	return d.Functions{abs, add, c, cast, divide, exp, log, ifs, multiply, subtract, toDate, toFloat, toInt, toString}
 }
 
 // /////// Standard Functions
@@ -250,12 +250,28 @@ func toInt(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	return cast(false, context, "DTint", inputs[0])
 }
 
+func toString(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "string", Output: d.DTstring, Inputs: []d.DataTypes{d.DTany}}
+	}
+
+	return cast(false, context, "DTstring", inputs[0])
+}
+
 func toFloat(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
 		return &d.FuncReturn{Name: "float", Output: d.DTfloat, Inputs: []d.DataTypes{d.DTany}}
 	}
 
 	return cast(false, context, "DTfloat", inputs[0])
+}
+
+func toDate(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "date", Output: d.DTdate, Inputs: []d.DataTypes{d.DTany}}
+	}
+
+	return cast(false, context, "DTdate", inputs[0])
 }
 
 func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {

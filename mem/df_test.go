@@ -158,11 +158,11 @@ func TestDBLoad(t *testing.T) {
 	//eqn = "3 + (b>=33)*((aa+bb)*(cc+DD))"
 	//eqn = "-3*(((a+b))+1) + abs(3+4)"
 	//	eqn = "-4*(-r+44)*a*b +/4"
-	//	eqn = "a^b-c*cast(DTfloat,d)"
+	//	eqn = "a^b-c*cast('DTfloat',d)"
 	//eqn = "a - b - c - abs(d)"
 	//eqn = "4+exp(3+4, abs(4,4),3)"
 	eqn = "ab:=3+2-2-x"
-	eqn = "ab:=cast('DTstring',x*2) "
+	eqn = "ab:=date(20220323) "
 	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
 	e := df.Parse(eqn, dfx)

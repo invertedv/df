@@ -3,9 +3,10 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	u "github.com/invertedv/utilities"
 	"sort"
 	"time"
+
+	u "github.com/invertedv/utilities"
 
 	d "github.com/invertedv/df"
 )
@@ -236,6 +237,22 @@ func (df *MemDF) FileSave(fileName string) error {
 	}
 
 	return nil
+}
+
+func (m *MemDF) MakeColumn(value any) (d.Column, error) {
+	var dt d.DataTypes
+	if dt = d.WhatAmI(value); dt == d.DTunknown {
+		return nil, fmt.Errorf("unsupported data type")
+	}
+
+	data := d.MakeSlice(dt, 0)
+
+	for ind := 0; ind < m.RowCount(); ind++ {
+		data = d.AppendSlice(data, value, dt)
+	}
+
+	cx, e := NewMemCol("", data)
+	return cx, e
 }
 
 ///////////// MemCol
