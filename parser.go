@@ -5,8 +5,6 @@ import (
 	"strings"
 )
 
-const ops = "^#*#/#+#-#!=#==#>#<#>#>=#<=#&&#||"
-
 type OpTree struct {
 	expr string
 
@@ -21,19 +19,22 @@ type OpTree struct {
 	fnReturn *FuncReturn
 	inputs   []*OpTree
 
-	funcs     Functions
-	operators []string
-	fnNames   []string
+	funcs   Functions
+	ops     operations
+	fnNames []string
 }
 
-func orderOps() [][]string {
+type operations [][]string
+
+func newOperations() operations {
 	const (
-		l1 = "^"
-		l2 = "*,/"
-		l3 = "+,-"
+		l4 = "^"
+		l3 = "*,/"
+		l2 = "+,-"
+		l1 = ":="
 	)
 	var order [][]string
-	work := []string{l1, l2, l3}
+	work := []string{l1, l2, l3, l4}
 
 	for ind := 0; ind < len(work); ind++ {
 		order = append(order, strings.Split(work[ind], ","))
@@ -42,16 +43,85 @@ func orderOps() [][]string {
 	return order
 }
 
+// trailingOp checks whether the end of expr is an operation
+func (oper operations) trailingOp(expr string) bool {
+	for j := 0; j < len(oper); j++ {
+		for k := 0; k < len(oper[j]); k++ {
+			if loc := strings.LastIndex(expr, oper[j][k]); loc >= 0 && loc+len(oper[j][k]) == len(expr) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// badStart checks whether the start of expr is an operation other than + or -
+func (oper operations) badStart(expr string) error {
+	for j := 0; j < len(oper); j++ {
+		for k := 0; k < len(oper[j]); k++ {
+			if strings.Index(expr, oper[j][k]) == 0 && (oper[j][k] != "+" && oper[j][k] != "-") {
+				return fmt.Errorf("illegal operation")
+			}
+		}
+	}
+
+	return nil
+}
+
+// find finds where to split expr into two sub-expressions
+func (oper operations) find(expr string) (left, right, op string, err error) {
+	if expr == "" {
+		return "", "", "", nil
+	}
+
+	if e := oper.badStart(expr); e != nil {
+		return "", "", "", e
+	}
+
+	left, right, op = expr, "", ""
+	depth := 0
+	for j := 0; j < len(oper); j++ {
+		for k := 0; k < len(oper[j]); k++ {
+			for loc := len(expr) - 1; loc > 0; loc-- {
+				if expr[loc] == ')' {
+					depth++
+				}
+
+				if expr[loc] == '(' {
+					depth--
+				}
+
+				if depth > 0 {
+					continue
+				}
+
+				// not this operator at position loc
+				if len(expr) < loc+len(oper[j][k]) || expr[loc:loc+len(oper[j][k])] != oper[j][k] {
+					continue
+				}
+
+				if !oper.trailingOp(expr[:loc]) {
+					left = expr[:loc]
+					right = expr[loc+len(oper[j][k]):]
+					op = oper[j][k]
+					return left, right, op, nil
+				}
+			}
+		}
+	}
+
+	return left, right, op, nil
+}
+
 func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
-	//TODO : fix this
-	opx := strings.Split(ops, "#")
 	var fns []string
 	for _, fn := range funcs {
 		fns = append(fns, fn(true, nil, nil).Name+"(")
 	}
 
-	ot := &OpTree{expr: expression, funcs: funcs, operators: opx, fnNames: fns}
+	ot := &OpTree{expr: expression, funcs: funcs, ops: newOperations(), fnNames: fns}
 	return ot, nil
 }
 
@@ -101,43 +171,9 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 	// determine if expression starts with a function call
 	haveFn, fnOp := ot.isFunction()
 
-	// TODO: some operators have equal precedence: FIRST +, - or *, /
-	// work through the operators in increasing order of precedence
-	for ind := len(ot.operators) - 1; ind >= 0; ind-- {
-		depth := 0
-		op = ot.operators[ind]
-		// go right-to-left to avoid the a-b-c problem.
-		for j := len(ot.expr) - 1; j >= 0; j-- {
-			// ignore any operators that are within parentheses
-			if ot.expr[j] == '(' {
-				depth--
-			}
-
-			if ot.expr[j] == ')' {
-				depth++
-			}
-
-			if depth > 0 {
-				continue
-			}
-
-			// got one?
-			if len(ot.expr) >= j+len(ot.operators[ind]) && ot.expr[j:j+len(ot.operators[ind])] == ot.operators[ind] {
-				// if the operator starts the expression...this may be OK or not
-				if j == 0 {
-					if ot.operators[ind] == "+" || ot.operators[ind] == "-" {
-						continue
-					}
-
-					return "", "", "", fmt.Errorf("illegal operator placement in %s", ot.expr)
-				}
-
-				left = ot.expr[:j]
-				right = ot.expr[j+len(ot.operators[ind]):]
-
-				return left, right, op, nil
-			}
-		}
+	left, right, op, err = ot.ops.find(ot.expr)
+	if err != nil || op != "" {
+		return left, right, op, err
 	}
 
 	if haveFn {
@@ -255,10 +291,10 @@ func (ot *OpTree) Build() error {
 
 	if l != "" {
 		ot.left = &OpTree{
-			expr:      l,
-			funcs:     ot.funcs,
-			operators: ot.operators,
-			fnNames:   ot.fnNames,
+			expr:    l,
+			funcs:   ot.funcs,
+			ops:     ot.ops,
+			fnNames: ot.fnNames,
 		}
 
 		if e := ot.left.Build(); e != nil {
@@ -268,10 +304,10 @@ func (ot *OpTree) Build() error {
 
 	if r != "" {
 		ot.right = &OpTree{
-			expr:      r,
-			funcs:     ot.funcs,
-			operators: ot.operators,
-			fnNames:   ot.fnNames,
+			expr:    r,
+			funcs:   ot.funcs,
+			ops:     ot.ops,
+			fnNames: ot.fnNames,
 		}
 
 		if e := ot.right.Build(); e != nil {
@@ -340,7 +376,6 @@ func (ot *OpTree) Eval(df DF) error {
 		if e := ot.right.Eval(df); e != nil {
 			return e
 		}
-
 	}
 
 	var (
