@@ -26,9 +26,25 @@ type OpTree struct {
 	fnNames   []string
 }
 
+func orderOps() [][]string {
+	const (
+		l1 = "^"
+		l2 = "*,/"
+		l3 = "+,-"
+	)
+	var order [][]string
+	work := []string{l1, l2, l3}
+
+	for ind := 0; ind < len(work); ind++ {
+		order = append(order, strings.Split(work[ind], ","))
+	}
+
+	return order
+}
+
 func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
-
+	//TODO : fix this
 	opx := strings.Split(ops, "#")
 	var fns []string
 	for _, fn := range funcs {
