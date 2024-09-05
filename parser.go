@@ -393,7 +393,27 @@ func (ot *OpTree) makeFn(fnName string) error {
 }
 
 func (ot *OpTree) parenError() error {
-	if strings.Count(ot.expr, "(") != strings.Count(ot.expr, ")") {
+	haveQuote, count := false, 0
+	for ind := 0; ind < len(ot.expr); ind++ {
+		char := ot.expr[ind : ind+1]
+		if char == "'" {
+			haveQuote = !haveQuote
+		}
+
+		if haveQuote {
+			continue
+		}
+
+		if char == ")" {
+			count++
+		}
+
+		if char == "(" {
+			count--
+		}
+	}
+
+	if count != 0 {
 		return fmt.Errorf("mis-matched parens in %s", ot.expr)
 	}
 
@@ -446,7 +466,7 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 		return "", "", "", e
 	}
 
-	left, right, op = "", "", ""
+	left, right, op = "", "", "" //TODO: do I need this?
 	depth := 0
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
@@ -456,11 +476,11 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 					haveQuote = !haveQuote
 				}
 
-				if expr[loc] == ')' {
+				if expr[loc] == ')' && !haveQuote {
 					depth++
 				}
 
-				if expr[loc] == '(' {
+				if expr[loc] == '(' && !haveQuote {
 					depth--
 				}
 

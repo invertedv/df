@@ -162,7 +162,7 @@ func TestDBLoad(t *testing.T) {
 	//eqn = "a - b - c - abs(d)"
 	//eqn = "4+exp(3+4, abs(4,4),3)"
 	eqn = "ab:=3+2-2-x"
-	eqn = "ab:= 3 -3 + 1 - 2/2 + exp(1/1.0) "
+	eqn = "ab:= 1-(1*(1+2)) "
 	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
 	e := df.Parse(eqn, dfx)
