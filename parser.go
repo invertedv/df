@@ -107,7 +107,7 @@ func (ot *OpTree) Build() error {
 		return nil
 	}
 
-	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
+	//	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
 
 	if l != "" {
 		ot.left = &OpTree{
@@ -152,7 +152,7 @@ func (ot *OpTree) Eval(df DF) error {
 		}
 
 		var e error
-		if ot.value, e = constant(ot.expr, df); e != nil {
+		if ot.value, e = ot.constant(ot.expr, df); e != nil {
 			return e
 		}
 		return nil
@@ -233,7 +233,7 @@ func (ot *OpTree) mapOp() string {
 
 // constant handles the leaf of the OpTree when it is a constant.
 // strings are surrounded by single quotes
-func constant(xIn string, df DF) (Column, error) {
+func (ot *OpTree) constant(xIn string, df DF) (Column, error) {
 	if xIn == "" {
 		return nil, nil
 	}
@@ -258,25 +258,20 @@ func constant(xIn string, df DF) (Column, error) {
 // outerParen strips away parentheses that surround the entire expression.
 // For example, ((a+b)) becomes a+b
 // but (a+b)*3 is not changed.
-func outerParen(s string) string {
+func (ot *OpTree) outerParen(s string) string {
 	if len(s) <= 2 || s[0] != '(' {
 		return s
 	}
 
-	depth := 0
+	depth, haveQuote := 0, false
 	for ind := 0; ind < len(s); ind++ {
-		if s[ind] == '(' {
-			depth++
-		}
-
-		if s[ind] == ')' {
-			depth--
-		}
+		depth, haveQuote = parenDepth(s[ind], depth, haveQuote)
 
 		if depth == 0 {
 			if ind == len(s)-1 {
-				return outerParen(s[1:ind])
+				return ot.outerParen(s[1:ind])
 			}
+
 			return s
 		}
 	}
@@ -299,7 +294,7 @@ func (ot *OpTree) isFunction() (haveFn bool, fnOp string) {
 // or a leaf and fills in the appropriate fields of ot.
 func (ot *OpTree) scan() (left, right, op string, err error) {
 	// strip outer parens
-	ot.expr = outerParen(ot.expr)
+	ot.expr = ot.outerParen(ot.expr)
 
 	// determine if expression starts with a function call
 	haveFn, fnOp := ot.isFunction()
@@ -325,15 +320,9 @@ func (ot *OpTree) args(xIn string) ([]string, error) {
 		xOut []string
 		arg  string
 	)
-	depth, start := 0, 0
+	depth, start, haveQuote := 0, 0, false
 	for ind := 0; ind < len(xIn); ind++ {
-		if xIn[ind] == '(' {
-			depth++
-		}
-
-		if xIn[ind] == ')' {
-			depth--
-		}
+		depth, haveQuote = parenDepth(xIn[ind], depth, haveQuote)
 
 		if depth == 0 && xIn[ind] == ',' {
 			if arg = xIn[start:ind]; arg == "" {
@@ -466,29 +455,17 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 		return "", "", "", e
 	}
 
-	left, right, op = "", "", "" //TODO: do I need this?
-	depth := 0
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
-			haveQuote := false
+			depth, haveQuote := 0, false
 			for loc := len(expr) - 1; loc > 0; loc-- {
-				if expr[loc:loc+1] == "'" {
-					haveQuote = !haveQuote
-				}
 
-				if expr[loc] == ')' && !haveQuote {
-					depth++
-				}
-
-				if expr[loc] == '(' && !haveQuote {
-					depth--
-				}
-
+				depth, haveQuote = parenDepth(expr[loc], depth, haveQuote)
 				if depth > 0 || haveQuote {
 					continue
 				}
 
-				// not this operator at position loc
+				// Is this operator at position loc?
 				if len(expr) < loc+len(oper[j][k]) || expr[loc:loc+len(oper[j][k])] != oper[j][k] {
 					continue
 				}
@@ -504,4 +481,26 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 	}
 
 	return left, right, op, nil
+}
+
+// parenDepth updates the depth & haveQuote are updated based on char.
+// depth counts the depth of parentheses within an expression.
+// haveQuote flags whether the character is within single quotes
+func parenDepth(char uint8, depthIn int, haveQuoteIn bool) (depthOut int, haveQuoteOut bool) {
+	depthOut, haveQuoteOut = depthIn, haveQuoteIn
+	if string(char) == "'" {
+		haveQuoteOut = !haveQuoteOut
+		return depthOut, haveQuoteOut
+	}
+
+	if char == ')' && !haveQuoteOut {
+		depthOut++
+		return depthOut, haveQuoteOut
+	}
+
+	if char == '(' && !haveQuoteOut {
+		depthOut--
+	}
+
+	return depthOut, haveQuoteOut
 }

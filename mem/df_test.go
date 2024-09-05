@@ -3,6 +3,7 @@ package df
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"os"
 	"testing"
 	"time"
@@ -162,7 +163,7 @@ func TestDBLoad(t *testing.T) {
 	//eqn = "a - b - c - abs(d)"
 	//eqn = "4+exp(3+4, abs(4,4),3)"
 	eqn = "ab:=3+2-2-x"
-	eqn = "ab:= 1-(1*(1+2)) "
+	eqn = "ab:= exp(1.0)*((1+2)*(3--2)/abs(-15.0)) "
 	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
 	e := df.Parse(eqn, dfx)
@@ -170,5 +171,61 @@ func TestDBLoad(t *testing.T) {
 	col, ex := dfx.Column("ab")
 	assert.Nil(t, ex)
 	fmt.Println(col.Data())
+}
 
+func TestParser(t *testing.T) {
+	x := [][]any{
+		{"4+3", 0, int(7)},
+		{"4-1-1-1-1", 0, int(0)},
+		{"4+1-1", 0, int(4)},
+		{"4+1--1", 0, int(6)},
+		{"float(4)+1--1", 0, float64(6)},
+		{"((4+2) * abs(-3/2.0))", 0, float64(9)},
+		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
+		{"cast('DTdate', 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
+		{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
+		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
+		{"'ab' + 'cd'", 0, "abcd"},
+		{"((exp(1.0) + log(exp(1.0))))*(3--1)", 0, 4.0 + 4.0*math.Exp(1)},
+		{"-x +2", 0, float64(1)},
+		{"-x +4", 1, float64(6)},
+	}
+
+	dfx := makeMemDF()
+
+	cnt := 0
+	for ind := 0; ind < len(x); ind++ {
+		cnt++
+		eqn := x[ind][0].(string)
+		e := df.Parse("ab:="+eqn, dfx)
+		assert.Nil(t, e)
+		xOut, ex := dfx.Column("ab")
+		assert.Nil(t, ex)
+
+		indx := x[ind][1].(int)
+		var result any
+		switch r := xOut.Data().(type) {
+		case []int:
+			result = r[indx]
+		case []float64:
+			result = r[indx]
+		case []string:
+			result = r[indx]
+		case []time.Time:
+			result = r[indx]
+		default:
+			panic("failed type")
+		}
+
+		_ = dfx.DropColumns("ab")
+		if xOut.DataType() == df.DTfloat {
+			//			fmt.Println(result.(float64), x[ind][2].(float64))
+			assert.InEpsilon(t, result.(float64), x[ind][2].(float64), .001)
+			continue
+		}
+
+		assert.Equal(t, result, x[ind][2])
+	}
+
+	fmt.Println("# tests: ", cnt)
 }
