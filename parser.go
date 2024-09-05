@@ -6,7 +6,7 @@ import (
 )
 
 type OpTree struct {
-	value any
+	value Column
 
 	expr string
 
@@ -48,8 +48,7 @@ func Parse(eqn string, df DF) error {
 		return e
 	}
 
-	col := ot.Value().(Column)
-
+	col := ot.Value()
 	col.Name(lr[0])
 
 	if e := df.AppendColumn(col); e != nil {
@@ -58,8 +57,6 @@ func Parse(eqn string, df DF) error {
 
 	return nil
 }
-
-// ////////////// Exported OpTree methods
 
 func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
@@ -72,6 +69,25 @@ func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
 	return ot, nil
 }
 
+func newOperations() operations {
+	const (
+		l3 = "^"
+		l2 = "*,/"
+		l1 = "+,-"
+	)
+	var order [][]string
+	work := []string{l1, l2, l3}
+
+	for ind := 0; ind < len(work); ind++ {
+		order = append(order, strings.Split(work[ind], ","))
+	}
+
+	return order
+}
+
+//////////////// Exported OpTree methods
+
+// Build creates the tree representation of the expression
 func (ot *OpTree) Build() error {
 	if ex := ot.parenError(); ex != nil {
 		return ex
@@ -126,6 +142,7 @@ func (ot *OpTree) Build() error {
 	return nil
 }
 
+// Eval evaluates the expression over the dataframe df
 func (ot *OpTree) Eval(df DF) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
@@ -190,7 +207,7 @@ func (ot *OpTree) Eval(df DF) error {
 }
 
 // Value returns the value of the node. It will either be a Column or a scalar value.
-func (ot *OpTree) Value() any {
+func (ot *OpTree) Value() Column {
 	return ot.value
 }
 
@@ -216,9 +233,9 @@ func (ot *OpTree) mapOp() string {
 
 // constant handles the leaf of the OpTree when it is a constant.
 // strings are surrounded by single quotes
-func constant(xIn string, df DF) (any, error) {
+func constant(xIn string, df DF) (Column, error) {
 	if xIn == "" {
-		return xIn, nil
+		return nil, nil
 	}
 
 	if len(xIn) >= 2 && xIn[0:1] == "'" && xIn[len(xIn)-1:] == "'" {
@@ -385,22 +402,6 @@ func (ot *OpTree) parenError() error {
 
 // /////// operations methods
 
-func newOperations() operations {
-	const (
-		l3 = "^"
-		l2 = "*,/"
-		l1 = "+,-"
-	)
-	var order [][]string
-	work := []string{l1, l2, l3}
-
-	for ind := 0; ind < len(work); ind++ {
-		order = append(order, strings.Split(work[ind], ","))
-	}
-
-	return order
-}
-
 // trailingOp checks whether the end of expr is an operation
 func (oper operations) trailingOp(expr string) bool {
 	for j := 0; j < len(oper); j++ {
@@ -445,7 +446,7 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 		return "", "", "", e
 	}
 
-	left, right, op = "", "", "" //CHANGED was expr, "", ""
+	left, right, op = "", "", ""
 	depth := 0
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
