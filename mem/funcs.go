@@ -79,7 +79,7 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, c, cast, divide, exp, log, ifs, multiply, subtract, toDate, toFloat, toInt, toString}
+	return d.Functions{abs, add, and, c, cast, divide, eq, exp, ge, gt, le, log, lt, multiply, ne, not, or, subtract, toDate, toFloat, toInt, toString}
 }
 
 // /////// Standard Functions
@@ -140,70 +140,43 @@ func add(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot add %s and %s", dt0, dt1)}
 }
 
-func multiply(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+func and(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+		return &d.FuncReturn{Name: "and", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
 	}
 
-	dt0 := d.WhatAmI(inputs[0])
-	dt1 := d.WhatAmI(inputs[1])
-
-	switch {
-	case dt0 == d.DTfloat && dt1 == d.DTfloat:
-		return &d.FuncReturn{Value: inputs[0].(float64) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTfloat && dt1 == d.DTint:
-		return &d.FuncReturn{Value: inputs[0].(float64) * float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTfloat:
-		return &d.FuncReturn{Value: float64(inputs[0].(int)) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTint:
-		return &d.FuncReturn{Value: inputs[0].(int) * inputs[1].(int), Output: d.DTint, Err: nil}
+	val := 0
+	if inputs[0].(int) > 0 && inputs[1].(int) > 0 {
+		val = 1
 	}
 
-	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot multiply %s and %s", dt0, dt1)}
+	return &d.FuncReturn{Value: val, Output: d.DTint}
 }
 
-func divide(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+func not(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "divide", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+		return &d.FuncReturn{Name: "not", Inputs: []d.DataTypes{d.DTany, d.DTint}, Output: d.DTint}
 	}
 
-	dt0 := d.WhatAmI(inputs[0])
-	dt1 := d.WhatAmI(inputs[1])
-
-	switch {
-	case dt0 == d.DTfloat && dt1 == d.DTfloat:
-		return &d.FuncReturn{Value: inputs[0].(float64) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTfloat && dt1 == d.DTint:
-		return &d.FuncReturn{Value: inputs[0].(float64) / float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTfloat:
-		return &d.FuncReturn{Value: float64(inputs[0].(int)) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTint:
-		return &d.FuncReturn{Value: inputs[0].(int) / inputs[1].(int), Output: d.DTint, Err: nil}
+	val := 1
+	if inputs[1].(int) > 0 {
+		val = 0
 	}
 
-	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot divide %s and %s", dt0, dt1)}
+	return &d.FuncReturn{Value: val, Output: d.DTint}
 }
 
-func subtract(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+func or(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "subtract", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+		return &d.FuncReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
 	}
 
-	dt0 := d.WhatAmI(inputs[0])
-	dt1 := d.WhatAmI(inputs[1])
-
-	switch {
-	case dt0 == d.DTfloat && dt1 == d.DTfloat:
-		return &d.FuncReturn{Value: inputs[0].(float64) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTfloat && dt1 == d.DTint:
-		return &d.FuncReturn{Value: inputs[0].(float64) - float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTfloat:
-		return &d.FuncReturn{Value: float64(inputs[0].(int)) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTint:
-		return &d.FuncReturn{Value: inputs[0].(int) - inputs[1].(int), Output: d.DTint, Err: nil}
+	val := 0
+	if inputs[0].(int) > 0 || inputs[1].(int) > 0 {
+		val = 1
 	}
 
-	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot subtract %s and %s", dt0, dt1)}
+	return &d.FuncReturn{Value: val, Output: d.DTint}
 }
 
 func c(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
@@ -240,6 +213,85 @@ func cast(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 
 	x, e := d.ToDataType(inputs[1], dt, true)
 	return &d.FuncReturn{Value: x, Output: dt, Err: e}
+}
+
+func divide(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "divide", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+	}
+
+	dt0 := d.WhatAmI(inputs[0])
+	dt1 := d.WhatAmI(inputs[1])
+
+	switch {
+	case dt0 == d.DTfloat && dt1 == d.DTfloat:
+		return &d.FuncReturn{Value: inputs[0].(float64) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTfloat && dt1 == d.DTint:
+		return &d.FuncReturn{Value: inputs[0].(float64) / float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTint && dt1 == d.DTfloat:
+		return &d.FuncReturn{Value: float64(inputs[0].(int)) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTint && dt1 == d.DTint:
+		return &d.FuncReturn{Value: inputs[0].(int) / inputs[1].(int), Output: d.DTint, Err: nil}
+	}
+
+	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot divide %s and %s", dt0, dt1)}
+}
+
+func log(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+	}
+
+	x := inputs[0].(float64)
+	if x <= 0 {
+		return &d.FuncReturn{Err: fmt.Errorf("log of non-positive number")}
+	}
+
+	return &d.FuncReturn{Value: math.Log(x), Output: d.DTfloat, Err: nil}
+}
+
+func multiply(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+	}
+
+	dt0 := d.WhatAmI(inputs[0])
+	dt1 := d.WhatAmI(inputs[1])
+
+	switch {
+	case dt0 == d.DTfloat && dt1 == d.DTfloat:
+		return &d.FuncReturn{Value: inputs[0].(float64) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTfloat && dt1 == d.DTint:
+		return &d.FuncReturn{Value: inputs[0].(float64) * float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTint && dt1 == d.DTfloat:
+		return &d.FuncReturn{Value: float64(inputs[0].(int)) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTint && dt1 == d.DTint:
+		return &d.FuncReturn{Value: inputs[0].(int) * inputs[1].(int), Output: d.DTint, Err: nil}
+	}
+
+	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot multiply %s and %s", dt0, dt1)}
+}
+
+func subtract(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "subtract", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+	}
+
+	dt0 := d.WhatAmI(inputs[0])
+	dt1 := d.WhatAmI(inputs[1])
+
+	switch {
+	case dt0 == d.DTfloat && dt1 == d.DTfloat:
+		return &d.FuncReturn{Value: inputs[0].(float64) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTfloat && dt1 == d.DTint:
+		return &d.FuncReturn{Value: inputs[0].(float64) - float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTint && dt1 == d.DTfloat:
+		return &d.FuncReturn{Value: float64(inputs[0].(int)) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
+	case dt0 == d.DTint && dt1 == d.DTint:
+		return &d.FuncReturn{Value: inputs[0].(int) - inputs[1].(int), Output: d.DTint, Err: nil}
+	}
+
+	return &d.FuncReturn{Value: nil, Err: fmt.Errorf("cannot subtract %s and %s", dt0, dt1)}
 }
 
 func toInt(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
@@ -282,29 +334,60 @@ func exp(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	return &d.FuncReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
 }
 
-func ifs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+func eq(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
-		return &d.FuncReturn{Name: "if", Inputs: []d.DataTypes{d.DTstring, d.DTany, d.DTany}, Output: d.DTint}
+		return &d.FuncReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
 	}
 
+	return compare("==", inputs[0], inputs[1])
+}
+
+func ne(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare("!=", inputs[0], inputs[1])
+}
+
+func gt(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare(">", inputs[0], inputs[1])
+}
+
+func ge(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare(">=", inputs[0], inputs[1])
+}
+
+func lt(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare("<", inputs[0], inputs[1])
+}
+
+func le(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
+	if info {
+		return &d.FuncReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare("<=", inputs[0], inputs[1])
+}
+
+func compare(condition string, left, right any) *d.FuncReturn {
 	var truth bool
 	ret := &d.FuncReturn{Value: int(0), Output: d.DTint}
-	if truth, ret.Err = d.Comparator(inputs[1], inputs[2], inputs[0].(string)); truth {
+	if truth, ret.Err = d.Comparator(left, right, condition); truth {
 		ret.Value = int(1)
 	}
 
 	return ret
-}
-
-func log(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
-	if info {
-		return &d.FuncReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	x := inputs[0].(float64)
-	if x <= 0 {
-		return &d.FuncReturn{Err: fmt.Errorf("log of non-positive number")}
-	}
-
-	return &d.FuncReturn{Value: math.Log(x), Output: d.DTfloat, Err: nil}
 }

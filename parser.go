@@ -71,12 +71,16 @@ func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
 
 func newOperations() operations {
 	const (
+		l7 = "==,!=,>=,>,<=,<"
+		l6 = "!"
+		l5 = "&&"
+		l4 = "||"
 		l3 = "^"
 		l2 = "*,/"
 		l1 = "+,-"
 	)
 	var order [][]string
-	work := []string{l1, l2, l3}
+	work := []string{l1, l2, l3, l4, l5, l6, l7}
 
 	for ind := 0; ind < len(work); ind++ {
 		order = append(order, strings.Split(work[ind], ","))
@@ -107,7 +111,7 @@ func (ot *OpTree) Build() error {
 		return nil
 	}
 
-	//	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
+	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
 
 	if l != "" {
 		ot.left = &OpTree{
@@ -213,6 +217,7 @@ func (ot *OpTree) Value() Column {
 
 // //////// Unexported OpTree methods
 
+// TODO: make these not methods
 // mapOp maps an operation to a standard function that implements it
 func (ot *OpTree) mapOp() string {
 	switch ot.op {
@@ -226,6 +231,24 @@ func (ot *OpTree) mapOp() string {
 		return "divide"
 	case "^":
 		return "pow"
+	case "||":
+		return "or"
+	case "&&":
+		return "and"
+	case "!":
+		return "not"
+	case "==":
+		return "eq"
+	case "!=":
+		return "ne"
+	case ">=":
+		return "ge"
+	case ">":
+		return "gt"
+	case "<":
+		return "lt"
+	case "<=":
+		return "le"
 	default:
 		return ot.op
 	}
@@ -430,13 +453,13 @@ func (oper operations) badStart(expr *string) error {
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
 			if strings.Index(*expr, oper[j][k]) == 0 {
-
-				if oper[j][k] != "+" && oper[j][k] != "-" {
+				if oper[j][k] != "+" && oper[j][k] != "-" && oper[j][k] != "!" {
 					return fmt.Errorf("illegal operation in %s", *expr)
 				}
 
-				// if starts with a + or -, place a zero in front
+				// if starts with a + or - or !, place a zero in front
 				*expr = "0" + *expr
+
 				return nil
 			}
 		}

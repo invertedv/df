@@ -16,8 +16,8 @@ import (
 
 func makeMemDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
-	y, _ := NewMemCol("y", []int{1, 5, 6, 1, 4, 5})
-	z, _ := NewMemCol("z", []string{"p20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
+	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
+	z, _ := NewMemCol("z", []string{"20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
 	dfx, e := NewMemDF(Run, StandardFunctions(), x, y, z)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
@@ -164,6 +164,7 @@ func TestDBLoad(t *testing.T) {
 	//eqn = "4+exp(3+4, abs(4,4),3)"
 	eqn = "ab:=3+2-2-x"
 	eqn = "ab:= exp(1.0)*((1+2)*(3--2)/abs(-15.0)) "
+	eqn = "ab := (3 * 4 + 1 - -1)*(2 + abs(-1.0))"
 	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
 	e := df.Parse(eqn, dfx)
@@ -174,7 +175,41 @@ func TestDBLoad(t *testing.T) {
 }
 
 func TestParser(t *testing.T) {
+	dfx := makeMemDF()
+	eqn := "dt := date(z)"
+	e := df.Parse(eqn, dfx)
+	assert.Nil(t, e)
+
 	x := [][]any{
+		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
+		{"y>=1 && y>=1 && dt > date(20221231)", 0, int(0)},
+		{"y>=1 && y>=1", 0, int(1)},
+		{"!(y>=1) && y>=1", 0, int(0)},
+		{"!1 && 1 || 1", 0, int(1)},
+		{"!1 && 1 || 0", 0, int(0)},
+		{"!0 && 1 || 0", 0, int(1)},
+		{"!1 && 1", 0, int(0)},
+		{"1 || 0 && 1", 0, int(1)},
+		{"0 || 0 && 1", 0, int(0)},
+		{"0 || 1 && 1", 0, int(1)},
+		{"0 || 1 && 1 && 0", 0, int(0)},
+		{"(0 || 1 && 1) && 0", 0, int(0)},
+		{"y < 2", 0, int(1)},
+		{"y < 1", 0, int(0)},
+		{"y <= 1", 0, int(1)},
+		{"y > 1", 0, int(0)},
+		{"y >= 1", 0, int(1)},
+		{"y != 1", 0, int(0)},
+		{"dt != date(20221231)", 0, int(0)},
+		{"dt != date(20221231)", 1, int(1)},
+		{"dt == date(20221231)", 0, int(1)},
+		{"dt == date(20221231)", 1, int(0)},
+		{"y == 1", 0, int(1)},
+		{"y == 1", 1, int(0)},
+		{"y && 1", 0, int(1)},
+		{"0 && 1", 0, int(0)},
+		{"0 || 0", 0, int(0)},
+		{"0 || 1", 0, int(1)},
 		{"4+3", 0, int(7)},
 		{"4-1-1-1-1", 0, int(0)},
 		{"4+1-1", 0, int(4)},
@@ -189,9 +224,14 @@ func TestParser(t *testing.T) {
 		{"((exp(1.0) + log(exp(1.0))))*(3--1)", 0, 4.0 + 4.0*math.Exp(1)},
 		{"-x +2", 0, float64(1)},
 		{"-x +4", 1, float64(6)},
+		{"x/0", 0, math.Inf(1)},
+		{"(3 * 4 + 1 - -1)*(2 + abs(-1.0))", 0, float64(42)},
+		{"(1 + 2) - -(-1 - 2)", 0, int(0)},
+		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
+		{"string(float(1))", 0, "1.00"},
+		{"float('1.1')", 0, float64(1.1)},
+		{"int(2.9)", 0, int(2)},
 	}
-
-	dfx := makeMemDF()
 
 	cnt := 0
 	for ind := 0; ind < len(x); ind++ {
@@ -203,19 +243,7 @@ func TestParser(t *testing.T) {
 		assert.Nil(t, ex)
 
 		indx := x[ind][1].(int)
-		var result any
-		switch r := xOut.Data().(type) {
-		case []int:
-			result = r[indx]
-		case []float64:
-			result = r[indx]
-		case []string:
-			result = r[indx]
-		case []time.Time:
-			result = r[indx]
-		default:
-			panic("failed type")
-		}
+		result := xOut.(*MemCol).Element(indx)
 
 		_ = dfx.DropColumns("ab")
 		if xOut.DataType() == df.DTfloat {
