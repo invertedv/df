@@ -181,6 +181,7 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"y != 1", 0, int(0)},
 		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
 		{"y>=1 && y>=1 && dt > date(20221231)", 0, int(0)},
 		{"y>=1 && y>=1", 0, int(1)},
@@ -199,7 +200,6 @@ func TestParser(t *testing.T) {
 		{"y <= 1", 0, int(1)},
 		{"y > 1", 0, int(0)},
 		{"y >= 1", 0, int(1)},
-		{"y != 1", 0, int(0)},
 		{"dt != date(20221231)", 0, int(0)},
 		{"dt != date(20221231)", 1, int(1)},
 		{"dt == date(20221231)", 0, int(1)},
@@ -237,6 +237,7 @@ func TestParser(t *testing.T) {
 	for ind := 0; ind < len(x); ind++ {
 		cnt++
 		eqn := x[ind][0].(string)
+		fmt.Println(eqn)
 		e := df.Parse("ab:="+eqn, dfx)
 		assert.Nil(t, e)
 		xOut, ex := dfx.Column("ab")
@@ -247,7 +248,6 @@ func TestParser(t *testing.T) {
 
 		_ = dfx.DropColumns("ab")
 		if xOut.DataType() == df.DTfloat {
-			//			fmt.Println(result.(float64), x[ind][2].(float64))
 			assert.InEpsilon(t, result.(float64), x[ind][2].(float64), .001)
 			continue
 		}

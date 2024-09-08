@@ -71,8 +71,8 @@ func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
 
 func newOperations() operations {
 	const (
-		l7 = "==,!=,>=,>,<=,<"
-		l6 = "!"
+		l7 = "!"
+		l6 = "==,!=,>=,>,<=,<"
 		l5 = "&&"
 		l4 = "||"
 		l3 = "^"
@@ -111,7 +111,7 @@ func (ot *OpTree) Build() error {
 		return nil
 	}
 
-	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
+	//	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
 
 	if l != "" {
 		ot.left = &OpTree{
