@@ -25,18 +25,18 @@ type OpTree struct {
 
 type operations [][]string
 
-func Parse(eqn string, df DF) error {
-	lr := strings.Split(strings.ReplaceAll(eqn, " ", ""), ":=")
-	if len(lr) != 2 {
-		return fmt.Errorf("not an equation: %s", eqn)
-	}
+func ParseExpr(eqn string, df DF) error {
+	var result, expr string
+
+	lr := strings.SplitN(strings.ReplaceAll(eqn, " ", ""), ":=", 2)
+	result, expr = lr[0], lr[1]
 
 	var (
 		ot  *OpTree
 		err error
 	)
 
-	if ot, err = NewOpTree(lr[1], df.Funcs()); err != nil {
+	if ot, err = NewOpTree(expr, df.Funcs()); err != nil {
 		return err
 	}
 
@@ -48,10 +48,14 @@ func Parse(eqn string, df DF) error {
 		return e
 	}
 
+	if ot.Value() == nil || result == "" {
+		return nil
+	}
+
 	col := ot.Value()
 	col.Name(lr[0])
 
-	if e := df.AppendColumn(col); e != nil {
+	if e := df.AppendColumn(col, true); e != nil {
 		return e
 	}
 

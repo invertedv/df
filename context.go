@@ -37,3 +37,7 @@ func (c *Context) Len() *int {
 func (c *Context) Unassigned() []any {
 	return c.unassigned
 }
+
+func (c *Context) UpdateLen(n int) {
+	*c.n = n
+}

@@ -21,79 +21,18 @@ func makeMemDF() *MemDF {
 	dfx, e := NewMemDF(Run, StandardFunctions(), x, y, z)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
-	e = dfx.AppendColumn(xx)
+	e = dfx.AppendColumn(xx, false)
 
 	return dfx
 }
 
-func TestDF_Apply(t *testing.T) {
-	df := makeMemDF()
-
-	ee := df.Apply("fir", "if", "==", "z", "p20221231")
-	assert.Nil(t, ee)
-	ce, _ := df.Column("fir")
-	fmt.Println("if", ce.Data())
-
-	e2 := df.Apply("c", "c", "DTstring", "1")
-	assert.Nil(t, e2)
-	cc, _ := df.Column("c")
-	fmt.Println(cc.Data())
-
-	e2 = df.Apply("cx", "exp", "1")
-	assert.Nil(t, e2)
-	cc, _ = df.Column("cx")
-	fmt.Println("exp", cc.Data())
-
-	e2 = df.Apply("cxa", "add", "10", "y")
-	assert.Nil(t, e2)
-	cc, _ = df.Column("cxa")
-	fmt.Println("cx", cc.DataType(), cc.Data())
-
-	e1x := df.Apply("aexp", "exp", "1")
-	assert.Nil(t, e1x)
-	cc, _ = df.Column("aexp")
-	fmt.Println("constant ", cc.Data())
-	fmt.Println("row count: ", df.RowCount())
-	e1x = df.Sort("x")
-	assert.Nil(t, e1x)
-	cc, _ = df.Column("x")
-	fmt.Println("sorted x", cc.Data())
-	cc, _ = df.Column("z")
-	fmt.Println("sorted z", cc.Data())
-
-	col, e := df.Column("z")
-	assert.Nil(t, e)
-	e1 := df.Apply("test", "cast", "DTstring", "z")
-	assert.Nil(t, e1)
-	c1, _ := df.Column("test")
-	fmt.Println(c1.Data())
-	//	assert.Nil(t, e1)
-	col, e = df.Column("x")
-	assert.Nil(t, e)
-	col1, e1 := df.Column("y")
-	_, _ = col, col1
-	assert.Nil(t, e1)
-	e1 = df.Apply("test1", "add", "x", "y")
-	fmt.Println(df.ColumnNames())
-	fmt.Println(df.ColumnCount())
-	c, _ := df.Column("test1")
-	fmt.Println(c.Data())
-	e1 = df.Apply("xyz", "aaa", "z")
-	assert.Nil(t, e1)
-	e1 = df.DropColumns("test1")
-	assert.Nil(t, e1)
-
-	c, _ = df.Column("aexp")
-	fmt.Println(c.Data())
-}
-
 func TestDF_Sort(t *testing.T) {
-	df := makeMemDF()
-	e := df.Sort("y", "z")
+	dfx := makeMemDF()
+	e := dfx.Sort("y", "z")
 	assert.Nil(t, e)
-	x, _ := df.Column("x")
-	y, _ := df.Column("y")
-	z, _ := df.Column("z")
+	x, _ := dfx.Column("x")
+	y, _ := dfx.Column("y")
+	z, _ := dfx.Column("z")
 	fmt.Println(x, y, z)
 }
 
@@ -139,11 +78,11 @@ func TestLoadSQL(t *testing.T) {
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)
 	fmt.Println(col.Data())
-	e = memDF.Apply("abc", "cast", "DTstring", "abc")
+	e = memDF.Apply("abc", "cast", false, "DTstring", "abc")
 	assert.Nil(t, e)
-	e = memDF.Apply("abcd", "cast", "DTdate", "March 25, 1990")
+	e = memDF.Apply("abcd", "cast", false, "DTdate", "March 25, 1990")
 	assert.Nil(t, e)
-	e = memDF.Apply("abd", "cast", "DTstring", "latitude")
+	e = memDF.Apply("abd", "cast", false, "DTstring", "latitude")
 	assert.Nil(t, e)
 
 	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
@@ -167,17 +106,42 @@ func TestDBLoad(t *testing.T) {
 	eqn = "ab := (3 * 4 + 1 - -1)*(2 + abs(-1.0))"
 	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
-	e := df.Parse(eqn, dfx)
+	e := df.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
 	col, ex := dfx.Column("ab")
 	assert.Nil(t, ex)
 	fmt.Println(col.Data())
 }
 
+func TestMemDF_Where(t *testing.T) {
+	dfx := makeMemDF()
+	eqn := "ind := x >= 1"
+	e := df.ParseExpr(eqn, dfx)
+	assert.Nil(t, e)
+
+	ind, ex := dfx.Column("ind")
+	assert.Nil(t, ex)
+
+	ey := dfx.Where(ind)
+	assert.Nil(t, ey)
+	assert.Equal(t, 4, dfx.RowCount())
+
+	eqn = "ind := y >= 5"
+	e = df.ParseExpr(eqn, dfx)
+	assert.Nil(t, e)
+
+	ind, ex = dfx.Column("ind")
+	assert.Nil(t, ex)
+
+	ey = dfx.Where(ind)
+	assert.Equal(t, 2, dfx.RowCount())
+
+}
+
 func TestParser(t *testing.T) {
 	dfx := makeMemDF()
 	eqn := "dt := date(z)"
-	e := df.Parse(eqn, dfx)
+	e := df.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
 
 	x := [][]any{
@@ -238,7 +202,7 @@ func TestParser(t *testing.T) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
-		e := df.Parse("ab:="+eqn, dfx)
+		e := df.ParseExpr("ab:="+eqn, dfx)
 		assert.Nil(t, e)
 		xOut, ex := dfx.Column("ab")
 		assert.Nil(t, ex)

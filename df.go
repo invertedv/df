@@ -9,14 +9,16 @@ import (
 	u "github.com/invertedv/utilities"
 )
 
+// TODO: add where to sql/df
+
 type DF interface {
 	// generic from DFcore
 	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
 	Column(colName string) (col Column, err error)
-	Apply(resultName, opName string, inputs ...string) error
-	AppendColumn(col Column) error
+	Apply(resultName, opName string, replace bool, inputs ...string) error
+	AppendColumn(col Column, replace bool) error
 	DropColumns(colNames ...string) error
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
@@ -31,6 +33,7 @@ type DF interface {
 	DBsave(tableName string, overwrite bool, cols ...string) error
 	FileSave(fileName string) error
 	MakeColumn(value any) (Column, error)
+	Where(indicator Column) error
 }
 
 type Ereturn func() error
@@ -75,11 +78,7 @@ const (
 	DTint
 	DTcategory
 	DTdate
-	DTdateTime
-	DTtime
-	DTslcString
-	DTslcFloat
-	DTslcInt
+	DTnone
 	DTany
 )
 
@@ -284,7 +283,7 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 	return col, nil
 }
 
-func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
+func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...string) error {
 	var fn AnyFunction
 
 	if fn = df.funcs.Get(opName); fn == nil {
@@ -312,7 +311,7 @@ func (df *DFcore) Apply(resultName, opName string, inputs ...string) error {
 
 	col.Name(resultName)
 
-	return df.AppendColumn(col)
+	return df.AppendColumn(col, replace)
 }
 
 func (df *DFcore) ValidName(columnName string) bool {
@@ -328,9 +327,13 @@ func (df *DFcore) ValidName(columnName string) bool {
 	return true
 }
 
-func (df *DFcore) AppendColumn(col Column) error {
+func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	if df.Context != nil && df.Context.Len() != nil && *df.Context.Len() != col.Len() {
 		return fmt.Errorf("unequal lengths in AppendColumn")
+	}
+
+	if replace {
+		_ = df.DropColumns(col.Name(""))
 	}
 
 	if !df.ValidName(col.Name("")) {

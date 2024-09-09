@@ -86,7 +86,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 			continue
 		}
 
-		if e = memDF.AppendColumn(col); e != nil {
+		if e = memDF.AppendColumn(col, false); e != nil {
 			return nil, e
 		}
 	}
@@ -172,14 +172,7 @@ func (df *MemDF) Sort(cols ...string) error {
 }
 
 func (df *MemDF) RowCount() int {
-	n := 0
-	for c := df.Next(true); c != nil; c = df.Next(false) {
-		if m := c.Len(); m > n {
-			n = m
-		}
-	}
-
-	return n
+	return df.Next(true).Len()
 }
 
 // Len() is required for sort
@@ -253,6 +246,36 @@ func (m *MemDF) MakeColumn(value any) (d.Column, error) {
 
 	cx, e := NewMemCol("", data)
 	return cx, e
+}
+
+func (m *MemDF) Where(indicator d.Column) error {
+	if indicator.Len() != m.RowCount() {
+		return fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), m.RowCount())
+	}
+
+	var n int
+	for col := m.Next(true); col != nil; col = m.Next(false) {
+		cx := col.(*MemCol)
+		n = 0
+		newData := d.MakeSlice(cx.DataType(), 0)
+
+		for ind := 0; ind < cx.Len(); ind++ {
+			if indicator.Data().([]int)[ind] > 0 {
+				n++
+				newData = d.AppendSlice(newData, cx.Element(ind), cx.DataType())
+			}
+		}
+
+		if n == 0 {
+			return fmt.Errorf("no data after applying where")
+		}
+
+		cx.data = newData
+	}
+
+	m.Context.UpdateLen(n)
+
+	return nil
 }
 
 ///////////// MemCol

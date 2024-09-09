@@ -66,28 +66,28 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	defer func() { _ = df.Context.Dialect().DB().Close() }()
 
-	e = df.Apply("testx", "if", ">", "latitude", "42.5")
+	e = df.Apply("testx", "if", false, ">", "latitude", "42.5")
 	assert.Nil(t, e)
 
-	e = df.Apply("test1", "c", "DTint", "1")
+	e = df.Apply("test1", "c", false, "DTint", "1")
 	assert.Nil(t, e)
 
-	e = df.Apply("test2", "cast", "DTstring", "latitude")
+	e = df.Apply("test2", "cast", false, "DTstring", "latitude")
 	assert.Nil(t, e)
 
-	e2 := df.Apply("c", "add", "10", "latitude")
+	e2 := df.Apply("c", "add", false, "10", "latitude")
 	assert.Nil(t, e2)
 
-	e2 = df.Apply("d", "abs", "latitude")
+	e2 = df.Apply("d", "abs", false, "latitude")
 	assert.Nil(t, e2)
 
-	e2 = df.Apply("e", "exp", "1.1")
+	e2 = df.Apply("e", "exp", false, "1.1")
 	assert.Nil(t, e2)
 
 	//	e = df.Apply("test1", "cast", "DTstring", "latitude")
 	//	assert.Nil(t, e)
 
-	e1 := df.Apply("test", "add", "latitude", "longitude")
+	e1 := df.Apply("test", "add", false, "latitude", "longitude")
 	assert.Nil(t, e1)
 
 	_, e2 = df.Column("test")

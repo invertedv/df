@@ -57,8 +57,13 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 			}
 		}
 
-		if dt := d.WhatAmI(fnr.Value); dt != outType {
+		var dt d.DataTypes
+		if dt = d.WhatAmI(fnr.Value); dt != outType {
 			return nil, fmt.Errorf("inconsistent function return types: got %s need %s", dt, outType)
+		}
+
+		if dt == d.DTnone {
+			continue
 		}
 
 		if ind == 0 {
@@ -79,18 +84,14 @@ func Run(fn d.AnyFunction, context *d.Context, inputs []any) (outCol d.Column, e
 }
 
 func StandardFunctions() d.Functions {
-	return d.Functions{abs, add, and, c, cast, divide, eq, exp, ge, gt, le, log, lt, multiply, ne, not, or, subtract, toDate, toFloat, toInt, toString}
+	return d.Functions{
+		abs, add, and, c, cast, divide,
+		eq, exp, ge, gt, le, log, lt,
+		multiply, ne, not, or, subtract,
+		toDate, toFloat, toInt, toString}
 }
 
 // /////// Standard Functions
-
-func where(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
-	if info {
-		return &d.FuncReturn{Name: "if", Inputs: []d.DataTypes{d.DTstring, d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return &d.FuncReturn{}
-}
 
 func abs(info bool, context *d.Context, inputs ...any) *d.FuncReturn {
 	if info {
