@@ -9,32 +9,33 @@ import (
 	u "github.com/invertedv/utilities"
 )
 
-// TODO: add where to sql/df
-// TODO: constants parse.go when using sql/               <-------------
-// TODO: implement eq, gt, ge, lt, le, ne for sql         <-------------
+// TODO: think about
+// -rowFuncs: ifs
+// -DF funcs
+// -summary funcs
 
 type DF interface {
 	// generic from DFcore
+	AppendColumn(col Column, replace bool) error
+	Apply(resultName, opName string, replace bool, inputs ...string) error
+	Column(colName string) (col Column, err error)
 	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
-	Column(colName string) (col Column, err error)
-	Apply(resultName, opName string, replace bool, inputs ...string) error
-	AppendColumn(col Column, replace bool) error
+	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
+	DoOp(opName string, inputs ...any) (Column, error)
 	DropColumns(colNames ...string) error
+	Fn(fn Ereturn) error
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
-	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
-	Fn(fn Ereturn) error
 	RowFns() RowFns
-	DoOp(opName string, inputs ...any) (Column, error)
 
 	// specific to underlying data source
-	RowCount() int
-	Sort(keys ...string) error
 	DBsave(tableName string, overwrite bool, cols ...string) error
 	FileSave(fileName string) error
 	MakeColumn(value any) (Column, error)
+	RowCount() int
+	Sort(keys ...string) error
 	Where(indicator Column) error
 }
 

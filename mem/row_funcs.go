@@ -85,7 +85,7 @@ func RunRowFn(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, er
 
 func StandardFunctions() d.RowFns {
 	return d.RowFns{
-		abs, add, and, c, cast, divide,
+		abs, add, and, cast, divide,
 		eq, exp, ge, gt, le, log, lt,
 		multiply, ne, not, or, subtract,
 		toDate, toFloat, toInt, toString}
@@ -154,19 +154,6 @@ func and(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	return &d.RowFnReturn{Value: val, Output: d.DTint}
 }
 
-func not(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "not", Inputs: []d.DataTypes{d.DTany, d.DTint}, Output: d.DTint}
-	}
-
-	val := 1
-	if inputs[1].(int) > 0 {
-		val = 0
-	}
-
-	return &d.RowFnReturn{Value: val, Output: d.DTint}
-}
-
 func or(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
@@ -178,28 +165,6 @@ func or(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	}
 
 	return &d.RowFnReturn{Value: val, Output: d.DTint}
-}
-
-func c(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "c", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
-	}
-
-	var (
-		x  any
-		dt d.DataTypes
-		e  error
-	)
-
-	if dt = d.DTFromString(inputs[0].(string)); dt == d.DTunknown {
-		return &d.RowFnReturn{Err: fmt.Errorf("cannot convert to %s", inputs[0].(string))}
-	}
-
-	if x, e = d.ToDataType(inputs[1], dt, true); e != nil {
-		return &d.RowFnReturn{Err: e}
-	}
-
-	return &d.RowFnReturn{Value: x, Output: dt}
 }
 
 func cast(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
@@ -238,6 +203,46 @@ func divide(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	return &d.RowFnReturn{Value: nil, Err: fmt.Errorf("cannot divide %s and %s", dt0, dt1)}
 }
 
+func eq(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare("==", inputs[0], inputs[1])
+}
+
+func ge(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare(">=", inputs[0], inputs[1])
+}
+
+func gt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare(">", inputs[0], inputs[1])
+}
+
+func exp(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+	}
+
+	return &d.RowFnReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
+}
+
+func le(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare("<=", inputs[0], inputs[1])
+}
+
 func log(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
@@ -249,6 +254,14 @@ func log(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	}
 
 	return &d.RowFnReturn{Value: math.Log(x), Output: d.DTfloat, Err: nil}
+}
+
+func lt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare("<", inputs[0], inputs[1])
 }
 
 func multiply(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
@@ -273,6 +286,27 @@ func multiply(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	return &d.RowFnReturn{Value: nil, Err: fmt.Errorf("cannot multiply %s and %s", dt0, dt1)}
 }
 
+func ne(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+	}
+
+	return compare("!=", inputs[0], inputs[1])
+}
+
+func not(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "not", Inputs: []d.DataTypes{d.DTany, d.DTint}, Output: d.DTint}
+	}
+
+	val := 1
+	if inputs[1].(int) > 0 {
+		val = 0
+	}
+
+	return &d.RowFnReturn{Value: val, Output: d.DTint}
+}
+
 func subtract(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "subtract", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
@@ -295,6 +329,22 @@ func subtract(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	return &d.RowFnReturn{Value: nil, Err: fmt.Errorf("cannot subtract %s and %s", dt0, dt1)}
 }
 
+func toDate(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "date", Output: d.DTdate, Inputs: []d.DataTypes{d.DTany}}
+	}
+
+	return cast(false, context, "DTdate", inputs[0])
+}
+
+func toFloat(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "float", Output: d.DTfloat, Inputs: []d.DataTypes{d.DTany}}
+	}
+
+	return cast(false, context, "DTfloat", inputs[0])
+}
+
 func toInt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "int", Output: d.DTint, Inputs: []d.DataTypes{d.DTany}}
@@ -311,77 +361,7 @@ func toString(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	return cast(false, context, "DTstring", inputs[0])
 }
 
-func toFloat(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "float", Output: d.DTfloat, Inputs: []d.DataTypes{d.DTany}}
-	}
-
-	return cast(false, context, "DTfloat", inputs[0])
-}
-
-func toDate(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "date", Output: d.DTdate, Inputs: []d.DataTypes{d.DTany}}
-	}
-
-	return cast(false, context, "DTdate", inputs[0])
-}
-
-func exp(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	return &d.RowFnReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
-}
-
-func eq(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("==", inputs[0], inputs[1])
-}
-
-func ne(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("!=", inputs[0], inputs[1])
-}
-
-func gt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare(">", inputs[0], inputs[1])
-}
-
-func ge(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare(">=", inputs[0], inputs[1])
-}
-
-func lt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("<", inputs[0], inputs[1])
-}
-
-func le(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("<=", inputs[0], inputs[1])
-}
+///////// helpers
 
 func compare(condition string, left, right any) *d.RowFnReturn {
 	var truth bool
