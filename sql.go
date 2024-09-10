@@ -284,6 +284,14 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	return fieldNames, fieldTypes, nil
 }
 
+func (d *Dialect) Quote() string {
+	if d.dialect == "clickhouse" {
+		return "'"
+	}
+
+	return ""
+}
+
 func (d *Dialect) CastConstant(constant string, toDT DataTypes) (sql string, err error) {
 	var (
 		dbType string

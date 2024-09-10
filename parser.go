@@ -115,8 +115,6 @@ func (ot *OpTree) Build() error {
 		return nil
 	}
 
-	//	fmt.Println("whole:", ot.expr, "left: ", l, "right: ", r, "op: ", ot.op)
-
 	if l != "" {
 		ot.left = &OpTree{
 			expr:    l,

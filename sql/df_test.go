@@ -53,7 +53,7 @@ func df4test() (*SQLdf, error) {
 
 	// , ln_zb_dt
 	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", df2.NewContext(dialect, nil, nil))
-	df, e1 := NewSQLdf("SELECT *, toInt32(prop_zip3='005') AS logical FROM zip.zip3 LIMIT 10", df2.NewContext(dialect, nil, nil))
+	df, e1 := NewSQLdf("SELECT *, toInt32(prop_zip3='005') AS logical1 FROM zip.zip3 LIMIT 10", df2.NewContext(dialect, nil, nil))
 	if e1 != nil {
 		return nil, e1
 	}
@@ -64,6 +64,23 @@ func df4test() (*SQLdf, error) {
 func TestSQLdf_Where(t *testing.T) {
 	df, e := df4test()
 	assert.Nil(t, e)
+	//	e = df2.ParseExpr("ind :=prop_zip3 == '005'", df)
+	//	assert.Nil(t, e)
+	e = df2.ParseExpr("l2 := 2*latitude", df)
+	assert.Nil(t, e)
+	e = df2.ParseExpr("test :='20221231'", df)
+	assert.Nil(t, e)
+	e = df2.ParseExpr("test1 :=int(4)", df)
+	assert.Nil(t, e)
+	e = df2.ParseExpr("test2 :=(test != '20221231' || latitude < 41) && test1 >= 3", df)
+	assert.Nil(t, e)
+	e = df2.ParseExpr("test3 :=test == '20221231' || latitude < 40 && test1 >= 3", df)
+	assert.Nil(t, e)
+	e = df2.ParseExpr("logical :=prop_zip3 == '005'", df)
+	assert.Nil(t, e)
+
+	//	e = df2.ParseExpr("test1 :=string(latitude)", df)
+	//	assert.Nil(t, e)
 	var col df2.Column
 	col, e = df.Column("logical")
 	assert.Nil(t, e)

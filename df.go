@@ -10,7 +10,8 @@ import (
 )
 
 // TODO: add where to sql/df
-// TODO: constants parse.go when using sql/
+// TODO: constants parse.go when using sql/               <-------------
+// TODO: implement eq, gt, ge, lt, le, ne for sql         <-------------
 
 type DF interface {
 	// generic from DFcore

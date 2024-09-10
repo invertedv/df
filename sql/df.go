@@ -3,6 +3,7 @@ package sql
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	d "github.com/invertedv/df"
 )
@@ -67,11 +68,11 @@ func (df *SQLdf) Sort(keys ...string) error {
 
 func (df *SQLdf) MakeQuery() string {
 	var fields []string
-	for c := df.Next(true); c != nil; c = df.Next(false) {
+	for cx := df.Next(true); cx != nil; cx = df.Next(false) {
 		var field string
-		field = c.Name("")
-		if fn := c.Data().(string); fn != "" {
-			field = fmt.Sprintf("%s AS %s", fn, c.Name(""))
+		field = cx.Name("")
+		if fn := cx.Data().(string); fn != "" {
+			field = fmt.Sprintf("%s AS %s", fn, cx.Name(""))
 		}
 
 		fields = append(fields, field)
@@ -86,6 +87,7 @@ func (df *SQLdf) MakeQuery() string {
 		qry = fmt.Sprintf("%s ORDER BY %s", qry, df.orderBy)
 	}
 
+	fmt.Println(qry)
 	return qry
 }
 
@@ -140,10 +142,19 @@ func (df *SQLdf) MakeColumn(value any) (d.Column, error) {
 		return nil, fmt.Errorf("unsupported data type")
 	}
 
+	val := fmt.Sprintf("%v", value)
+	if dt == d.DTstring {
+		val = df.Dialect().Quote() + val + df.Dialect().Quote()
+	}
+
+	if dt == d.DTdate {
+		val = df.Dialect().Quote() + value.(time.Time).Format("2006-01-02") + df.Dialect().Quote()
+	}
+
 	cx := &SQLcol{
 		name:  "",
 		dType: dt,
-		sql:   fmt.Sprintf("%v", value),
+		sql:   val,
 	}
 
 	return cx, nil
@@ -160,7 +171,11 @@ func (s *SQLcol) Len() int {
 }
 
 func (s *SQLcol) Data() any {
-	return s.sql
+	if s.sql != "" {
+		return s.sql
+	}
+
+	return s.name
 }
 
 func (s *SQLcol) Name(renameTo string) string {
