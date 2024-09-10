@@ -28,7 +28,7 @@ type MemCol struct {
 
 // ///////// MemDF
 
-func NewMemDF(run d.RunFunc, funcs d.Functions, cols ...*MemCol) (*MemDF, error) {
+func NewMemDF(run d.RunRowFn, funcs d.RowFns, cols ...*MemCol) (*MemDF, error) {
 	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
@@ -80,7 +80,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewMemDF(Run, StandardFunctions(), col); e != nil {
+			if memDF, e = NewMemDF(RunRowFn, StandardFunctions(), col); e != nil {
 				return nil, e
 			}
 			continue

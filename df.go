@@ -10,6 +10,7 @@ import (
 )
 
 // TODO: add where to sql/df
+// TODO: constants parse.go when using sql/
 
 type DF interface {
 	// generic from DFcore
@@ -24,7 +25,7 @@ type DF interface {
 	Next(reset bool) Column
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	Fn(fn Ereturn) error
-	Funcs() Functions
+	RowFns() RowFns
 	DoOp(opName string, inputs ...any) (Column, error)
 
 	// specific to underlying data source
@@ -43,8 +44,8 @@ type Ereturn func() error
 type DFcore struct {
 	head *columnList
 
-	funcs Functions
-	run   RunFunc
+	rowFuncs   RowFns
+	runRowFunc RunRowFn
 
 	current *columnList
 
@@ -87,11 +88,13 @@ const (
 // max value of DataTypes type
 const MaxDT = DTany
 
-type Functions []AnyFunction
+////////// Row Function typs
 
-type AnyFunction func(info bool, context *Context, inputs ...any) *FuncReturn
+type RowFns []RowFn
 
-type FuncReturn struct {
+type RowFn func(info bool, context *Context, inputs ...any) *RowFnReturn
+
+type RowFnReturn struct {
 	Value any
 
 	Name   string
@@ -101,7 +104,29 @@ type FuncReturn struct {
 	Err error
 }
 
-func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error) {
+type RunRowFn func(fn RowFn, context *Context, inputs []any) (Column, error)
+
+////////// DF Function Types
+
+type DFfns []DFfn
+
+type DFfn func(info bool, df DF) *DFfnReturn
+
+type DFfnReturn struct {
+	df DF
+
+	Name   string
+	Output DataTypes
+	Inputs []DataTypes
+
+	Err error
+}
+
+type RunDFfn func(fn DFfn, df DF, inputs []any) (DF, error)
+
+////////// DFCore
+
+func NewDF(run RunRowFn, funcs RowFns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -126,14 +151,12 @@ func NewDF(run RunFunc, funcs Functions, cols ...Column) (df *DFcore, err error)
 		}
 	}
 
-	return &DFcore{head: head, funcs: funcs, run: run}, nil
+	return &DFcore{head: head, rowFuncs: funcs, runRowFunc: run}, nil
 }
 
-type RunFunc func(fn AnyFunction, context *Context, inputs []any) (Column, error)
-
 // /////////// DFcore methods
-func (df *DFcore) Funcs() Functions {
-	return df.funcs
+func (df *DFcore) RowFns() RowFns {
+	return df.rowFuncs
 }
 
 func (df *DFcore) SetContext(c *Context) {
@@ -256,9 +279,9 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 }
 
 func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
-	var fn AnyFunction
+	var fn RowFn
 
-	if fn = df.funcs.Get(opName); fn == nil {
+	if fn = df.rowFuncs.Get(opName); fn == nil {
 		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
 	}
 
@@ -276,7 +299,7 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 		e   error
 	)
 
-	if col, e = df.run(fn, df.Context, vals); e != nil {
+	if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
 		return nil, e
 	}
 
@@ -284,9 +307,9 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 }
 
 func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...string) error {
-	var fn AnyFunction
+	var fn RowFn
 
-	if fn = df.funcs.Get(opName); fn == nil {
+	if fn = df.rowFuncs.Get(opName); fn == nil {
 		log.Printf("op %s to create %s not defined, operation skipped", opName, resultName)
 		return nil
 	}
@@ -305,7 +328,7 @@ func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...strin
 		e   error
 	)
 
-	if col, e = df.run(fn, df.Context, vals); e != nil {
+	if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
 		return e
 	}
 
@@ -425,10 +448,10 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	}
 
 	subsetDF := &DFcore{
-		head:    subHead,
-		funcs:   df.funcs,
-		run:     df.run,
-		Context: df.Context,
+		head:       subHead,
+		rowFuncs:   df.rowFuncs,
+		runRowFunc: df.runRowFunc,
+		Context:    df.Context,
 	}
 
 	return subsetDF, nil
@@ -452,9 +475,9 @@ func DTFromString(nm string) DataTypes {
 	return DataTypes(uint8(pos))
 }
 
-//////// Functions Methods
+//////// RowFns Methods
 
-func (fs Functions) Get(fnName string) AnyFunction {
+func (fs RowFns) Get(fnName string) RowFn {
 	for _, f := range fs {
 		if f(true, nil).Name == fnName {
 			return f

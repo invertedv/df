@@ -18,7 +18,7 @@ func makeMemDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
-	dfx, e := NewMemDF(Run, StandardFunctions(), x, y, z)
+	dfx, e := NewMemDF(RunRowFn, StandardFunctions(), x, y, z)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
 	e = dfx.AppendColumn(xx, false)

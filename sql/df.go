@@ -12,6 +12,7 @@ type SQLdf struct {
 	sourceSQL     string
 	destTableName string
 	orderBy       string
+	where         string
 
 	*d.DFcore
 }
@@ -77,12 +78,30 @@ func (df *SQLdf) MakeQuery() string {
 	}
 
 	qry := fmt.Sprintf("WITH d AS (%s) SELECT %s FROM d", df.sourceSQL, strings.Join(fields, ","))
+	if df.where != "" {
+		qry = fmt.Sprintf("%s WHERE %s", qry, df.where)
+	}
 
 	if df.orderBy != "" {
 		qry = fmt.Sprintf("%s ORDER BY %s", qry, df.orderBy)
 	}
 
 	return qry
+}
+
+func (df *SQLdf) Where(col d.Column) error {
+	if col == nil {
+		df.where = ""
+		return nil
+	}
+
+	if col.DataType() != d.DTint {
+		return fmt.Errorf("where column must be tpye DTint")
+	}
+
+	df.where = fmt.Sprintf("%s > 0", col.Name(""))
+
+	return nil
 }
 
 func (df *SQLdf) FileSave(fileName string) error {

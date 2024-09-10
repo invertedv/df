@@ -17,7 +17,7 @@ type OpTree struct {
 	fnName string
 	inputs []*OpTree
 
-	funcs   Functions
+	funcs   RowFns
 	fnNames []string
 
 	ops operations
@@ -36,7 +36,7 @@ func ParseExpr(eqn string, df DF) error {
 		err error
 	)
 
-	if ot, err = NewOpTree(expr, df.Funcs()); err != nil {
+	if ot, err = NewOpTree(expr, df.RowFns()); err != nil {
 		return err
 	}
 
@@ -62,7 +62,7 @@ func ParseExpr(eqn string, df DF) error {
 	return nil
 }
 
-func NewOpTree(expression string, funcs Functions) (*OpTree, error) {
+func NewOpTree(expression string, funcs RowFns) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
 	var fns []string
 	for _, fn := range funcs {

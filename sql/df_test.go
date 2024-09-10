@@ -53,12 +53,26 @@ func df4test() (*SQLdf, error) {
 
 	// , ln_zb_dt
 	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", df2.NewContext(dialect, nil, nil))
-	df, e1 := NewSQLdf("SELECT * FROM zip.zip3 LIMIT 10", df2.NewContext(dialect, nil, nil))
+	df, e1 := NewSQLdf("SELECT *, toInt32(prop_zip3='005') AS logical FROM zip.zip3 LIMIT 10", df2.NewContext(dialect, nil, nil))
 	if e1 != nil {
 		return nil, e1
 	}
 
 	return df, nil
+}
+
+func TestSQLdf_Where(t *testing.T) {
+	df, e := df4test()
+	assert.Nil(t, e)
+	var col df2.Column
+	col, e = df.Column("logical")
+	assert.Nil(t, e)
+	e = df.Where(col)
+	assert.Nil(t, e)
+	e = df.CreateTable("tmp.aaa", "prop_zip3", true)
+	assert.Nil(t, e)
+	e = df.DBsave("tmp.aaa", true)
+	assert.Nil(t, e)
 }
 
 func TestNewSQLdf(t *testing.T) {
