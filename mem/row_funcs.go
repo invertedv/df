@@ -86,7 +86,7 @@ func RunRowFn(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, er
 func StandardFunctions() d.RowFns {
 	return d.RowFns{
 		abs, add, and, cast, divide,
-		eq, exp, ge, gt, le, log, lt,
+		eq, exp, ge, gt, ifs, le, log, lt,
 		multiply, ne, not, or, subtract,
 		toDate, toFloat, toInt, toString}
 }
@@ -359,6 +359,18 @@ func toString(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	}
 
 	return cast(false, context, "DTstring", inputs[0])
+}
+
+func ifs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}, Output: d.DTany}
+	}
+
+	if inputs[0].(int) > 0 {
+		return &d.RowFnReturn{Value: inputs[1], Output: d.WhatAmI(inputs[1])}
+	}
+
+	return &d.RowFnReturn{Value: inputs[2], Output: d.WhatAmI(inputs[2])}
 }
 
 ///////// helpers

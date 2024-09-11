@@ -145,6 +145,7 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"if(y != 1, 2.0, x)", 0, float64(1)},
 		{"y != 1", 0, int(0)},
 		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
 		{"y>=1 && y>=1 && dt > date(20221231)", 0, int(0)},

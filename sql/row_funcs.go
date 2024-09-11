@@ -15,7 +15,10 @@ func Run(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, err err
 	var xs []any
 	for ind := 0; ind < len(inputs); ind++ {
 		if cx, ok := inputs[ind].(*SQLcol); ok {
-			xs = append(xs, cx.Data())
+			if !d.Compatible(info.Inputs[ind], cx.DataType(), false) {
+				return nil, fmt.Errorf("in function %s: want data type %v got %v", info.Name, info.Inputs[ind], cx.DataType())
+			}
+			xs = append(xs, cx)
 			continue
 		}
 
@@ -24,7 +27,9 @@ func Run(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, err err
 			return nil, e
 		}
 
-		xs = append(xs, inputs[ind].(string))
+		// the functions expect all inputs to be *SQLcol.
+		col := &SQLcol{sql: inputs[ind].(string), dType: info.Inputs[ind]}
+		xs = append(xs, col)
 	}
 
 	r := fn(false, context, xs...)
@@ -46,29 +51,54 @@ func Run(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, err err
 func StandardFunctions() d.RowFns {
 	return d.RowFns{
 		abs, add, and, cast, divide,
-		eq, exp, ge, gt, le, log, lt,
+		eq, exp, ge, gt, ifs, le, log, lt,
 		multiply, ne, not, or, subtract,
 		toDate, toFloat, toInt, toString}
 }
 
 // ////////  Standard RowFns
 
+func ifs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}}
+	}
+
+	sqls := getData(inputs...)
+	dts := getDataTypes(inputs...)
+	if !d.Compatible(dts[1], dts[2], false) {
+		return &d.RowFnReturn{Err: fmt.Errorf("incompatible data types in if")}
+	}
+	// TODO: make datatype compatibility check in sql.go
+
+	sql := fmt.Sprintf("if(%s,%s,%s)", sqls[0], sqls[1], sqls[2])
+
+	return &d.RowFnReturn{Value: sql, Output: dts[1]}
+}
+
 func abs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
 
-	sql := fmt.Sprintf("abs(%s)", inputs[0].(string))
+	sql := fmt.Sprintf("abs(%s)", getData(inputs...)[0])
 	return &d.RowFnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
 func add(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
-		return &d.RowFnReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
+		return &d.RowFnReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTany}
 	}
 
-	sql := fmt.Sprintf("%s + %s", inputs[0].(string), inputs[1].(string))
-	return &d.RowFnReturn{Value: sql, Output: d.DTfloat, Err: nil}
+	sqls := getData(inputs...)
+	dts := getDataTypes(inputs...)
+
+	sql := fmt.Sprintf("%s + %s", sqls[0], sqls[1])
+	var dtOut d.DataTypes
+	dtOut = d.DTfloat
+	if dts[0] == d.DTint && dts[1] == d.DTint {
+		dtOut = d.DTint
+	}
+	return &d.RowFnReturn{Value: sql, Output: dtOut, Err: nil}
 }
 
 func and(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
@@ -76,7 +106,8 @@ func and(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 		return &d.RowFnReturn{Name: "and", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
 	}
 
-	sql := fmt.Sprintf("(%s and %s)", inputs[0].(string), inputs[1].(string))
+	sqls := getData(inputs...)
+	sql := fmt.Sprintf("(%s and %s)", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -84,9 +115,10 @@ func cast(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
 	}
+	sqls := getData(inputs...)
 
 	var toDT d.DataTypes
-	if toDT = d.DTFromString(inputs[0].(string)); toDT == d.DTunknown {
+	if toDT = d.DTFromString(sqls[0]); toDT == d.DTunknown {
 		return &d.RowFnReturn{Err: fmt.Errorf("unknown data type %s", inputs[0].(string))}
 	}
 
@@ -94,7 +126,7 @@ func cast(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 		sql string
 		e   error
 	)
-	if sql, e = context.Dialect().CastField(inputs[1].(string), toDT); e != nil {
+	if sql, e = context.Dialect().CastField(sqls[1], toDT); e != nil {
 		return &d.RowFnReturn{Err: e}
 	}
 
@@ -105,8 +137,9 @@ func divide(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "divide", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s / %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s / %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
@@ -114,8 +147,9 @@ func eq(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s = %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s = %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -123,8 +157,9 @@ func exp(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("exp(%s)", inputs[0].(string))
+	sql := fmt.Sprintf("exp(%s)", sqls[0])
 
 	return &d.RowFnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
@@ -133,8 +168,9 @@ func ge(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s >= %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s >= %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -142,8 +178,9 @@ func gt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s > %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s > %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -151,8 +188,9 @@ func le(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s <= %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s <= %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -160,8 +198,9 @@ func log(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("log(%s)", inputs[0].(string))
+	sql := fmt.Sprintf("log(%s)", sqls[0])
 	return &d.RowFnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
@@ -169,8 +208,9 @@ func lt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s < %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s < %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -178,8 +218,9 @@ func multiply(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s * %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s * %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
@@ -187,8 +228,9 @@ func ne(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s != %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s != %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -196,8 +238,9 @@ func not(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "not", Inputs: []d.DataTypes{d.DTint}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("(not %s)", inputs[0].(string))
+	sql := fmt.Sprintf("(not %s)", sqls[0])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -205,8 +248,9 @@ func or(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("(%s or %s)", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("(%s or %s)", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTint}
 }
 
@@ -214,8 +258,9 @@ func subtract(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
 	}
+	sqls := getData(inputs...)
 
-	sql := fmt.Sprintf("%s - %s", inputs[0].(string), inputs[1].(string))
+	sql := fmt.Sprintf("%s - %s", sqls[0], sqls[1])
 	return &d.RowFnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 }
 
@@ -223,12 +268,13 @@ func toDate(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "date", Inputs: []d.DataTypes{d.DTany}, Output: d.DTdate}
 	}
+	sqls := getData(inputs...)
 
 	var (
 		sql string
 		e   error
 	)
-	if sql, e = context.Dialect().CastField(inputs[0].(string), d.DTdate); e != nil {
+	if sql, e = context.Dialect().CastField(sqls[0], d.DTdate); e != nil {
 		return &d.RowFnReturn{Err: e}
 	}
 
@@ -239,12 +285,13 @@ func toFloat(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "float", Inputs: []d.DataTypes{d.DTany}, Output: d.DTfloat}
 	}
+	sqls := getData(inputs...)
 
 	var (
 		sql string
 		e   error
 	)
-	if sql, e = context.Dialect().CastField(inputs[1].(string), d.DTfloat); e != nil {
+	if sql, e = context.Dialect().CastField(sqls[0], d.DTfloat); e != nil {
 		return &d.RowFnReturn{Err: e}
 	}
 
@@ -255,12 +302,13 @@ func toInt(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "int", Inputs: []d.DataTypes{d.DTany}, Output: d.DTint}
 	}
+	sqls := getData(inputs...)
 
 	var (
 		sql string
 		e   error
 	)
-	if sql, e = context.Dialect().CastField(inputs[0].(string), d.DTint); e != nil {
+	if sql, e = context.Dialect().CastField(sqls[0], d.DTint); e != nil {
 		return &d.RowFnReturn{Err: e}
 	}
 
@@ -271,25 +319,35 @@ func toString(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "string", Inputs: []d.DataTypes{d.DTany}, Output: d.DTstring}
 	}
+	sqls := getData(inputs...)
 
 	var (
 		sql string
 		e   error
 	)
-	if sql, e = context.Dialect().CastField(inputs[0].(string), d.DTstring); e != nil {
+	if sql, e = context.Dialect().CastField(sqls[0], d.DTstring); e != nil {
 		return &d.RowFnReturn{Err: e}
 	}
 
 	return &d.RowFnReturn{Value: sql, Output: d.DTstring}
 }
 
-func ifs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "if", Inputs: []d.DataTypes{d.DTstring, d.DTany, d.DTany}, Output: d.DTint}
+////////////////////////
+
+func getData(inputs ...any) []string {
+	var sOut []string
+	for ind := 0; ind < len(inputs); ind++ {
+		sOut = append(sOut, inputs[ind].(*SQLcol).Data().(string))
 	}
 
-	ret := &d.RowFnReturn{Output: d.DTint}
-	ret.Value, ret.Err = context.Dialect().Ifs(inputs[1].(string), inputs[2].(string), inputs[0].(string))
+	return sOut
+}
 
-	return ret
+func getDataTypes(inputs ...any) []d.DataTypes {
+	var sOut []d.DataTypes
+	for ind := 0; ind < len(inputs); ind++ {
+		sOut = append(sOut, inputs[ind].(*SQLcol).DataType())
+	}
+
+	return sOut
 }

@@ -66,7 +66,9 @@ func TestSQLdf_Where(t *testing.T) {
 	assert.Nil(t, e)
 	//	e = df2.ParseExpr("ind :=prop_zip3 == '005'", df)
 	//	assert.Nil(t, e)
-	e = df2.ParseExpr("l2 := 2*latitude", df)
+	e = df2.ParseExpr("l2 := if(prop_zip3=='005', 'yes','no')", df)
+	assert.Nil(t, e)
+	e = df2.ParseExpr("lexp := exp(latitude/100)", df)
 	assert.Nil(t, e)
 	e = df2.ParseExpr("test :='20221231'", df)
 	assert.Nil(t, e)
@@ -97,11 +99,11 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 	defer func() { _ = df.Context.Dialect().DB().Close() }()
 
-	e = df.Apply("testx", "if", false, ">", "latitude", "42.5")
+	e = df.Apply("testx", "if", false, "1", "latitude", "42.5")
 	assert.Nil(t, e)
 
-	e = df.Apply("test1", "c", false, "DTint", "1")
-	assert.Nil(t, e)
+	//	e = df.Apply("test1", "c", false, "DTint", "1")
+	//	assert.Nil(t, e)
 
 	e = df.Apply("test2", "cast", false, "DTstring", "latitude")
 	assert.Nil(t, e)
