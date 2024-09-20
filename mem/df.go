@@ -28,7 +28,7 @@ type MemCol struct {
 
 // ///////// MemDF
 
-func NewMemDF(run d.RunRowFn, funcs d.RowFns, cols ...*MemCol) (*MemDF, error) {
+func NewMemDF(runRow, runDF d.RunRowFn, funcs d.RowFns, cols ...*MemCol) (*MemDF, error) {
 	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
@@ -44,7 +44,7 @@ func NewMemDF(run d.RunRowFn, funcs d.RowFns, cols ...*MemCol) (*MemDF, error) {
 		e  error
 	)
 
-	if df, e = d.NewDF(run, funcs, cc...); e != nil {
+	if df, e = d.NewDF(runRow, runDF, funcs, cc...); e != nil {
 		return nil, e
 	}
 
@@ -80,7 +80,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewMemDF(RunRowFn, StandardFunctions(), col); e != nil {
+			if memDF, e = NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), col); e != nil {
 				return nil, e
 			}
 			continue
@@ -104,6 +104,30 @@ func (df *MemDF) SourceQuery() string {
 }
 
 func (df *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
+	return nil
+}
+
+// AppendColumn masks the DFcore version so that we can handle appending scalars
+func (df *MemDF) AppendColumn(col d.Column, replace bool) error {
+	colx := col.(*MemCol)
+	if colx.Len() == 1 {
+		var e error
+		dt := col.DataType()
+		xs := d.MakeSlice(col.DataType(), 0)
+		val := colx.Element(0)
+		for ind := 0; ind < df.RowCount(); ind++ {
+			xs = d.AppendSlice(xs, val, dt)
+		}
+
+		if colx, e = NewMemCol(col.Name(""), xs); e != nil {
+			return e
+		}
+	}
+
+	if ex := df.DFcore.AppendColumn(colx, replace); ex != nil {
+		return ex
+	}
+
 	return nil
 }
 
@@ -328,6 +352,11 @@ func (m *MemCol) Name(renameTo string) string {
 }
 
 func (m *MemCol) Element(row int) any {
+	// TODO: kluge
+	if m.Len() == 1 {
+		row = 0
+	}
+
 	switch m.dType {
 	case d.DTfloat:
 		return m.Data().([]float64)[row]

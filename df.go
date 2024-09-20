@@ -10,7 +10,7 @@ import (
 )
 
 // TODO: think about
-// -rowFuncs: ifs
+// add methods to DataTypes to check compatability
 // -DF funcs
 // -summary funcs
 
@@ -31,6 +31,8 @@ type DF interface {
 	RowFns() RowFns
 
 	// specific to underlying data source
+	// TODO: add
+	//	AppendDF(df DF) (DF, error)
 	DBsave(tableName string, overwrite bool, cols ...string) error
 	FileSave(fileName string) error
 	MakeColumn(value any) (Column, error)
@@ -48,6 +50,7 @@ type DFcore struct {
 
 	rowFuncs   RowFns
 	runRowFunc RunRowFn
+	runDFfun   RunRowFn
 
 	current *columnList
 
@@ -103,19 +106,21 @@ type RowFnReturn struct {
 	Output DataTypes
 	Inputs []DataTypes
 
+	Scalar bool
+
 	Err error
 }
 
 type RunRowFn func(fn RowFn, context *Context, inputs []any) (Column, error)
 
 ////////// DF Function Types
-
+/*
 type DFfns []DFfn
 
 type DFfn func(info bool, df DF) *DFfnReturn
 
 type DFfnReturn struct {
-	df DF
+	DFout DF
 
 	Name   string
 	Output DataTypes
@@ -125,10 +130,10 @@ type DFfnReturn struct {
 }
 
 type RunDFfn func(fn DFfn, df DF, inputs []any) (DF, error)
-
+*/
 ////////// DFCore
 
-func NewDF(run RunRowFn, funcs RowFns, cols ...Column) (df *DFcore, err error) {
+func NewDF(runRow, runDF RunRowFn, funcs RowFns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -153,7 +158,7 @@ func NewDF(run RunRowFn, funcs RowFns, cols ...Column) (df *DFcore, err error) {
 		}
 	}
 
-	return &DFcore{head: head, rowFuncs: funcs, runRowFunc: run}, nil
+	return &DFcore{head: head, rowFuncs: funcs, runRowFunc: runRow, runDFfun: runDF}, nil
 }
 
 // /////////// DFcore methods
@@ -301,8 +306,15 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 		e   error
 	)
 
-	if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
-		return nil, e
+	if fn(true, nil, nil).Scalar {
+		fmt.Println("SCALAR")
+		if col, e = df.runDFfun(fn, df.Context, vals); e != nil {
+			return nil, e
+		}
+	} else {
+		if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
+			return nil, e
+		}
 	}
 
 	return col, nil
@@ -475,6 +487,30 @@ func DTFromString(nm string) DataTypes {
 	}
 
 	return DataTypes(uint8(pos))
+}
+
+func Compatible(x, y DataTypes, strict bool) bool {
+	if x == DTany || y == DTany {
+		return true
+	}
+
+	if x == y {
+		return true
+	}
+
+	if strict {
+		return false
+	}
+
+	if (x == DTfloat || x == DTint) && (y == DTfloat || y == DTint) {
+		return true
+	}
+
+	return false
+}
+
+func (d DataTypes) IsNumeric() bool {
+	return d == DTfloat || d == DTint
 }
 
 //////// RowFns Methods

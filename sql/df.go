@@ -227,7 +227,8 @@ func NewSQLdf(query string, context *d.Context) (*SQLdf, error) {
 	}
 
 	var tmp *d.DFcore
-	if tmp, e = d.NewDF(Run, StandardFunctions(), cols...); e != nil {
+	// TODO: fix runs
+	if tmp, e = d.NewDF(Run, nil, StandardFunctions(), cols...); e != nil {
 		return nil, e
 	}
 

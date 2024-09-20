@@ -7,6 +7,32 @@ import (
 	d "github.com/invertedv/df"
 )
 
+func RunDFfn(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, err error) {
+	info := fn(true, nil)
+	if len(inputs) != len(info.Inputs) {
+		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
+	}
+
+	for j := 0; j < len(inputs); j++ {
+		var (
+			ok bool
+		)
+
+		// fix this up...don't need mod. Use something other than c
+		_, ok = inputs[j].(*MemCol)
+		if !ok {
+			return nil, fmt.Errorf("input to function %s is not a Column", info.Name)
+		}
+	}
+
+	var fnR *d.RowFnReturn
+	if fnR = fn(false, context, inputs...); fnR.Err != nil {
+		return nil, fnR.Err
+	}
+
+	return fnR.Value.(d.Column), nil
+}
+
 func RunRowFn(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
 	if len(inputs) != len(info.Inputs) {
@@ -87,11 +113,58 @@ func StandardFunctions() d.RowFns {
 	return d.RowFns{
 		abs, add, and, cast, divide,
 		eq, exp, ge, gt, ifs, le, log, lt,
-		multiply, ne, not, or, subtract,
+		multiply, ne, not, or, subtract, sum,
 		toDate, toFloat, toInt, toString}
 }
 
 // /////// Standard RowFns
+
+func sum(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "sum", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat, Scalar: true}
+	}
+
+	col := inputs[0].(*MemCol)
+	dt := col.DataType()
+	if !dt.IsNumeric() {
+		return &d.RowFnReturn{Err: fmt.Errorf("input to sum must be numeric, got %v", dt)}
+	}
+
+	data := d.MakeSlice(dt, 1)
+	var (
+		sf float64
+		si int
+	)
+
+	for ind := 0; ind < col.Len(); ind++ {
+		switch x := col.Element(ind).(type) {
+		case float64:
+			sf += x
+		case int:
+			si += x
+		default:
+			return &d.RowFnReturn{Err: fmt.Errorf("invalid type in sum")}
+		}
+	}
+
+	switch dt {
+	case d.DTfloat:
+		data.([]float64)[0] = sf
+	case d.DTint:
+		data.([]int)[0] = si
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+
+	if outCol, e = NewMemCol("", data); e != nil {
+		return &d.RowFnReturn{Err: e, Output: d.DTunknown}
+	}
+
+	return &d.RowFnReturn{Value: outCol, Output: dt, Err: nil}
+}
 
 func abs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
@@ -235,6 +308,18 @@ func exp(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	return &d.RowFnReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
 }
 
+func ifs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}, Output: d.DTany}
+	}
+
+	if inputs[0].(int) > 0 {
+		return &d.RowFnReturn{Value: inputs[1], Output: d.WhatAmI(inputs[1])}
+	}
+
+	return &d.RowFnReturn{Value: inputs[2], Output: d.WhatAmI(inputs[2])}
+}
+
 func le(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
 		return &d.RowFnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
@@ -359,18 +444,6 @@ func toString(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	}
 
 	return cast(false, context, "DTstring", inputs[0])
-}
-
-func ifs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}, Output: d.DTany}
-	}
-
-	if inputs[0].(int) > 0 {
-		return &d.RowFnReturn{Value: inputs[1], Output: d.WhatAmI(inputs[1])}
-	}
-
-	return &d.RowFnReturn{Value: inputs[2], Output: d.WhatAmI(inputs[2])}
 }
 
 ///////// helpers

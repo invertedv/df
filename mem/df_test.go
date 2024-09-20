@@ -18,7 +18,7 @@ func makeMemDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
-	dfx, e := NewMemDF(RunRowFn, StandardFunctions(), x, y, z)
+	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
 	e = dfx.AppendColumn(xx, false)
@@ -104,34 +104,29 @@ func TestDBLoad(t *testing.T) {
 	eqn = "ab:=3+2-2-x"
 	eqn = "ab:= exp(1.0)*((1+2)*(3--2)/abs(-15.0)) "
 	eqn = "ab := (3 * 4 + 1 - -1)*(2 + abs(-1.0))"
+	eqn = "ab := sum(x)-x"
 	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
-	e := df.ParseExpr(eqn, dfx)
+	col, e := df.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
-	col, ex := dfx.Column("ab")
-	assert.Nil(t, ex)
 	fmt.Println(col.Data())
+	e = dfx.AppendColumn(col, true)
+	assert.Nil(t, e)
 }
 
 func TestMemDF_Where(t *testing.T) {
 	dfx := makeMemDF()
 	eqn := "ind := x >= 1"
-	e := df.ParseExpr(eqn, dfx)
+	ind, e := df.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
-
-	ind, ex := dfx.Column("ind")
-	assert.Nil(t, ex)
 
 	ey := dfx.Where(ind)
 	assert.Nil(t, ey)
 	assert.Equal(t, 4, dfx.RowCount())
 
 	eqn = "ind := y >= 5"
-	e = df.ParseExpr(eqn, dfx)
+	ind, e = df.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
-
-	ind, ex = dfx.Column("ind")
-	assert.Nil(t, ex)
 
 	ey = dfx.Where(ind)
 	assert.Equal(t, 2, dfx.RowCount())
@@ -141,7 +136,8 @@ func TestMemDF_Where(t *testing.T) {
 func TestParser(t *testing.T) {
 	dfx := makeMemDF()
 	eqn := "dt := date(z)"
-	e := df.ParseExpr(eqn, dfx)
+	col, e := df.ParseExpr(eqn, dfx)
+	dfx.AppendColumn(col, true)
 	assert.Nil(t, e)
 
 	x := [][]any{
@@ -203,9 +199,7 @@ func TestParser(t *testing.T) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
-		e := df.ParseExpr("ab:="+eqn, dfx)
-		assert.Nil(t, e)
-		xOut, ex := dfx.Column("ab")
+		xOut, ex := df.ParseExpr("ab:="+eqn, dfx)
 		assert.Nil(t, ex)
 
 		indx := x[ind][1].(int)
