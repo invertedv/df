@@ -3,6 +3,7 @@ package df
 import (
 	"fmt"
 	"math"
+	"time"
 
 	d "github.com/invertedv/df"
 )
@@ -93,7 +94,7 @@ func RunRowFn(fn d.RowFn, context *d.Context, inputs []any) (outCol d.Column, er
 		}
 
 		if ind == 0 {
-			xOut = d.MakeSlice(outType, 0)
+			xOut = d.MakeSlice(outType, 0, nil)
 		}
 
 		xOut = d.AppendSlice(xOut, fnr.Value, outType)
@@ -118,53 +119,6 @@ func StandardFunctions() d.RowFns {
 }
 
 // /////// Standard RowFns
-
-func sum(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
-	if info {
-		return &d.RowFnReturn{Name: "sum", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat, Scalar: true}
-	}
-
-	col := inputs[0].(*MemCol)
-	dt := col.DataType()
-	if !dt.IsNumeric() {
-		return &d.RowFnReturn{Err: fmt.Errorf("input to sum must be numeric, got %v", dt)}
-	}
-
-	data := d.MakeSlice(dt, 1)
-	var (
-		sf float64
-		si int
-	)
-
-	for ind := 0; ind < col.Len(); ind++ {
-		switch x := col.Element(ind).(type) {
-		case float64:
-			sf += x
-		case int:
-			si += x
-		default:
-			return &d.RowFnReturn{Err: fmt.Errorf("invalid type in sum")}
-		}
-	}
-
-	switch dt {
-	case d.DTfloat:
-		data.([]float64)[0] = sf
-	case d.DTint:
-		data.([]int)[0] = si
-	}
-
-	var (
-		outCol *MemCol
-		e      error
-	)
-
-	if outCol, e = NewMemCol("", data); e != nil {
-		return &d.RowFnReturn{Err: e, Output: d.DTunknown}
-	}
-
-	return &d.RowFnReturn{Value: outCol, Output: dt, Err: nil}
-}
 
 func abs(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	if info {
@@ -412,6 +366,65 @@ func subtract(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
 	}
 
 	return &d.RowFnReturn{Value: nil, Err: fmt.Errorf("cannot subtract %s and %s", dt0, dt1)}
+}
+
+func makeMCvalue(val any, dt d.DataTypes) *MemCol {
+	data := d.MakeSlice(dt, 1, nil)
+	switch dt {
+	case d.DTfloat:
+		data.([]float64)[0] = val.(float64)
+	case d.DTint:
+		data.([]int)[0] = val.(int)
+	case d.DTstring:
+		data.([]string)[0] = val.(string)
+	case d.DTdate:
+		data.([]time.Time)[0] = val.(time.Time)
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+
+	if outCol, e = NewMemCol("", data); e != nil {
+		panic("probelm in makeMCvalue")
+	}
+
+	return outCol
+}
+
+func sum(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {
+	if info {
+		return &d.RowFnReturn{Name: "sum", Inputs: []d.DataTypes{d.DTany}, Output: d.DTany, Scalar: true}
+	}
+
+	col := inputs[0].(*MemCol)
+	dt := col.DataType()
+	data := col.Data()
+	if !dt.IsNumeric() {
+		return &d.RowFnReturn{Err: fmt.Errorf("input to sum must be numeric, got %v", dt)}
+	}
+
+	sf := d.InitAny(dt)
+
+	for ind := 0; ind < col.Len(); ind++ {
+		switch col.DataType() {
+		case d.DTfloat:
+			x := sf.(float64)
+			x += data.([]float64)[ind]
+			sf = x
+		case d.DTint:
+			x := sf.(int)
+			x += data.([]int)[ind]
+			sf = x
+		default:
+			return &d.RowFnReturn{Err: fmt.Errorf("invalid type in sum")}
+		}
+	}
+
+	outCol := makeMCvalue(sf, dt)
+
+	return &d.RowFnReturn{Value: outCol, Output: dt, Err: nil}
 }
 
 func toDate(info bool, context *d.Context, inputs ...any) *d.RowFnReturn {

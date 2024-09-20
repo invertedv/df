@@ -212,7 +212,7 @@ func (d *Dialect) Read(qry string) ([]any, error) {
 
 	var memData []any
 	for ind := 0; ind < len(types); ind++ {
-		memData = append(memData, MakeSlice(types[ind], n))
+		memData = append(memData, MakeSlice(types[ind], n, nil))
 	}
 
 	xind := 0

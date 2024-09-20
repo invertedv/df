@@ -138,34 +138,55 @@ func WhatAmI(val any) DataTypes {
 	}
 }
 
-func ToColumnsXXX(cols ...any) []Column {
-	var out []Column
-	for ind := 0; ind < len(cols); ind++ {
-		c, ok := cols[ind].(Column)
-		if !ok {
-			panic("input is not interface Column to ToColumns")
-		}
-
-		out = append(out, c)
-	}
-
-	return out
-}
-
-func MakeSlice(dt DataTypes, n int) any {
-	var xout any
+func MakeSlice(dt DataTypes, n int, initVal any) any {
 	switch dt {
 	case DTfloat:
-		xout = make([]float64, n)
+		xout := make([]float64, n)
+		if initVal == nil {
+			return xout
+		}
+
+		for ind := 0; ind < n; ind++ {
+			xout[ind] = initVal.(float64)
+		}
+
+		return xout
 	case DTint:
-		xout = make([]int, n)
+		xout := make([]int, n)
+		if initVal == nil {
+			return xout
+		}
+
+		for ind := 0; ind < n; ind++ {
+			xout[ind] = initVal.(int)
+		}
+
+		return xout
 	case DTdate:
-		xout = make([]time.Time, n)
+		xout := make([]time.Time, n)
+		if initVal == nil {
+			return xout
+		}
+
+		for ind := 0; ind < n; ind++ {
+			xout[ind] = initVal.(time.Time)
+		}
+
+		return xout
 	case DTstring:
-		xout = make([]string, n)
+		xout := make([]string, n)
+		if initVal == nil {
+			return xout
+		}
+
+		for ind := 0; ind < n; ind++ {
+			xout[ind] = initVal.(string)
+		}
+
+		return xout
 	}
 
-	return xout
+	return nil
 }
 
 func AppendSlice(x, xadd any, dt DataTypes) any {
@@ -181,6 +202,21 @@ func AppendSlice(x, xadd any, dt DataTypes) any {
 	}
 
 	return x
+}
+
+func InitAny(dt DataTypes) any {
+	switch dt {
+	case DTfloat:
+		return float64(0)
+	case DTint:
+		return 0
+	case DTstring:
+		return ""
+	case DTdate:
+		return time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	return nil
 }
 
 func Address(data any, dt DataTypes, indx int) any {

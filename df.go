@@ -307,7 +307,6 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 	)
 
 	if fn(true, nil, nil).Scalar {
-		fmt.Println("SCALAR")
 		if col, e = df.runDFfun(fn, df.Context, vals); e != nil {
 			return nil, e
 		}

@@ -113,7 +113,7 @@ func (df *MemDF) AppendColumn(col d.Column, replace bool) error {
 	if colx.Len() == 1 {
 		var e error
 		dt := col.DataType()
-		xs := d.MakeSlice(col.DataType(), 0)
+		xs := d.MakeSlice(col.DataType(), 0, nil)
 		val := colx.Element(0)
 		for ind := 0; ind < df.RowCount(); ind++ {
 			xs = d.AppendSlice(xs, val, dt)
@@ -262,7 +262,7 @@ func (m *MemDF) MakeColumn(value any) (d.Column, error) {
 		return nil, fmt.Errorf("unsupported data type")
 	}
 
-	data := d.MakeSlice(dt, 0)
+	data := d.MakeSlice(dt, 0, nil)
 
 	for ind := 0; ind < m.RowCount(); ind++ {
 		data = d.AppendSlice(data, value, dt)
@@ -281,7 +281,7 @@ func (m *MemDF) Where(indicator d.Column) error {
 	for col := m.Next(true); col != nil; col = m.Next(false) {
 		cx := col.(*MemCol)
 		n = 0
-		newData := d.MakeSlice(cx.DataType(), 0)
+		newData := d.MakeSlice(cx.DataType(), 0, nil)
 
 		for ind := 0; ind < cx.Len(); ind++ {
 			if indicator.Data().([]int)[ind] > 0 {

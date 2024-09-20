@@ -104,12 +104,14 @@ func TestDBLoad(t *testing.T) {
 	eqn = "ab:=3+2-2-x"
 	eqn = "ab:= exp(1.0)*((1+2)*(3--2)/abs(-15.0)) "
 	eqn = "ab := (3 * 4 + 1 - -1)*(2 + abs(-1.0))"
-	eqn = "ab := sum(x)-x"
+	eqn = "ab := y - (sum(y)-sum(x)-4)"
+	eqn = "ab := sum(y)"
 	//	eqn = "ab:=x+3"
 	fmt.Println(eqn)
 	col, e := df.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
 	fmt.Println(col.Data())
+	fmt.Println(col.DataType())
 	e = dfx.AppendColumn(col, true)
 	assert.Nil(t, e)
 }
@@ -141,6 +143,7 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"sum(y)", 0, int(12)},
 		{"if(y != 1, 2.0, x)", 0, float64(1)},
 		{"y != 1", 0, int(0)},
 		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
