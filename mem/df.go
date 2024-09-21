@@ -256,6 +256,7 @@ func (df *MemDF) FileSave(fileName string) error {
 	return nil
 }
 
+// MakeColumn creates a column of length 1 with data equal to value
 func (m *MemDF) MakeColumn(value any) (d.Column, error) {
 	var dt d.DataTypes
 	if dt = d.WhatAmI(value); dt == d.DTunknown {
@@ -263,10 +264,7 @@ func (m *MemDF) MakeColumn(value any) (d.Column, error) {
 	}
 
 	data := d.MakeSlice(dt, 0, nil)
-
-	for ind := 0; ind < m.RowCount(); ind++ {
-		data = d.AppendSlice(data, value, dt)
-	}
+	data = d.AppendSlice(data, value, dt)
 
 	cx, e := NewMemCol("", data)
 	return cx, e
