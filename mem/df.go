@@ -28,7 +28,7 @@ type MemCol struct {
 
 // ///////// MemDF
 
-func NewMemDF(runRow, runDF d.RunRowFn, funcs d.RowFns, cols ...*MemCol) (*MemDF, error) {
+func NewMemDF(runRow, runDF d.RunFn, funcs d.Fns, cols ...*MemCol) (*MemDF, error) {
 	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
@@ -300,6 +300,29 @@ func (m *MemDF) Where(indicator d.Column) error {
 	return nil
 }
 
+func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
+	if _, ok := df.(*MemDF); !ok {
+		return nil, fmt.Errorf("must be *MemDF to append to *MemDF")
+	}
+
+	var (
+		dfCore *d.DFcore
+		e      error
+	)
+
+	if dfCore, e = m.AppendDFcore(df); e != nil {
+		return nil, e
+	}
+
+	ndf := &MemDF{
+		sourceQuery: "",
+		by:          nil,
+		DFcore:      dfCore,
+	}
+
+	return ndf, nil
+}
+
 ///////////// MemCol
 
 func NewMemCol(name string, data any) (*MemCol, error) {
@@ -350,7 +373,6 @@ func (m *MemCol) Name(renameTo string) string {
 }
 
 func (m *MemCol) Element(row int) any {
-	// TODO: kluge
 	if m.Len() == 1 {
 		row = 0
 	}
@@ -399,6 +421,10 @@ func (m *MemCol) Copy() d.Column {
 	return col
 }
 
+func (m *MemCol) AppendRows(col2 d.Column) (d.Column, error) {
+	return AppendRows(m, col2, m.Name(""))
+}
+
 func (m *MemCol) Less(i, j int) bool {
 	switch m.dType {
 	case d.DTfloat:
@@ -412,4 +438,34 @@ func (m *MemCol) Less(i, j int) bool {
 	default:
 		panic(fmt.Errorf("unsupported data type in Less"))
 	}
+}
+
+func AppendRows(col1, col2 d.Column, name string) (*MemCol, error) {
+	if col1.DataType() != col2.DataType() {
+		return nil, fmt.Errorf("append columns must have same type, got %s and %s for %s and %s", col1.DataType(), col2.DataType(), col1.Name(""), col2.Name(""))
+	}
+
+	var data any
+	switch col1.DataType() {
+	case d.DTfloat:
+		data = append(col1.Data().([]float64), col2.Data().([]float64)...)
+	case d.DTint:
+		data = append(col1.Data().([]int), col2.Data().([]int)...)
+	case d.DTstring:
+		data = append(col1.Data().([]string), col2.Data().([]string)...)
+	case d.DTdate:
+		data = append(col1.Data().([]time.Time), col2.Data().([]time.Time)...)
+	default:
+		return nil, fmt.Errorf("unsupported data type in AppendRows")
+	}
+
+	var (
+		col *MemCol
+		e   error
+	)
+	if col, e = NewMemCol(name, data); e != nil {
+		return nil, e
+	}
+
+	return col, nil
 }

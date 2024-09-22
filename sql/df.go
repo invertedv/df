@@ -8,6 +8,10 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// TODO:
+// - implement summary functions
+// - implement appendDF
+
 type SQLdf struct {
 	rowCount      int
 	sourceSQL     string

@@ -28,11 +28,11 @@ type DF interface {
 	Fn(fn Ereturn) error
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
-	RowFns() RowFns
+	Fns() Fns
+	AppendDFcore(df2 DF) (*DFcore, error)
 
 	// specific to underlying data source
-	// TODO: add
-	//	AppendDF(df DF) (DF, error)
+	AppendDF(df DF) (DF, error)
 	DBsave(tableName string, overwrite bool, cols ...string) error
 	FileSave(fileName string) error
 	MakeColumn(value any) (Column, error)
@@ -48,9 +48,9 @@ type Ereturn func() error
 type DFcore struct {
 	head *columnList
 
-	rowFuncs   RowFns
-	runRowFunc RunRowFn
-	runDFfun   RunRowFn
+	rowFuncs   Fns
+	runRowFunc RunFn
+	runDFfun   RunFn
 
 	current *columnList
 
@@ -71,6 +71,7 @@ type Column interface {
 	Len() int
 	Data() any
 	Copy() Column
+	AppendRows(col Column) (Column, error)
 }
 
 // DataTypes are the types of data that the package supports
@@ -95,11 +96,11 @@ const MaxDT = DTany
 
 ////////// Row Function typs
 
-type RowFns []RowFn
+type Fns []Fn
 
-type RowFn func(info bool, context *Context, inputs ...any) *RowFnReturn
+type Fn func(info bool, context *Context, inputs ...any) *FnReturn
 
-type RowFnReturn struct {
+type FnReturn struct {
 	Value any
 
 	Name   string
@@ -111,29 +112,11 @@ type RowFnReturn struct {
 	Err error
 }
 
-type RunRowFn func(fn RowFn, context *Context, inputs []any) (Column, error)
+type RunFn func(fn Fn, context *Context, inputs []any) (Column, error)
 
-////////// DF Function Types
-/*
-type DFfns []DFfn
-
-type DFfn func(info bool, df DF) *DFfnReturn
-
-type DFfnReturn struct {
-	DFout DF
-
-	Name   string
-	Output DataTypes
-	Inputs []DataTypes
-
-	Err error
-}
-
-type RunDFfn func(fn DFfn, df DF, inputs []any) (DF, error)
-*/
 ////////// DFCore
 
-func NewDF(runRow, runDF RunRowFn, funcs RowFns, cols ...Column) (df *DFcore, err error) {
+func NewDF(runRow, runDF RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -162,8 +145,16 @@ func NewDF(runRow, runDF RunRowFn, funcs RowFns, cols ...Column) (df *DFcore, er
 }
 
 // /////////// DFcore methods
-func (df *DFcore) RowFns() RowFns {
+func (df *DFcore) Fns() Fns {
 	return df.rowFuncs
+}
+
+func (df *DFcore) RunRowFn() RunFn {
+	return df.runRowFunc
+}
+
+func (df *DFcore) RunDFfn() RunFn {
+	return df.runDFfun
 }
 
 func (df *DFcore) SetContext(c *Context) {
@@ -241,6 +232,36 @@ func (df *DFcore) Fn(fn Ereturn) error {
 	return fn()
 }
 
+func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
+	if df == nil {
+		return df, nil
+	}
+
+	if df.ColumnCount() != df.ColumnCount() {
+		return nil, fmt.Errorf("differing column counts in AppendDF")
+	}
+
+	var cols []Column
+
+	for c := df.Next(true); c != nil; c = df.Next(false) {
+		var (
+			col2, nc Column
+			e        error
+		)
+		if col2, e = df.Column(c.Name("")); e != nil {
+			return nil, e
+		}
+
+		if nc, e = c.AppendRows(col2); e != nil {
+			return nil, e
+		}
+
+		cols = append(cols, nc)
+	}
+
+	return NewDF(df.RunRowFn(), df.RunDFfn(), df.Fns(), cols...)
+}
+
 /*
 Save DB -> DB
      DB -> file
@@ -286,7 +307,7 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 }
 
 func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
-	var fn RowFn
+	var fn Fn
 
 	if fn = df.rowFuncs.Get(opName); fn == nil {
 		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
@@ -320,7 +341,7 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 }
 
 func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...string) error {
-	var fn RowFn
+	var fn Fn
 
 	if fn = df.rowFuncs.Get(opName); fn == nil {
 		log.Printf("op %s to create %s not defined, operation skipped", opName, resultName)
@@ -512,9 +533,9 @@ func (d DataTypes) IsNumeric() bool {
 	return d == DTfloat || d == DTint
 }
 
-//////// RowFns Methods
+//////// Fns Methods
 
-func (fs RowFns) Get(fnName string) RowFn {
+func (fs Fns) Get(fnName string) Fn {
 	for _, f := range fs {
 		if f(true, nil).Name == fnName {
 			return f

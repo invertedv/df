@@ -17,7 +17,7 @@ type OpTree struct {
 	fnName string
 	inputs []*OpTree
 
-	funcs   RowFns
+	funcs   Fns
 	fnNames []string
 
 	ops operations
@@ -36,7 +36,7 @@ func ParseExpr(eqn string, df DF) (Column, error) {
 		err error
 	)
 
-	if ot, err = NewOpTree(expr, df.RowFns()); err != nil {
+	if ot, err = NewOpTree(expr, df.Fns()); err != nil {
 		return nil, err
 	}
 
@@ -58,7 +58,7 @@ func ParseExpr(eqn string, df DF) (Column, error) {
 	return col, nil
 }
 
-func NewOpTree(expression string, funcs RowFns) (*OpTree, error) {
+func NewOpTree(expression string, funcs Fns) (*OpTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
 	var fns []string
 	for _, fn := range funcs {
@@ -215,7 +215,6 @@ func (ot *OpTree) Value() Column {
 
 // //////// Unexported OpTree methods
 
-// TODO: make these not methods
 // mapOp maps an operation to a standard function that implements it
 func (ot *OpTree) mapOp() string {
 	switch ot.op {
