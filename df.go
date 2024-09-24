@@ -83,7 +83,7 @@ const (
 	DTstring
 	DTfloat
 	DTint
-	DTcategory
+	DTcategorical
 	DTdate
 	DTnone
 	DTany
@@ -547,6 +547,6 @@ func (fs Fns) Get(fnName string) Fn {
 
 ////////////////
 
-type CategoryMap map[any]uint32
+type CategoryMap map[any]int
 
 ////////////////

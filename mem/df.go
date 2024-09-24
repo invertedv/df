@@ -23,7 +23,8 @@ type MemCol struct {
 	dType d.DataTypes
 	data  any
 
-	catMap d.CategoryMap
+	catMap    d.CategoryMap
+	catCounts d.CategoryMap
 }
 
 // ///////// MemDF
@@ -323,6 +324,11 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 	return ndf, nil
 }
 
+func (m *MemDF) Tablex(colNames ...string) (d.DF, error) {
+	// HERE HERE
+	return nil, nil
+}
+
 ///////////// MemCol
 
 func NewMemCol(name string, data any) (*MemCol, error) {
@@ -389,6 +395,10 @@ func (m *MemCol) Element(row int) any {
 	default:
 		panic(fmt.Errorf("unsupported data type in Element"))
 	}
+}
+
+func (m *MemCol) CategoryMap() d.CategoryMap {
+	return m.catMap
 }
 
 func (m *MemCol) Copy() d.Column {

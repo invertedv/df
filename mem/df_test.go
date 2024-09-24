@@ -3,6 +3,7 @@ package df
 import (
 	"database/sql"
 	"fmt"
+	u "github.com/invertedv/utilities"
 	"math"
 	"os"
 	"testing"
@@ -17,7 +18,7 @@ import (
 func makeMemDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
-	z, _ := NewMemCol("z", []string{"20221231", "20000101", "19900615", "20220601", "20230915", "20060310"})
+	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
 	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
@@ -250,4 +251,77 @@ func TestMemDF_AppendDF(t *testing.T) {
 	assert.Nil(t, e)
 	assert.Equal(t, float64(1), col.(*MemCol).Element(0))
 	assert.Equal(t, float64(1), col.(*MemCol).Element(dfx.RowCount()))
+}
+
+func TestToCategorical(t *testing.T) {
+	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4})
+	exp := []int{0, 1, 2, 0, 3, 4, 3, 3}
+
+	z, e := ToCategorical(y, "test", nil)
+	assert.Nil(t, e)
+	fmt.Println(z)
+	assert.Equal(t, exp, z.Data())
+
+	yBigger, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4, 16, 7, 8, 8})
+	exp = []int{0, 1, 2, 0, 3, 4, 3, 3, 5, 6, 7, 7}
+	z2, e2 := ToCategorical(yBigger, "test1", z.CategoryMap())
+	assert.Nil(t, e2)
+	assert.Equal(t, exp, z2.Data())
+	fmt.Println(z2.CategoryMap())
+	fmt.Println(z.CategoryMap())
+
+	dfx := makeMemDF()
+	eqn := "dt := date(z)"
+	col, e := df.ParseExpr(eqn, dfx)
+	z, e = ToCategorical(col.(*MemCol), "test", nil)
+	exp = []int{0, 1, 2, 2, 3, 4}
+	assert.Equal(t, exp, z.Data())
+	assert.Equal(t, "test", z.Name(""))
+
+	z1, e1 := ToCategorical(col.(*MemCol), "test1", z.CategoryMap())
+	assert.Nil(t, e1)
+	assert.Equal(t, z.Data(), z1.Data())
+}
+
+func TestXYZ(t *testing.T) {
+	x, _ := NewMemCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
+	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
+	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
+	/*
+		0, 0 -> 1
+		1, 1 -> 2
+		2, 2 -> 3
+		0, 0 -> 1
+		3, 3 -> 4
+		4, 4 -> 5
+		3, 5 -> 6
+		3, 5 -> 6
+
+	*/
+	_ = y
+	_ = z
+
+	cols := XYZ(x, z)
+	for c := 0; c < len(cols); c++ {
+		fmt.Println(cols[c].Data())
+	}
+
+	var d []int
+	var e []string
+	for k := 0; k < 10000000; k++ {
+		d = append(d, k%100000)
+		e = append(e, u.RandomLetters(1))
+	}
+
+	start := time.Now()
+	fmt.Println(start)
+	dc, _ := NewMemCol("dc", d)
+	ec, _ := NewMemCol("ec", e)
+	cols = XYZ(dc, ec)
+	fmt.Println(cols[0].Len())
+	//	for c := 0; c < len(cols); c++ {
+	//		fmt.Println(cols[c].Data())
+	//	}
+
+	fmt.Println(time.Since(start).Seconds(), " seconds")
 }

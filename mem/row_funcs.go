@@ -1,11 +1,14 @@
 package df
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	d "github.com/invertedv/df"
+	"hash/fnv"
+	"maps"
 	"math"
 	"time"
-
-	d "github.com/invertedv/df"
 )
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err error) {
@@ -469,4 +472,186 @@ func compare(condition string, left, right any) *d.FnReturn {
 	}
 
 	return ret
+}
+
+func ToCategorical(col *MemCol, name string, catMap d.CategoryMap) (*MemCol, error) {
+	if col.DataType() == d.DTfloat {
+		return nil, fmt.Errorf("cannot make float to categorical")
+	}
+
+	nextInt := 0
+	for k, v := range catMap {
+		if d.WhatAmI(k) != col.DataType() {
+			return nil, fmt.Errorf("map and column not same data types")
+		}
+
+		if v >= nextInt {
+			nextInt = v + 1
+		}
+	}
+
+	toMap := make(d.CategoryMap)
+	maps.Copy(toMap, catMap)
+	cnts := make(d.CategoryMap)
+
+	data := d.MakeSlice(d.DTint, 0, nil)
+	for ind := 0; ind < col.Len(); ind++ {
+		inVal := col.Element(ind)
+		cnts[inVal]++
+
+		if mapVal, ok := toMap[inVal]; ok {
+			data = d.AppendSlice(data, mapVal, d.DTint)
+			continue
+		}
+
+		toMap[inVal] = nextInt
+		data = d.AppendSlice(data, nextInt, d.DTint)
+		nextInt++
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+
+	if outCol, e = NewMemCol(name, data); e != nil {
+		return nil, e
+	}
+
+	outCol.catMap = toMap
+	outCol.catCounts = cnts
+
+	return outCol, nil
+}
+
+// consider returning a MemDF
+func Table1(col d.Column) (d.CategoryMap, error) {
+	if col.DataType() == d.DTfloat {
+		return nil, fmt.Errorf("cannot make float to categorical")
+	}
+
+	var (
+		mcol *MemCol
+		ok   bool
+	)
+	if mcol, ok = col.(*MemCol); !ok {
+		return nil, fmt.Errorf("*MemCol is required input to mem/Table")
+	}
+
+	tabl := make(d.CategoryMap)
+	for ind := 0; ind < mcol.Len(); ind++ {
+		val := mcol.Element(ind)
+		if _, okay := tabl[val]; okay {
+			tabl[val]++
+			continue
+		}
+
+		tabl[val] = 1
+	}
+
+	return tabl, nil
+}
+
+func MapToDF(catMap d.CategoryMap) d.DF {
+	c := d.MakeSlice(d.DTint, 0, nil)
+
+	var (
+		x  any
+		dt d.DataTypes
+	)
+
+	for k, v := range catMap {
+		if x == nil {
+			dt = d.WhatAmI(k)
+			x = d.MakeSlice(dt, 0, nil)
+		}
+
+		x = d.AppendSlice(x, k, dt)
+		c = d.AppendSlice(c, v, d.DTint)
+	}
+
+	xCol, _ := NewMemCol("category", x)
+	cCol, _ := NewMemCol("counts", c)
+	df, _ := NewMemDF(nil, nil, nil, xCol, cCol)
+
+	return df
+}
+
+type OneD map[any]int64
+
+func XYZ(cols ...*MemCol) []*MemCol {
+	var mps []OneD
+
+	nextIndx := make([]int64, len(cols))
+	for ind := 0; ind < len(cols); ind++ {
+		mps = append(mps, make(OneD))
+	}
+
+	h := fnv.New64()
+	outCounts := make(map[uint64]int)
+	outRow := make(map[uint64][]any)
+
+	for row := 0; row < cols[0].Len(); row++ {
+		h.Reset()
+		var str []byte
+		var rowVal []any
+		for c := 0; c < len(cols); c++ {
+			val := cols[c].Element(row)
+			rowVal = append(rowVal, val)
+			var cx int64
+			var ok bool
+			if cx, ok = mps[c][val]; !ok {
+				mps[c][val] = nextIndx[c]
+				cx = nextIndx[c]
+				nextIndx[c]++
+			}
+
+			buf := new(bytes.Buffer)
+			binary.Write(buf, binary.LittleEndian, cx)
+			str = append(str, buf.Bytes()...)
+		}
+
+		_, _ = h.Write(str)
+		outCounts[h.Sum64()]++
+		outRow[h.Sum64()] = rowVal
+	}
+
+	fmt.Println("LENGTH", len(mps[0]), len(outRow))
+
+	var outData []any
+	for c := 0; c < len(cols); c++ {
+		outData = append(outData, d.MakeSlice(cols[c].DataType(), 0, nil))
+	}
+
+	outData = append(outData, d.MakeSlice(d.DTint, 0, nil))
+
+	for k, v := range outCounts {
+		row := outRow[k]
+		for c := 0; c < len(row); c++ {
+			outData[c] = d.AppendSlice(outData[c], row[c], cols[c].DataType())
+		}
+
+		outData[len(row)] = d.AppendSlice(outData[len(row)], v, d.DTint)
+	}
+
+	var outCols []*MemCol
+	var (
+		mCol *MemCol
+		e    error
+	)
+	for c := 0; c < len(cols); c++ {
+		if mCol, e = NewMemCol(cols[c].Name(""), outData[c]); e != nil {
+			panic(e)
+		}
+
+		outCols = append(outCols, mCol)
+	}
+
+	if mCol, e = NewMemCol("counts", outData[len(cols)]); e != nil {
+		panic(e)
+	}
+
+	outCols = append(outCols, mCol)
+
+	return outCols
 }

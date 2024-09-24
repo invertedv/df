@@ -6,21 +6,21 @@ import "strconv"
 
 func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
-	// Re-runRowFunc the stringer command to generate them again.
+	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[DTunknown-0]
 	_ = x[DTstring-1]
 	_ = x[DTfloat-2]
 	_ = x[DTint-3]
-	_ = x[DTcategory-4]
+	_ = x[DTcategorical-4]
 	_ = x[DTdate-5]
 	_ = x[DTnone-6]
 	_ = x[DTany-7]
 }
 
-const _DataTypes_name = "DTunknownDTstringDTfloatDTintDTcategoryDTdateDTnoneDTany"
+const _DataTypes_name = "DTunknownDTstringDTfloatDTintDTcategoricalDTdateDTnoneDTany"
 
-var _DataTypes_index = [...]uint8{0, 9, 17, 24, 29, 39, 45, 51, 56}
+var _DataTypes_index = [...]uint8{0, 9, 17, 24, 29, 42, 48, 54, 59}
 
 func (i DataTypes) String() string {
 	if i >= DataTypes(len(_DataTypes_index)-1) {
