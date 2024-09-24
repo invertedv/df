@@ -37,7 +37,7 @@ type DF interface {
 	FileSave(fileName string) error
 	MakeColumn(value any) (Column, error)
 	RowCount() int
-	Sort(keys ...string) error
+	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) error
 }
 

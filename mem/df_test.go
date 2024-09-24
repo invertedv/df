@@ -29,12 +29,12 @@ func makeMemDF() *MemDF {
 
 func TestDF_Sort(t *testing.T) {
 	dfx := makeMemDF()
-	e := dfx.Sort("y", "z")
+	e := dfx.Sort(true, "y", "z")
 	assert.Nil(t, e)
 	x, _ := dfx.Column("x")
 	y, _ := dfx.Column("y")
 	z, _ := dfx.Column("z")
-	fmt.Println(x, y, z)
+	fmt.Println(x.Data(), y.Data(), z.Data())
 }
 
 // NewConnect established a new connection to ClickHouse.
@@ -301,14 +301,14 @@ func TestXYZ(t *testing.T) {
 	_ = y
 	_ = z
 
-	cols := XYZ(x, z)
+	cols := makeTable(x, z)
 	for c := 0; c < len(cols); c++ {
 		fmt.Println(cols[c].Data())
 	}
 
 	var d []int
 	var e []string
-	for k := 0; k < 10000000; k++ {
+	for k := 0; k < 10000; k++ {
 		d = append(d, k%100000)
 		e = append(e, u.RandomLetters(1))
 	}
@@ -317,12 +317,34 @@ func TestXYZ(t *testing.T) {
 	fmt.Println(start)
 	dc, _ := NewMemCol("dc", d)
 	ec, _ := NewMemCol("ec", e)
-	cols = XYZ(dc, ec)
+	cols = makeTable(dc, ec)
 	fmt.Println(cols[0].Len())
 	//	for c := 0; c < len(cols); c++ {
 	//		fmt.Println(cols[c].Data())
 	//	}
 
 	fmt.Println(time.Since(start).Seconds(), " seconds")
+
+}
+
+func TestMemDF_Table(t *testing.T) {
+	x, _ := NewMemCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
+	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
+	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
+	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z)
+	assert.Nil(t, e)
+	dt, ex := df.ParseExpr("dt := date(z)", dfx)
+	assert.Nil(t, ex)
+	e = dfx.AppendColumn(dt, false)
+	assert.Nil(t, e)
+
+	var tab df.DF
+	tab, e = dfx.Table(false, "z", "dt")
+	cNames := tab.ColumnNames()
+	for ind := 0; ind < len(cNames); ind++ {
+		col, _ := tab.Column(cNames[ind])
+		fmt.Println(cNames[ind])
+		fmt.Println(col.Data())
+	}
 
 }

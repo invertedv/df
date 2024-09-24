@@ -14,6 +14,7 @@ import (
 type MemDF struct {
 	sourceQuery string
 	by          []*MemCol
+	ascending   bool
 
 	*d.DFcore
 }
@@ -134,7 +135,13 @@ func (df *MemDF) AppendColumn(col d.Column, replace bool) error {
 
 func (df *MemDF) Less(i, j int) bool {
 	for ind := 0; ind < len(df.by); ind++ {
-		less := df.by[ind].Less(i, j)
+		var less bool
+		if df.ascending {
+			less = df.by[ind].Less(i, j)
+
+		} else {
+			less = df.by[ind].Greater(i, j)
+		}
 
 		// if greater, it's false
 		if !less {
@@ -174,7 +181,7 @@ func (df *MemDF) Swap(i, j int) {
 	}
 }
 
-func (df *MemDF) Sort(cols ...string) error {
+func (df *MemDF) Sort(ascending bool, cols ...string) error {
 	var by []*MemCol
 
 	for ind := 0; ind < len(cols); ind++ {
@@ -191,6 +198,7 @@ func (df *MemDF) Sort(cols ...string) error {
 	}
 
 	df.by = by
+	df.ascending = ascending
 	sort.Sort(df)
 
 	return nil
@@ -230,6 +238,65 @@ func (df *MemDF) Row(rowNum int) []any {
 	}
 
 	return r
+}
+
+func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
+	var mCols, outCols []*MemCol
+	for ind := 0; ind < len(cols); ind++ {
+		var (
+			c d.Column
+			e error
+		)
+
+		if c, e = m.Column(cols[ind]); e != nil {
+			return nil, e
+		}
+
+		if c.DataType() == d.DTfloat {
+			return nil, fmt.Errorf("cannot make table with table float")
+		}
+
+		mCols = append(mCols, c.(*MemCol))
+	}
+
+	outCols = makeTable(mCols...)
+
+	var (
+		outDF d.DF
+		e     error
+	)
+
+	if outDF, e = NewMemDF(m.RunRowFn(), m.RunDFfn(), m.Fns(), outCols...); e != nil {
+		return nil, e
+	}
+
+	sortBy := []string{"count"}
+	ascending := false
+	if sortByRows {
+		sortBy = cols
+		ascending = true
+	}
+
+	if e := outDF.Sort(ascending, sortBy...); e != nil {
+		return nil, e
+	}
+
+	// add rate to the table
+	expr := "rate := float(count) / float(sum(count))"
+	var (
+		rate d.Column
+		ex   error
+	)
+
+	if rate, ex = d.ParseExpr(expr, outDF); ex != nil {
+		return nil, ex
+	}
+
+	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
+		return nil, ex1
+	}
+
+	return outDF, nil
 }
 
 func (df *MemDF) FileSave(fileName string) error {
@@ -445,6 +512,21 @@ func (m *MemCol) Less(i, j int) bool {
 		return m.data.([]string)[i] <= m.data.([]string)[j]
 	case d.DTdate:
 		return !m.data.([]time.Time)[i].After(m.data.([]time.Time)[j])
+	default:
+		panic(fmt.Errorf("unsupported data type in Less"))
+	}
+}
+
+func (m *MemCol) Greater(i, j int) bool {
+	switch m.dType {
+	case d.DTfloat:
+		return m.data.([]float64)[i] >= m.data.([]float64)[j]
+	case d.DTint:
+		return m.data.([]int)[i] >= m.data.([]int)[j]
+	case d.DTstring:
+		return m.data.([]string)[i] >= m.data.([]string)[j]
+	case d.DTdate:
+		return !m.data.([]time.Time)[i].Before(m.data.([]time.Time)[j])
 	default:
 		panic(fmt.Errorf("unsupported data type in Less"))
 	}

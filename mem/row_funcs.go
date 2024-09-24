@@ -577,27 +577,37 @@ func MapToDF(catMap d.CategoryMap) d.DF {
 	return df
 }
 
-func XYZ(cols ...*MemCol) []*MemCol {
+func makeTable(cols ...*MemCol) []*MemCol {
 	type oneD map[any]int64
 	type entry struct {
 		count int
 		row   []any
 	}
 
+	// the levels of each column in the table are stored in mps which maps the native value to int64
+	// the byte representation of the int64 are concatenated and fed to the hash function
 	var mps []oneD
 
+	// nextIndx is the next index value to use for each column
 	nextIndx := make([]int64, len(cols))
 	for ind := 0; ind < len(cols); ind++ {
 		mps = append(mps, make(oneD))
 	}
 
+	// tabMap is the map represenation of the table. The key is the hash value.
 	tabMap := make(map[uint64]*entry)
 
-	h := fnv.New64()
+	// buf is the 8 byte representation of the index number for a level of a column
 	buf := new(bytes.Buffer)
+	// h will be the hash of the bytes of the index numbers for each level of the table columns
+	h := fnv.New64()
 
+	// scan the rows to build the table
 	for row := 0; row < cols[0].Len(); row++ {
+		// str is the byte array that is hashed, its length is 8 times the # of columns
 		var str []byte
+
+		// rowVal holds the values of the columns for that row of the table
 		var rowVal []any
 		for c := 0; c < len(cols); c++ {
 			val := cols[c].Element(row)
@@ -619,6 +629,7 @@ func XYZ(cols ...*MemCol) []*MemCol {
 		}
 
 		_, _ = h.Write(str)
+		// increment the counter if that row is already mapped, o.w. add a new row
 		if v, ok := tabMap[h.Sum64()]; ok {
 			v.count++
 		} else {
@@ -631,11 +642,7 @@ func XYZ(cols ...*MemCol) []*MemCol {
 		h.Reset()
 	}
 
-	fmt.Println("tabMap", len(tabMap))
-	//	for k, v := range tabMap {
-	//		fmt.Println(k, v)
-	//	}
-
+	// build the table in d.DF format
 	var outData []any
 	for c := 0; c < len(cols); c++ {
 		outData = append(outData, d.MakeSlice(cols[c].DataType(), 0, nil))
@@ -652,6 +659,7 @@ func XYZ(cols ...*MemCol) []*MemCol {
 		outData[len(row)] = d.AppendSlice(outData[len(row)], v.count, d.DTint)
 	}
 
+	// make into columns
 	var outCols []*MemCol
 	var (
 		mCol *MemCol
