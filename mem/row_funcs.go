@@ -577,22 +577,26 @@ func MapToDF(catMap d.CategoryMap) d.DF {
 	return df
 }
 
-type OneD map[any]int64
-
 func XYZ(cols ...*MemCol) []*MemCol {
-	var mps []OneD
+	type oneD map[any]int64
+	type entry struct {
+		count int
+		row   []any
+	}
+
+	var mps []oneD
 
 	nextIndx := make([]int64, len(cols))
 	for ind := 0; ind < len(cols); ind++ {
-		mps = append(mps, make(OneD))
+		mps = append(mps, make(oneD))
 	}
 
+	tabMap := make(map[uint64]*entry)
+
 	h := fnv.New64()
-	outCounts := make(map[uint64]int)
-	outRow := make(map[uint64][]any)
+	buf := new(bytes.Buffer)
 
 	for row := 0; row < cols[0].Len(); row++ {
-		h.Reset()
 		var str []byte
 		var rowVal []any
 		for c := 0; c < len(cols); c++ {
@@ -606,17 +610,31 @@ func XYZ(cols ...*MemCol) []*MemCol {
 				nextIndx[c]++
 			}
 
-			buf := new(bytes.Buffer)
-			binary.Write(buf, binary.LittleEndian, cx)
+			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
+				panic(e)
+			}
+
 			str = append(str, buf.Bytes()...)
+			buf.Reset()
 		}
 
 		_, _ = h.Write(str)
-		outCounts[h.Sum64()]++
-		outRow[h.Sum64()] = rowVal
+		if v, ok := tabMap[h.Sum64()]; ok {
+			v.count++
+		} else {
+			tabMap[h.Sum64()] = &entry{
+				count: 1,
+				row:   rowVal,
+			}
+		}
+
+		h.Reset()
 	}
 
-	fmt.Println("LENGTH", len(mps[0]), len(outRow))
+	fmt.Println("tabMap", len(tabMap))
+	//	for k, v := range tabMap {
+	//		fmt.Println(k, v)
+	//	}
 
 	var outData []any
 	for c := 0; c < len(cols); c++ {
@@ -625,13 +643,13 @@ func XYZ(cols ...*MemCol) []*MemCol {
 
 	outData = append(outData, d.MakeSlice(d.DTint, 0, nil))
 
-	for k, v := range outCounts {
-		row := outRow[k]
+	for _, v := range tabMap {
+		row := v.row
 		for c := 0; c < len(row); c++ {
 			outData[c] = d.AppendSlice(outData[c], row[c], cols[c].DataType())
 		}
 
-		outData[len(row)] = d.AppendSlice(outData[len(row)], v, d.DTint)
+		outData[len(row)] = d.AppendSlice(outData[len(row)], v.count, d.DTint)
 	}
 
 	var outCols []*MemCol
@@ -647,7 +665,7 @@ func XYZ(cols ...*MemCol) []*MemCol {
 		outCols = append(outCols, mCol)
 	}
 
-	if mCol, e = NewMemCol("counts", outData[len(cols)]); e != nil {
+	if mCol, e = NewMemCol("count", outData[len(cols)]); e != nil {
 		panic(e)
 	}
 
