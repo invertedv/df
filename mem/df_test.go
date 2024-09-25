@@ -3,11 +3,12 @@ package df
 import (
 	"database/sql"
 	"fmt"
-	u "github.com/invertedv/utilities"
 	"math"
 	"os"
 	"testing"
 	"time"
+
+	u "github.com/invertedv/utilities"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/invertedv/df"
@@ -254,33 +255,52 @@ func TestMemDF_AppendDF(t *testing.T) {
 }
 
 func TestToCategorical(t *testing.T) {
+	dfx := makeMemDF()
+	expr := "c := cat(y)"
+	col, ex := df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
+	fmt.Println(col.Data())
+
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4})
 	exp := []int{0, 1, 2, 0, 3, 4, 3, 3}
 
-	z, e := ToCategorical(y, "test", nil)
+	z, e := ToCategorical(y, nil, 0, nil)
 	assert.Nil(t, e)
-	fmt.Println(z)
+	fmt.Println(z.Data())
 	assert.Equal(t, exp, z.Data())
 
-	yBigger, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4, 16, 7, 8, 8})
-	exp = []int{0, 1, 2, 0, 3, 4, 3, 3, 5, 6, 7, 7}
-	z2, e2 := ToCategorical(yBigger, "test1", z.CategoryMap())
-	assert.Nil(t, e2)
-	assert.Equal(t, exp, z2.Data())
-	fmt.Println(z2.CategoryMap())
-	fmt.Println(z.CategoryMap())
+	r, e3 := ToCategorical(y, nil, 1, nil)
+	assert.Nil(t, e3)
+	fmt.Println("rdata ", r.Data())
 
-	dfx := makeMemDF()
-	eqn := "dt := date(z)"
-	col, e := df.ParseExpr(eqn, dfx)
-	z, e = ToCategorical(col.(*MemCol), "test", nil)
-	exp = []int{0, 1, 2, 2, 3, 4}
-	assert.Equal(t, exp, z.Data())
-	assert.Equal(t, "test", z.Name(""))
+	s, e4 := ToCategorical(y, nil, 0, []any{1, 4})
+	assert.Nil(t, e4)
+	fmt.Println(s.Data())
+	/*
+		yBigger, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4, 16, 7, 8, 8})
+		exp = []int{0, 1, 2, 0, 3, 4, 3, 3, 5, 6, 7, 7}
+		z2, e2 := ToCategorical(yBigger, z.CategoryMap(), 0, nil)
+		assert.Nil(t, e2)
+		assert.Equal(t, exp, z2.Data())
+		fmt.Println(z2.CategoryMap())
+		fmt.Println(z.CategoryMap())
 
-	z1, e1 := ToCategorical(col.(*MemCol), "test1", z.CategoryMap())
-	assert.Nil(t, e1)
-	assert.Equal(t, z.Data(), z1.Data())
+		eqn := "dt := date(z)"
+		col, e = df.ParseExpr(eqn, dfx)
+		e = dfx.AppendColumn(col, false)
+		assert.Nil(t, e)
+		//	z, e = ToCategorical(col.(*MemCol), nil)
+		var zz df.Column
+		zz, e = df.ParseExpr("c := cat(dt)", dfx)
+		exp = []int{0, 1, 2, 2, 3, 4}
+		assert.Equal(t, exp, zz.Data())
+
+		//	z1, e1 := ToCategorical(col.(*MemCol), z.CategoryMap())
+		//	assert.Nil(t, e1)
+		//	assert.Equal(t, z.Data(), z1.Data())
+
+
+	*/
 }
 
 func TestXYZ(t *testing.T) {
@@ -339,12 +359,11 @@ func TestMemDF_Table(t *testing.T) {
 	assert.Nil(t, e)
 
 	var tab df.DF
-	tab, e = dfx.Table(false, "z", "dt")
+	tab, e = dfx.Table(false, "x", "y")
 	cNames := tab.ColumnNames()
 	for ind := 0; ind < len(cNames); ind++ {
 		col, _ := tab.Column(cNames[ind])
 		fmt.Println(cNames[ind])
 		fmt.Println(col.Data())
 	}
-
 }

@@ -297,3 +297,13 @@ func Comparator(x, y any, op string) (bool, error) {
 		return false, fmt.Errorf("invalid compare operator: %s", op)
 	}
 }
+
+func In(check any, pop []any) bool {
+	for _, val := range pop {
+		if check == val {
+			return true
+		}
+	}
+
+	return false
+}

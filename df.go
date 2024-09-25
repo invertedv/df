@@ -10,9 +10,7 @@ import (
 )
 
 // TODO: think about
-// add methods to DataTypes to check compatability
-// -DF funcs
-// -summary funcs
+// data types -- what if try to add a cat var?
 
 type DF interface {
 	// generic from DFcore
@@ -107,7 +105,7 @@ type FnReturn struct {
 	Output DataTypes
 	Inputs []DataTypes
 
-	Scalar bool
+	DFlevel bool
 
 	Err error
 }
@@ -327,7 +325,7 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 		e   error
 	)
 
-	if fn(true, nil, nil).Scalar {
+	if fn(true, nil, nil).DFlevel {
 		if col, e = df.runDFfun(fn, df.Context, vals); e != nil {
 			return nil, e
 		}
@@ -548,5 +546,36 @@ func (fs Fns) Get(fnName string) Fn {
 ////////////////
 
 type CategoryMap map[any]int
+
+func (cm CategoryMap) Max() int {
+	var maxVal *int
+	for k, v := range cm {
+		if maxVal == nil {
+			maxVal = new(int)
+			*maxVal = v
+		}
+		if k != nil && v > *maxVal {
+			*maxVal = v
+		}
+	}
+
+	return *maxVal
+}
+
+func (cm CategoryMap) Min() int {
+	var minVal *int
+	for k, v := range cm {
+		if minVal == nil {
+			minVal = new(int)
+			*minVal = v
+		}
+
+		if k != nil && v < *minVal {
+			*minVal = v
+		}
+	}
+
+	return *minVal
+}
 
 ////////////////

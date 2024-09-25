@@ -26,6 +26,7 @@ type MemCol struct {
 
 	catMap    d.CategoryMap
 	catCounts d.CategoryMap
+	rawType   d.DataTypes
 }
 
 // ///////// MemDF
