@@ -11,6 +11,7 @@ import (
 
 // TODO: think about
 // data types -- what if try to add a cat var?
+// CAN I change fn inputs to Column?? no...
 
 type DF interface {
 	// generic from DFcore
@@ -106,6 +107,7 @@ type FnReturn struct {
 	Inputs []DataTypes
 
 	DFlevel bool
+	Varying bool
 
 	Err error
 }

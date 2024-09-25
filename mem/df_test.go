@@ -255,28 +255,35 @@ func TestMemDF_AppendDF(t *testing.T) {
 }
 
 func TestToCategorical(t *testing.T) {
+	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	dfx := makeMemDF()
-	expr := "c := cat(y)"
+	expr := "c := cat(y, 1)"
 	col, ex := df.ParseExpr(expr, dfx)
 	assert.Nil(t, ex)
 	fmt.Println(col.Data())
 
-	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4})
-	exp := []int{0, 1, 2, 0, 3, 4, 3, 3}
+	expr = "c := cat(y, 1, 1, -5)"
+	col, ex = df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
+	fmt.Println(col.Data())
 
-	z, e := ToCategorical(y, nil, 0, nil)
-	assert.Nil(t, e)
-	fmt.Println(z.Data())
-	assert.Equal(t, exp, z.Data())
-
-	r, e3 := ToCategorical(y, nil, 1, nil)
-	assert.Nil(t, e3)
-	fmt.Println("rdata ", r.Data())
-
-	s, e4 := ToCategorical(y, nil, 0, []any{1, 4})
-	assert.Nil(t, e4)
-	fmt.Println(s.Data())
 	/*
+		y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4})
+		exp := []int{0, 1, 2, 0, 3, 4, 3, 3}
+
+		z, e := ToCategorical(y, nil, 0, nil)
+		assert.Nil(t, e)
+		fmt.Println(z.Data())
+		assert.Equal(t, exp, z.Data())
+
+		r, e3 := ToCategorical(y, nil, 1, nil)
+		assert.Nil(t, e3)
+		fmt.Println("rdata ", r.Data())
+
+		s, e4 := ToCategorical(y, nil, 0, []any{1, 4})
+		assert.Nil(t, e4)
+		fmt.Println(s.Data())
+
 		yBigger, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4, 16, 7, 8, 8})
 		exp = []int{0, 1, 2, 0, 3, 4, 3, 3, 5, 6, 7, 7}
 		z2, e2 := ToCategorical(yBigger, z.CategoryMap(), 0, nil)

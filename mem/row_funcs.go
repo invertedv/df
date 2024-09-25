@@ -15,20 +15,30 @@ import (
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
-	if len(inputs) != len(info.Inputs) {
+	if !info.Varying && len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
+	}
+
+	if info.Varying && len(inputs) < len(info.Inputs) {
+		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
 	for j := 0; j < len(inputs); j++ {
 		var (
-			ok bool
+			ok  bool
+			col *MemCol
 		)
 
 		// fix this up...don't need mod. Use something other than c
-		_, ok = inputs[j].(*MemCol)
+		col, ok = inputs[j].(*MemCol)
 		if !ok {
 			return nil, fmt.Errorf("input to function %s is not a Column", info.Name)
 		}
+
+		if j < len(info.Inputs) && info.Inputs[j] != d.DTany && info.Inputs[j] != col.DataType() {
+			return nil, fmt.Errorf("incorrect data type to function %s", info.Name)
+		}
+
 	}
 
 	var fnR *d.FnReturn
@@ -41,8 +51,12 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err er
 
 func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err error) {
 	info := fn(true, nil)
-	if len(inputs) != len(info.Inputs) {
+	if !info.Varying && len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
+	}
+
+	if info.Varying && len(inputs) < len(info.Inputs) {
+		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
 	var (
@@ -70,8 +84,10 @@ func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err e
 				continue
 			}
 
-			if xadd, e = d.ToDataType(inputs[j], info.Inputs[j], true); e != nil {
-				return nil, e
+			if !info.Varying || (info.Varying && j < len(info.Inputs)) {
+				if xadd, e = d.ToDataType(inputs[j], info.Inputs[j], true); e != nil {
+					return nil, e
+				}
 			}
 
 			xs = append(xs, xadd)
@@ -432,17 +448,40 @@ func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: outCol, Output: dt, Err: nil}
 }
 
-// think about default/updates
+// toCat creates a categorical MemCol.
+// inputs:
+//
+//		0: source column (cannot be type DTfloat)
+//	 1: fuzz value -- group categories with fewer than fuzz instances into "other"
+//	 2,...  specify category values
 func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "cat", Inputs: []d.DataTypes{d.DTany}, Output: d.DTcategorical, DFlevel: true}
+		return &d.FnReturn{Name: "cat", Inputs: []d.DataTypes{d.DTany}, Output: d.DTcategorical, DFlevel: true, Varying: true}
+	}
+
+	if len(inputs) < 2 {
+		return &d.FnReturn{Err: fmt.Errorf("cat requires at least two inputs")}
+	}
+
+	if inputs[1].(*MemCol).DataType() != d.DTint {
+		return &d.FnReturn{Err: fmt.Errorf("second arguement to cat must be int")}
 	}
 
 	col := inputs[0].(*MemCol)
 	dt := col.DataType()
-
 	if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
 		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
+	}
+
+	fuzz := inputs[1].(*MemCol).Element(0).(int)
+	var levels []any
+	for ind := 2; ind < len(inputs); ind++ {
+		c := inputs[ind].(*MemCol)
+		if c.DataType() != col.DataType() {
+			return &d.FnReturn{Err: fmt.Errorf("levels of cat are not the same as the column")}
+		}
+
+		levels = append(levels, c.Element(0))
 	}
 
 	var (
@@ -450,7 +489,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = ToCategorical(col, nil, 0, nil); e != nil {
+	if outCol, e = ToCategorical(col, nil, fuzz, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -539,7 +578,7 @@ func compare(condition string, left, right any) *d.FnReturn {
 	return ret
 }
 
-func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, fieldList []any) (*MemCol, error) {
+func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, levels []any) (*MemCol, error) {
 	if col.DataType() == d.DTfloat {
 		return nil, fmt.Errorf("cannot make float to categorical")
 	}
@@ -563,7 +602,7 @@ func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, fieldList []any)
 	data := d.MakeSlice(d.DTint, 0, nil)
 	for ind := 0; ind < col.Len(); ind++ {
 		inVal := col.Element(ind)
-		if fieldList != nil && !d.In(inVal, fieldList) {
+		if levels != nil && !d.In(inVal, levels) {
 			inVal = nil
 		}
 
@@ -607,7 +646,7 @@ func fuzzCat(col *MemCol, fuzzValue int) *MemCol {
 	consVals := []int{-1} // map values to keep
 
 	for k, v := range col.catMap {
-		if col.catCounts[k] > fuzzValue {
+		if col.catCounts[k] >= fuzzValue {
 			catMap[k] = v
 			catCounts[k] = col.catCounts[k]
 			consVals = append(consVals, v)
