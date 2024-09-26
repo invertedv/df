@@ -226,7 +226,7 @@ func (df *MemDF) Row(rowNum int) []any {
 		switch cx.DataType() {
 		case d.DTfloat:
 			v = cx.Data().([]float64)[i]
-		case d.DTint:
+		case d.DTint, d.DTcategorical:
 			v = cx.Data().([]int)[i]
 		case d.DTdate:
 			v = cx.Data().([]time.Time)[i]
@@ -423,7 +423,7 @@ func (m *MemCol) Len() int {
 	switch m.dType {
 	case d.DTfloat:
 		return len(m.Data().([]float64))
-	case d.DTint:
+	case d.DTint, d.DTcategorical:
 		return len(m.Data().([]int))
 	case d.DTstring:
 		return len(m.Data().([]string))
@@ -454,7 +454,7 @@ func (m *MemCol) Element(row int) any {
 	switch m.dType {
 	case d.DTfloat:
 		return m.Data().([]float64)[row]
-	case d.DTint:
+	case d.DTint, d.DTcategorical:
 		return m.Data().([]int)[row]
 	case d.DTstring:
 		return m.Data().([]string)[row]

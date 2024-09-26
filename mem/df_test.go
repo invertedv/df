@@ -19,8 +19,9 @@ import (
 func makeMemDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
+	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z)
+	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z, yy)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
 	e = dfx.AppendColumn(xx, false)
@@ -254,60 +255,69 @@ func TestMemDF_AppendDF(t *testing.T) {
 	assert.Equal(t, float64(1), col.(*MemCol).Element(dfx.RowCount()))
 }
 
-func TestToCategorical(t *testing.T) {
+func TestToCat(t *testing.T) {
 	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
+	// z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
 	dfx := makeMemDF()
-	expr := "c := cat(y, 1)"
+	expr := "dt := date(z)"
 	col, ex := df.ParseExpr(expr, dfx)
+	ex = dfx.AppendColumn(col, false)
 	assert.Nil(t, ex)
-	fmt.Println(col.Data())
+
+	expr = "c := cat(y, 1)"
+	col, ex = df.ParseExpr(expr, dfx)
+	exp := []int{0, 1, 2, 0, 3, 4}
+	assert.Nil(t, ex)
+	assert.Equal(t, exp, col.Data())
 
 	expr = "c := cat(y, 1, 1, -5)"
 	col, ex = df.ParseExpr(expr, dfx)
 	assert.Nil(t, ex)
+	exp = []int{0, 1, -1, 0, -1, -1}
+	assert.Equal(t, exp, col.Data())
+
+	expr = "c := cat(y, 2)"
+	col, ex = df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
+	exp = []int{0, -1, -1, 0, -1, -1}
+	assert.Equal(t, exp, col.Data())
+
+	expr = "c := cat(z, 1)"
+	col, ex = df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
+	exp = []int{0, 1, 2, 2, 3, 4}
+	assert.Equal(t, exp, col.Data())
+
+	expr = "c := cat(dt, 1)"
+	col, ex = df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
+	exp = []int{0, 1, 2, 2, 3, 4}
+	assert.Equal(t, exp, col.Data())
+
+	expr = "c := cat(x, 1)"
+	col, ex = df.ParseExpr(expr, dfx)
+	assert.NotNil(t, ex)
+}
+
+func TestApplyCat(t *testing.T) {
+	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
+	//	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
+	dfx := makeMemDF()
+	expr := "c := cat(y, 1)"
+	col, ex := df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
+	_ = dfx.AppendColumn(col, false)
+
+	expr = "cc := applyCat(yy, c, 100)"
+	col, ex = df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
 	fmt.Println(col.Data())
 
-	/*
-		y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4})
-		exp := []int{0, 1, 2, 0, 3, 4, 3, 3}
-
-		z, e := ToCategorical(y, nil, 0, nil)
-		assert.Nil(t, e)
-		fmt.Println(z.Data())
-		assert.Equal(t, exp, z.Data())
-
-		r, e3 := ToCategorical(y, nil, 1, nil)
-		assert.Nil(t, e3)
-		fmt.Println("rdata ", r.Data())
-
-		s, e4 := ToCategorical(y, nil, 0, []any{1, 4})
-		assert.Nil(t, e4)
-		fmt.Println(s.Data())
-
-		yBigger, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5, 4, 4, 16, 7, 8, 8})
-		exp = []int{0, 1, 2, 0, 3, 4, 3, 3, 5, 6, 7, 7}
-		z2, e2 := ToCategorical(yBigger, z.CategoryMap(), 0, nil)
-		assert.Nil(t, e2)
-		assert.Equal(t, exp, z2.Data())
-		fmt.Println(z2.CategoryMap())
-		fmt.Println(z.CategoryMap())
-
-		eqn := "dt := date(z)"
-		col, e = df.ParseExpr(eqn, dfx)
-		e = dfx.AppendColumn(col, false)
-		assert.Nil(t, e)
-		//	z, e = ToCategorical(col.(*MemCol), nil)
-		var zz df.Column
-		zz, e = df.ParseExpr("c := cat(dt)", dfx)
-		exp = []int{0, 1, 2, 2, 3, 4}
-		assert.Equal(t, exp, zz.Data())
-
-		//	z1, e1 := ToCategorical(col.(*MemCol), z.CategoryMap())
-		//	assert.Nil(t, e1)
-		//	assert.Equal(t, z.Data(), z1.Data())
-
-
-	*/
+	// TODO: think about -- this works
+	expr = "c2 := c + y"
+	col, ex = df.ParseExpr(expr, dfx)
+	assert.Nil(t, ex)
+	fmt.Println(col.Data())
 }
 
 func TestXYZ(t *testing.T) {

@@ -64,6 +64,7 @@ func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err e
 		outType d.DataTypes
 	)
 
+	// TODO: think about moving the type check outside of this loop
 	n := *context.Len()
 	for ind := 0; ind < n; ind++ {
 		var xs []any
@@ -133,7 +134,7 @@ func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err e
 
 func StandardFunctions() d.Fns {
 	return d.Fns{
-		abs, add, and, cast, divide,
+		abs, add, and, applyCat, cast, divide,
 		eq, exp, ge, gt, ifs, le, log, lt,
 		multiply, ne, not, or, subtract, sum, toCat,
 		toDate, toFloat, toInt, toString}
@@ -454,17 +455,16 @@ func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 //		0: source column (cannot be type DTfloat)
 //	 1: fuzz value -- group categories with fewer than fuzz instances into "other"
 //	 2,...  specify category values
+//
+// TODO: consider a separate fuzz function
 func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "cat", Inputs: []d.DataTypes{d.DTany}, Output: d.DTcategorical, DFlevel: true, Varying: true}
+		return &d.FnReturn{Name: "cat", Inputs: []d.DataTypes{d.DTany, d.DTint}, Output: d.DTcategorical,
+			DFlevel: true, Varying: true}
 	}
 
 	if len(inputs) < 2 {
 		return &d.FnReturn{Err: fmt.Errorf("cat requires at least two inputs")}
-	}
-
-	if inputs[1].(*MemCol).DataType() != d.DTint {
-		return &d.FnReturn{Err: fmt.Errorf("second arguement to cat must be int")}
 	}
 
 	col := inputs[0].(*MemCol)
@@ -489,7 +489,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = ToCategorical(col, nil, fuzz, levels); e != nil {
+	if outCol, e = ToCategorical(col, nil, fuzz, nil, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -500,31 +500,43 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 }
 
 // TODO: finish this
+// applyCat
+// - vector to apply cats to
+// - vector with cats
+// - default if new category
 func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "applyCat", Inputs: []d.DataTypes{d.DTany, d.DTcategorical, d.DTany}, Output: d.DTcategorical}
+		return &d.FnReturn{Name: "applyCat", Inputs: []d.DataTypes{d.DTany, d.DTcategorical, d.DTany},
+			Output: d.DTcategorical, DFlevel: true}
 	}
 
 	newData := inputs[0].(*MemCol)
 	oldData := inputs[1].(*MemCol)
-	newVal := inputs[2]
+	newVal := inputs[2].(*MemCol)
 
 	if newData.DataType() != oldData.rawType {
 		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
 	}
 
 	var (
-		nv any
-		e  error
+		defaultValue any
+		e            error
 	)
 
-	if nv, e = d.ToDataType(newVal, newData.DataType(), true); e != nil {
-		return &d.FnReturn{Err: e}
+	if newVal.DataType() != newData.DataType() {
+		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
+	}
+
+	defaultValue = newVal.Element(0)
+
+	var levels []any
+	for k := range oldData.catMap {
+		levels = append(levels, k)
 	}
 
 	var outCol *MemCol
-	_ = nv
-	if outCol, e = ToCategorical(newData, oldData.catMap, 0, nil); e != nil {
+	_ = defaultValue
+	if outCol, e = ToCategorical(newData, oldData.catMap, 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -578,7 +590,7 @@ func compare(condition string, left, right any) *d.FnReturn {
 	return ret
 }
 
-func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, levels []any) (*MemCol, error) {
+func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*MemCol, error) {
 	if col.DataType() == d.DTfloat {
 		return nil, fmt.Errorf("cannot make float to categorical")
 	}
@@ -596,14 +608,14 @@ func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, levels []any) (*
 
 	toMap := make(d.CategoryMap)
 	maps.Copy(toMap, catMap)
-	toMap[nil] = -1
+	toMap[defaultVal] = -1
 	cnts := make(d.CategoryMap)
 
 	data := d.MakeSlice(d.DTint, 0, nil)
 	for ind := 0; ind < col.Len(); ind++ {
 		inVal := col.Element(ind)
 		if levels != nil && !d.In(inVal, levels) {
-			inVal = nil
+			inVal = defaultVal
 		}
 
 		cnts[inVal]++
@@ -627,19 +639,21 @@ func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, levels []any) (*
 		return nil, e
 	}
 
+	outCol.dType = d.DTcategorical
+
 	outCol.catMap = toMap
 	outCol.catCounts = cnts
 
-	if fuzz > 0 {
-		outCol = fuzzCat(outCol, fuzz)
+	if fuzz > 1 {
+		outCol = fuzzCat(outCol, fuzz, defaultVal)
 	}
 
 	return outCol, nil
 }
 
-func fuzzCat(col *MemCol, fuzzValue int) *MemCol {
+func fuzzCat(col *MemCol, fuzzValue int, defaultVal any) *MemCol {
 	catMap := make(d.CategoryMap)
-	catMap[nil] = -1
+	//	catMap[defaultVal] = -1
 	catCounts := make(d.CategoryMap)
 	data := make([]int, col.Len())
 	copy(data, col.Data().([]int))
@@ -653,7 +667,7 @@ func fuzzCat(col *MemCol, fuzzValue int) *MemCol {
 			continue
 		}
 
-		catCounts[nil]++
+		catCounts[defaultVal]++
 	}
 
 	sort.Ints(consVals)
@@ -673,7 +687,7 @@ func fuzzCat(col *MemCol, fuzzValue int) *MemCol {
 		panic(e) // should not happen
 	}
 
-	outCol.catMap, outCol.catCounts = catMap, catCounts
+	outCol.catMap, outCol.catCounts, outCol.dType = catMap, catCounts, d.DTcategorical
 
 	return outCol
 }
