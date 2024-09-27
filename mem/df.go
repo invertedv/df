@@ -469,6 +469,10 @@ func (m *MemCol) CategoryMap() d.CategoryMap {
 	return m.catMap
 }
 
+func (m *MemCol) RawType() d.DataTypes {
+	return m.rawType
+}
+
 func (m *MemCol) Copy() d.Column {
 	var copiedData any
 	n := m.Len()

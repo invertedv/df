@@ -11,7 +11,8 @@ import (
 
 // TODO: think about
 // data types -- what if try to add a cat var?
-// CAN I change fn inputs to Column?? no...
+// How to address elements (e.g. replace all values where x=4)
+// return DF from mapCat
 
 type DF interface {
 	// generic from DFcore
