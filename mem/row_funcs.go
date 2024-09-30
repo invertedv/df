@@ -13,7 +13,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
-func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err error) {
+func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error) {
 	info := fn(true, nil)
 	if !info.Varying && len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
@@ -49,7 +49,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err er
 	return fnR.Value.(d.Column), nil
 }
 
-func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err error) {
+func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error) {
 	info := fn(true, nil)
 	if !info.Varying && len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))

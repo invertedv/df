@@ -113,7 +113,7 @@ type FnReturn struct {
 	Err error
 }
 
-type RunFn func(fn Fn, context *Context, inputs []any) (Column, error)
+type RunFn func(fn Fn, context *Context, inputs []any) (any, error)
 
 ////////// DFCore
 
@@ -235,7 +235,7 @@ func (df *DFcore) Fn(fn Ereturn) error {
 
 func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 	if df == nil {
-		return df, nil
+		return nil, nil
 	}
 
 	if df.ColumnCount() != df2.ColumnCount() {
@@ -324,7 +324,7 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 	}
 
 	var (
-		col Column
+		col any
 		e   error
 	)
 
@@ -338,7 +338,7 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 		}
 	}
 
-	return col, nil
+	return col.(Column), nil
 }
 
 func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...string) error {
@@ -359,14 +359,16 @@ func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...strin
 	}
 
 	var (
-		col Column
-		e   error
+		col  Column
+		acol any
+		e    error
 	)
 
-	if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
+	if acol, e = df.runRowFunc(fn, df.Context, vals); e != nil {
 		return e
 	}
 
+	col = acol.(Column)
 	col.Name(resultName)
 
 	return df.AppendColumn(col, replace)
