@@ -25,12 +25,7 @@ type OpTree struct {
 
 type operations [][]string
 
-func ParseExpr(eqn string, df DF) (Column, error) {
-	var result, expr string
-
-	lr := strings.SplitN(strings.ReplaceAll(eqn, " ", ""), ":=", 2)
-	result, expr = lr[0], lr[1]
-
+func ParseExpr(expr string, df DF) (Column, error) {
 	var (
 		ot  *OpTree
 		err error
@@ -48,14 +43,11 @@ func ParseExpr(eqn string, df DF) (Column, error) {
 		return nil, e
 	}
 
-	if ot.Value() == nil || result == "" {
+	if ot.Value() == nil {
 		return nil, nil
 	}
 
-	col := ot.Value()
-	col.Name(lr[0])
-
-	return col, nil
+	return ot.Value(), nil
 }
 
 func NewOpTree(expression string, funcs Fns) (*OpTree, error) {

@@ -283,7 +283,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	}
 
 	// add rate to the table
-	expr := "rate := float(count) / float(sum(count))"
+	expr := "float(count) / float(sum(count))"
 	var (
 		rate d.Column
 		ex   error
@@ -292,6 +292,8 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	if rate, ex = d.ParseExpr(expr, outDF); ex != nil {
 		return nil, ex
 	}
+
+	rate.Name("rate")
 
 	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
 		return nil, ex1
