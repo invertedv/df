@@ -101,16 +101,17 @@ func TestMemDF_Where(t *testing.T) {
 	ind, e := df.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
 
-	ey := dfx.Where(ind)
+	dfNew, ey := dfx.Where(ind)
 	assert.Nil(t, ey)
-	assert.Equal(t, 4, dfx.RowCount())
+	assert.Equal(t, 4, dfNew.RowCount())
 
 	eqn = "y >= 5"
-	ind, e = df.ParseExpr(eqn, dfx)
+	ind, e = df.ParseExpr(eqn, dfNew)
 	assert.Nil(t, e)
 
-	ey = dfx.Where(ind)
-	assert.Equal(t, 2, dfx.RowCount())
+	dfNew2, ez := dfNew.Where(ind)
+	assert.Nil(t, ez)
+	assert.Equal(t, 2, dfNew2.RowCount())
 
 }
 

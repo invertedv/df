@@ -33,12 +33,13 @@ type DF interface {
 
 	// specific to underlying data source
 	AppendDF(df DF) (DF, error)
+	Copy() DF
 	DBsave(tableName string, overwrite bool, cols ...string) error
 	FileSave(fileName string) error
 	MakeColumn(value any) (Column, error)
 	RowCount() int
 	Sort(ascending bool, keys ...string) error
-	Where(indicator Column) error
+	Where(indicator Column) (DF, error)
 }
 
 type Ereturn func() error
@@ -86,7 +87,8 @@ const (
 	DTcategorical
 	DTdate
 	DTnone
-	DTany
+	DTdf
+	DTany // keep as last entry
 )
 
 //go:generate stringer -type=DataTypes
@@ -231,6 +233,26 @@ func (df *DFcore) Column(colName string) (col Column, err error) {
 
 func (df *DFcore) Fn(fn Ereturn) error {
 	return fn()
+}
+
+func (df *DFcore) Copy() *DFcore {
+	var cols []Column
+	for c := df.Next(true); c != nil; c = df.Next(false) {
+		cols = append(cols, c.Copy())
+	}
+
+	var (
+		outDF *DFcore
+		e     error
+	)
+
+	if outDF, e = NewDF(df.RunRowFn(), df.RunDFfn(), df.Fns(), cols...); e != nil {
+		panic(e)
+	}
+
+	// don't copy context
+
+	return outDF
 }
 
 func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {

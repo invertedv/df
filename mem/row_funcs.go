@@ -13,7 +13,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
-func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error) {
+func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 	info := fn(true, nil)
 	if !info.Varying && len(inputs) != len(info.Inputs) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
@@ -46,7 +46,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error) 
 		return nil, fnR.Err
 	}
 
-	return fnR.Value.(d.Column), nil
+	return fnR.Value, nil
 }
 
 func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error) {
@@ -584,6 +584,20 @@ func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	return cast(false, context, "DTstring", inputs[0])
+}
+
+func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "where", Inputs: []d.DataTypes{d.DTint}, Output: d.DTdf}
+	}
+
+	var (
+		outDF d.DF
+		e     error
+	)
+	outDF, e = context.Self().Where(inputs[0].(d.Column))
+	_, _ = outDF, e
+	return nil
 }
 
 ///////// helpers

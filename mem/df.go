@@ -341,13 +341,19 @@ func (m *MemDF) MakeColumn(value any) (d.Column, error) {
 	return cx, e
 }
 
-func (m *MemDF) Where(indicator d.Column) error {
+func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
 	if indicator.Len() != m.RowCount() {
-		return fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), m.RowCount())
+		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), m.RowCount())
 	}
 
+	if indicator.DataType() != d.DTint {
+		return nil, fmt.Errorf("argument to Where must be int")
+	}
+
+	dfNew := m.Copy()
+
 	var n int
-	for col := m.Next(true); col != nil; col = m.Next(false) {
+	for col := dfNew.Next(true); col != nil; col = dfNew.Next(false) {
 		cx := col.(*MemCol)
 		n = 0
 		newData := d.MakeSlice(cx.DataType(), 0, nil)
@@ -360,13 +366,13 @@ func (m *MemDF) Where(indicator d.Column) error {
 		}
 
 		if n == 0 {
-			return fmt.Errorf("no data after applying where")
+			return nil, fmt.Errorf("no data after applying where")
 		}
 
 		cx.data = newData
 	}
 
-	return nil
+	return dfNew, nil
 }
 
 func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
@@ -392,9 +398,20 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 	return ndf, nil
 }
 
-func (m *MemDF) Tablex(colNames ...string) (d.DF, error) {
-	// HERE HERE
-	return nil, nil
+func (m *MemDF) Copy() d.DF {
+	dfC := m.DFcore.Copy()
+
+	mNew := &MemDF{
+		sourceQuery: "",
+		by:          nil,
+		ascending:   false,
+		DFcore:      dfC,
+	}
+
+	ctx := d.NewContext(m.Dialect(), nil, mNew)
+	mNew.SetContext(ctx)
+
+	return mNew
 }
 
 ///////////// MemCol
