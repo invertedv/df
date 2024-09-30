@@ -3,12 +3,12 @@ package df
 type Context struct {
 	dialect *Dialect
 	files   *Files
-	n       *int
+	self    DF
 
 	unassigned []any
 }
 
-func NewContext(dialect *Dialect, files *Files, rowCount *int, unassigned ...any) *Context {
+func NewContext(dialect *Dialect, files *Files, df DF, unassigned ...any) *Context {
 	// Fill with default values
 	if files == nil {
 		files = NewFiles()
@@ -18,7 +18,7 @@ func NewContext(dialect *Dialect, files *Files, rowCount *int, unassigned ...any
 		dialect:    dialect,
 		files:      files,
 		unassigned: unassigned,
-		n:          rowCount,
+		self:       df,
 	}
 }
 
@@ -30,14 +30,14 @@ func (c *Context) Files() *Files {
 	return c.files
 }
 
-func (c *Context) Len() *int {
-	return c.n
-}
-
 func (c *Context) Unassigned() []any {
 	return c.unassigned
 }
 
-func (c *Context) UpdateLen(n int) {
-	*c.n = n
+func (c *Context) Self() DF {
+	return c.self
+}
+
+func (c *Context) SetSelf(df DF) {
+	c.self = df
 }

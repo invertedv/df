@@ -51,9 +51,10 @@ func NewMemDF(runRow, runDF d.RunFn, funcs d.Fns, cols ...*MemCol) (*MemDF, erro
 		return nil, e
 	}
 
-	df.SetContext(d.NewContext(nil, nil, &rowCount, nil))
+	df.SetContext(d.NewContext(nil, nil, nil, nil))
 
 	outDF := &MemDF{DFcore: df}
+	outDF.Context.SetSelf(outDF)
 
 	return outDF, nil
 }
@@ -96,8 +97,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 
 	memDF.sourceQuery = qry
 
-	rc := memDF.RowCount()
-	memDF.SetContext(d.NewContext(dialect, d.NewFiles(), &rc, nil))
+	memDF.SetContext(d.NewContext(dialect, d.NewFiles(), memDF, nil))
 
 	return memDF, nil
 }
@@ -363,8 +363,6 @@ func (m *MemDF) Where(indicator d.Column) error {
 
 		cx.data = newData
 	}
-
-	m.Context.UpdateLen(n)
 
 	return nil
 }

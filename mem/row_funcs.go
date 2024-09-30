@@ -65,7 +65,7 @@ func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err e
 	)
 
 	// TODO: think about moving the type check outside of this loop
-	n := *context.Len()
+	n := context.Self().RowCount()
 	for ind := 0; ind < n; ind++ {
 		var xs []any
 

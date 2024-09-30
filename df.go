@@ -238,7 +238,7 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 		return df, nil
 	}
 
-	if df.ColumnCount() != df.ColumnCount() {
+	if df.ColumnCount() != df2.ColumnCount() {
 		return nil, fmt.Errorf("differing column counts in AppendDF")
 	}
 
@@ -386,7 +386,7 @@ func (df *DFcore) ValidName(columnName string) bool {
 }
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
-	if df.Context != nil && df.Context.Len() != nil && *df.Context.Len() != col.Len() {
+	if df.Context != nil && df.Context.Self() != nil && df.Context.Self().RowCount() != col.Len() {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
 
