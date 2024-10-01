@@ -334,18 +334,18 @@ func (df *MemDF) FileSave(fileName string) error {
 }
 
 // MakeColumn creates a column of length 1 with data equal to value
-func (m *MemDF) MakeColumn(value any) (d.Column, error) {
-	var dt d.DataTypes
-	if dt = d.WhatAmI(value); dt == d.DTunknown {
-		return nil, fmt.Errorf("unsupported data type")
-	}
-
-	data := d.MakeSlice(dt, 0, nil)
-	data = d.AppendSlice(data, value, dt)
-
-	cx, e := NewMemCol("", data)
-	return cx, e
-}
+//func (m *MemDF) MakeColumn(value any) (d.Column, error) {
+//	var dt d.DataTypes
+//	if dt = d.WhatAmI(value); dt == d.DTunknown {
+//		return nil, fmt.Errorf("unsupported data type")
+//	}
+//
+//	data := d.MakeSlice(dt, 0, nil)
+//	data = d.AppendSlice(data, value, dt)
+//
+//	cx, e := NewMemCol("", data)
+//	return cx, e
+//}
 
 func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
 	if indicator.Len() != m.RowCount() {

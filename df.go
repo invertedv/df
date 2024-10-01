@@ -37,7 +37,7 @@ type DF interface {
 	Copy() DF
 	DBsave(tableName string, overwrite bool, cols ...string) error
 	FileSave(fileName string) error
-	MakeColumn(value any) (Column, error)
+	//	MakeColumn(value any) (Column, error)
 	RowCount() int
 	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) (DF, error)

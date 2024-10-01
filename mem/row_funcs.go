@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	d "github.com/invertedv/df"
 	"hash/fnv"
 	"maps"
 	"math"
 	"sort"
-	"time"
-
-	d "github.com/invertedv/df"
 )
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
@@ -29,10 +27,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 			ok  bool
 			col *MemCol
 		)
-
-		// fix this up...don't need mod. Use something other than c
-		col, ok = inputs[j].(*MemCol)
-		if !ok {
+		if col, ok = inputs[j].(*MemCol); !ok {
 			var e error
 			if col, e = NewMemCol("", inputs[j]); e != nil {
 				return nil, e
@@ -209,19 +204,6 @@ func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: val, Output: d.DTint}
 }
 
-func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
-	}
-
-	val := 0
-	if inputs[0].(int) > 0 || inputs[1].(int) > 0 {
-		val = 1
-	}
-
-	return &d.FnReturn{Value: val, Output: d.DTint}
-}
-
 func cast(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
@@ -374,6 +356,19 @@ func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: val, Output: d.DTint}
 }
 
+func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
+	}
+
+	val := 0
+	if inputs[0].(int) > 0 || inputs[1].(int) > 0 {
+		val = 1
+	}
+
+	return &d.FnReturn{Value: val, Output: d.DTint}
+}
+
 func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "subtract", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
@@ -394,31 +389,6 @@ func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot subtract %s and %s", dt0, dt1)}
-}
-
-func makeMCvalue(val any, dt d.DataTypes) *MemCol {
-	data := d.MakeSlice(dt, 1, nil)
-	switch dt {
-	case d.DTfloat:
-		data.([]float64)[0] = val.(float64)
-	case d.DTint:
-		data.([]int)[0] = val.(int)
-	case d.DTstring:
-		data.([]string)[0] = val.(string)
-	case d.DTdate:
-		data.([]time.Time)[0] = val.(time.Time)
-	}
-
-	var (
-		outCol *MemCol
-		e      error
-	)
-
-	if outCol, e = NewMemCol("", data); e != nil {
-		panic("probelm in makeMCvalue")
-	}
-
-	return outCol
 }
 
 func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -450,7 +420,9 @@ func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		}
 	}
 
-	outCol := makeMCvalue(sf, dt)
+	// TODO: get rid of makeMCvalue
+	//outCol := makeMCvalue(sf, dt)
+	outCol, _ := NewMemCol("", sf)
 
 	return &d.FnReturn{Value: outCol, Output: dt, Err: nil}
 }
