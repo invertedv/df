@@ -30,6 +30,7 @@ type DF interface {
 	Next(reset bool) Column
 	Fns() Fns
 	AppendDFcore(df2 DF) (*DFcore, error)
+	Parse(expr string) (*Parsed, error)
 
 	// specific to underlying data source
 	AppendDF(df DF) (DF, error)
@@ -40,6 +41,7 @@ type DF interface {
 	RowCount() int
 	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) (DF, error)
+	Core() *DFcore
 }
 
 type Ereturn func() error
@@ -149,6 +151,30 @@ func NewDF(runRow, runDF RunFn, funcs Fns, cols ...Column) (df *DFcore, err erro
 }
 
 // /////////// DFcore methods
+
+func (df *DFcore) Parse(expr string) (*Parsed, error) {
+	var (
+		ot  *OpTree
+		err error
+	)
+
+	if ot, err = NewOpTree(expr, df.Fns()); err != nil {
+		return nil, err
+	}
+
+	if e := ot.Build(); e != nil {
+		return nil, e
+	}
+
+	if e := ot.Eval(df); e != nil {
+		return nil, e
+	}
+
+	p := ot.Value()
+
+	return p, nil
+}
+
 func (df *DFcore) Fns() Fns {
 	return df.rowFuncs
 }

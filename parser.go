@@ -112,7 +112,7 @@ func (p *Parsed) Which() string {
 	return p.which
 }
 
-func Parse(expr string, df DF) (*Parsed, error) {
+func Parse(expr string, df *DFcore) (*Parsed, error) {
 	var (
 		ot  *OpTree
 		err error
@@ -135,7 +135,7 @@ func Parse(expr string, df DF) (*Parsed, error) {
 	return p, nil
 }
 
-func ParseExpr(expr string, df DF) (*Parsed, error) {
+func ParseExpr(expr string, df *DFcore) (*Parsed, error) {
 	var (
 		ot  *OpTree
 		err error
@@ -243,7 +243,7 @@ func (ot *OpTree) Build() error {
 }
 
 // Eval evaluates the expression over the dataframe df
-func (ot *OpTree) Eval(df DF) error {
+func (ot *OpTree) Eval(df *DFcore) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
 		if c, e := df.Column(ot.expr); e == nil {
@@ -352,7 +352,7 @@ func (ot *OpTree) mapOp() string {
 
 // constant handles the leaf of the OpTree when it is a constant.
 // strings are surrounded by single quotes
-func (ot *OpTree) constant(xIn string, df DF) (*Parsed, error) {
+func (ot *OpTree) constant(xIn string, df *DFcore) (*Parsed, error) {
 	if xIn == "" {
 		return nil, nil
 	}

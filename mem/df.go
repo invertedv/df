@@ -290,7 +290,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		ex   error
 	)
 
-	if ret, ex = d.ParseExpr(expr, outDF); ex != nil || ret.Which() != "Column" {
+	if ret, ex = d.ParseExpr(expr, outDF.(*MemDF).DFcore); ex != nil || ret.Which() != "Column" {
 		return nil, ex
 	}
 
@@ -302,6 +302,10 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	}
 
 	return outDF, nil
+}
+
+func (df *MemDF) Core() *d.DFcore {
+	return df.DFcore
 }
 
 func (df *MemDF) FileSave(fileName string) error {

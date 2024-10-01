@@ -98,7 +98,7 @@ func TestLoadSQL(t *testing.T) {
 func TestWhere(t *testing.T) {
 	dfx := makeMemDF()
 	expr := "where(y>1)"
-	outDF, e := df.ParseExpr(expr, dfx)
+	outDF, e := df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, e)
 	_ = outDF
 }
@@ -106,7 +106,7 @@ func TestWhere(t *testing.T) {
 func TestMemDF_Where(t *testing.T) {
 	dfx := makeMemDF()
 	eqn := "x >= 1"
-	ind, e := df.ParseExpr(eqn, dfx)
+	ind, e := df.ParseExpr(eqn, dfx.DFcore)
 	assert.Nil(t, e)
 
 	dfNew, ey := dfx.Where(ind.AsColumn())
@@ -114,7 +114,7 @@ func TestMemDF_Where(t *testing.T) {
 	assert.Equal(t, 4, dfNew.RowCount())
 
 	eqn = "y >= 5"
-	ind, e = df.ParseExpr(eqn, dfNew)
+	ind, e = dfNew.Parse(eqn)
 	assert.Nil(t, e)
 
 	dfNew2, ez := dfNew.Where(ind.AsColumn())
@@ -126,7 +126,7 @@ func TestMemDF_Where(t *testing.T) {
 func TestParser(t *testing.T) {
 	dfx := makeMemDF()
 	eqn := "date(z)"
-	colx, e := df.ParseExpr(eqn, dfx)
+	colx, e := df.ParseExpr(eqn, dfx.DFcore)
 	col := colx.AsColumn()
 	col.Name("dt")
 	dfx.AppendColumn(col, true)
@@ -193,7 +193,8 @@ func TestParser(t *testing.T) {
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
 		//xOut, ex := df.ParseExpr(eqn, dfx)
-		xOut, ex := df.Parse(eqn, dfx)
+		//		xOut, ex := df.Parse(eqn, dfx.DFcore)
+		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
 
 		indx := x[ind][1].(int)
@@ -252,38 +253,38 @@ func TestToCat(t *testing.T) {
 		colx *df.Parsed
 		ex   error
 	)
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	col := colx.AsColumn()
 	col.Name("dt")
 	ex = dfx.AppendColumn(col, false)
 	assert.Nil(t, ex)
 
 	expr = "cat(y)"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	exp := []int{0, 1, 2, 0, 3, 4}
 	assert.Nil(t, ex)
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	expr = "cat(y,  +1, -5)"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, ex)
 	exp = []int{0, 1, -1, 0, -1, -1}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	expr = "cat(z)"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, ex)
 	exp = []int{0, 1, 2, 2, 3, 4}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	expr = "cat(dt)"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, ex)
 	exp = []int{0, 1, 2, 2, 3, 4}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	expr = "cat(x)"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	assert.NotNil(t, ex)
 }
 
@@ -292,21 +293,21 @@ func TestApplyCat(t *testing.T) {
 	//	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
 	dfx := makeMemDF()
 	expr := "cat(y)"
-	colx, ex := df.ParseExpr(expr, dfx)
+	colx, ex := df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, ex)
 	col := colx.AsColumn()
 	col.Name("c")
 	_ = dfx.AppendColumn(col, false)
 
 	expr = "applyCat(yy, c, 100)"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, ex)
 	exp := []int{0, -1, -1, 0, 3, 4}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	// TODO: think about -- this works
 	expr = "c + y"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, ex)
 	fmt.Println(colx.AsColumn().Data())
 }
@@ -314,14 +315,14 @@ func TestApplyCat(t *testing.T) {
 func TestFuzzCat(t *testing.T) {
 	dfx := makeMemDF()
 	expr := "cat(y)"
-	colx, ex := df.ParseExpr(expr, dfx)
+	colx, ex := df.ParseExpr(expr, dfx.DFcore)
 	col := colx.AsColumn()
 	col.Name("c")
 	assert.Nil(t, ex)
 	_ = dfx.AppendColumn(col, false)
 
 	expr = "fuzzCat(c, 2, 100)"
-	colx, ex = df.ParseExpr(expr, dfx)
+	colx, ex = df.ParseExpr(expr, dfx.DFcore)
 	assert.Nil(t, ex)
 	exp := []int{0, -1, -1, 0, -1, -1}
 	assert.Equal(t, exp, colx.AsColumn().Data())
@@ -378,7 +379,7 @@ func TestMemDF_Table(t *testing.T) {
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
 	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z)
 	assert.Nil(t, e)
-	dtx, ex := df.ParseExpr("date(z)", dfx)
+	dtx, ex := df.ParseExpr("date(z)", dfx.DFcore)
 	assert.Nil(t, ex)
 	dt := dtx.AsColumn()
 	dt.Name("dt")
