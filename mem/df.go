@@ -278,21 +278,23 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		ascending = true
 	}
 
-	if e := outDF.Sort(ascending, sortBy...); e != nil {
-		return nil, e
+	if ex := outDF.Sort(ascending, sortBy...); e != nil {
+		return nil, ex
 	}
 
 	// add rate to the table
 	expr := "float(count) / float(sum(count))"
 	var (
 		rate d.Column
+		ret  *d.Parsed
 		ex   error
 	)
 
-	if rate, ex = d.ParseExpr(expr, outDF); ex != nil {
+	if ret, ex = d.ParseExpr(expr, outDF); ex != nil || ret.Which() != "Column" {
 		return nil, ex
 	}
 
+	rate = ret.Value().(d.Column)
 	rate.Name("rate")
 
 	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
@@ -422,10 +424,24 @@ func NewMemCol(name string, data any) (*MemCol, error) {
 		return nil, fmt.Errorf("unsupported data type in NewMemCol")
 	}
 
+	var d any
+	switch dx := data.(type) {
+	case float64:
+		d = []float64{dx}
+	case int:
+		d = []int{dx}
+	case time.Time:
+		d = []time.Time{dx}
+	case string:
+		d = []string{dx}
+	default:
+		d = data
+	}
+
 	c := &MemCol{
 		name:   name,
 		dType:  dt,
-		data:   data,
+		data:   d,
 		catMap: nil,
 	}
 

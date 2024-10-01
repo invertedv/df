@@ -23,7 +23,7 @@ type DF interface {
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
-	DoOp(opName string, inputs ...any) (Column, error)
+	DoOp(opName string, inputs ...*Parsed) (any, error)
 	DropColumns(colNames ...string) error
 	Fn(fn Ereturn) error
 	KeepColumns(keepColumns ...string) (*DFcore, error)
@@ -88,6 +88,7 @@ const (
 	DTdate
 	DTnone
 	DTdf
+	DTconstant
 	DTany // keep as last entry
 )
 
@@ -329,7 +330,7 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 	return true
 }
 
-func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
+func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 	var fn Fn
 
 	if fn = df.rowFuncs.Get(opName); fn == nil {
@@ -338,10 +339,13 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 
 	var vals []any
 	for ind := 0; ind < len(inputs); ind++ {
-		if c, ok := inputs[ind].(Column); ok {
-			vals = append(vals, c)
-		} else {
-			vals = append(vals, inputs[ind])
+		switch inputs[ind].Which() {
+		case "DF":
+			return nil, fmt.Errorf("cannot take DF as function input")
+		case "Column":
+			vals = append(vals, inputs[ind].AsColumn())
+		default:
+			vals = append(vals, inputs[ind].AsScalar())
 		}
 	}
 
@@ -360,7 +364,7 @@ func (df *DFcore) DoOp(opName string, inputs ...any) (Column, error) {
 		}
 	}
 
-	return col.(Column), nil
+	return col, nil
 }
 
 func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...string) error {

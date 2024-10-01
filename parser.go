@@ -3,10 +3,11 @@ package df
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 type OpTree struct {
-	value Column
+	value *Parsed
 
 	expr string
 
@@ -25,7 +26,93 @@ type OpTree struct {
 
 type operations [][]string
 
-func ParseExpr(expr string, df DF) (Column, error) {
+// TODO: make this a method of DFcore ??
+type Parsed struct {
+	dt    DataTypes
+	which string
+
+	scalar any
+	col    Column
+	df     DF
+}
+
+func NewParsed(value any) *Parsed {
+	p := &Parsed{}
+	if _, ok := value.(DF); ok {
+		p.df = value.(DF)
+		p.dt = DTdf
+		p.which = "DF"
+		return p
+	}
+
+	if _, ok := value.(Column); ok {
+		p.col = value.(Column)
+		p.dt = p.col.DataType()
+		p.which = "Column"
+		return p
+	}
+
+	p.which = "Scalar"
+	// if this comes in as float or date, keep that.
+	// if it's int -- could interpret as a date
+	switch x := value.(type) {
+	case float64:
+		p.scalar, p.dt = x, DTfloat
+	case time.Time:
+		p.scalar, p.dt = x, DTdate
+	default:
+		var (
+			xx any
+			dt DataTypes
+			e  error
+		)
+		if xx, dt, e = BestType(value); e != nil || dt == DTunknown {
+			return nil
+		}
+
+		p.scalar, p.dt = xx, dt
+	}
+
+	return p
+}
+
+func (p *Parsed) Value() any {
+	if p.df != nil {
+		return p.df
+	}
+
+	if p.col != nil {
+		return p.col
+	}
+
+	if p.scalar != nil {
+		return p.scalar
+	}
+
+	return nil
+}
+
+func (p *Parsed) AsDF() DF {
+	return p.df
+}
+
+func (p *Parsed) AsColumn() Column {
+	return p.col
+}
+
+func (p *Parsed) AsScalar() any {
+	return p.scalar
+}
+
+func (p *Parsed) DataType() DataTypes {
+	return p.dt
+}
+
+func (p *Parsed) Which() string {
+	return p.which
+}
+
+func Parse(expr string, df DF) (*Parsed, error) {
 	var (
 		ot  *OpTree
 		err error
@@ -43,8 +130,27 @@ func ParseExpr(expr string, df DF) (Column, error) {
 		return nil, e
 	}
 
-	if ot.Value() == nil {
-		return nil, nil
+	p := ot.Value()
+
+	return p, nil
+}
+
+func ParseExpr(expr string, df DF) (*Parsed, error) {
+	var (
+		ot  *OpTree
+		err error
+	)
+
+	if ot, err = NewOpTree(expr, df.Fns()); err != nil {
+		return nil, err
+	}
+
+	if e := ot.Build(); e != nil {
+		return nil, e
+	}
+
+	if e := ot.Eval(df); e != nil {
+		return nil, e
 	}
 
 	return ot.Value(), nil
@@ -141,7 +247,7 @@ func (ot *OpTree) Eval(df DF) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
 		if c, e := df.Column(ot.expr); e == nil {
-			ot.value = c
+			ot.value = NewParsed(c)
 			return nil
 		}
 
@@ -154,7 +260,7 @@ func (ot *OpTree) Eval(df DF) error {
 
 	var (
 		ex error
-		c  Column
+		c  any
 	)
 
 	// handle function call
@@ -165,16 +271,16 @@ func (ot *OpTree) Eval(df DF) error {
 			}
 		}
 
-		var inp []any
+		var inp []*Parsed
 		for ind := 0; ind < len(ot.inputs); ind++ {
-			inp = append(inp, ot.inputs[ind].value)
+			inp = append(inp, ot.inputs[ind].Value())
 		}
 
 		if c, ex = df.DoOp(ot.fnName, inp...); ex != nil {
 			return ex
 		}
 
-		ot.value = c
+		ot.value = NewParsed(c)
 
 		return nil
 	}
@@ -188,20 +294,21 @@ func (ot *OpTree) Eval(df DF) error {
 		if e := ot.right.Eval(df); e != nil {
 			return e
 		}
+
 	}
 
 	// handle the usual ops
-	if c, ex = df.DoOp(ot.mapOp(), ot.left.value, ot.right.value); ex != nil {
+	if c, ex = df.DoOp(ot.mapOp(), ot.left.Value(), ot.right.Value()); ex != nil {
 		return ex
 	}
 
-	ot.value = c
+	ot.value = NewParsed(c)
 
 	return nil
 }
 
 // Value returns the value of the node. It will either be a Column or a scalar value.
-func (ot *OpTree) Value() Column {
+func (ot *OpTree) Value() *Parsed {
 	return ot.value
 }
 
@@ -245,14 +352,14 @@ func (ot *OpTree) mapOp() string {
 
 // constant handles the leaf of the OpTree when it is a constant.
 // strings are surrounded by single quotes
-func (ot *OpTree) constant(xIn string, df DF) (Column, error) {
+func (ot *OpTree) constant(xIn string, df DF) (*Parsed, error) {
 	if xIn == "" {
 		return nil, nil
 	}
 
 	if len(xIn) >= 2 && xIn[0:1] == "'" && xIn[len(xIn)-1:] == "'" {
 		xIn = strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'")
-		return df.MakeColumn(xIn)
+		return NewParsed(xIn), nil
 	}
 
 	var (
@@ -264,7 +371,7 @@ func (ot *OpTree) constant(xIn string, df DF) (Column, error) {
 		return nil, fmt.Errorf("cannot interpret %v as a constant", xIn)
 	}
 
-	return df.MakeColumn(v)
+	return NewParsed(v), nil
 }
 
 // outerParen strips away parentheses that surround the entire expression.

@@ -23,6 +23,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
+	var inps []any
 	for j := 0; j < len(inputs); j++ {
 		var (
 			ok  bool
@@ -32,17 +33,22 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		// fix this up...don't need mod. Use something other than c
 		col, ok = inputs[j].(*MemCol)
 		if !ok {
-			return nil, fmt.Errorf("input to function %s is not a Column", info.Name)
+			var e error
+			if col, e = NewMemCol("", inputs[j]); e != nil {
+				return nil, e
+			}
 		}
 
 		if j < len(info.Inputs) && info.Inputs[j] != d.DTany && info.Inputs[j] != col.DataType() {
 			return nil, fmt.Errorf("incorrect data type to function %s", info.Name)
 		}
 
+		inps = append(inps, col)
+
 	}
 
 	var fnR *d.FnReturn
-	if fnR = fn(false, context, inputs...); fnR.Err != nil {
+	if fnR = fn(false, context, inps...); fnR.Err != nil {
 		return nil, fnR.Err
 	}
 
@@ -137,7 +143,7 @@ func StandardFunctions() d.Fns {
 		abs, add, and, applyCat, cast, divide,
 		eq, exp, fuzzCat, ge, gt, ifs, le, log, lt,
 		multiply, ne, not, or, subtract, sum, toCat,
-		toDate, toFloat, toInt, toString}
+		toDate, toFloat, toInt, toString, where}
 }
 
 /////////// Standard Fns
@@ -588,7 +594,7 @@ func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "where", Inputs: []d.DataTypes{d.DTint}, Output: d.DTdf}
+		return &d.FnReturn{Name: "where", Inputs: []d.DataTypes{d.DTint}, Output: d.DTdf, DFlevel: true}
 	}
 
 	var (
@@ -596,8 +602,8 @@ func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e     error
 	)
 	outDF, e = context.Self().Where(inputs[0].(d.Column))
-	_, _ = outDF, e
-	return nil
+
+	return &d.FnReturn{Value: outDF, Err: e}
 }
 
 ///////// helpers
