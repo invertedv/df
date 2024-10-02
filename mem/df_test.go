@@ -100,27 +100,15 @@ func TestWhere(t *testing.T) {
 	expr := "where(y>1)"
 	outDF, e := dfx.Parse(expr)
 	assert.Nil(t, e)
-	_ = outDF
-}
+	assert.Equal(t, 3, outDF.AsDF().RowCount())
 
-func TestMemDF_Where(t *testing.T) {
-	dfx := makeMemDF()
-	eqn := "x >= 1"
-	ind, e := dfx.Parse(eqn)
+	outDF, e = dfx.Parse("where(x >= 1)")
 	assert.Nil(t, e)
+	assert.Equal(t, 4, outDF.AsDF().RowCount())
 
-	dfNew, ey := dfx.Where(ind.AsColumn())
-	assert.Nil(t, ey)
-	assert.Equal(t, 4, dfNew.RowCount())
-
-	eqn = "y >= 5"
-	ind, e = dfNew.Parse(eqn)
+	outDF, e = outDF.AsDF().Parse("where( x>=3)")
 	assert.Nil(t, e)
-
-	dfNew2, ez := dfNew.Where(ind.AsColumn())
-	assert.Nil(t, ez)
-	assert.Equal(t, 2, dfNew2.RowCount())
-
+	assert.Equal(t, 2, outDF.AsDF().RowCount())
 }
 
 func TestParser(t *testing.T) {
@@ -327,7 +315,6 @@ func TestFuzzCat(t *testing.T) {
 	assert.Nil(t, ex)
 	exp := []int{0, -1, -1, 0, -1, -1}
 	assert.Equal(t, exp, colx.AsColumn().Data())
-
 }
 
 func TestXYZ(t *testing.T) {

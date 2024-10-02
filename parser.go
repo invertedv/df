@@ -26,7 +26,6 @@ type OpTree struct {
 
 type operations [][]string
 
-// TODO: make this a method of DFcore ??
 type Parsed struct {
 	dt    DataTypes
 	which string

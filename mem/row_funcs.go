@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	d "github.com/invertedv/df"
 	"hash/fnv"
 	"maps"
 	"math"
 	"sort"
+
+	d "github.com/invertedv/df"
 )
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
