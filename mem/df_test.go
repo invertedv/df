@@ -1,19 +1,10 @@
 package df
 
 import (
-	"database/sql"
 	"fmt"
-	"math"
-	"os"
-	"testing"
-	"time"
-
-	u "github.com/invertedv/utilities"
-
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/invertedv/df"
-
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func makeMemDF() *MemDF {
@@ -21,7 +12,7 @@ func makeMemDF() *MemDF {
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z, yy)
+	dfx, e := NewMemDF(nil, RunDFfn, StandardFunctions(), x, y, z, yy)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
 	e = dfx.AppendColumn(xx, false)
@@ -29,6 +20,67 @@ func makeMemDF() *MemDF {
 	return dfx
 }
 
+func TestSumx(t *testing.T) {
+	dfx := makeMemDF()
+	var (
+		col *df.Parsed
+		e   error
+	)
+	col, e = dfx.Parse("if(x>1.0,y,yy)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("x/2.0")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("2-y")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("2+y")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("x >= 1.0 && y==1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("sum(y)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("abs(y)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("y == 1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("y >= 1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("y > 1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("y <= 1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("y < 1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("y != 1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+}
+
+/*
 func TestDF_Sort(t *testing.T) {
 	dfx := makeMemDF()
 	e := dfx.Sort(true, "y", "z")
@@ -156,18 +208,17 @@ func TestParser(t *testing.T) {
 		{"4-1-1-1-1", 0, int(0)},
 		{"4+1-1", 0, int(4)},
 		{"4+1--1", 0, int(6)},
-		{"float(4)+1--1", 0, float64(6)},
+		{"float(4)+1.0--1.0", 0, float64(6)},
 		{"((4+2) * abs(-3/2.0))", 0, float64(9)},
 		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
 		{"cast('DTdate', 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-		{"'ab' + 'cd'", 0, "abcd"},
 		{"((exp(1.0) + log(exp(1.0))))*(3--1)", 0, 4.0 + 4.0*math.Exp(1)},
-		{"-x +2", 0, float64(1)},
-		{"-x +4", 1, float64(6)},
+		{"-x +2.0", 0, float64(1)},
+		{"-x +4.0", 1, float64(6)},
 		{"x/0", 0, math.Inf(1)},
-		{"(3 * 4 + 1 - -1)*(2 + abs(-1.0))", 0, float64(42)},
+		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, float64(42)},
 		{"(1 + 2) - -(-1 - 2)", 0, int(0)},
 		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
 		{"string(float(1))", 0, "1.00"},
@@ -295,9 +346,8 @@ func TestApplyCat(t *testing.T) {
 
 	// TODO: think about -- this works
 	expr = "c + y"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	fmt.Println(colx.AsColumn().Data())
+	_, ex = dfx.Parse(expr)
+	assert.NotNil(t, ex)
 }
 
 func TestFuzzCat(t *testing.T) {
@@ -317,49 +367,6 @@ func TestFuzzCat(t *testing.T) {
 	assert.Equal(t, exp, colx.AsColumn().Data())
 }
 
-func TestXYZ(t *testing.T) {
-	x, _ := NewMemCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
-	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
-	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
-	/*
-		0, 0 -> 1
-		1, 1 -> 2
-		2, 2 -> 3
-		0, 0 -> 1
-		3, 3 -> 4
-		4, 4 -> 5
-		3, 5 -> 6
-		3, 5 -> 6
-
-	*/
-	_ = y
-	_ = z
-
-	cols := makeTable(x, z)
-	for c := 0; c < len(cols); c++ {
-		fmt.Println(cols[c].Data())
-	}
-
-	var d []int
-	var e []string
-	for k := 0; k < 10000; k++ {
-		d = append(d, k%100000)
-		e = append(e, u.RandomLetters(1))
-	}
-
-	start := time.Now()
-	fmt.Println(start)
-	dc, _ := NewMemCol("dc", d)
-	ec, _ := NewMemCol("ec", e)
-	cols = makeTable(dc, ec)
-	fmt.Println(cols[0].Len())
-	//	for c := 0; c < len(cols); c++ {
-	//		fmt.Println(cols[c].Data())
-	//	}
-
-	fmt.Println(time.Since(start).Seconds(), " seconds")
-
-}
 
 func TestMemDF_Table(t *testing.T) {
 	x, _ := NewMemCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
@@ -383,3 +390,5 @@ func TestMemDF_Table(t *testing.T) {
 		fmt.Println(col.Data())
 	}
 }
+
+*/

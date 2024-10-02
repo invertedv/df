@@ -9,6 +9,8 @@ import (
 	u "github.com/invertedv/utilities"
 )
 
+//TODO: fix up : only need one function running
+
 // TODO: think about
 // data types -- what if try to add a cat var?
 // How to address elements (e.g. replace all values where x=4)
@@ -107,10 +109,9 @@ type FnReturn struct {
 	Value any
 
 	Name   string
-	Output DataTypes
-	Inputs []DataTypes
+	Output []DataTypes
+	Inputs [][]DataTypes
 
-	DFlevel bool
 	Varying bool
 
 	Err error
@@ -378,15 +379,15 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 		e   error
 	)
 
-	if fn(true, nil, nil).DFlevel {
-		if col, e = df.runDFfun(fn, df.Context, vals); e != nil {
-			return nil, e
-		}
-	} else {
-		if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
-			return nil, e
-		}
+	//	if fn(true, nil, nil).DFlevel {
+	if col, e = df.runDFfun(fn, df.Context, vals); e != nil {
+		return nil, e
 	}
+	//	} else {
+	//		if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
+	//			return nil, e
+	//		}
+	//	}
 
 	return col, nil
 }

@@ -1,28 +1,25 @@
 package df
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"hash/fnv"
-	"maps"
-	"math"
-	"sort"
-
 	d "github.com/invertedv/df"
+	"math"
 )
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 	info := fn(true, nil)
-	if !info.Varying && len(inputs) != len(info.Inputs) {
+	if !info.Varying && len(inputs) != len(info.Inputs[0]) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
-	if info.Varying && len(inputs) < len(info.Inputs) {
+	if info.Varying && len(inputs) < len(info.Inputs[0]) {
 		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
-	var inps []any
+	var (
+		inps []any
+		cols []*MemCol
+	)
 	for j := 0; j < len(inputs); j++ {
 		var (
 			ok  bool
@@ -35,12 +32,12 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 			}
 		}
 
-		if j < len(info.Inputs) && info.Inputs[j] != d.DTany && info.Inputs[j] != col.DataType() {
-			return nil, fmt.Errorf("incorrect data type to function %s", info.Name)
-		}
-
 		inps = append(inps, col)
+		cols = append(cols, col)
+	}
 
+	if ok, _ := OKparams(cols, info.Inputs, info.Output); !ok {
+		return nil, fmt.Errorf("bad parameters to %s", info.Name)
 	}
 
 	var fnR *d.FnReturn
@@ -48,353 +45,25 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		return nil, fnR.Err
 	}
 
+	//TODO: check return type
+
 	return fnR.Value, nil
 }
 
-func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error) {
-	info := fn(true, nil)
-	if !info.Varying && len(inputs) != len(info.Inputs) {
-		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
-	}
-
-	if info.Varying && len(inputs) < len(info.Inputs) {
-		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
-	}
-
-	var (
-		xOut    any
-		outType d.DataTypes
-	)
-
-	// TODO: think about moving the type check outside of this loop
-	n := context.Self().RowCount()
-	for ind := 0; ind < n; ind++ {
-		var xs []any
-
-		for j := 0; j < len(inputs); j++ {
-			var (
-				xadd any
-				e    error
-			)
-
-			// fix this up...don't need mod. Use something other than c
-			if cx, ok := inputs[j].(*MemCol); ok {
-				if xadd, e = d.ToDataType(cx.Element(ind), info.Inputs[j], false); e != nil {
-					return nil, e
-				}
-
-				xs = append(xs, xadd)
-				continue
-			}
-
-			if !info.Varying || (info.Varying && j < len(info.Inputs)) {
-				if xadd, e = d.ToDataType(inputs[j], info.Inputs[j], true); e != nil {
-					return nil, e
-				}
-			}
-
-			xs = append(xs, xadd)
-		}
-
-		var fnr *d.FnReturn
-		if fnr = fn(false, nil, xs...); fnr.Err != nil {
-			return nil, fnr.Err
-		}
-
-		if ind == 0 {
-			outType = fnr.Output
-			if info.Output != d.DTany && info.Output != outType {
-				return nil, fmt.Errorf("inconsistent function return types: got %s need %s", info.Output, outType)
-			}
-		}
-
-		var dt d.DataTypes
-		if dt = d.WhatAmI(fnr.Value); dt != outType {
-			return nil, fmt.Errorf("inconsistent function return types: got %s need %s", dt, outType)
-		}
-
-		if dt == d.DTnone {
-			continue
-		}
-
-		if ind == 0 {
-			xOut = d.MakeSlice(outType, 0, nil)
-		}
-
-		xOut = d.AppendSlice(xOut, fnr.Value, outType)
-	}
-
-	outCol = &MemCol{
-		name:   "",
-		dType:  outType,
-		data:   xOut,
-		catMap: nil,
-	}
-
-	return outCol, nil
-}
-
 func StandardFunctions() d.Fns {
-	return d.Fns{
-		abs, add, and, applyCat, cast, divide,
-		eq, exp, fuzzCat, ge, gt, ifs, le, log, lt,
-		multiply, ne, not, or, subtract, sum, toCat,
-		toDate, toFloat, toInt, toString, where}
+	return d.Fns{abs, add, and, divide, eq, ge, gt, ifs, le, lt, multiply, ne, subtract, sum}
+	//	return d.Fns{
+	//		abs, add, and, applyCat, cast, divide,
+	//		eq, exp, fuzzCat, ge, gt, ifs, le, log, lt,
+	//		multiply, ne, not, or, subtract, sum, toCat,
+	//		toDate, toFloat, toInt, toString, where}
 }
 
 /////////// Standard Fns
 
-func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	switch x := inputs[0].(type) {
-	case float64:
-		return &d.FnReturn{Value: math.Abs(x), Output: d.DTfloat, Err: nil}
-	case int:
-		if x < 0 {
-			return &d.FnReturn{Value: -x, Output: d.DTint, Err: nil}
-		}
-		return &d.FnReturn{Value: x, Output: d.DTint, Err: nil}
-	default:
-		return &d.FnReturn{Value: nil, Output: d.DTunknown, Err: fmt.Errorf("abs requires float or int")}
-	}
-}
-
-func add(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "add", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
-	}
-
-	dt0 := d.WhatAmI(inputs[0])
-	dt1 := d.WhatAmI(inputs[1])
-
-	switch {
-	case dt0 == d.DTfloat && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: inputs[0].(float64) + inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTfloat && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(float64) + float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: float64(inputs[0].(int)) + inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(int) + inputs[1].(int), Output: d.DTint, Err: nil}
-	case dt0 == d.DTstring:
-		if s, e := d.ToString(inputs[1], true); e == nil {
-			return &d.FnReturn{Value: inputs[0].(string) + s.(string), Output: d.DTstring, Err: nil}
-		}
-	case dt1 == d.DTstring:
-		if s, e := d.ToString(inputs[0], true); e == nil {
-			return &d.FnReturn{Value: s.(string) + inputs[1].(string), Output: d.DTstring, Err: nil}
-		}
-	}
-
-	return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot add %s and %s", dt0, dt1)}
-}
-
-func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "and", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
-	}
-
-	val := 0
-	if inputs[0].(int) > 0 && inputs[1].(int) > 0 {
-		val = 1
-	}
-
-	return &d.FnReturn{Value: val, Output: d.DTint}
-}
-
-func cast(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
-	}
-
-	var dt d.DataTypes
-	if dt = d.DTFromString(inputs[0].(string)); dt == d.DTunknown {
-		return &d.FnReturn{Err: fmt.Errorf("cannot convert to %s", inputs[0].(string))}
-	}
-
-	x, e := d.ToDataType(inputs[1], dt, true)
-	return &d.FnReturn{Value: x, Output: dt, Err: e}
-}
-
-func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "divide", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
-	}
-
-	dt0 := d.WhatAmI(inputs[0])
-	dt1 := d.WhatAmI(inputs[1])
-
-	switch {
-	case dt0 == d.DTfloat && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: inputs[0].(float64) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTfloat && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(float64) / float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: float64(inputs[0].(int)) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(int) / inputs[1].(int), Output: d.DTint, Err: nil}
-	}
-
-	return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot divide %s and %s", dt0, dt1)}
-}
-
-func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("==", inputs[0], inputs[1])
-}
-
-func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare(">=", inputs[0], inputs[1])
-}
-
-func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare(">", inputs[0], inputs[1])
-}
-
-func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	return &d.FnReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
-}
-
-func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}, Output: d.DTany}
-	}
-
-	if inputs[0].(int) > 0 {
-		return &d.FnReturn{Value: inputs[1], Output: d.WhatAmI(inputs[1])}
-	}
-
-	return &d.FnReturn{Value: inputs[2], Output: d.WhatAmI(inputs[2])}
-}
-
-func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("<=", inputs[0], inputs[1])
-}
-
-func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-
-	x := inputs[0].(float64)
-	if x <= 0 {
-		return &d.FnReturn{Err: fmt.Errorf("log of non-positive number")}
-	}
-
-	return &d.FnReturn{Value: math.Log(x), Output: d.DTfloat, Err: nil}
-}
-
-func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("<", inputs[0], inputs[1])
-}
-
-func multiply(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
-	}
-
-	dt0 := d.WhatAmI(inputs[0])
-	dt1 := d.WhatAmI(inputs[1])
-
-	switch {
-	case dt0 == d.DTfloat && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: inputs[0].(float64) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTfloat && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(float64) * float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: float64(inputs[0].(int)) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(int) * inputs[1].(int), Output: d.DTint, Err: nil}
-	}
-
-	return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot multiply %s and %s", dt0, dt1)}
-}
-
-func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-
-	return compare("!=", inputs[0], inputs[1])
-}
-
-func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "not", Inputs: []d.DataTypes{d.DTany, d.DTint}, Output: d.DTint}
-	}
-
-	val := 1
-	if inputs[1].(int) > 0 {
-		val = 0
-	}
-
-	return &d.FnReturn{Value: val, Output: d.DTint}
-}
-
-func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
-	}
-
-	val := 0
-	if inputs[0].(int) > 0 || inputs[1].(int) > 0 {
-		val = 1
-	}
-
-	return &d.FnReturn{Value: val, Output: d.DTint}
-}
-
-func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "subtract", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
-	}
-
-	dt0 := d.WhatAmI(inputs[0])
-	dt1 := d.WhatAmI(inputs[1])
-
-	switch {
-	case dt0 == d.DTfloat && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: inputs[0].(float64) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTfloat && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(float64) - float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTfloat:
-		return &d.FnReturn{Value: float64(inputs[0].(int)) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
-	case dt0 == d.DTint && dt1 == d.DTint:
-		return &d.FnReturn{Value: inputs[0].(int) - inputs[1].(int), Output: d.DTint, Err: nil}
-	}
-
-	return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot subtract %s and %s", dt0, dt1)}
-}
-
 func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "sum", Inputs: []d.DataTypes{d.DTany}, Output: d.DTany, DFlevel: true}
+		return &d.FnReturn{Name: "sum", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
 	}
 
 	col := inputs[0].(*MemCol)
@@ -421,176 +90,635 @@ func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		}
 	}
 
-	// TODO: get rid of makeMCvalue
-	//outCol := makeMCvalue(sf, dt)
-	outCol, _ := NewMemCol("", sf)
-
-	return &d.FnReturn{Value: outCol, Output: dt, Err: nil}
+	return ReturnCol(sf, col.DataType())
 }
 
-// toCat creates a categorical MemCol.
-func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "cat", Inputs: []d.DataTypes{d.DTany}, Output: d.DTcategorical,
-			DFlevel: true, Varying: true}
+		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}},
+			Output: []d.DataTypes{d.DTfloat, d.DTint}}
 	}
 
-	col := inputs[0].(*MemCol)
-	dt := col.DataType()
-	if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
-		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
+	cols, n := prepare2(inputs...)
+
+	type floatFn func(a, b float64) float64
+	type intFn func(a, b int) int
+
+	floats := []floatFn{
+		func(a, b float64) float64 { return a + b },
+		func(a, b float64) float64 { return a - b },
+		func(a, b float64) float64 { return a * b },
+		func(a, b float64) float64 { return a / b },
 	}
 
-	var levels []any
-	for ind := 1; ind < len(inputs); ind++ {
-		c := inputs[ind].(*MemCol)
-		if c.DataType() != col.DataType() {
-			return &d.FnReturn{Err: fmt.Errorf("levels of cat are not the same as the column")}
+	ints := []intFn{
+		func(a, b int) int { return a + b },
+		func(a, b int) int { return a - b },
+		func(a, b int) int { return a * b },
+		func(a, b int) int { return a / b },
+	}
+
+	var dataOut any
+	if cols[0].DataType() == d.DTfloat {
+		data := make([]float64, n)
+		var fn func(a, b float64) float64
+		switch op {
+		case "add":
+			fn = floats[0]
+		case "subtract":
+			fn = floats[1]
+		case "multiply":
+			fn = floats[2]
+		case "divide":
+			fn = floats[3]
 		}
 
-		levels = append(levels, c.Element(0))
+		for ind := 0; ind < n; ind++ {
+			data[ind] = fn(cols[0].Element(ind).(float64), cols[1].Element(ind).(float64))
+		}
+
+		dataOut = data
 	}
 
-	var (
-		outCol *MemCol
-		e      error
-	)
+	if cols[0].DataType() == d.DTint {
+		data := make([]int, n)
+		var fn func(a, b int) int
+		switch op {
+		case "add":
+			fn = ints[0]
+		case "subtract":
+			fn = ints[1]
+		case "multiply":
+			fn = ints[2]
+		case "divide":
+			fn = ints[3]
+		}
 
-	if outCol, e = ToCategorical(col, nil, 1, nil, levels); e != nil {
-		return &d.FnReturn{Err: e}
+		for ind := 0; ind < n; ind++ {
+			data[ind] = fn(cols[0].Element(ind).(int), cols[1].Element(ind).(int))
+		}
+
+		dataOut = data
 	}
 
-	outCol.rawType = dt
-	outFn := &d.FnReturn{Value: outCol, Output: d.DTcategorical}
+	return ReturnCol(dataOut, cols[0].DataType())
 
-	return outFn
 }
 
-func fuzzCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+func add(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("add", info, context, inputs...)
+}
+
+func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("subtract", info, context, inputs...)
+}
+
+func multiply(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("multiply", info, context, inputs...)
+}
+
+func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("divide", info, context, inputs...)
+}
+
+func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "fuzzCat", Inputs: []d.DataTypes{d.DTcategorical, d.DTint, d.DTany}, Output: d.DTcategorical,
-			DFlevel: true}
+		return &d.FnReturn{Name: "abs", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
 	}
 
 	col := inputs[0].(*MemCol)
-	fuzz := inputs[1].(*MemCol).Element(0).(int)
-	defCol := inputs[2].(*MemCol)
+	data := d.MakeSlice(col.DataType(), col.Len(), nil)
+	for ind := 0; ind < col.Len(); ind++ {
+		switch col.DataType() {
+		case d.DTfloat:
+			data.([]float64)[ind] = math.Abs(col.Element(ind).(float64))
+		case d.DTint:
+			x := col.Element(ind).(int)
+			if x < 0 {
+				x = -x
+			}
 
-	if defCol.DataType() != col.RawType() {
-		return &d.FnReturn{Err: fmt.Errorf("default not same type as underlying in fuzzCat")}
+			data.([]int)[ind] = x
+		}
 	}
 
-	defaultVal := defCol.Element(0)
+	return ReturnCol(data, col.DataType())
 
-	outCol := fuzzCategorical(col, fuzz, defaultVal)
-
-	return &d.FnReturn{Value: outCol, Output: d.DTcategorical}
 }
+
+func logic(a, b int, condition string) int {
+	var val int
+	switch condition {
+	case "and":
+		val = 0
+		if a > 0 && b > 0 {
+			val = 1
+		}
+	case "or":
+		val = 0
+		if a > 0 || b > 0 {
+			val = 1
+		}
+	case "not":
+		val = 1
+		if a <= 0 {
+			val = 0
+		}
+	}
+
+	return val
+}
+
+func logical(op string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTint, d.DTint}}, Output: []d.DataTypes{d.DTint}}
+	}
+
+	cols, n := prepare2(inputs...)
+	data := d.MakeSlice(d.DTint, n, nil)
+	for ind := 0; ind < n; ind++ {
+		data.([]int)[ind] = logic(cols[0].Element(ind).(int), cols[1].Element(ind).(int), op)
+	}
+
+	return ReturnCol(data, d.DTint)
+}
+
+func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "if", Inputs: [][]d.DataTypes{{d.DTint, d.DTfloat, d.DTfloat},
+			{d.DTint, d.DTint, d.DTint}, {d.DTint, d.DTdate, d.DTdate}, {d.DTint, d.DTstring, d.DTstring}},
+			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTdate, d.DTstring}}
+	}
+
+	cols, n := prepare2(inputs...)
+	dt := cols[1].DataType()
+	data := d.MakeSlice(dt, 0, nil)
+
+	for ind := 0; ind < n; ind++ {
+		val := cols[1].Element(ind)
+		if cols[0].Element(ind).(int) > 0 {
+			val = cols[2].Element(ind)
+		}
+
+		data = d.AppendSlice(data, val, dt)
+	}
+
+	return ReturnCol(data, dt)
+}
+
+func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return logical("and", info, context, inputs...)
+}
+
+func compare(op, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint},
+			{d.DTdate, d.DTdate}, {d.DTstring, d.DTstring}}, Output: []d.DataTypes{d.DTfloat, d.DTint,
+			d.DTdate, d.DTstring}}
+	}
+
+	cols, n := prepare2(inputs...)
+	data := d.MakeSlice(d.DTint, n, nil)
+
+	for ind := 0; ind < n; ind++ {
+		truth := 0
+
+		var (
+			val bool
+			e   error
+		)
+		if val, e = d.Comparator(cols[0].Element(ind), cols[1].Element(ind), op); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		if val {
+			truth = 1
+		}
+
+		data.([]int)[ind] = truth
+	}
+
+	return ReturnCol(data, d.DTint)
+}
+
+func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return compare("==", "eq", info, context, inputs...)
+}
+
+func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return compare(">=", "ge", info, context, inputs...)
+}
+
+func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return compare(">", "gt", info, context, inputs...)
+}
+
+func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return compare("<=", "le", info, context, inputs...)
+}
+
+func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return compare("<", "lt", info, context, inputs...)
+}
+
+func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return compare("!=", "ne", info, context, inputs...)
+}
+
+/*
+	func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "and", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
+		}
+
+		val := 0
+		if inputs[0].(int) > 0 && inputs[1].(int) > 0 {
+			val = 1
+		}
+
+		return &d.FnReturn{Value: val, Output: d.DTint}
+	}
+
+	func cast(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
+		}
+
+		var dt d.DataTypes
+		if dt = d.DTFromString(inputs[0].(string)); dt == d.DTunknown {
+			return &d.FnReturn{Err: fmt.Errorf("cannot convert to %s", inputs[0].(string))}
+		}
+
+		x, e := d.ToDataType(inputs[1], dt, true)
+		return &d.FnReturn{Value: x, Output: dt, Err: e}
+	}
+
+	func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "divide", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+		}
+
+		dt0 := d.WhatAmI(inputs[0])
+		dt1 := d.WhatAmI(inputs[1])
+
+		switch {
+		case dt0 == d.DTfloat && dt1 == d.DTfloat:
+			return &d.FnReturn{Value: inputs[0].(float64) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTfloat && dt1 == d.DTint:
+			return &d.FnReturn{Value: inputs[0].(float64) / float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTint && dt1 == d.DTfloat:
+			return &d.FnReturn{Value: float64(inputs[0].(int)) / inputs[1].(float64), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTint && dt1 == d.DTint:
+			return &d.FnReturn{Value: inputs[0].(int) / inputs[1].(int), Output: d.DTint, Err: nil}
+		}
+
+		return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot divide %s and %s", dt0, dt1)}
+	}
+
+	func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+
+		return compare("==", inputs[0], inputs[1])
+	}
+
+	func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+
+		return compare(">=", inputs[0], inputs[1])
+	}
+
+	func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+
+		return compare(">", inputs[0], inputs[1])
+	}
+
+	func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+		}
+
+		return &d.FnReturn{Value: math.Exp(inputs[0].(float64)), Output: d.DTfloat, Err: nil}
+	}
+
+	func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}, Output: d.DTany}
+		}
+
+		if inputs[0].(int) > 0 {
+			return &d.FnReturn{Value: inputs[1], Output: d.WhatAmI(inputs[1])}
+		}
+
+		return &d.FnReturn{Value: inputs[2], Output: d.WhatAmI(inputs[2])}
+	}
+
+	func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+
+		return compare("<=", inputs[0], inputs[1])
+	}
+
+	func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+		}
+
+		x := inputs[0].(float64)
+		if x <= 0 {
+			return &d.FnReturn{Err: fmt.Errorf("log of non-positive number")}
+		}
+
+		return &d.FnReturn{Value: math.Log(x), Output: d.DTfloat, Err: nil}
+	}
+
+	func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+
+		return compare("<", inputs[0], inputs[1])
+	}
+
+	func multiply(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+		}
+
+		dt0 := d.WhatAmI(inputs[0])
+		dt1 := d.WhatAmI(inputs[1])
+
+		switch {
+		case dt0 == d.DTfloat && dt1 == d.DTfloat:
+			return &d.FnReturn{Value: inputs[0].(float64) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTfloat && dt1 == d.DTint:
+			return &d.FnReturn{Value: inputs[0].(float64) * float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTint && dt1 == d.DTfloat:
+			return &d.FnReturn{Value: float64(inputs[0].(int)) * inputs[1].(float64), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTint && dt1 == d.DTint:
+			return &d.FnReturn{Value: inputs[0].(int) * inputs[1].(int), Output: d.DTint, Err: nil}
+		}
+
+		return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot multiply %s and %s", dt0, dt1)}
+	}
+
+	func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+
+		return compare("!=", inputs[0], inputs[1])
+	}
+
+	func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "not", Inputs: []d.DataTypes{d.DTany, d.DTint}, Output: d.DTint}
+		}
+
+		val := 1
+		if inputs[1].(int) > 0 {
+			val = 0
+		}
+
+		return &d.FnReturn{Value: val, Output: d.DTint}
+	}
+
+	func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
+		}
+
+		val := 0
+		if inputs[0].(int) > 0 || inputs[1].(int) > 0 {
+			val = 1
+		}
+
+		return &d.FnReturn{Value: val, Output: d.DTint}
+	}
+
+	func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "subtract", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTany}
+		}
+
+		dt0 := d.WhatAmI(inputs[0])
+		dt1 := d.WhatAmI(inputs[1])
+
+		switch {
+		case dt0 == d.DTfloat && dt1 == d.DTfloat:
+			return &d.FnReturn{Value: inputs[0].(float64) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTfloat && dt1 == d.DTint:
+			return &d.FnReturn{Value: inputs[0].(float64) - float64(inputs[1].(int)), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTint && dt1 == d.DTfloat:
+			return &d.FnReturn{Value: float64(inputs[0].(int)) - inputs[1].(float64), Output: d.DTfloat, Err: nil}
+		case dt0 == d.DTint && dt1 == d.DTint:
+			return &d.FnReturn{Value: inputs[0].(int) - inputs[1].(int), Output: d.DTint, Err: nil}
+		}
+
+		return &d.FnReturn{Value: nil, Err: fmt.Errorf("cannot subtract %s and %s", dt0, dt1)}
+	}
+
+	func sumY(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "sum", Inputs: []d.DataTypes{d.DTany}, Output: d.DTany, DFlevel: true}
+		}
+
+		col := inputs[0].(*MemCol)
+		dt := col.DataType()
+		data := col.Data()
+		if !dt.IsNumeric() {
+			return &d.FnReturn{Err: fmt.Errorf("input to sum must be numeric, got %v", dt)}
+		}
+
+		sf := d.InitAny(dt)
+
+		for ind := 0; ind < col.Len(); ind++ {
+			switch col.DataType() {
+			case d.DTfloat:
+				x := sf.(float64)
+				x += data.([]float64)[ind]
+				sf = x
+			case d.DTint:
+				x := sf.(int)
+				x += data.([]int)[ind]
+				sf = x
+			default:
+				return &d.FnReturn{Err: fmt.Errorf("invalid type in sum")}
+			}
+		}
+
+		// TODO: get rid of makeMCvalue
+		//outCol := makeMCvalue(sf, dt)
+		outCol, _ := NewMemCol("", sf)
+
+		return &d.FnReturn{Value: outCol, Output: dt, Err: nil}
+	}
+
+// toCat creates a categorical MemCol.
+
+	func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "cat", Inputs: []d.DataTypes{d.DTany}, Output: d.DTcategorical,
+				DFlevel: true, Varying: true}
+		}
+
+		col := inputs[0].(*MemCol)
+		dt := col.DataType()
+		if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
+			return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
+		}
+
+		var levels []any
+		for ind := 1; ind < len(inputs); ind++ {
+			c := inputs[ind].(*MemCol)
+			if c.DataType() != col.DataType() {
+				return &d.FnReturn{Err: fmt.Errorf("levels of cat are not the same as the column")}
+			}
+
+			levels = append(levels, c.Element(0))
+		}
+
+		var (
+			outCol *MemCol
+			e      error
+		)
+
+		if outCol, e = ToCategorical(col, nil, 1, nil, levels); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		outCol.rawType = dt
+		outFn := &d.FnReturn{Value: outCol, Output: d.DTcategorical}
+
+		return outFn
+	}
+
+	func fuzzCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "fuzzCat", Inputs: []d.DataTypes{d.DTcategorical, d.DTint, d.DTany}, Output: d.DTcategorical,
+				DFlevel: true}
+		}
+
+		col := inputs[0].(*MemCol)
+		fuzz := inputs[1].(*MemCol).Element(0).(int)
+		defCol := inputs[2].(*MemCol)
+
+		if defCol.DataType() != col.RawType() {
+			return &d.FnReturn{Err: fmt.Errorf("default not same type as underlying in fuzzCat")}
+		}
+
+		defaultVal := defCol.Element(0)
+
+		outCol := fuzzCategorical(col, fuzz, defaultVal)
+
+		return &d.FnReturn{Value: outCol, Output: d.DTcategorical}
+	}
 
 // applyCat
 // - vector to apply cats to
 // - vector with cats
 // - default if new category
-func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "applyCat", Inputs: []d.DataTypes{d.DTany, d.DTcategorical, d.DTany},
-			Output: d.DTcategorical, DFlevel: true}
+
+	func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "applyCat", Inputs: []d.DataTypes{d.DTany, d.DTcategorical, d.DTany},
+				Output: d.DTcategorical, DFlevel: true}
+		}
+
+		newData := inputs[0].(*MemCol)
+		oldData := inputs[1].(*MemCol)
+		newVal := inputs[2].(*MemCol)
+
+		if newData.DataType() != oldData.rawType {
+			return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
+		}
+
+		var (
+			defaultValue any
+			e            error
+		)
+
+		if newVal.DataType() != newData.DataType() {
+			return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
+		}
+
+		defaultValue = newVal.Element(0)
+
+		var levels []any
+		for k := range oldData.catMap {
+			levels = append(levels, k)
+		}
+
+		var outCol *MemCol
+		_ = defaultValue
+		if outCol, e = ToCategorical(newData, oldData.catMap, 0, defaultValue, levels); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		outCol.rawType = newData.DataType()
+		outFn := &d.FnReturn{Value: outCol, Output: d.DTcategorical}
+
+		return outFn
 	}
 
-	newData := inputs[0].(*MemCol)
-	oldData := inputs[1].(*MemCol)
-	newVal := inputs[2].(*MemCol)
+	func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "date", Output: d.DTdate, Inputs: []d.DataTypes{d.DTany}}
+		}
 
-	if newData.DataType() != oldData.rawType {
-		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
+		return cast(false, context, "DTdate", inputs[0])
 	}
 
-	var (
-		defaultValue any
-		e            error
-	)
+	func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "float", Output: d.DTfloat, Inputs: []d.DataTypes{d.DTany}}
+		}
 
-	if newVal.DataType() != newData.DataType() {
-		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
+		return cast(false, context, "DTfloat", inputs[0])
 	}
 
-	defaultValue = newVal.Element(0)
+	func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "int", Output: d.DTint, Inputs: []d.DataTypes{d.DTany}}
+		}
 
-	var levels []any
-	for k := range oldData.catMap {
-		levels = append(levels, k)
+		return cast(false, context, "DTint", inputs[0])
 	}
 
-	var outCol *MemCol
-	_ = defaultValue
-	if outCol, e = ToCategorical(newData, oldData.catMap, 0, defaultValue, levels); e != nil {
-		return &d.FnReturn{Err: e}
+	func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "string", Output: d.DTstring, Inputs: []d.DataTypes{d.DTany}}
+		}
+
+		return cast(false, context, "DTstring", inputs[0])
 	}
 
-	outCol.rawType = newData.DataType()
-	outFn := &d.FnReturn{Value: outCol, Output: d.DTcategorical}
+	func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "where", Inputs: []d.DataTypes{d.DTint}, Output: d.DTdf, DFlevel: true}
+		}
 
-	return outFn
-}
+		var (
+			outDF d.DF
+			e     error
+		)
+		outDF, e = context.Self().Where(inputs[0].(d.Column))
 
-func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "date", Output: d.DTdate, Inputs: []d.DataTypes{d.DTany}}
+		return &d.FnReturn{Value: outDF, Err: e}
 	}
-
-	return cast(false, context, "DTdate", inputs[0])
-}
-
-func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "float", Output: d.DTfloat, Inputs: []d.DataTypes{d.DTany}}
-	}
-
-	return cast(false, context, "DTfloat", inputs[0])
-}
-
-func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "int", Output: d.DTint, Inputs: []d.DataTypes{d.DTany}}
-	}
-
-	return cast(false, context, "DTint", inputs[0])
-}
-
-func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "string", Output: d.DTstring, Inputs: []d.DataTypes{d.DTany}}
-	}
-
-	return cast(false, context, "DTstring", inputs[0])
-}
-
-func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "where", Inputs: []d.DataTypes{d.DTint}, Output: d.DTdf, DFlevel: true}
-	}
-
-	var (
-		outDF d.DF
-		e     error
-	)
-	outDF, e = context.Self().Where(inputs[0].(d.Column))
-
-	return &d.FnReturn{Value: outDF, Err: e}
-}
 
 ///////// helpers
+*/
 
-func compare(condition string, left, right any) *d.FnReturn {
-	var truth bool
-	ret := &d.FnReturn{Value: int(0), Output: d.DTint}
-	if truth, ret.Err = d.Comparator(left, right, condition); truth {
-		ret.Value = int(1)
-	}
-
-	return ret
-}
-
+/*
 func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*MemCol, error) {
 	if col.DataType() == d.DTfloat {
 		return nil, fmt.Errorf("cannot make float to categorical")
@@ -798,4 +926,137 @@ func makeTable(cols ...*MemCol) []*MemCol {
 	outCols = append(outCols, mCol)
 
 	return outCols
+}
+
+
+
+func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error) {
+	info := fn(true, nil)
+	if !info.Varying && len(inputs) != len(info.Inputs) {
+		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
+	}
+
+	if info.Varying && len(inputs) < len(info.Inputs) {
+		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
+	}
+
+	var (
+		xOut    any
+		outType d.DataTypes
+	)
+
+	// TODO: think about moving the type check outside of this loop
+	n := context.Self().RowCount()
+	for ind := 0; ind < n; ind++ {
+		var xs []any
+
+		for j := 0; j < len(inputs); j++ {
+			var (
+				xadd any
+				e    error
+			)
+
+			// fix this up...don't need mod. Use something other than c
+			if cx, ok := inputs[j].(*MemCol); ok {
+				if xadd, e = d.ToDataType(cx.Element(ind), info.Inputs[j], false); e != nil {
+					return nil, e
+				}
+
+				xs = append(xs, xadd)
+				continue
+			}
+
+			if !info.Varying || (info.Varying && j < len(info.Inputs)) {
+				if xadd, e = d.ToDataType(inputs[j], info.Inputs[j], true); e != nil {
+					return nil, e
+				}
+			}
+
+			xs = append(xs, xadd)
+		}
+
+		var fnr *d.FnReturn
+		if fnr = fn(false, nil, xs...); fnr.Err != nil {
+			return nil, fnr.Err
+		}
+
+		if ind == 0 {
+			outType = fnr.Output
+			if info.Output != d.DTany && info.Output != outType {
+				return nil, fmt.Errorf("inconsistent function return types: got %s need %s", info.Output, outType)
+			}
+		}
+
+		var dt d.DataTypes
+		if dt = d.WhatAmI(fnr.Value); dt != outType {
+			return nil, fmt.Errorf("inconsistent function return types: got %s need %s", dt, outType)
+		}
+
+		if dt == d.DTnone {
+			continue
+		}
+
+		if ind == 0 {
+			xOut = d.MakeSlice(outType, 0, nil)
+		}
+
+		xOut = d.AppendSlice(xOut, fnr.Value, outType)
+	}
+
+	outCol = &MemCol{
+		name:   "",
+		dType:  outType,
+		data:   xOut,
+		catMap: nil,
+	}
+
+	return outCol, nil
+}
+*/
+
+func prepare2(inputs ...any) (cols []*MemCol, n int) {
+	n = 1
+	for j := 0; j < len(inputs); j++ {
+		cx := inputs[j].(*MemCol)
+		cols = append(cols, cx)
+
+		if nn := cx.Len(); nn > n {
+			n = nn
+		}
+	}
+
+	return cols, n
+}
+
+func ReturnCol(data any, dt d.DataTypes) *d.FnReturn {
+	var (
+		outCol *MemCol
+		e      error
+	)
+
+	if outCol, e = NewMemCol("", data); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	return &d.FnReturn{Value: outCol}
+}
+
+// TODO: change function inputs to Column from any
+// TODO: check same length?
+func OKparams(cols []*MemCol, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok bool, outType d.DataTypes) {
+	for j := 0; j < len(inputs); j++ {
+		ok = true
+		for k := 0; k < len(inputs[j]); k++ {
+			if cols[k].DataType() != inputs[j][k] {
+				ok = false
+				break
+			}
+		}
+
+		if ok {
+			return true, outputs[j]
+		}
+	}
+
+	return false, d.DTunknown
 }

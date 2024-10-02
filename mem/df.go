@@ -84,7 +84,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), col); e != nil {
+			if memDF, e = NewMemDF(nil, RunDFfn, StandardFunctions(), col); e != nil {
 				return nil, e
 			}
 			continue
@@ -260,7 +260,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		mCols = append(mCols, c.(*MemCol))
 	}
 
-	outCols = makeTable(mCols...)
+	//	outCols = makeTable(mCols...)
 
 	var (
 		outDF d.DF
