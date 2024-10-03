@@ -2,8 +2,10 @@ package df
 
 import (
 	"fmt"
-	d "github.com/invertedv/df"
 	"math"
+	"time"
+
+	d "github.com/invertedv/df"
 )
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
@@ -51,7 +53,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 }
 
 func StandardFunctions() d.Fns {
-	return d.Fns{abs, add, and, divide, eq, ge, gt, ifs, le, lt, multiply, ne, subtract, sum}
+	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, lt, log, multiply, ne, not, or, subtract, sum, toDate, toFloat, toInt, toString}
 	//	return d.Fns{
 	//		abs, add, and, applyCat, cast, divide,
 	//		eq, exp, fuzzCat, ge, gt, ifs, le, log, lt,
@@ -61,33 +63,155 @@ func StandardFunctions() d.Fns {
 
 /////////// Standard Fns
 
+func realFn(fn func(x float64) float64, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}}, Output: []d.DataTypes{d.DTfloat}}
+	}
+
+	col, n := parameters(inputs...)
+	data := d.MakeSlice(d.DTfloat, n, nil)
+	for ind := 0; ind < n; ind++ {
+		data.([]float64)[ind] = fn(col[0].Element(ind).(float64))
+	}
+
+	return ReturnCol(data, d.DTfloat)
+}
+
+func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return realFn(math.Exp, "exp", info, context, inputs...)
+}
+
+func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return realFn(math.Log, "log", info, context, inputs...)
+}
+
+func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "float", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTfloat}, {d.DTstring}},
+			Output: []d.DataTypes{d.DTfloat, d.DTfloat, d.DTfloat}}
+	}
+
+	col, n := parameters(inputs...)
+	data := d.MakeSlice(d.DTfloat, n, nil)
+	for ind := 0; ind < n; ind++ {
+		var (
+			x any
+			e error
+		)
+		if x, e = d.ToDataType(col[0].Element(ind), d.DTfloat, true); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		data.([]float64)[ind] = x.(float64)
+	}
+
+	return ReturnCol(data, d.DTfloat)
+}
+
+func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "int", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTfloat}, {d.DTstring}},
+			Output: []d.DataTypes{d.DTint, d.DTint, d.DTint}}
+	}
+
+	col, n := parameters(inputs...)
+	data := d.MakeSlice(d.DTint, n, nil)
+	for ind := 0; ind < n; ind++ {
+		var (
+			x any
+			e error
+		)
+		if x, e = d.ToDataType(col[0].Element(ind), d.DTint, true); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		data.([]int)[ind] = x.(int)
+	}
+
+	return ReturnCol(data, d.DTint)
+}
+
+func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "date", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},
+			Output: []d.DataTypes{d.DTdate, d.DTdate, d.DTdate}}
+	}
+
+	col, n := parameters(inputs...)
+	data := d.MakeSlice(d.DTdate, n, nil)
+	for ind := 0; ind < n; ind++ {
+		var (
+			x any
+			e error
+		)
+		if x, e = d.ToDataType(col[0].Element(ind), d.DTdate, true); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		data.([]time.Time)[ind] = x.(time.Time)
+	}
+
+	return ReturnCol(data, d.DTdate)
+}
+
+func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "string", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTfloat}, {d.DTdate}, {d.DTstring}},
+			Output: []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring}}
+	}
+
+	col, n := parameters(inputs...)
+	data := d.MakeSlice(d.DTstring, n, nil)
+	for ind := 0; ind < n; ind++ {
+		var (
+			x any
+			e error
+		)
+		if x, e = d.ToDataType(col[0].Element(ind), d.DTstring, true); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		data.([]string)[ind] = x.(string)
+	}
+
+	return ReturnCol(data, d.DTstring)
+}
+
+func sums(xx any) any {
+	switch x := xx.(type) {
+	case []float64:
+		s := 0.0
+		for _, xv := range x {
+			s += xv
+		}
+
+		return s
+	case []int:
+		s := 0
+		for _, xv := range x {
+			s += xv
+		}
+
+		return s
+
+	}
+
+	return nil
+}
+
 func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "sum", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
 	}
 
 	col := inputs[0].(*MemCol)
-	dt := col.DataType()
-	data := col.Data()
-	if !dt.IsNumeric() {
-		return &d.FnReturn{Err: fmt.Errorf("input to sum must be numeric, got %v", dt)}
-	}
 
-	sf := d.InitAny(dt)
-
-	for ind := 0; ind < col.Len(); ind++ {
-		switch col.DataType() {
-		case d.DTfloat:
-			x := sf.(float64)
-			x += data.([]float64)[ind]
-			sf = x
-		case d.DTint:
-			x := sf.(int)
-			x += data.([]int)[ind]
-			sf = x
-		default:
-			return &d.FnReturn{Err: fmt.Errorf("invalid type in sum")}
-		}
+	var sf any
+	switch col.DataType() {
+	case d.DTfloat, d.DTint:
+		sf = sums(col.Data())
+	default:
+		return &d.FnReturn{Err: fmt.Errorf("invalid type in sum")}
 	}
 
 	return ReturnCol(sf, col.DataType())
@@ -95,11 +219,11 @@ func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}},
-			Output: []d.DataTypes{d.DTfloat, d.DTint}}
+		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTfloat}, {d.DTstring, d.DTint}},
+			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTfloat, d.DTint}}
 	}
 
-	cols, n := prepare2(inputs...)
+	cols, n := parameters(inputs...)
 
 	type floatFn func(a, b float64) float64
 	type intFn func(a, b int) int
@@ -119,7 +243,7 @@ func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnRe
 	}
 
 	var dataOut any
-	if cols[0].DataType() == d.DTfloat {
+	if cols[1].DataType() == d.DTfloat {
 		data := make([]float64, n)
 		var fn func(a, b float64) float64
 		switch op {
@@ -134,13 +258,20 @@ func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnRe
 		}
 
 		for ind := 0; ind < n; ind++ {
-			data[ind] = fn(cols[0].Element(ind).(float64), cols[1].Element(ind).(float64))
+			var x float64
+			switch xx := cols[0].Element(ind).(type) {
+			case float64:
+				x = xx
+			default:
+				x = 0
+			}
+			data[ind] = fn(x, cols[1].Element(ind).(float64))
 		}
 
 		dataOut = data
 	}
 
-	if cols[0].DataType() == d.DTint {
+	if cols[1].DataType() == d.DTint {
 		data := make([]int, n)
 		var fn func(a, b int) int
 		switch op {
@@ -155,13 +286,21 @@ func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnRe
 		}
 
 		for ind := 0; ind < n; ind++ {
-			data[ind] = fn(cols[0].Element(ind).(int), cols[1].Element(ind).(int))
+			var x int
+			switch xx := cols[0].Element(ind).(type) {
+			case int:
+				x = xx
+			default:
+				x = 0
+
+			}
+			data[ind] = fn(x, cols[1].Element(ind).(int))
 		}
 
 		dataOut = data
 	}
 
-	return ReturnCol(dataOut, cols[0].DataType())
+	return ReturnCol(dataOut, cols[1].DataType())
 
 }
 
@@ -221,7 +360,7 @@ func logic(a, b int, condition string) int {
 		}
 	case "not":
 		val = 1
-		if a <= 0 {
+		if b >= 1 {
 			val = 0
 		}
 	}
@@ -234,7 +373,7 @@ func logical(op string, info bool, context *d.Context, inputs ...any) *d.FnRetur
 		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTint, d.DTint}}, Output: []d.DataTypes{d.DTint}}
 	}
 
-	cols, n := prepare2(inputs...)
+	cols, n := parameters(inputs...)
 	data := d.MakeSlice(d.DTint, n, nil)
 	for ind := 0; ind < n; ind++ {
 		data.([]int)[ind] = logic(cols[0].Element(ind).(int), cols[1].Element(ind).(int), op)
@@ -250,7 +389,7 @@ func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTdate, d.DTstring}}
 	}
 
-	cols, n := prepare2(inputs...)
+	cols, n := parameters(inputs...)
 	dt := cols[1].DataType()
 	data := d.MakeSlice(dt, 0, nil)
 
@@ -270,6 +409,24 @@ func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return logical("and", info, context, inputs...)
 }
 
+func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return logical("or", info, context, inputs...)
+}
+
+func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "not", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTint}}
+	}
+
+	cols, n := parameters(inputs...)
+	data := d.MakeSlice(d.DTint, n, nil)
+	for ind := 0; ind < n; ind++ {
+		data.([]int)[ind] = logic(0, cols[0].Element(ind).(int), "not")
+	}
+
+	return ReturnCol(data, d.DTint)
+}
+
 func compare(op, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint},
@@ -277,7 +434,7 @@ func compare(op, name string, info bool, context *d.Context, inputs ...any) *d.F
 			d.DTdate, d.DTstring}}
 	}
 
-	cols, n := prepare2(inputs...)
+	cols, n := parameters(inputs...)
 	data := d.MakeSlice(d.DTint, n, nil)
 
 	for ind := 0; ind < n; ind++ {
@@ -1014,7 +1171,7 @@ func RunRowFn(fn d.Fn, context *d.Context, inputs []any) (outCol any, err error)
 }
 */
 
-func prepare2(inputs ...any) (cols []*MemCol, n int) {
+func parameters(inputs ...any) (cols []*MemCol, n int) {
 	n = 1
 	for j := 0; j < len(inputs); j++ {
 		cx := inputs[j].(*MemCol)

@@ -228,7 +228,7 @@ func (ot *OpTree) Eval(df *DFcore) error {
 		}
 
 		var e error
-		if ot.value, e = ot.constant(ot.expr, df); e != nil {
+		if ot.value, e = ot.constant(ot.expr); e != nil {
 			return e
 		}
 		return nil
@@ -274,7 +274,7 @@ func (ot *OpTree) Eval(df *DFcore) error {
 	}
 
 	// handle the usual ops
-	if c, ex = df.DoOp(ot.mapOp(), ot.left.Value(), ot.right.Value()); ex != nil {
+	if c, ex = df.DoOp(mapOp(ot.op), ot.left.Value(), ot.right.Value()); ex != nil {
 		return ex
 	}
 
@@ -290,45 +290,9 @@ func (ot *OpTree) Value() *Parsed {
 
 // //////// Unexported OpTree methods
 
-// mapOp maps an operation to a standard function that implements it
-func (ot *OpTree) mapOp() string {
-	switch ot.op {
-	case "+":
-		return "add"
-	case "-":
-		return "subtract"
-	case "*":
-		return "multiply"
-	case "/":
-		return "divide"
-	case "^":
-		return "pow"
-	case "||":
-		return "or"
-	case "&&":
-		return "and"
-	case "!":
-		return "not"
-	case "==":
-		return "eq"
-	case "!=":
-		return "ne"
-	case ">=":
-		return "ge"
-	case ">":
-		return "gt"
-	case "<":
-		return "lt"
-	case "<=":
-		return "le"
-	default:
-		return ot.op
-	}
-}
-
 // constant handles the leaf of the OpTree when it is a constant.
 // strings are surrounded by single quotes
-func (ot *OpTree) constant(xIn string, df *DFcore) (*Parsed, error) {
+func (ot *OpTree) constant(xIn string) (*Parsed, error) {
 	if xIn == "" {
 		return nil, nil
 	}
@@ -391,14 +355,31 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 	// strip outer parens
 	ot.expr = ot.outerParen(ot.expr)
 
-	// determine if expression starts with a function call
-	haveFn, fnOp := ot.isFunction()
-
+	var leadingOp bool
 	// break into two expressions, if there are two
-	left, right, op, err = ot.ops.find(ot.expr)
-	if err != nil || op != "" {
+	left, right, op, leadingOp = ot.ops.find(ot.expr)
+
+	// if the operation is the first character, it can be: +, - or !
+	if leadingOp {
+		// 'zero' is a special signal to say this is both int(0) and float(0)
+		ot.op = op
+		fn := mapOp(op)
+		switch op {
+		case "+", "-":
+			ot.expr = fmt.Sprintf("%s('zero',%s)", fn, right)
+		case "!":
+			ot.expr = fmt.Sprintf("%s(%s)", fn, right)
+		}
+
+		op = ""
+	}
+
+	if op != "" {
 		return left, right, op, err
 	}
+
+	// determine if expression starts with a function call
+	haveFn, fnOp := ot.isFunction()
 
 	if haveFn {
 		if e := ot.makeFn(fnOp); e != nil {
@@ -519,42 +500,17 @@ func (oper operations) trailingOp(expr string) bool {
 	return false
 }
 
-// badStart checks whether the start of expr is an operation other than + or -
-// if it does start with a + or -, inserts a 0 in front of it.
-func (oper operations) badStart(expr *string) error {
-	for j := 0; j < len(oper); j++ {
-		for k := 0; k < len(oper[j]); k++ {
-			if strings.Index(*expr, oper[j][k]) == 0 {
-				if oper[j][k] != "+" && oper[j][k] != "-" && oper[j][k] != "!" {
-					return fmt.Errorf("illegal operation in %s", *expr)
-				}
-
-				// if starts with a + or - or !, place a zero in front
-				*expr = "0" + *expr
-
-				return nil
-			}
-		}
-	}
-
-	return nil
-}
-
 // find finds where to split expr into two sub-expressions
-func (oper operations) find(expr string) (left, right, op string, err error) {
+func (oper operations) find(expr string) (left, right, op string, leadingOp bool) {
 	if expr == "" {
-		return "", "", "", nil
-	}
-
-	if e := oper.badStart(&expr); e != nil {
-		return "", "", "", e
+		return "", "", "", false
 	}
 
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
 			depth, haveQuote := 0, false
-			for loc := len(expr) - 1; loc > 0; loc-- {
-
+			// there cannot be an operator at location 0. If there is (such as a -) a 0 has been put in front of it.
+			for loc := len(expr) - 1; loc >= 0; loc-- {
 				depth, haveQuote = parenDepth(expr[loc], depth, haveQuote)
 				if depth > 0 || haveQuote {
 					continue
@@ -569,13 +525,14 @@ func (oper operations) find(expr string) (left, right, op string, err error) {
 					left = expr[:loc]
 					right = expr[loc+len(oper[j][k]):]
 					op = oper[j][k]
-					return left, right, op, nil
+					leadingOp = (left == "")
+					return left, right, op, leadingOp
 				}
 			}
 		}
 	}
 
-	return left, right, op, nil
+	return left, right, op, leadingOp
 }
 
 // parenDepth updates the depth & haveQuote are updated based on char.
@@ -598,4 +555,40 @@ func parenDepth(char uint8, depthIn int, haveQuoteIn bool) (depthOut int, haveQu
 	}
 
 	return depthOut, haveQuoteOut
+}
+
+// mapOp maps an operation to a standard function that implements it
+func mapOp(op string) string {
+	switch op {
+	case "+":
+		return "add"
+	case "-":
+		return "subtract"
+	case "*":
+		return "multiply"
+	case "/":
+		return "divide"
+	case "^":
+		return "pow"
+	case "||":
+		return "or"
+	case "&&":
+		return "and"
+	case "!":
+		return "not"
+	case "==":
+		return "eq"
+	case "!=":
+		return "ne"
+	case ">=":
+		return "ge"
+	case ">":
+		return "gt"
+	case "<":
+		return "lt"
+	case "<=":
+		return "le"
+	default:
+		return op
+	}
 }

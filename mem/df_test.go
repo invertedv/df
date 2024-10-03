@@ -8,7 +8,7 @@ import (
 )
 
 func makeMemDF() *MemDF {
-	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
+	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3.5})
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
@@ -26,6 +26,46 @@ func TestSumx(t *testing.T) {
 		col *df.Parsed
 		e   error
 	)
+	col, e = dfx.Parse("float(sum(y))*x")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("sum(x)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("-x")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("x > 0.0 || y == 1")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("log(x)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("exp(x)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("string(x)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("date(z)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("int(x)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
+	col, e = dfx.Parse("float(y)")
+	assert.Nil(t, e)
+	fmt.Println(col.AsColumn().Data())
+
 	col, e = dfx.Parse("if(x>1.0,y,yy)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
@@ -43,10 +83,6 @@ func TestSumx(t *testing.T) {
 	fmt.Println(col.AsColumn().Data())
 
 	col, e = dfx.Parse("x >= 1.0 && y==1")
-	assert.Nil(t, e)
-	fmt.Println(col.AsColumn().Data())
-
-	col, e = dfx.Parse("sum(y)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
