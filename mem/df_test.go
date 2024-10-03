@@ -2,9 +2,10 @@ package df
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/invertedv/df"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func makeMemDF() *MemDF {
@@ -12,7 +13,7 @@ func makeMemDF() *MemDF {
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx, e := NewMemDF(nil, RunDFfn, StandardFunctions(), x, y, z, yy)
+	dfx, e := NewMemDF(RunDFfn, StandardFunctions(), x, y, z, yy)
 	_ = e
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
 	e = dfx.AppendColumn(xx, false)

@@ -27,7 +27,6 @@ type OpTree struct {
 type operations [][]string
 
 type Parsed struct {
-	dt    DataTypes
 	which string
 
 	scalar any
@@ -39,14 +38,12 @@ func NewParsed(value any) *Parsed {
 	p := &Parsed{}
 	if _, ok := value.(DF); ok {
 		p.df = value.(DF)
-		p.dt = DTdf
 		p.which = "DF"
 		return p
 	}
 
 	if _, ok := value.(Column); ok {
 		p.col = value.(Column)
-		p.dt = p.col.DataType()
 		p.which = "Column"
 		return p
 	}
@@ -56,9 +53,9 @@ func NewParsed(value any) *Parsed {
 	// if it's int -- could interpret as a date
 	switch x := value.(type) {
 	case float64:
-		p.scalar, p.dt = x, DTfloat
+		p.scalar = x
 	case time.Time:
-		p.scalar, p.dt = x, DTdate
+		p.scalar = x
 	default:
 		var (
 			xx any
@@ -69,7 +66,7 @@ func NewParsed(value any) *Parsed {
 			return nil
 		}
 
-		p.scalar, p.dt = xx, dt
+		p.scalar = xx
 	}
 
 	return p
@@ -101,10 +98,6 @@ func (p *Parsed) AsColumn() Column {
 
 func (p *Parsed) AsScalar() any {
 	return p.scalar
-}
-
-func (p *Parsed) DataType() DataTypes {
-	return p.dt
 }
 
 func (p *Parsed) Which() string {
@@ -270,7 +263,6 @@ func (ot *OpTree) Eval(df *DFcore) error {
 		if e := ot.right.Eval(df); e != nil {
 			return e
 		}
-
 	}
 
 	// handle the usual ops
@@ -361,14 +353,16 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 
 	// if the operation is the first character, it can be: +, - or !
 	if leadingOp {
-		// 'zero' is a special signal to say this is both int(0) and float(0)
-		ot.op = op
+		// 'zero' is a special signal to say this is both int(0) and float(0) - the subtract and add methods must
+		// look for this
 		fn := mapOp(op)
 		switch op {
 		case "+", "-":
 			ot.expr = fmt.Sprintf("%s('zero',%s)", fn, right)
 		case "!":
 			ot.expr = fmt.Sprintf("%s(%s)", fn, right)
+		default:
+			return "", "", "", fmt.Errorf("invalid leading operation: %s", op)
 		}
 
 		op = ""
@@ -509,7 +503,6 @@ func (oper operations) find(expr string) (left, right, op string, leadingOp bool
 	for j := 0; j < len(oper); j++ {
 		for k := 0; k < len(oper[j]); k++ {
 			depth, haveQuote := 0, false
-			// there cannot be an operator at location 0. If there is (such as a -) a 0 has been put in front of it.
 			for loc := len(expr) - 1; loc >= 0; loc-- {
 				depth, haveQuote = parenDepth(expr[loc], depth, haveQuote)
 				if depth > 0 || haveQuote {
@@ -525,7 +518,7 @@ func (oper operations) find(expr string) (left, right, op string, leadingOp bool
 					left = expr[:loc]
 					right = expr[loc+len(oper[j][k]):]
 					op = oper[j][k]
-					leadingOp = (left == "")
+					leadingOp = left == ""
 					return left, right, op, leadingOp
 				}
 			}

@@ -3,13 +3,10 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	"log"
 	"strings"
 
 	u "github.com/invertedv/utilities"
 )
-
-//TODO: fix up : only need one function running
 
 // TODO: think about
 // data types -- what if try to add a cat var?
@@ -18,7 +15,6 @@ import (
 type DF interface {
 	// generic from DFcore
 	AppendColumn(col Column, replace bool) error
-	Apply(resultName, opName string, replace bool, inputs ...string) error
 	Column(colName string) (col Column, err error)
 	ColumnCount() int
 	ColumnNames() []string
@@ -51,9 +47,9 @@ type Ereturn func() error
 type DFcore struct {
 	head *columnList
 
-	rowFuncs   Fns
-	runRowFunc RunFn
-	runDFfun   RunFn
+	rowFuncs Fns
+	//	runRowFunc RunFn
+	runFn RunFn
 
 	current *columnList
 
@@ -121,7 +117,7 @@ type RunFn func(fn Fn, context *Context, inputs []any) (any, error)
 
 ////////// DFCore
 
-func NewDF(runRow, runDF RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
+func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -146,7 +142,7 @@ func NewDF(runRow, runDF RunFn, funcs Fns, cols ...Column) (df *DFcore, err erro
 		}
 	}
 
-	return &DFcore{head: head, rowFuncs: funcs, runRowFunc: runRow, runDFfun: runDF}, nil
+	return &DFcore{head: head, rowFuncs: funcs, runFn: runner}, nil
 }
 
 // /////////// DFcore methods
@@ -178,12 +174,9 @@ func (df *DFcore) Fns() Fns {
 	return df.rowFuncs
 }
 
-func (df *DFcore) RunRowFn() RunFn {
-	return df.runRowFunc
-}
-
-func (df *DFcore) RunDFfn() RunFn {
-	return df.runDFfun
+// HERE
+func (df *DFcore) Runner() RunFn {
+	return df.runFn
 }
 
 func (df *DFcore) SetContext(c *Context) {
@@ -272,7 +265,7 @@ func (df *DFcore) Copy() *DFcore {
 		e     error
 	)
 
-	if outDF, e = NewDF(df.RunRowFn(), df.RunDFfn(), df.Fns(), cols...); e != nil {
+	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
 		panic(e)
 	}
 
@@ -308,7 +301,7 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 		cols = append(cols, nc)
 	}
 
-	return NewDF(df.RunRowFn(), df.RunDFfn(), df.Fns(), cols...)
+	return NewDF(df.Runner(), df.Fns(), cols...)
 }
 
 /*
@@ -379,50 +372,11 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 		e   error
 	)
 
-	//	if fn(true, nil, nil).DFlevel {
-	if col, e = df.runDFfun(fn, df.Context, vals); e != nil {
+	if col, e = df.runFn(fn, df.Context, vals); e != nil {
 		return nil, e
 	}
-	//	} else {
-	//		if col, e = df.runRowFunc(fn, df.Context, vals); e != nil {
-	//			return nil, e
-	//		}
-	//	}
 
 	return col, nil
-}
-
-func (df *DFcore) Apply(resultName, opName string, replace bool, inputs ...string) error {
-	var fn Fn
-
-	if fn = df.rowFuncs.Get(opName); fn == nil {
-		log.Printf("op %s to create %s not defined, operation skipped", opName, resultName)
-		return nil
-	}
-
-	var vals []any
-	for ind := 0; ind < len(inputs); ind++ {
-		if c, e := df.Column(inputs[ind]); e == nil {
-			vals = append(vals, c)
-		} else {
-			vals = append(vals, inputs[ind])
-		}
-	}
-
-	var (
-		col  Column
-		acol any
-		e    error
-	)
-
-	if acol, e = df.runRowFunc(fn, df.Context, vals); e != nil {
-		return e
-	}
-
-	col = acol.(Column)
-	col.Name(resultName)
-
-	return df.AppendColumn(col, replace)
 }
 
 func (df *DFcore) ValidName(columnName string) bool {
@@ -536,10 +490,9 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	}
 
 	subsetDF := &DFcore{
-		head:       subHead,
-		rowFuncs:   df.rowFuncs,
-		runRowFunc: df.runRowFunc,
-		Context:    df.Context,
+		head:     subHead,
+		rowFuncs: df.rowFuncs,
+		Context:  df.Context,
 	}
 
 	return subsetDF, nil
