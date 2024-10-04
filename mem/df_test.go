@@ -1,8 +1,14 @@
 package df
 
 import (
+	"database/sql"
 	"fmt"
+	"math"
+	"os"
 	"testing"
+	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 
 	"github.com/invertedv/df"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +25,185 @@ func makeMemDF() *MemDF {
 	e = dfx.AppendColumn(xx, false)
 
 	return dfx
+}
+
+func TestTable(t *testing.T) {
+	dfx := makeMemDF()
+	df, e := dfx.Parse("table(y,yy)")
+	assert.Nil(t, e)
+	fmt.Println(df.AsDF().RowCount())
+}
+
+func TestParser(t *testing.T) {
+	dfx := makeMemDF()
+	eqn := "date(z)"
+	colx, e := df.ParseExpr(eqn, dfx.DFcore)
+	col := colx.AsColumn()
+	col.Name("dt")
+	dfx.AppendColumn(col, true)
+	assert.Nil(t, e)
+
+	x := [][]any{
+		{"if(y == 1, 2.0, (x))", 0, float64(1)},
+		{"if(y == 1, 2.0, (x))", 1, float64(2)},
+		{"(float(4+2) * abs(-3.0/2.0))", 0, float64(9)},
+		{"sum(y)", 0, int(12)},
+		{"y != 1", 0, int(0)},
+		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
+		{"y>=1 && y>=1 && dt > date(20221231)", 0, int(0)},
+		{"y>=1 && y>=1", 0, int(1)},
+		{"!(y>=1) && y>=1", 0, int(0)},
+		{"!1 && 1 || 1", 0, int(1)},
+		{"!1 && 1 || 0", 0, int(0)},
+		{"!0 && 1 || 0", 0, int(1)},
+		{"!1 && 1", 0, int(0)},
+		{"1 || 0 && 1", 0, int(1)},
+		{"0 || 0 && 1", 0, int(0)},
+		{"0 || 1 && 1", 0, int(1)},
+		{"0 || 1 && 1 && 0", 0, int(0)},
+		{"(0 || 1 && 1) && 0", 0, int(0)},
+		{"y < 2", 0, int(1)},
+		{"y < 1", 0, int(0)},
+		{"y <= 1", 0, int(1)},
+		{"y > 1", 0, int(0)},
+		{"y >= 1", 0, int(1)},
+		{"dt != date(20221231)", 0, int(0)},
+		{"dt != date(20221231)", 1, int(1)},
+		{"dt == date(20221231)", 0, int(1)},
+		{"dt == date(20221231)", 1, int(0)},
+		{"y == 1", 0, int(1)},
+		{"y == 1", 1, int(0)},
+		{"y && 1", 0, int(1)},
+		{"0 && 1", 0, int(0)},
+		{"0 || 0", 0, int(0)},
+		{"0 || 1", 0, int(1)},
+		{"4+3", 0, int(7)},
+		{"4-1-1-1-1", 0, int(0)},
+		{"4+1-1", 0, int(4)},
+		{"4+1--1", 0, int(6)},
+		{"float(4)+1.0--1.0", 0, float64(6)},
+		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
+		{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
+		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
+		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
+		{"-x +2.0", 0, float64(1)},
+		{"-x +4.0", 1, float64(6)},
+		{"x/0.0", 0, math.Inf(1)},
+		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, float64(42)},
+		{"(1 + 2) - -(-1 - 2)", 0, int(0)},
+		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
+		{"string(float(1))", 0, "1.00"},
+		{"float('1.1')", 0, float64(1.1)},
+		{"int(2.9)", 0, int(2)},
+	}
+
+	cnt := 0
+	for ind := 0; ind < len(x); ind++ {
+		cnt++
+		eqn := x[ind][0].(string)
+		fmt.Println(eqn)
+		//xOut, ex := df.ParseExpr(eqn, dfx)
+		//		xOut, ex := df.Parse(eqn, dfx.DFcore)
+		xOut, ex := dfx.Parse(eqn)
+		assert.Nil(t, ex)
+
+		indx := x[ind][1].(int)
+		result := xOut.AsColumn().(*MemCol).Element(indx)
+
+		_ = dfx.DropColumns("ab")
+		if xOut.AsColumn().DataType() == df.DTfloat {
+			assert.InEpsilon(t, result.(float64), x[ind][2].(float64), .001)
+			continue
+		}
+
+		assert.Equal(t, result, x[ind][2])
+	}
+
+	fmt.Println("# tests: ", cnt)
+}
+
+func TestFuzzCat(t *testing.T) {
+	dfx := makeMemDF()
+	expr := "cat(y)"
+
+	colx, ex := dfx.Parse(expr)
+	col := colx.AsColumn()
+	col.Name("c")
+	assert.Nil(t, ex)
+	_ = dfx.AppendColumn(col, false)
+
+	expr = "fuzzCat(c, 2, 100)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	exp := []int{0, -1, -1, 0, -1, -1}
+	assert.Equal(t, exp, colx.AsColumn().Data())
+}
+
+func TestApplyCat(t *testing.T) {
+	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
+	//	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
+	dfx := makeMemDF()
+	expr := "cat(y)"
+	colx, ex := dfx.Parse(expr)
+	assert.Nil(t, ex)
+	col := colx.AsColumn()
+	col.Name("c")
+	_ = dfx.AppendColumn(col, false)
+
+	expr = "applyCat(yy, c, 100)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	exp := []int{0, -1, -1, 0, 3, 4}
+	assert.Equal(t, exp, colx.AsColumn().Data())
+
+	expr = "c + y"
+	_, ex = dfx.Parse(expr)
+	assert.NotNil(t, ex)
+}
+
+func TestToCat(t *testing.T) {
+	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
+	// z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
+	dfx := makeMemDF()
+	expr := "date(z)"
+	var (
+		colx *df.Parsed
+		ex   error
+	)
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	col := colx.AsColumn()
+	col.Name("dt")
+	ex = dfx.AppendColumn(col, false)
+	assert.Nil(t, ex)
+
+	expr = "cat(y)"
+	colx, ex = dfx.Parse(expr)
+	exp := []int{0, 1, 2, 0, 3, 4}
+	assert.Nil(t, ex)
+	assert.Equal(t, exp, colx.AsColumn().Data())
+
+	expr = "cat(y,  +1, -5)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	exp = []int{0, 1, -1, 0, -1, -1}
+	assert.Equal(t, exp, colx.AsColumn().Data())
+
+	expr = "cat(z)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	exp = []int{0, 1, 2, 2, 3, 4}
+	assert.Equal(t, exp, colx.AsColumn().Data())
+
+	expr = "cat(dt)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	exp = []int{0, 1, 2, 2, 3, 4}
+	assert.Equal(t, exp, colx.AsColumn().Data())
+
+	expr = "cat(x)"
+	colx, ex = dfx.Parse(expr)
+	assert.NotNil(t, ex)
 }
 
 func TestSumx(t *testing.T) {
@@ -117,7 +302,6 @@ func TestSumx(t *testing.T) {
 
 }
 
-/*
 func TestDF_Sort(t *testing.T) {
 	dfx := makeMemDF()
 	e := dfx.Sort(true, "y", "z")
@@ -170,12 +354,6 @@ func TestLoadSQL(t *testing.T) {
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)
 	fmt.Println(col.Data())
-	e = memDF.Apply("abc", "cast", false, "DTstring", "abc")
-	assert.Nil(t, e)
-	e = memDF.Apply("abcd", "cast", false, "DTdate", "March 25, 1990")
-	assert.Nil(t, e)
-	e = memDF.Apply("abd", "cast", false, "DTstring", "latitude")
-	assert.Nil(t, e)
 
 	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
 	assert.Nil(t, ed)
@@ -191,101 +369,13 @@ func TestWhere(t *testing.T) {
 	assert.Nil(t, e)
 	assert.Equal(t, 3, outDF.AsDF().RowCount())
 
-	outDF, e = dfx.Parse("where(x >= 1)")
+	outDF, e = dfx.Parse("where(x >= 1.0)")
 	assert.Nil(t, e)
 	assert.Equal(t, 4, outDF.AsDF().RowCount())
 
-	outDF, e = outDF.AsDF().Parse("where( x>=3)")
+	outDF, e = outDF.AsDF().Parse("where( x>=3.0)")
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.AsDF().RowCount())
-}
-
-func TestParser(t *testing.T) {
-	dfx := makeMemDF()
-	eqn := "date(z)"
-	colx, e := df.ParseExpr(eqn, dfx.DFcore)
-	col := colx.AsColumn()
-	col.Name("dt")
-	dfx.AppendColumn(col, true)
-	assert.Nil(t, e)
-
-	x := [][]any{
-		{"if(y != 1, 2.0, (x))", 0, float64(1)},
-		{"sum(y)", 0, int(12)},
-		{"y != 1", 0, int(0)},
-		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
-		{"y>=1 && y>=1 && dt > date(20221231)", 0, int(0)},
-		{"y>=1 && y>=1", 0, int(1)},
-		{"!(y>=1) && y>=1", 0, int(0)},
-		{"!1 && 1 || 1", 0, int(1)},
-		{"!1 && 1 || 0", 0, int(0)},
-		{"!0 && 1 || 0", 0, int(1)},
-		{"!1 && 1", 0, int(0)},
-		{"1 || 0 && 1", 0, int(1)},
-		{"0 || 0 && 1", 0, int(0)},
-		{"0 || 1 && 1", 0, int(1)},
-		{"0 || 1 && 1 && 0", 0, int(0)},
-		{"(0 || 1 && 1) && 0", 0, int(0)},
-		{"y < 2", 0, int(1)},
-		{"y < 1", 0, int(0)},
-		{"y <= 1", 0, int(1)},
-		{"y > 1", 0, int(0)},
-		{"y >= 1", 0, int(1)},
-		{"dt != date(20221231)", 0, int(0)},
-		{"dt != date(20221231)", 1, int(1)},
-		{"dt == date(20221231)", 0, int(1)},
-		{"dt == date(20221231)", 1, int(0)},
-		{"y == 1", 0, int(1)},
-		{"y == 1", 1, int(0)},
-		{"y && 1", 0, int(1)},
-		{"0 && 1", 0, int(0)},
-		{"0 || 0", 0, int(0)},
-		{"0 || 1", 0, int(1)},
-		{"4+3", 0, int(7)},
-		{"4-1-1-1-1", 0, int(0)},
-		{"4+1-1", 0, int(4)},
-		{"4+1--1", 0, int(6)},
-		{"float(4)+1.0--1.0", 0, float64(6)},
-		{"((4+2) * abs(-3/2.0))", 0, float64(9)},
-		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
-		{"cast('DTdate', 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-		{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-		{"((exp(1.0) + log(exp(1.0))))*(3--1)", 0, 4.0 + 4.0*math.Exp(1)},
-		{"-x +2.0", 0, float64(1)},
-		{"-x +4.0", 1, float64(6)},
-		{"x/0", 0, math.Inf(1)},
-		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, float64(42)},
-		{"(1 + 2) - -(-1 - 2)", 0, int(0)},
-		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
-		{"string(float(1))", 0, "1.00"},
-		{"float('1.1')", 0, float64(1.1)},
-		{"int(2.9)", 0, int(2)},
-	}
-
-	cnt := 0
-	for ind := 0; ind < len(x); ind++ {
-		cnt++
-		eqn := x[ind][0].(string)
-		fmt.Println(eqn)
-		//xOut, ex := df.ParseExpr(eqn, dfx)
-		//		xOut, ex := df.Parse(eqn, dfx.DFcore)
-		xOut, ex := dfx.Parse(eqn)
-		assert.Nil(t, ex)
-
-		indx := x[ind][1].(int)
-		result := xOut.AsColumn().(*MemCol).Element(indx)
-
-		_ = dfx.DropColumns("ab")
-		if xOut.AsColumn().DataType() == df.DTfloat {
-			assert.InEpsilon(t, result.(float64), x[ind][2].(float64), .001)
-			continue
-		}
-
-		assert.Equal(t, result, x[ind][2])
-	}
-
-	fmt.Println("# tests: ", cnt)
 }
 
 func TestAppendRows(t *testing.T) {
@@ -304,7 +394,6 @@ func TestAppendRows(t *testing.T) {
 	assert.Nil(t, e)
 	assert.Equal(t, "b", z.Element(1))
 	assert.Equal(t, "e", z.Element(4))
-
 }
 
 func TestMemDF_AppendDF(t *testing.T) {
@@ -320,96 +409,11 @@ func TestMemDF_AppendDF(t *testing.T) {
 	assert.Equal(t, float64(1), col.(*MemCol).Element(dfx.RowCount()))
 }
 
-func TestToCat(t *testing.T) {
-	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
-	// z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx := makeMemDF()
-	expr := "date(z)"
-	var (
-		colx *df.Parsed
-		ex   error
-	)
-	colx, ex = dfx.Parse(expr)
-	col := colx.AsColumn()
-	col.Name("dt")
-	ex = dfx.AppendColumn(col, false)
-	assert.Nil(t, ex)
-
-	expr = "cat(y)"
-	colx, ex = dfx.Parse(expr)
-	exp := []int{0, 1, 2, 0, 3, 4}
-	assert.Nil(t, ex)
-	assert.Equal(t, exp, colx.AsColumn().Data())
-
-	expr = "cat(y,  +1, -5)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	exp = []int{0, 1, -1, 0, -1, -1}
-	assert.Equal(t, exp, colx.AsColumn().Data())
-
-	expr = "cat(z)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	exp = []int{0, 1, 2, 2, 3, 4}
-	assert.Equal(t, exp, colx.AsColumn().Data())
-
-	expr = "cat(dt)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	exp = []int{0, 1, 2, 2, 3, 4}
-	assert.Equal(t, exp, colx.AsColumn().Data())
-
-	expr = "cat(x)"
-	colx, ex = dfx.Parse(expr)
-	assert.NotNil(t, ex)
-}
-
-func TestApplyCat(t *testing.T) {
-	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
-	//	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
-	dfx := makeMemDF()
-	expr := "cat(y)"
-	colx, ex := dfx.Parse(expr)
-	assert.Nil(t, ex)
-	col := colx.AsColumn()
-	col.Name("c")
-	_ = dfx.AppendColumn(col, false)
-
-	expr = "applyCat(yy, c, 100)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	exp := []int{0, -1, -1, 0, 3, 4}
-	assert.Equal(t, exp, colx.AsColumn().Data())
-
-	// TODO: think about -- this works
-	expr = "c + y"
-	_, ex = dfx.Parse(expr)
-	assert.NotNil(t, ex)
-}
-
-func TestFuzzCat(t *testing.T) {
-	dfx := makeMemDF()
-	expr := "cat(y)"
-
-	colx, ex := dfx.Parse(expr)
-	col := colx.AsColumn()
-	col.Name("c")
-	assert.Nil(t, ex)
-	_ = dfx.AppendColumn(col, false)
-
-	expr = "fuzzCat(c, 2, 100)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	exp := []int{0, -1, -1, 0, -1, -1}
-	assert.Equal(t, exp, colx.AsColumn().Data())
-}
-
-
 func TestMemDF_Table(t *testing.T) {
 	x, _ := NewMemCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
-	dfx, e := NewMemDF(RunRowFn, RunDFfn, StandardFunctions(), x, y, z)
+	dfx, e := NewMemDF(RunDFfn, StandardFunctions(), x, y, z)
 	assert.Nil(t, e)
 	dtx, ex := dfx.Parse("date(z)")
 	assert.Nil(t, ex)
@@ -427,5 +431,3 @@ func TestMemDF_Table(t *testing.T) {
 		fmt.Println(col.Data())
 	}
 }
-
-*/

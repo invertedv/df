@@ -260,7 +260,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		mCols = append(mCols, c.(*MemCol))
 	}
 
-	//	outCols = makeTable(mCols...)
+	outCols = makeTable(mCols...)
 
 	var (
 		outDF d.DF

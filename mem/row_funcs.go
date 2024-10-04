@@ -1,8 +1,13 @@
 package df
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"hash/fnv"
+	"maps"
 	"math"
+	"sort"
 	"time"
 
 	d "github.com/invertedv/df"
@@ -53,15 +58,45 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 }
 
 func StandardFunctions() d.Fns {
-	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, lt, log, multiply, ne, not, or, subtract, sum, toDate, toFloat, toInt, toString}
-	//	return d.Fns{
-	//		abs, add, and, applyCat, cast, divide,
-	//		eq, exp, fuzzCat, ge, gt, ifs, le, log, lt,
-	//		multiply, ne, not, or, subtract, sum, toCat,
-	//		toDate, toFloat, toInt, toString, where}
+	return d.Fns{abs, add, and, applyCat, divide, eq,
+		exp, ge, gt, ifs, le, lt, log, multiply,
+		ne, not, or, subtract, sum, table, toCat,
+		toDate, toFloat, toInt, toString, fuzzCat,
+		where,
+	}
 }
 
 /////////// Standard Fns
+
+func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "table", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},
+			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, Varying: true}
+	}
+
+	var colNames []string
+
+	for ind := 0; ind < len(inputs); ind++ {
+		var cn string
+		if cn = inputs[ind].(*MemCol).Name(""); cn == "" {
+			return &d.FnReturn{Err: fmt.Errorf("column with no name in table")}
+		}
+
+		colNames = append(colNames, cn)
+	}
+
+	var (
+		outDF d.DF
+		e     error
+	)
+	if outDF, e = context.Self().Table(false, colNames...); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	ret := &d.FnReturn{Value: outDF}
+
+	return ret
+}
 
 func realFn(fn func(x float64) float64, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
@@ -721,110 +756,7 @@ func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 // toCat creates a categorical MemCol.
 
-	func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-		if info {
-			return &d.FnReturn{Name: "cat", Inputs: []d.DataTypes{d.DTany}, Output: d.DTcategorical,
-				DFlevel: true, Varying: true}
-		}
 
-		col := inputs[0].(*MemCol)
-		dt := col.DataType()
-		if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
-			return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
-		}
-
-		var levels []any
-		for ind := 1; ind < len(inputs); ind++ {
-			c := inputs[ind].(*MemCol)
-			if c.DataType() != col.DataType() {
-				return &d.FnReturn{Err: fmt.Errorf("levels of cat are not the same as the column")}
-			}
-
-			levels = append(levels, c.Element(0))
-		}
-
-		var (
-			outCol *MemCol
-			e      error
-		)
-
-		if outCol, e = ToCategorical(col, nil, 1, nil, levels); e != nil {
-			return &d.FnReturn{Err: e}
-		}
-
-		outCol.rawType = dt
-		outFn := &d.FnReturn{Value: outCol, Output: d.DTcategorical}
-
-		return outFn
-	}
-
-	func fuzzCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-		if info {
-			return &d.FnReturn{Name: "fuzzCat", Inputs: []d.DataTypes{d.DTcategorical, d.DTint, d.DTany}, Output: d.DTcategorical,
-				DFlevel: true}
-		}
-
-		col := inputs[0].(*MemCol)
-		fuzz := inputs[1].(*MemCol).Element(0).(int)
-		defCol := inputs[2].(*MemCol)
-
-		if defCol.DataType() != col.RawType() {
-			return &d.FnReturn{Err: fmt.Errorf("default not same type as underlying in fuzzCat")}
-		}
-
-		defaultVal := defCol.Element(0)
-
-		outCol := fuzzCategorical(col, fuzz, defaultVal)
-
-		return &d.FnReturn{Value: outCol, Output: d.DTcategorical}
-	}
-
-// applyCat
-// - vector to apply cats to
-// - vector with cats
-// - default if new category
-
-	func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-		if info {
-			return &d.FnReturn{Name: "applyCat", Inputs: []d.DataTypes{d.DTany, d.DTcategorical, d.DTany},
-				Output: d.DTcategorical, DFlevel: true}
-		}
-
-		newData := inputs[0].(*MemCol)
-		oldData := inputs[1].(*MemCol)
-		newVal := inputs[2].(*MemCol)
-
-		if newData.DataType() != oldData.rawType {
-			return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
-		}
-
-		var (
-			defaultValue any
-			e            error
-		)
-
-		if newVal.DataType() != newData.DataType() {
-			return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
-		}
-
-		defaultValue = newVal.Element(0)
-
-		var levels []any
-		for k := range oldData.catMap {
-			levels = append(levels, k)
-		}
-
-		var outCol *MemCol
-		_ = defaultValue
-		if outCol, e = ToCategorical(newData, oldData.catMap, 0, defaultValue, levels); e != nil {
-			return &d.FnReturn{Err: e}
-		}
-
-		outCol.rawType = newData.DataType()
-		outFn := &d.FnReturn{Value: outCol, Output: d.DTcategorical}
-
-		return outFn
-	}
 
 	func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		if info {
@@ -858,232 +790,13 @@ func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return cast(false, context, "DTstring", inputs[0])
 	}
 
-	func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-		if info {
-			return &d.FnReturn{Name: "where", Inputs: []d.DataTypes{d.DTint}, Output: d.DTdf, DFlevel: true}
-		}
-
-		var (
-			outDF d.DF
-			e     error
-		)
-		outDF, e = context.Self().Where(inputs[0].(d.Column))
-
-		return &d.FnReturn{Value: outDF, Err: e}
-	}
 
 ///////// helpers
 */
 
 /*
-func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*MemCol, error) {
-	if col.DataType() == d.DTfloat {
-		return nil, fmt.Errorf("cannot make float to categorical")
-	}
 
-	nextInt := 0
-	for k, v := range catMap {
-		if k != nil && d.WhatAmI(k) != col.DataType() {
-			return nil, fmt.Errorf("map and column not same data types")
-		}
 
-		if v >= nextInt {
-			nextInt = v + 1
-		}
-	}
-
-	toMap := make(d.CategoryMap)
-	maps.Copy(toMap, catMap)
-	toMap[defaultVal] = -1
-	cnts := make(d.CategoryMap)
-
-	data := d.MakeSlice(d.DTint, 0, nil)
-	for ind := 0; ind < col.Len(); ind++ {
-		inVal := col.Element(ind)
-		if levels != nil && !d.In(inVal, levels) {
-			inVal = defaultVal
-		}
-
-		cnts[inVal]++
-
-		if mapVal, ok := toMap[inVal]; ok {
-			data = d.AppendSlice(data, mapVal, d.DTint)
-			continue
-		}
-
-		toMap[inVal] = nextInt
-		data = d.AppendSlice(data, nextInt, d.DTint)
-		nextInt++
-	}
-
-	var (
-		outCol *MemCol
-		e      error
-	)
-
-	if outCol, e = NewMemCol("", data); e != nil {
-		return nil, e
-	}
-
-	outCol.dType = d.DTcategorical
-
-	outCol.catMap = toMap
-	outCol.catCounts = cnts
-
-	if fuzz > 1 {
-		outCol = fuzzCategorical(outCol, fuzz, defaultVal)
-	}
-
-	return outCol, nil
-}
-
-func fuzzCategorical(col *MemCol, fuzzValue int, defaultVal any) *MemCol {
-	catMap := make(d.CategoryMap)
-	//	catMap[defaultVal] = -1
-	catCounts := make(d.CategoryMap)
-	data := make([]int, col.Len())
-	copy(data, col.Data().([]int))
-	consVals := []int{-1} // map values to keep
-
-	for k, v := range col.catMap {
-		if col.catCounts[k] >= fuzzValue {
-			catMap[k] = v
-			catCounts[k] = col.catCounts[k]
-			consVals = append(consVals, v)
-			continue
-		}
-
-		catCounts[defaultVal]++
-	}
-
-	sort.Ints(consVals)
-
-	for ind, x := range col.Data().([]int) {
-		checkVal := x
-		if indx := sort.SearchInts(consVals, checkVal); indx == len(consVals) || consVals[indx] != checkVal {
-			data[ind] = -1
-		}
-	}
-
-	var (
-		outCol *MemCol
-		e      error
-	)
-	if outCol, e = NewMemCol("", data); e != nil {
-		panic(e) // should not happen
-	}
-
-	outCol.catMap, outCol.catCounts, outCol.dType = catMap, catCounts, d.DTcategorical
-
-	return outCol
-}
-
-func makeTable(cols ...*MemCol) []*MemCol {
-	type oneD map[any]int64
-	type entry struct {
-		count int
-		row   []any
-	}
-
-	// the levels of each column in the table are stored in mps which maps the native value to int64
-	// the byte representation of the int64 are concatenated and fed to the hash function
-	var mps []oneD
-
-	// nextIndx is the next index value to use for each column
-	nextIndx := make([]int64, len(cols))
-	for ind := 0; ind < len(cols); ind++ {
-		mps = append(mps, make(oneD))
-	}
-
-	// tabMap is the map represenation of the table. The key is the hash value.
-	tabMap := make(map[uint64]*entry)
-
-	// buf is the 8 byte representation of the index number for a level of a column
-	buf := new(bytes.Buffer)
-	// h will be the hash of the bytes of the index numbers for each level of the table columns
-	h := fnv.New64()
-
-	// scan the rows to build the table
-	for row := 0; row < cols[0].Len(); row++ {
-		// str is the byte array that is hashed, its length is 8 times the # of columns
-		var str []byte
-
-		// rowVal holds the values of the columns for that row of the table
-		var rowVal []any
-		for c := 0; c < len(cols); c++ {
-			val := cols[c].Element(row)
-			rowVal = append(rowVal, val)
-			var (
-				cx int64
-				ok bool
-			)
-
-			if cx, ok = mps[c][val]; !ok {
-				mps[c][val] = nextIndx[c]
-				cx = nextIndx[c]
-				nextIndx[c]++
-			}
-
-			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
-				panic(e)
-			}
-
-			str = append(str, buf.Bytes()...)
-			buf.Reset()
-		}
-
-		_, _ = h.Write(str)
-		// increment the counter if that row is already mapped, o.w. add a new row
-		if v, ok := tabMap[h.Sum64()]; ok {
-			v.count++
-		} else {
-			tabMap[h.Sum64()] = &entry{
-				count: 1,
-				row:   rowVal,
-			}
-		}
-
-		h.Reset()
-	}
-
-	// build the table in d.DF format
-	var outData []any
-	for c := 0; c < len(cols); c++ {
-		outData = append(outData, d.MakeSlice(cols[c].DataType(), 0, nil))
-	}
-
-	outData = append(outData, d.MakeSlice(d.DTint, 0, nil))
-
-	for _, v := range tabMap {
-		for c := 0; c < len(v.row); c++ {
-			outData[c] = d.AppendSlice(outData[c], v.row[c], cols[c].DataType())
-		}
-
-		outData[len(v.row)] = d.AppendSlice(outData[len(v.row)], v.count, d.DTint)
-	}
-
-	// make into columns
-	var outCols []*MemCol
-	var (
-		mCol *MemCol
-		e    error
-	)
-	for c := 0; c < len(cols); c++ {
-		if mCol, e = NewMemCol(cols[c].Name(""), outData[c]); e != nil {
-			panic(e)
-		}
-
-		outCols = append(outCols, mCol)
-	}
-
-	if mCol, e = NewMemCol("count", outData[len(cols)]); e != nil {
-		panic(e)
-	}
-
-	outCols = append(outCols, mCol)
-
-	return outCols
-}
 
 
 
@@ -1216,4 +929,334 @@ func OKparams(cols []*MemCol, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok
 	}
 
 	return false, d.DTunknown
+}
+
+func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*MemCol, error) {
+	if col.DataType() == d.DTfloat {
+		return nil, fmt.Errorf("cannot make float to categorical")
+	}
+
+	nextInt := 0
+	for k, v := range catMap {
+		if k != nil && d.WhatAmI(k) != col.DataType() {
+			return nil, fmt.Errorf("map and column not same data types")
+		}
+
+		if v >= nextInt {
+			nextInt = v + 1
+		}
+	}
+
+	toMap := make(d.CategoryMap)
+	maps.Copy(toMap, catMap)
+	toMap[defaultVal] = -1
+	cnts := make(d.CategoryMap)
+
+	data := d.MakeSlice(d.DTint, 0, nil)
+	for ind := 0; ind < col.Len(); ind++ {
+		inVal := col.Element(ind)
+		if levels != nil && !d.In(inVal, levels) {
+			inVal = defaultVal
+		}
+
+		cnts[inVal]++
+
+		if mapVal, ok := toMap[inVal]; ok {
+			data = d.AppendSlice(data, mapVal, d.DTint)
+			continue
+		}
+
+		toMap[inVal] = nextInt
+		data = d.AppendSlice(data, nextInt, d.DTint)
+		nextInt++
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+
+	if outCol, e = NewMemCol("", data); e != nil {
+		return nil, e
+	}
+
+	outCol.dType = d.DTcategorical
+
+	outCol.catMap = toMap
+	outCol.catCounts = cnts
+
+	if fuzz > 1 {
+		outCol = fuzzCategorical(outCol, fuzz, defaultVal)
+	}
+
+	return outCol, nil
+}
+
+func fuzzCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "fuzzCat", Inputs: [][]d.DataTypes{{d.DTcategorical, d.DTint, d.DTint}, {d.DTcategorical, d.DTint, d.DTstring},
+			{d.DTcategorical, d.DTint, d.DTdate}}, Output: []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical}}
+	}
+
+	col := inputs[0].(*MemCol)
+	fuzz := inputs[1].(*MemCol).Element(0).(int)
+	defCol := inputs[2].(*MemCol)
+
+	if defCol.DataType() != col.RawType() {
+		return &d.FnReturn{Err: fmt.Errorf("default not same type as underlying in fuzzCat")}
+	}
+
+	defaultVal := defCol.Element(0)
+
+	outCol := fuzzCategorical(col, fuzz, defaultVal)
+
+	return &d.FnReturn{Value: outCol}
+}
+
+func fuzzCategorical(col *MemCol, fuzzValue int, defaultVal any) *MemCol {
+	catMap := make(d.CategoryMap)
+	//	catMap[defaultVal] = -1
+	catCounts := make(d.CategoryMap)
+	data := make([]int, col.Len())
+	copy(data, col.Data().([]int))
+	consVals := []int{-1} // map values to keep
+
+	for k, v := range col.catMap {
+		if col.catCounts[k] >= fuzzValue {
+			catMap[k] = v
+			catCounts[k] = col.catCounts[k]
+			consVals = append(consVals, v)
+			continue
+		}
+
+		catCounts[defaultVal]++
+	}
+
+	sort.Ints(consVals)
+
+	for ind, x := range col.Data().([]int) {
+		checkVal := x
+		if indx := sort.SearchInts(consVals, checkVal); indx == len(consVals) || consVals[indx] != checkVal {
+			data[ind] = -1
+		}
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+	if outCol, e = NewMemCol("", data); e != nil {
+		panic(e) // should not happen
+	}
+
+	outCol.catMap, outCol.catCounts, outCol.dType = catMap, catCounts, d.DTcategorical
+
+	return outCol
+}
+
+func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
+			Output:  []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical},
+			Varying: true}
+	}
+
+	col := inputs[0].(*MemCol)
+	dt := col.DataType()
+	if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
+		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
+	}
+
+	var levels []any
+	for ind := 1; ind < len(inputs); ind++ {
+		c := inputs[ind].(*MemCol)
+		if c.DataType() != col.DataType() {
+			return &d.FnReturn{Err: fmt.Errorf("levels of cat are not the same as the column")}
+		}
+
+		levels = append(levels, c.Element(0))
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+
+	if outCol, e = ToCategorical(col, nil, 1, nil, levels); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	outCol.rawType = dt
+	outFn := &d.FnReturn{Value: outCol}
+
+	return outFn
+}
+
+// applyCat
+// - vector to apply cats to
+// - vector with cats
+// - default if new category
+
+func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
+			{d.DTstring, d.DTcategorical, d.DTstring}, {d.DTdate, d.DTcategorical, d.DTdate}},
+			Output: []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical}}
+	}
+
+	newData := inputs[0].(*MemCol)
+	oldData := inputs[1].(*MemCol)
+	newVal := inputs[2].(*MemCol)
+
+	if newData.DataType() != oldData.rawType {
+		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
+	}
+
+	var (
+		defaultValue any
+		e            error
+	)
+
+	if newVal.DataType() != newData.DataType() {
+		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
+	}
+
+	defaultValue = newVal.Element(0)
+
+	var levels []any
+	for k := range oldData.catMap {
+		levels = append(levels, k)
+	}
+
+	var outCol *MemCol
+	_ = defaultValue
+	if outCol, e = ToCategorical(newData, oldData.catMap, 0, defaultValue, levels); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	outCol.rawType = newData.DataType()
+	outFn := &d.FnReturn{Value: outCol}
+
+	return outFn
+}
+
+func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "where", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTdf}}
+	}
+
+	var (
+		outDF d.DF
+		e     error
+	)
+	outDF, e = context.Self().Where(inputs[0].(d.Column))
+
+	return &d.FnReturn{Value: outDF, Err: e}
+}
+
+func makeTable(cols ...*MemCol) []*MemCol {
+	type oneD map[any]int64
+	type entry struct {
+		count int
+		row   []any
+	}
+
+	// the levels of each column in the table are stored in mps which maps the native value to int64
+	// the byte representation of the int64 are concatenated and fed to the hash function
+	var mps []oneD
+
+	// nextIndx is the next index value to use for each column
+	nextIndx := make([]int64, len(cols))
+	for ind := 0; ind < len(cols); ind++ {
+		mps = append(mps, make(oneD))
+	}
+
+	// tabMap is the map represenation of the table. The key is the hash value.
+	tabMap := make(map[uint64]*entry)
+
+	// buf is the 8 byte representation of the index number for a level of a column
+	buf := new(bytes.Buffer)
+	// h will be the hash of the bytes of the index numbers for each level of the table columns
+	h := fnv.New64()
+
+	// scan the rows to build the table
+	for row := 0; row < cols[0].Len(); row++ {
+		// str is the byte array that is hashed, its length is 8 times the # of columns
+		var str []byte
+
+		// rowVal holds the values of the columns for that row of the table
+		var rowVal []any
+		for c := 0; c < len(cols); c++ {
+			val := cols[c].Element(row)
+			rowVal = append(rowVal, val)
+			var (
+				cx int64
+				ok bool
+			)
+
+			if cx, ok = mps[c][val]; !ok {
+				mps[c][val] = nextIndx[c]
+				cx = nextIndx[c]
+				nextIndx[c]++
+			}
+
+			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
+				panic(e)
+			}
+
+			str = append(str, buf.Bytes()...)
+			buf.Reset()
+		}
+
+		_, _ = h.Write(str)
+		// increment the counter if that row is already mapped, o.w. add a new row
+		if v, ok := tabMap[h.Sum64()]; ok {
+			v.count++
+		} else {
+			tabMap[h.Sum64()] = &entry{
+				count: 1,
+				row:   rowVal,
+			}
+		}
+
+		h.Reset()
+	}
+
+	// build the table in d.DF format
+	var outData []any
+	for c := 0; c < len(cols); c++ {
+		outData = append(outData, d.MakeSlice(cols[c].DataType(), 0, nil))
+	}
+
+	outData = append(outData, d.MakeSlice(d.DTint, 0, nil))
+
+	for _, v := range tabMap {
+		for c := 0; c < len(v.row); c++ {
+			outData[c] = d.AppendSlice(outData[c], v.row[c], cols[c].DataType())
+		}
+
+		outData[len(v.row)] = d.AppendSlice(outData[len(v.row)], v.count, d.DTint)
+	}
+
+	// make into columns
+	var outCols []*MemCol
+	var (
+		mCol *MemCol
+		e    error
+	)
+	for c := 0; c < len(cols); c++ {
+		if mCol, e = NewMemCol(cols[c].Name(""), outData[c]); e != nil {
+			panic(e)
+		}
+
+		outCols = append(outCols, mCol)
+	}
+
+	if mCol, e = NewMemCol("count", outData[len(cols)]); e != nil {
+		panic(e)
+	}
+
+	outCols = append(outCols, mCol)
+
+	return outCols
 }

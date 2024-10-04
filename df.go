@@ -38,6 +38,7 @@ type DF interface {
 	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) (DF, error)
 	Core() *DFcore
+	Table(sortByRows bool, cols ...string) (DF, error)
 }
 
 type Ereturn func() error
