@@ -60,13 +60,55 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, eq,
 		exp, ge, gt, ifs, le, lt, log, multiply,
-		ne, not, or, subtract, sum, table, toCat,
+		ne, not, or, sortDF, subtract, sum, table, toCat,
 		toDate, toFloat, toInt, toString, fuzzCat,
 		where,
 	}
 }
 
-/////////// Standard Fns
+// ///////// Standard Fns
+
+// getNames returns the names of the input Columns starting with startInd element
+func getNames(startInd int, cols ...any) ([]string, error) {
+	var colNames []string
+	for ind := startInd; ind < len(cols); ind++ {
+		var cn string
+		if cn = cols[ind].(*MemCol).Name(""); cn == "" {
+			return nil, fmt.Errorf("column with no name in table")
+		}
+
+		colNames = append(colNames, cn)
+	}
+
+	return colNames, nil
+}
+
+func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
+			Output: []d.DataTypes{d.DTdf}, Varying: true}
+	}
+
+	ascending := true
+	if inputs[0].(*MemCol).Element(0).(string) == "desc" {
+		ascending = false
+	}
+
+	var (
+		colNames []string
+		e        error
+	)
+
+	if colNames, e = getNames(1, inputs...); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	if ex := context.Self().Sort(ascending, colNames...); ex != nil {
+		return &d.FnReturn{Err: ex}
+	}
+
+	return &d.FnReturn{Value: context.Self()}
+}
 
 func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
@@ -74,23 +116,21 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, Varying: true}
 	}
 
-	var colNames []string
+	var (
+		colNames []string
+		e        error
+	)
 
-	for ind := 0; ind < len(inputs); ind++ {
-		var cn string
-		if cn = inputs[ind].(*MemCol).Name(""); cn == "" {
-			return &d.FnReturn{Err: fmt.Errorf("column with no name in table")}
-		}
-
-		colNames = append(colNames, cn)
+	if colNames, e = getNames(0, inputs...); e != nil {
+		return &d.FnReturn{Err: e}
 	}
 
 	var (
 		outDF d.DF
-		e     error
+		ex    error
 	)
-	if outDF, e = context.Self().Table(false, colNames...); e != nil {
-		return &d.FnReturn{Err: e}
+	if outDF, ex = context.Self().Table(false, colNames...); ex != nil {
+		return &d.FnReturn{Err: ex}
 	}
 
 	ret := &d.FnReturn{Value: outDF}
@@ -949,7 +989,11 @@ func ToCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, defaultVal any, 
 
 	toMap := make(d.CategoryMap)
 	maps.Copy(toMap, catMap)
-	toMap[defaultVal] = -1
+
+	if _, ok := toMap[defaultVal]; !ok {
+		toMap[defaultVal] = -1
+	}
+
 	cnts := make(d.CategoryMap)
 
 	data := d.MakeSlice(d.DTint, 0, nil)

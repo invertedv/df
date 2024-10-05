@@ -17,7 +17,7 @@ import (
 func makeMemDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3.5})
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
-	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
+	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 15, 14})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
 	dfx, e := NewMemDF(RunDFfn, StandardFunctions(), x, y, z, yy)
 	_ = e
@@ -27,20 +27,37 @@ func makeMemDF() *MemDF {
 	return dfx
 }
 
-func TestTable(t *testing.T) {
+func TestParse_Sort(t *testing.T) {
+	dfx := makeMemDF()
+	//e := dfx.Sort(true, "y", "z")
+	_, e := dfx.Parse("sort('asc', y, x)")
+	assert.Nil(t, e)
+	y, _ := dfx.Column("y")
+	yy, _ := dfx.Column("yy")
+	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, y.Data())
+	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, yy.Data())
+}
+
+func TestParse_Table(t *testing.T) {
 	dfx := makeMemDF()
 	df, e := dfx.Parse("table(y,yy)")
 	assert.Nil(t, e)
-	fmt.Println(df.AsDF().RowCount())
+	fmt.Println(df.AsDF().Column("count"))
+	col, _ := df.AsDF().Column("count")
+	assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data())
+	e = df.AsDF().Sort(true, "y", "yy")
+	assert.Nil(t, e)
+	fmt.Println(df.AsDF().Column("y"))
 }
 
 func TestParser(t *testing.T) {
 	dfx := makeMemDF()
 	eqn := "date(z)"
 	colx, e := df.ParseExpr(eqn, dfx.DFcore)
+	assert.Nil(t, e)
 	col := colx.AsColumn()
 	col.Name("dt")
-	dfx.AppendColumn(col, true)
+	e = dfx.AppendColumn(col, true)
 	assert.Nil(t, e)
 
 	x := [][]any{
@@ -150,10 +167,21 @@ func TestApplyCat(t *testing.T) {
 	col.Name("c")
 	_ = dfx.AppendColumn(col, false)
 
+	v := col.(*MemCol).catMap[6]
+
+	// default is a known category level
+	expr = "applyCat(yy, c, 6)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	exp := []int{0, v, v, 0, v, v}
+	assert.Equal(t, exp, colx.AsColumn().Data())
+
+	// default is not a known category level
 	expr = "applyCat(yy, c, 100)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	exp := []int{0, -1, -1, 0, 3, 4}
+	v = -1
+	exp = []int{0, v, v, 0, v, v}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	expr = "c + y"
@@ -300,16 +328,6 @@ func TestSumx(t *testing.T) {
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-}
-
-func TestDF_Sort(t *testing.T) {
-	dfx := makeMemDF()
-	e := dfx.Sort(true, "y", "z")
-	assert.Nil(t, e)
-	x, _ := dfx.Column("x")
-	y, _ := dfx.Column("y")
-	z, _ := dfx.Column("z")
-	fmt.Println(x.Data(), y.Data(), z.Data())
 }
 
 // NewConnect established a new connection to ClickHouse.
