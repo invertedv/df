@@ -61,10 +61,12 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"int(x)", 5, int(3)},
+		{"sum(y)", 0, int(12)},
+		{"mean(yy)", 0, float64(32) / 6.0},
 		{"if(y == 1, 2.0, (x))", 0, float64(1)},
 		{"if(y == 1, 2.0, (x))", 1, float64(2)},
 		{"(float(4+2) * abs(-3.0/2.0))", 0, float64(9)},
-		{"sum(y)", 0, int(12)},
 		{"y != 1", 0, int(0)},
 		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
 		{"y>=1 && y>=1 && dt > date(20221231)", 0, int(0)},

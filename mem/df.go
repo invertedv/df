@@ -90,8 +90,8 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 			continue
 		}
 
-		if e = memDF.AppendColumn(col, false); e != nil {
-			return nil, e
+		if ex := memDF.AppendColumn(col, false); ex != nil {
+			return nil, ex
 		}
 	}
 
@@ -102,23 +102,23 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 	return memDF, nil
 }
 
-func (df *MemDF) SourceQuery() string {
-	return df.sourceQuery
+func (m *MemDF) SourceQuery() string {
+	return m.sourceQuery
 }
 
-func (df *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
+func (m *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
 	return nil
 }
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
-func (df *MemDF) AppendColumn(col d.Column, replace bool) error {
+func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
 	colx := col.(*MemCol)
 	if colx.Len() == 1 {
 		var e error
 		dt := col.DataType()
 		xs := d.MakeSlice(col.DataType(), 0, nil)
 		val := colx.Element(0)
-		for ind := 0; ind < df.RowCount(); ind++ {
+		for ind := 0; ind < m.RowCount(); ind++ {
 			xs = d.AppendSlice(xs, val, dt)
 		}
 
@@ -127,21 +127,21 @@ func (df *MemDF) AppendColumn(col d.Column, replace bool) error {
 		}
 	}
 
-	if ex := df.DFcore.AppendColumn(colx, replace); ex != nil {
+	if ex := m.DFcore.AppendColumn(colx, replace); ex != nil {
 		return ex
 	}
 
 	return nil
 }
 
-func (df *MemDF) Less(i, j int) bool {
-	for ind := 0; ind < len(df.by); ind++ {
+func (m *MemDF) Less(i, j int) bool {
+	for ind := 0; ind < len(m.by); ind++ {
 		var less bool
-		if df.ascending {
-			less = df.by[ind].Less(i, j)
+		if m.ascending {
+			less = m.by[ind].Less(i, j)
 
 		} else {
-			less = df.by[ind].Greater(i, j)
+			less = m.by[ind].Greater(i, j)
 		}
 
 		// if greater, it's false
@@ -150,7 +150,7 @@ func (df *MemDF) Less(i, j int) bool {
 		}
 
 		// if < (rather than <=) it's true
-		if df.by[ind].Less(i, j) && !df.by[ind].Less(j, i) {
+		if m.by[ind].Less(i, j) && !m.by[ind].Less(j, i) {
 			return true
 		}
 
@@ -160,12 +160,8 @@ func (df *MemDF) Less(i, j int) bool {
 	return true
 }
 
-func (df *MemDF) Swap(i, j int) {
-	for h := df.Next(true); h != nil; h = df.Next(false) {
-		//		if h.Len() == 1 {
-		//			continue
-		//		}
-
+func (m *MemDF) Swap(i, j int) {
+	for h := m.Next(true); h != nil; h = m.Next(false) {
 		data := h.(*MemCol).data
 		switch h.DataType() {
 		case d.DTfloat:
@@ -182,7 +178,7 @@ func (df *MemDF) Swap(i, j int) {
 	}
 }
 
-func (df *MemDF) Sort(ascending bool, cols ...string) error {
+func (m *MemDF) Sort(ascending bool, cols ...string) error {
 	var by []*MemCol
 
 	for ind := 0; ind < len(cols); ind++ {
@@ -191,36 +187,36 @@ func (df *MemDF) Sort(ascending bool, cols ...string) error {
 			e error
 		)
 
-		if x, e = df.Column(cols[ind]); e != nil {
+		if x, e = m.Column(cols[ind]); e != nil {
 			return e
 		}
 
 		by = append(by, x.(*MemCol))
 	}
 
-	df.by = by
-	df.ascending = ascending
-	sort.Sort(df)
+	m.by = by
+	m.ascending = ascending
+	sort.Sort(m)
 
 	return nil
 }
 
-func (df *MemDF) RowCount() int {
-	return df.Next(true).Len()
+func (m *MemDF) RowCount() int {
+	return m.Next(true).Len()
 }
 
-// Len() is required for sort
-func (df *MemDF) Len() int {
-	return df.RowCount()
+// Len is required for sort
+func (m *MemDF) Len() int {
+	return m.RowCount()
 }
 
-func (df *MemDF) Row(rowNum int) []any {
-	if rowNum >= df.RowCount() {
+func (m *MemDF) Row(rowNum int) []any {
+	if rowNum >= m.RowCount() {
 		return nil
 	}
 
 	var r []any
-	for cx := df.Next(true); cx != nil; cx = df.Next(false) {
+	for cx := m.Next(true); cx != nil; cx = m.Next(false) {
 		var v any
 		i := u.MinInt(rowNum, cx.Len()-1)
 		switch cx.DataType() {
@@ -278,7 +274,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		ascending = true
 	}
 
-	if ex := outDF.Sort(ascending, sortBy...); e != nil {
+	if ex := outDF.Sort(ascending, sortBy...); ex != nil {
 		return nil, ex
 	}
 
@@ -304,48 +300,34 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	return outDF, nil
 }
 
-func (df *MemDF) Core() *d.DFcore {
-	return df.DFcore
+func (m *MemDF) Core() *d.DFcore {
+	return m.DFcore
 }
 
-func (df *MemDF) FileSave(fileName string) error {
-	if e := df.Files().Create(fileName); e != nil {
+func (m *MemDF) FileSave(fileName string) error {
+	if e := m.Files().Create(fileName); e != nil {
 		return e
 	}
-	defer func() { _ = df.Files().Close() }()
+	defer func() { _ = m.Files().Close() }()
 
-	df.Files().FieldNames = df.ColumnNames()
+	m.Files().FieldNames = m.ColumnNames()
 
-	if e := df.Files().WriteHeader(); e != nil {
+	if e := m.Files().WriteHeader(); e != nil {
 		return e
 	}
 
-	for ind := 0; ind < df.RowCount(); ind++ {
+	for ind := 0; ind < m.RowCount(); ind++ {
 		var row []any
-		if row = df.Row(ind); row == nil {
+		if row = m.Row(ind); row == nil {
 			return fmt.Errorf("unexpected end of MemDF")
 		}
-		if e := df.Files().WriteLine(row); e != nil {
+		if e := m.Files().WriteLine(row); e != nil {
 			return e
 		}
 	}
 
 	return nil
 }
-
-// MakeColumn creates a column of length 1 with data equal to value
-//func (m *MemDF) MakeColumn(value any) (d.Column, error) {
-//	var dt d.DataTypes
-//	if dt = d.WhatAmI(value); dt == d.DTunknown {
-//		return nil, fmt.Errorf("unsupported data type")
-//	}
-//
-//	data := d.MakeSlice(dt, 0, nil)
-//	data = d.AppendSlice(data, value, dt)
-//
-//	cx, e := NewMemCol("", data)
-//	return cx, e
-//}
 
 func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
 	if indicator.Len() != m.RowCount() {
@@ -428,24 +410,24 @@ func NewMemCol(name string, data any) (*MemCol, error) {
 		return nil, fmt.Errorf("unsupported data type in NewMemCol")
 	}
 
-	var d any
+	var t any
 	switch dx := data.(type) {
 	case float64:
-		d = []float64{dx}
+		t = []float64{dx}
 	case int:
-		d = []int{dx}
+		t = []int{dx}
 	case time.Time:
-		d = []time.Time{dx}
+		t = []time.Time{dx}
 	case string:
-		d = []string{dx}
+		t = []string{dx}
 	default:
-		d = data
+		t = data
 	}
 
 	c := &MemCol{
 		name:   name,
 		dType:  dt,
-		data:   d,
+		data:   t,
 		catMap: nil,
 	}
 
@@ -576,7 +558,8 @@ func (m *MemCol) Greater(i, j int) bool {
 
 func AppendRows(col1, col2 d.Column, name string) (*MemCol, error) {
 	if col1.DataType() != col2.DataType() {
-		return nil, fmt.Errorf("append columns must have same type, got %s and %s for %s and %s", col1.DataType(), col2.DataType(), col1.Name(""), col2.Name(""))
+		return nil, fmt.Errorf("append columns must have same type, got %s and %s for %s and %s",
+			col1.DataType(), col2.DataType(), col1.Name(""), col2.Name(""))
 	}
 
 	var data any
