@@ -112,6 +112,10 @@ func (m *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
+	if m.RowCount() != col.Len() && col.Len() > 1 {
+		return fmt.Errorf("unequal lengths in AppendColumn")
+	}
+
 	colx := col.(*MemCol)
 	if colx.Len() == 1 {
 		var e error

@@ -152,7 +152,7 @@ func realFn(fn func(x float64) float64, name string, info bool, context *d.Conte
 		data.([]float64)[ind] = fn(col[0].Element(ind).(float64))
 	}
 
-	return returnCol(data, d.DTfloat)
+	return returnCol(data)
 }
 
 func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -212,7 +212,7 @@ func cast(name string, in [][]d.DataTypes, out []d.DataTypes, info bool, context
 		data = d.AppendSlice(data, x, out[0])
 	}
 
-	return returnCol(data, out[0])
+	return returnCol(data)
 }
 
 // ***************** Functions that return a scalar *****************
@@ -225,8 +225,7 @@ func single(name string, fn func(any) any, in [][]d.DataTypes,
 	}
 	col := inputs[0].(*MemCol)
 
-	val := fn(col)
-	return returnCol(val, d.WhatAmI(val))
+	return returnCol(fn(col))
 }
 
 func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -364,7 +363,7 @@ func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnRe
 		dataOut = data
 	}
 
-	return returnCol(dataOut, cols[1].DataType())
+	return returnCol(dataOut)
 
 }
 
@@ -407,7 +406,7 @@ func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		}
 	}
 
-	return returnCol(data, col.DataType())
+	return returnCol(data)
 }
 
 ////////////// logical functions
@@ -446,7 +445,7 @@ func logical(op string, info bool, context *d.Context, inputs ...any) *d.FnRetur
 		data.([]int)[ind] = logic(cols[0].Element(ind).(int), cols[1].Element(ind).(int), op)
 	}
 
-	return returnCol(data, d.DTint)
+	return returnCol(data)
 }
 
 func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -468,7 +467,7 @@ func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		data.([]int)[ind] = logic(0, cols[0].Element(ind).(int), "not")
 	}
 
-	return returnCol(data, d.DTint)
+	return returnCol(data)
 }
 
 func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -491,7 +490,7 @@ func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		data = d.AppendSlice(data, val, dt)
 	}
 
-	return returnCol(data, dt)
+	return returnCol(data)
 }
 
 // ***************** Functions that compare two columns element-wise *****************
@@ -524,7 +523,7 @@ func compare(op, name string, info bool, context *d.Context, inputs ...any) *d.F
 		data.([]int)[ind] = truth
 	}
 
-	return returnCol(data, d.DTint)
+	return returnCol(data)
 }
 
 func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -781,7 +780,7 @@ func parameters(inputs ...any) (cols []*MemCol, n int) {
 	return cols, n
 }
 
-func returnCol(data any, dt d.DataTypes) *d.FnReturn {
+func returnCol(data any) *d.FnReturn {
 	var (
 		outCol *MemCol
 		e      error

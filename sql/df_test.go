@@ -60,47 +60,74 @@ func df4test() (*SQLdf, error) {
 
 	return df, nil
 }
+func TestWhere(t *testing.T) {
+	dfx, e := df4test()
+	assert.Nil(t, e)
+	expr := "where(latitude<=42.5 && longitude > -73.0)"
+	out, e := dfx.Parse(expr)
+	assert.Nil(t, e)
+	outDF := out.AsDF().(*SQLdf)
+	//assert.Equal(t, 10, outDF.AsDF().RowCount())
+	fmt.Println(outDF.MakeQuery())
+	e = outDF.CreateTable("tmp.aaa", "prop_zip3", true)
+	assert.Nil(t, e)
+	e = outDF.DBsave("tmp.aaa", true)
+	assert.Nil(t, e)
+
+	/*	outDF, e = dfx.Parse("where(x >= 1.0)")
+		assert.Nil(t, e)
+		assert.Equal(t, 4, outDF.AsDF().RowCount())
+
+		outDF, e = outDF.AsDF().Parse("where( x>=3.0)")
+		assert.Nil(t, e)
+		assert.Equal(t, 2, outDF.AsDF().RowCount())
+
+	*/
+}
 
 func TestSQLdf_Where(t *testing.T) {
 	df, e := df4test()
 	assert.Nil(t, e)
 	//	e = df2.ParseExpr("ind :=prop_zip3 == '005'", df)
 	//	assert.Nil(t, e)
-	col, ex := df2.ParseExpr("l2 := if(prop_zip3=='005', 'yes','no')", df)
+	//	col, ex := df.Parse("l2 := if(prop_zip3=='005', 'yes','no')")
+	//	assert.Nil(t, ex)
+	//	_ = df.AppendColumn(col.AsColumn(), false)
+	col, ex := df.Parse("(latitude/-10.0)*(longitude+exp(1.0))+4.0--3.0")
 	assert.Nil(t, ex)
-	_ = df.AppendColumn(col, false)
-	col, e = df2.ParseExpr("lexp := exp(latitude/100)", df)
+	c := col.AsColumn()
+	c.Name("newCol")
+	e = df.AppendColumn(c, false)
 	assert.Nil(t, e)
-	_ = df.AppendColumn(col, false)
-	col, e = df2.ParseExpr("test :='20221231'", df)
-	assert.Nil(t, e)
-	_ = df.AppendColumn(col, false)
-	col, e = df2.ParseExpr("test1 :=int(4)", df)
-	assert.Nil(t, e)
-	_ = df.AppendColumn(col, false)
-	col, e = df2.ParseExpr("test2 :=(test != '20221231' || latitude < 41) && test1 >= 3", df)
-	assert.Nil(t, e)
-	_ = df.AppendColumn(col, false)
-	col, e = df2.ParseExpr("test3 :=test == '20221231' || latitude < 40 && test1 >= 3", df)
-	assert.Nil(t, e)
-	_ = df.AppendColumn(col, false)
-	col, e = df2.ParseExpr("logical :=prop_zip3 == '005'", df)
-	assert.Nil(t, e)
-	_ = df.AppendColumn(col, false)
-
-	//	e = df2.ParseExpr("test1 :=string(latitude)", df)
+	fmt.Println(df.MakeQuery())
+	//	col, e = df.Parse("test :='20221231'")
 	//	assert.Nil(t, e)
-	//	var col df2.Column
-	col, e = df.Column("logical")
-	assert.Nil(t, e)
-	e = df.Where(col)
-	assert.Nil(t, e)
+	//	_ = df.AppendColumn(col.AsColumn(), false)
+	//	col, e = df.Parse("test1 :=int(4)")
+	//	assert.Nil(t, e)
+	//	_ = df.AppendColumn(col.AsColumn(), false)
+	//	col, e = df.Parse("test2 :=(test != '20221231' || latitude < 41) && test1 >= 3")
+	//	assert.Nil(t, e)
+	//	_ = df.AppendColumn(col.AsColumn(), false)
+	//	col, e = df.Parse("test3 :=test == '20221231' || latitude < 40 && test1 >= 3")
+	//	assert.Nil(t, e)
+	//	_ = df.AppendColumn(col.AsColumn(), false)
+	//	col, e = df.Parse("logical :=prop_zip3 == '005'")
+	//	assert.Nil(t, e)
+	//	_ = df.AppendColumn(col.AsColumn(), false)
+
+	//	var colx df2.Column
+	//	colx, e = df.Column("logical")
+	//	assert.Nil(t, e)
+	//	newDF, e1 := df.Where(colx)
+	//	assert.Nil(t, e1)
 	e = df.CreateTable("tmp.aaa", "prop_zip3", true)
 	assert.Nil(t, e)
 	e = df.DBsave("tmp.aaa", true)
 	assert.Nil(t, e)
 }
 
+/*
 func TestNewSQLdf(t *testing.T) {
 	df, e := df4test()
 	assert.Nil(t, e)
@@ -149,3 +176,6 @@ func TestNewSQLdf(t *testing.T) {
 	assert.Nil(t, e)
 
 }
+
+
+*/

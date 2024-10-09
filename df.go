@@ -269,6 +269,7 @@ func (df *DFcore) Copy() *DFcore {
 	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
 		panic(e)
 	}
+	outDF.SetContext(df.Context)
 
 	// don't copy context
 
@@ -394,10 +395,6 @@ func (df *DFcore) ValidName(columnName string) bool {
 }
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
-	if df.Context != nil && df.Context.Self() != nil && df.Context.Self().RowCount() != col.Len() {
-		return fmt.Errorf("unequal lengths in AppendColumn")
-	}
-
 	if replace {
 		_ = df.DropColumns(col.Name(""))
 	}

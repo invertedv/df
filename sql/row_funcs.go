@@ -6,58 +6,200 @@ import (
 	d "github.com/invertedv/df"
 )
 
-func Run(fn d.Fn, context *d.Context, inputs []any) (outCol d.Column, err error) {
+func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 	info := fn(true, nil)
-	if len(inputs) != len(info.Inputs) {
+	if !info.Varying && len(inputs) != len(info.Inputs[0]) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
-	var xs []any
-	for ind := 0; ind < len(inputs); ind++ {
-		if cx, ok := inputs[ind].(*SQLcol); ok {
-			if !d.Compatible(info.Inputs[ind], cx.DataType(), false) {
-				return nil, fmt.Errorf("in function %s: want data type %v got %v", info.Name, info.Inputs[ind], cx.DataType())
+	if info.Varying && len(inputs) < len(info.Inputs[0]) {
+		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
+	}
+
+	var (
+		inps []any
+		cols []*SQLcol
+	)
+	for j := 0; j < len(inputs); j++ {
+		var (
+			ok  bool
+			col *SQLcol
+		)
+		if col, ok = inputs[j].(*SQLcol); !ok {
+			var e error
+			table := context.Self().(*SQLdf).MakeQuery()
+			if col, e = NewColScalar("", table, inputs[j]); e != nil {
+				return nil, e
 			}
-			xs = append(xs, cx)
-			continue
 		}
 
-		// check if value can be cast to correct type
-		if _, e := d.ToDataType(inputs[ind], info.Inputs[ind], true); e != nil {
-			return nil, e
-		}
-
-		// the functions expect all inputs to be *SQLcol.
-		col := &SQLcol{sql: inputs[ind].(string), dType: info.Inputs[ind]}
-		xs = append(xs, col)
+		inps = append(inps, col)
+		cols = append(cols, col)
 	}
 
-	r := fn(false, context, xs...)
-
-	if r.Err != nil {
-		return nil, r.Err
+	if ok, _ := okParams(cols, info.Inputs, info.Output); !ok {
+		return nil, fmt.Errorf("bad parameters to %s", info.Name)
 	}
 
-	outCol = &SQLcol{
-		name:   "",
-		dType:  r.Output,
-		sql:    r.Value.(string),
-		catMap: nil,
+	var fnR *d.FnReturn
+	if fnR = fn(false, context, inps...); fnR.Err != nil {
+		return nil, fnR.Err
 	}
 
-	return outCol, nil
+	//TODO: check return type
+
+	return fnR.Value, nil
 }
 
 func StandardFunctions() d.Fns {
-	return d.Fns{
-		abs, add, and, cast, divide,
-		eq, exp, ge, gt, ifs, le, log, lt,
-		multiply, ne, not, or, subtract,
-		toDate, toFloat, toInt, toString}
+
+	return d.Fns{add, and, divide, exp, ge, gt, le, lt, multiply, subtract, where}
+	//	return d.Fns{
+	//		abs, add, and, cast, divide,
+	//		eq, exp, ge, gt, ifs, le, log, lt,
+	//		multiply, ne, not, or, subtract,
+	//		toDate, toFloat, toInt, toString}
 }
 
 // ////////  Standard Fns
 
+// ***************** Functions that return a data frame *****************
+
+func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "where", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTdf}}
+	}
+
+	var (
+		outDF d.DF
+		e     error
+	)
+	outDF, e = context.Self().Where(inputs[0].(d.Column))
+
+	return &d.FnReturn{Value: outDF, Err: e}
+}
+
+// arithmetic operations
+func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat},
+			{d.DTint, d.DTint}, {d.DTstring, d.DTfloat}, {d.DTstring, d.DTint}},
+			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTfloat, d.DTint}}
+	}
+	sqls := getSQL(inputs...)
+	dts := getDataTypes(inputs...)
+
+	// handles cases like x--3
+	if sqls[0] == "'zero'" {
+		sqls[0] = "0"
+	}
+	// The parentheses are required based on how the parser works.
+	sql := fmt.Sprintf("(%s %s %s)", sqls[0], op, sqls[1])
+	var dtOut d.DataTypes
+	dtOut = d.DTfloat
+	if dts[0] == d.DTint && dts[1] == d.DTint {
+		dtOut = d.DTint
+	}
+
+	table := context.Self().(*SQLdf).MakeQuery()
+
+	outCol := NewColSQL("", table, dtOut, sql)
+
+	return &d.FnReturn{Value: outCol}
+}
+
+func add(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("+", "add", info, context, inputs...)
+}
+
+func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("-", "subtract", info, context, inputs...)
+}
+
+func multiply(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("*", "multiply", info, context, inputs...)
+}
+
+func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return arithmetic("/", "divide", info, context, inputs...)
+}
+
+// ****************** logical ************
+func prep(op, name string, inps [][]d.DataTypes, outp []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: name, Inputs: inps, Output: outp}
+	}
+	sqls := getSQL(inputs...)
+
+	// The parentheses are required based on how the parser works.
+	sql := fmt.Sprintf("(%s %s %s)", sqls[0], op, sqls[1])
+
+	table := context.Self().(*SQLdf).MakeQuery()
+
+	outCol := NewColSQL("", table, d.DTint, sql)
+
+	return &d.FnReturn{Value: outCol}
+}
+
+func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
+	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
+	return prep(">", "gt", inps, outp, info, context, inputs...)
+}
+
+func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
+	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
+	return prep(">=", "ge", inps, outp, info, context, inputs...)
+}
+
+func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
+	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
+	return prep("<", "lt", inps, outp, info, context, inputs...)
+}
+
+func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
+	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
+	return prep("<=", "le", inps, outp, info, context, inputs...)
+}
+
+func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
+	outp := []d.DataTypes{d.DTint}
+	return prep("and", "and", inps, outp, info, context, inputs...)
+}
+
+// real functions that take a single argument
+func realFn(name string, inp, outp d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{inp}}, Output: []d.DataTypes{outp}}
+	}
+
+	sqls := getSQL(inputs...)
+	dts := getDataTypes(inputs...)
+
+	// The parentheses are required based on how the parser works.
+	sql := fmt.Sprintf("exp(%s)", sqls[0])
+	var dtOut d.DataTypes
+	dtOut = d.DTfloat
+	if dts[0] == d.DTint && dts[1] == d.DTint {
+		dtOut = d.DTint
+	}
+
+	table := context.Self().(*SQLdf).MakeQuery()
+
+	outCol := NewColSQL("", table, dtOut, sql)
+
+	return &d.FnReturn{Value: outCol}
+}
+
+func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return realFn("exp", d.DTfloat, d.DTfloat, info, context, inputs...)
+}
+
+/*
 func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}}
@@ -331,10 +473,10 @@ func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	return &d.FnReturn{Value: sql, Output: d.DTstring}
 }
-
+*/
 ////////////////////////
 
-func getData(inputs ...any) []string {
+func getSQL(inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
 		sOut = append(sOut, inputs[ind].(*SQLcol).Data().(string))
@@ -350,4 +492,22 @@ func getDataTypes(inputs ...any) []d.DataTypes {
 	}
 
 	return sOut
+}
+
+func okParams(cols []*SQLcol, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok bool, outType d.DataTypes) {
+	for j := 0; j < len(inputs); j++ {
+		ok = true
+		for k := 0; k < len(inputs[j]); k++ {
+			if cols[k].DataType() != inputs[j][k] {
+				ok = false
+				break
+			}
+		}
+
+		if ok {
+			return true, outputs[j]
+		}
+	}
+
+	return false, d.DTunknown
 }

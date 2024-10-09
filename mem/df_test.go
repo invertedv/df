@@ -20,9 +20,14 @@ func makeMemDF() *MemDF {
 	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 15, 14})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
 	dfx, e := NewMemDF(RunDFfn, StandardFunctions(), x, y, z, yy)
-	_ = e
+	if e != nil {
+		panic(e)
+	}
+
 	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
-	e = dfx.AppendColumn(xx, false)
+	if e := dfx.AppendColumn(xx, false); e != nil {
+		panic(e)
+	}
 
 	return dfx
 }
@@ -40,14 +45,14 @@ func TestParse_Sort(t *testing.T) {
 
 func TestParse_Table(t *testing.T) {
 	dfx := makeMemDF()
-	df, e := dfx.Parse("table(y,yy)")
+	df1, e := dfx.Parse("table(y,yy)")
 	assert.Nil(t, e)
-	fmt.Println(df.AsDF().Column("count"))
-	col, _ := df.AsDF().Column("count")
+	fmt.Println(df1.AsDF().Column("count"))
+	col, _ := df1.AsDF().Column("count")
 	assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data())
-	e = df.AsDF().Sort(true, "y", "yy")
+	e = df1.AsDF().Sort(true, "y", "yy")
 	assert.Nil(t, e)
-	fmt.Println(df.AsDF().Column("y"))
+	fmt.Println(df1.AsDF().Column("y"))
 }
 
 func TestParser(t *testing.T) {
@@ -61,43 +66,46 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
-		{"int(x)", 5, int(3)},
-		{"sum(y)", 0, int(12)},
+		{"x--1.0", 0, 2.0},
+		{"(x/0.1)*float(y+100)", 0, 1010.0},
+		{"x*10.0", 0, 10.0},
+		{"int(x)", 5, 3},
+		{"sum(y)", 0, 12},
 		{"mean(yy)", 0, float64(32) / 6.0},
 		{"if(y == 1, 2.0, (x))", 0, float64(1)},
 		{"if(y == 1, 2.0, (x))", 1, float64(2)},
 		{"(float(4+2) * abs(-3.0/2.0))", 0, float64(9)},
-		{"y != 1", 0, int(0)},
-		{"y>=1 && y>=1 && dt >= date(20221231)", 0, int(1)},
-		{"y>=1 && y>=1 && dt > date(20221231)", 0, int(0)},
-		{"y>=1 && y>=1", 0, int(1)},
-		{"!(y>=1) && y>=1", 0, int(0)},
-		{"!1 && 1 || 1", 0, int(1)},
-		{"!1 && 1 || 0", 0, int(0)},
-		{"!0 && 1 || 0", 0, int(1)},
-		{"!1 && 1", 0, int(0)},
-		{"1 || 0 && 1", 0, int(1)},
-		{"0 || 0 && 1", 0, int(0)},
-		{"0 || 1 && 1", 0, int(1)},
-		{"0 || 1 && 1 && 0", 0, int(0)},
-		{"(0 || 1 && 1) && 0", 0, int(0)},
-		{"y < 2", 0, int(1)},
-		{"y < 1", 0, int(0)},
-		{"y <= 1", 0, int(1)},
-		{"y > 1", 0, int(0)},
-		{"y >= 1", 0, int(1)},
-		{"dt != date(20221231)", 0, int(0)},
-		{"dt != date(20221231)", 1, int(1)},
-		{"dt == date(20221231)", 0, int(1)},
-		{"dt == date(20221231)", 1, int(0)},
-		{"y == 1", 0, int(1)},
-		{"y == 1", 1, int(0)},
-		{"y && 1", 0, int(1)},
-		{"0 && 1", 0, int(0)},
-		{"0 || 0", 0, int(0)},
-		{"0 || 1", 0, int(1)},
+		{"y != 1", 0, 0},
+		{"y>=1 && y>=1 && dt >= date(20221231)", 0, 1},
+		{"y>=1 && y>=1 && dt > date(20221231)", 0, 0},
+		{"y>=1 && y>=1", 0, 1},
+		{"!(y>=1) && y>=1", 0, 0},
+		{"!1 && 1 || 1", 0, 1},
+		{"!1 && 1 || 0", 0, 0},
+		{"!0 && 1 || 0", 0, 1},
+		{"!1 && 1", 0, 0},
+		{"1 || 0 && 1", 0, 1},
+		{"0 || 0 && 1", 0, 0},
+		{"0 || 1 && 1", 0, 1},
+		{"0 || 1 && 1 && 0", 0, 0},
+		{"(0 || 1 && 1) && 0", 0, 0},
+		{"y < 2", 0, 1},
+		{"y < 1", 0, 0},
+		{"y <= 1", 0, 1},
+		{"y > 1", 0, 0},
+		{"y >= 1", 0, 1},
+		{"dt != date(20221231)", 0, 0},
+		{"dt != date(20221231)", 1, 1},
+		{"dt == date(20221231)", 0, 1},
+		{"dt == date(20221231)", 1, 0},
+		{"y == 1", 0, 1},
+		{"y == 1", 1, 0},
+		{"y && 1", 0, 1},
+		{"0 && 1", 0, 0},
+		{"0 || 0", 0, 0},
+		{"0 || 1", 0, 1},
 		{"4+3", 0, int(7)},
-		{"4-1-1-1-1", 0, int(0)},
+		{"4-1-1-1-1", 0, 0},
 		{"4+1-1", 0, int(4)},
 		{"4+1--1", 0, int(6)},
 		{"float(4)+1.0--1.0", 0, float64(6)},
@@ -109,11 +117,11 @@ func TestParser(t *testing.T) {
 		{"-x +4.0", 1, float64(6)},
 		{"x/0.0", 0, math.Inf(1)},
 		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, float64(42)},
-		{"(1 + 2) - -(-1 - 2)", 0, int(0)},
+		{"(1 + 2) - -(-1 - 2)", 0, 0},
 		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
 		{"string(float(1))", 0, "1.00"},
 		{"float('1.1')", 0, float64(1.1)},
-		{"int(2.9)", 0, int(2)},
+		{"int(2.9)", 0, 2},
 	}
 
 	cnt := 0
@@ -444,6 +452,7 @@ func TestMemDF_Table(t *testing.T) {
 
 	var tab df.DF
 	tab, e = dfx.Table(false, "x", "y")
+	assert.Nil(t, e)
 	cNames := tab.ColumnNames()
 	for ind := 0; ind < len(cNames); ind++ {
 		col, _ := tab.Column(cNames[ind])
