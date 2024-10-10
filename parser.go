@@ -56,6 +56,10 @@ func NewParsed(value any) *Parsed {
 		p.scalar = x
 	case time.Time:
 		p.scalar = x
+	case string:
+		p.scalar = x
+	case int:
+		p.scalar = x
 	default:
 		var (
 			xx any

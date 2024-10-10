@@ -292,7 +292,7 @@ func (d *Dialect) Quote() string {
 	return ""
 }
 
-func (d *Dialect) CastConstant(constant string, toDT DataTypes) (sql string, err error) {
+func (d *Dialect) CastConstantXXXX(constant string, toDT DataTypes) (sql string, err error) {
 	var (
 		dbType string
 		e      error
@@ -328,6 +328,12 @@ func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sql string, err e
 	}
 
 	if d.dialect == "clickhouse" {
+		// is this a constant?
+		if x, e := ToDate(fieldName, true); e == nil {
+			sql = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
+			return sql, nil
+		}
+
 		sql = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
 		return sql, nil
 	}

@@ -53,7 +53,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 func StandardFunctions() d.Fns {
 
-	return d.Fns{add, and, divide, exp, ge, gt, le, lt, multiply, subtract, where}
+	return d.Fns{add, and, divide, eq, exp, ge, gt, le, lt, multiply, ne, or, subtract, toDate, toFloat, toInt, toString, where}
 	//	return d.Fns{
 	//		abs, add, and, cast, divide,
 	//		eq, exp, ge, gt, ifs, le, log, lt,
@@ -79,7 +79,8 @@ func where(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: outDF, Err: e}
 }
 
-// arithmetic operations
+// ***************** arithmetic operations *****************
+
 func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat},
@@ -124,7 +125,8 @@ func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return arithmetic("/", "divide", info, context, inputs...)
 }
 
-// ****************** logical ************
+// ***************** logical operations *****************
+
 func prep(op, name string, inps [][]d.DataTypes, outp []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: name, Inputs: inps, Output: outp}
@@ -165,10 +167,34 @@ func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return prep("<=", "le", inps, outp, info, context, inputs...)
 }
 
+func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
+	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
+	return prep("==", "eq", inps, outp, info, context, inputs...)
+}
+
+func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
+	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
+	return prep("!=", "ne", inps, outp, info, context, inputs...)
+}
+
 func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
 	outp := []d.DataTypes{d.DTint}
 	return prep("and", "and", inps, outp, info, context, inputs...)
+}
+
+func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
+	outp := []d.DataTypes{d.DTint}
+	return prep("or", "or", inps, outp, info, context, inputs...)
+}
+
+func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
+	outp := []d.DataTypes{d.DTint}
+	return prep("!", "not", inps, outp, info, context, inputs...)
 }
 
 // real functions that take a single argument
@@ -197,6 +223,58 @@ func realFn(name string, inp, outp d.DataTypes, info bool, context *d.Context, i
 
 func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return realFn("exp", d.DTfloat, d.DTfloat, info, context, inputs...)
+}
+
+// ***************** type conversions *****************
+func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTdate}, {d.DTstring}},
+			Output: []d.DataTypes{out, out, out, out}}
+	}
+
+	inp := inputs[0].(*SQLcol).Data().(string)
+
+	var (
+		sql string
+		e   error
+	)
+
+	if sql, e = context.Dialect().CastField(inp, out); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	/*	if _, ex := context.Self().Column(inp); ex != nil {
+			if sql, e = context.Dialect().CastConstant(inp, out); e != nil {
+				return &d.FnReturn{Err: e}
+			}
+		} else {
+			if sql, e = context.Dialect().CastField(inp, out); e != nil {
+				return &d.FnReturn{Err: e}
+			}
+		}
+
+	*/
+
+	table := context.Self().(*SQLdf).MakeQuery()
+	outCol := NewColSQL("", table, out, sql)
+	return &d.FnReturn{Value: outCol}
+
+}
+
+func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return cast("float", d.DTfloat, info, context, inputs...)
+}
+
+func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return cast("int", d.DTint, info, context, inputs...)
+}
+
+func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return cast("date", d.DTdate, info, context, inputs...)
+}
+
+func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return cast("string", d.DTstring, info, context, inputs...)
 }
 
 /*

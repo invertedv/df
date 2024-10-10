@@ -2,9 +2,10 @@ package sql
 
 import (
 	"fmt"
-	u "github.com/invertedv/utilities"
 	"strings"
 	"time"
+
+	u "github.com/invertedv/utilities"
 
 	d "github.com/invertedv/df"
 )
@@ -119,7 +120,7 @@ func (s *SQLdf) RowCount() int {
 	}
 
 	var e error
-	s.rowCount, e = s.Dialect().RowCount(s.sourceSQL)
+	s.rowCount, e = s.Dialect().RowCount(s.MakeQuery())
 	if e != nil {
 		panic(e)
 	}

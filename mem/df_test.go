@@ -66,6 +66,9 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+		{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+		{"z!='20060102'", 0, 1},
 		{"x--1.0", 0, 2.0},
 		{"(x/0.1)*float(y+100)", 0, 1010.0},
 		{"x*10.0", 0, 10.0},
