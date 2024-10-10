@@ -2,11 +2,39 @@ package df
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
-
-	u "github.com/invertedv/utilities"
 )
+
+// Any2Float64 attempts to convert inVal to float64.  Returns nil if this fails.
+func Any2Float64(inVal any) (*float64, error) {
+	var outVal float64
+
+	switch x := inVal.(type) {
+	case int:
+		outVal = float64(x)
+	case int32:
+		outVal = float64(x)
+	case int64:
+		outVal = float64(x)
+	case float32:
+		outVal = float64(x)
+	case float64:
+		outVal = x
+	case string:
+		xx, e := strconv.ParseFloat(x, 64)
+		if e != nil {
+			return nil, e
+		}
+		outVal = xx
+	default:
+		return nil, fmt.Errorf("cannot convert %v to float64: Any2Float64", inVal)
+	}
+
+	return &outVal, nil
+}
 
 func ToFloat(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(float64); ok {
@@ -17,11 +45,50 @@ func ToFloat(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	if xOut, err = u.Any2Float64(xIn); err != nil {
+	if xOut, err = Any2Float64(xIn); err != nil {
 		return nil, err
 	}
 
 	return *xOut.(*float64), nil
+}
+
+// Any2Int attempts to convert inVal to int.  Returns nil if this fails.
+func Any2Int(inVal any) (*int, error) {
+	var outVal int
+	switch x := inVal.(type) {
+	case int:
+		outVal = x
+	case int32:
+		outVal = int(x)
+	case int64:
+		if x > math.MaxInt || x < math.MinInt {
+			return nil, fmt.Errorf("int64 out of range: Any2Int")
+		}
+
+		outVal = int(x)
+	case float32:
+		if x > math.MaxInt || x < math.MinInt {
+			return nil, fmt.Errorf("float32 out of range: Any2Int")
+		}
+
+		outVal = int(x)
+	case float64:
+		if x > math.MaxInt || x < math.MinInt {
+			return nil, fmt.Errorf("float64 out of range: Any2Int")
+		}
+
+		outVal = int(x)
+	case string:
+		xx, e := strconv.ParseInt(x, 10, 32)
+		if e != nil {
+			return nil, fmt.Errorf("cannot convert %v to int: Any2Int", inVal)
+		}
+		outVal = int(xx)
+	default:
+		return nil, fmt.Errorf("cannot convert %v to int: Any2Int", inVal)
+	}
+
+	return &outVal, nil
 }
 
 func ToInt(xIn any, cast bool) (xOut any, err error) {
@@ -33,7 +100,7 @@ func ToInt(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	if xOut, err = u.Any2Int(xIn); err != nil {
+	if xOut, err = Any2Int(xIn); err != nil {
 		return nil, err
 	}
 	return *xOut.(*int), nil
@@ -74,6 +141,19 @@ func ToDate(xIn any, cast bool) (xOut any, err error) {
 	return *xOut.(*time.Time), nil
 }
 
+func Any2String(inVal any) string {
+	switch x := inVal.(type) {
+	case string:
+		return x
+	case time.Time:
+		return x.Format("2006-01-02")
+	case float32, float64:
+		return fmt.Sprintf("%0.2f", x)
+	default:
+		return fmt.Sprintf("%v", x)
+	}
+}
+
 func ToString(xIn any, cast bool) (xOut any, err error) {
 	if x, ok := xIn.(string); ok {
 		return x, nil
@@ -83,7 +163,7 @@ func ToString(xIn any, cast bool) (xOut any, err error) {
 		return nil, fmt.Errorf("conversion not allowed")
 	}
 
-	return u.Any2String(xIn), nil
+	return Any2String(xIn), nil
 }
 
 func ToDataType(x any, dt DataTypes, cast bool) (xout any, err error) {

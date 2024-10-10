@@ -318,7 +318,7 @@ func (d *Dialect) CastConstantXXXX(constant string, toDT DataTypes) (sql string,
 	return "", fmt.Errorf("unknown error")
 }
 
-func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sql string, err error) {
+func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sql string, err error) {
 	var (
 		dbType string
 		e      error
@@ -329,8 +329,13 @@ func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sql string, err e
 
 	if d.dialect == "clickhouse" {
 		// is this a constant?
-		if x, e := ToDate(fieldName, true); e == nil {
+		if x, ex := ToDate(fieldName, true); ex == nil {
 			sql = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
+			return sql, nil
+		}
+
+		if fromDT == DTfloat && toDT == DTstring {
+			sql = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
 			return sql, nil
 		}
 

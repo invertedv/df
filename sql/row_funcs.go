@@ -53,7 +53,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 func StandardFunctions() d.Fns {
 
-	return d.Fns{add, and, divide, eq, exp, ge, gt, le, lt, multiply, ne, or, subtract, toDate, toFloat, toInt, toString, where}
+	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, le, log, lt, multiply, ne, not, or, subtract, toDate, toFloat, toInt, toString, where}
 	//	return d.Fns{
 	//		abs, add, and, cast, divide,
 	//		eq, exp, ge, gt, ifs, le, log, lt,
@@ -97,9 +97,10 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 	// The parentheses are required based on how the parser works.
 	sql := fmt.Sprintf("(%s %s %s)", sqls[0], op, sqls[1])
 	var dtOut d.DataTypes
-	dtOut = d.DTfloat
-	if dts[0] == d.DTint && dts[1] == d.DTint {
-		dtOut = d.DTint
+	dtOut = d.DTint
+
+	if dts[0] == d.DTfloat || dts[1] == d.DTfloat {
+		dtOut = d.DTfloat
 	}
 
 	table := context.Self().(*SQLdf).MakeQuery()
@@ -192,26 +193,28 @@ func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 }
 
 func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
+	inps := [][]d.DataTypes{{d.DTint}}
 	outp := []d.DataTypes{d.DTint}
-	return prep("!", "not", inps, outp, info, context, inputs...)
+	return singleFn("not", inps, outp, info, context, inputs...)
 }
 
 // real functions that take a single argument
-func realFn(name string, inp, outp d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+func singleFn(name string, inp [][]d.DataTypes, outp []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{inp}}, Output: []d.DataTypes{outp}}
+		return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 	}
 
-	sqls := getSQL(inputs...)
-	dts := getDataTypes(inputs...)
+	colSQL := inputs[0].(*SQLcol).Data().(string)
+	colDt := inputs[0].(*SQLcol).DataType()
 
-	// The parentheses are required based on how the parser works.
-	sql := fmt.Sprintf("exp(%s)", sqls[0])
+	sql := fmt.Sprintf("%s(%s)", name, colSQL)
+
+	// what datatype is the output?
 	var dtOut d.DataTypes
-	dtOut = d.DTfloat
-	if dts[0] == d.DTint && dts[1] == d.DTint {
-		dtOut = d.DTint
+	for ind := 0; ind < len(inp); ind++ {
+		if colDt == inp[ind][0] {
+			dtOut = outp[ind]
+		}
 	}
 
 	table := context.Self().(*SQLdf).MakeQuery()
@@ -222,7 +225,15 @@ func realFn(name string, inp, outp d.DataTypes, info bool, context *d.Context, i
 }
 
 func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return realFn("exp", d.DTfloat, d.DTfloat, info, context, inputs...)
+	return singleFn("exp", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, context, inputs...)
+}
+
+func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return singleFn("log", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, context, inputs...)
+}
+
+func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	return singleFn("abs", [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint}, info, context, inputs...)
 }
 
 // ***************** type conversions *****************
@@ -233,13 +244,14 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 	}
 
 	inp := inputs[0].(*SQLcol).Data().(string)
+	dt := inputs[0].(*SQLcol).DataType()
 
 	var (
 		sql string
 		e   error
 	)
 
-	if sql, e = context.Dialect().CastField(inp, out); e != nil {
+	if sql, e = context.Dialect().CastField(inp, dt, out); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
