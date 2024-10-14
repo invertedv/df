@@ -2,7 +2,6 @@ package sql
 
 import (
 	"fmt"
-
 	d "github.com/invertedv/df"
 )
 
@@ -54,7 +53,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 func StandardFunctions() d.Fns {
 
-	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, log, lt, mean, multiply, ne, not, or, sum, subtract, toDate, toFloat, toInt, toString, where}
+	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, log, lt, mean, multiply, ne, not, or, sum, subtract, table, toDate, toFloat, toInt, toString, where}
 	//	return d.Fns{
 	//		abs, add, and, cast, divide,
 	//		eq, exp, ge, gt, ifs, le, log, lt,
@@ -303,280 +302,342 @@ func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return singleFnx("mean", "avg(%s)", "S", inp, outp, info, context, inputs...)
 }
 
+// ***************** Table *****************
+
+// Need to make this a method
+func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "table", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},
+			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, Varying: true}
+	}
+	var (
+		outDF d.DF
+		e     error
+	)
+
+	var names []string
+	for ind := 0; ind < len(inputs); ind++ {
+		names = append(names, inputs[ind].(*SQLcol).Name(""))
+	}
+
+	if outDF, e = context.Self().(*SQLdf).Table(false, names...); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	return &d.FnReturn{Value: outDF}
+}
+
+/*	dts := getDataTypes(inputs...)
+	for _, dt := range dts {
+		if dt != d.DTstring && dt != d.DTint && dt != d.DTdate {
+			return &d.FnReturn{Err: fmt.Errorf("cannot make table with type float")}
+		}
+	}
+
+	var (
+		cols  []d.Column
+		names []string
+	)
+
+	for ind := 0; ind < len(inputs); ind++ {
+		cols = append(cols, inputs[ind].(d.Column))
+		names = append(names, cols[ind].Name(""))
+	}
+
+	df := context.Self().(*SQLdf)
+	count := NewColSQL("count", df.Signature(), df.MakeQuery(), df.Version(), d.DTint, "count(*)")
+	cols = append(cols, count)
+	//	rate := NewColSQL("rate", df.Signature(), df.MakeQuery(), df.Version(), d.DTfloat, "count / (S")
+
+	ctx := d.NewContext(df.Dialect(), df.Files(), nil)
+	var (
+		outDF *SQLdf
+		e     error
+	)
+	if outDF, e = NewSQLdfCol(ctx, cols...); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	outDF.groupBy = strings.Join(names, ",")
+
+	return &d.FnReturn{Value: outDF}
+
+*/
+
 /*
-func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}}
+	func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "if", Inputs: []d.DataTypes{d.DTint, d.DTany, d.DTany}}
+		}
+
+		sqls := getData(inputs...)
+		dts := getDataTypes(inputs...)
+		if !d.Compatible(dts[1], dts[2], false) {
+			return &d.FnReturn{Err: fmt.Errorf("incompatible data types in if")}
+		}
+		// TODO: make datatype compatibility check in sql.go
+
+		sql := fmt.Sprintf("if(%s,%s,%s)", sqls[0], sqls[1], sqls[2])
+
+		return &d.FnReturn{Value: sql, Output: dts[1]}
 	}
 
-	sqls := getData(inputs...)
-	dts := getDataTypes(inputs...)
-	if !d.Compatible(dts[1], dts[2], false) {
-		return &d.FnReturn{Err: fmt.Errorf("incompatible data types in if")}
-	}
-	// TODO: make datatype compatibility check in sql.go
+	func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+		}
 
-	sql := fmt.Sprintf("if(%s,%s,%s)", sqls[0], sqls[1], sqls[2])
-
-	return &d.FnReturn{Value: sql, Output: dts[1]}
-}
-
-func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "abs", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+		sql := fmt.Sprintf("abs(%s)", getData(inputs...)[0])
+		return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 	}
 
-	sql := fmt.Sprintf("abs(%s)", getData(inputs...)[0])
-	return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
+	func add(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTany}
+		}
 
-func add(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTany}
+		sqls := getData(inputs...)
+		dts := getDataTypes(inputs...)
+
+		sql := fmt.Sprintf("%s + %s", sqls[0], sqls[1])
+		var dtOut d.DataTypes
+		dtOut = d.DTfloat
+		if dts[0] == d.DTint && dts[1] == d.DTint {
+			dtOut = d.DTint
+		}
+		return &d.FnReturn{Value: sql, Output: dtOut, Err: nil}
 	}
 
-	sqls := getData(inputs...)
-	dts := getDataTypes(inputs...)
+	func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "and", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
+		}
 
-	sql := fmt.Sprintf("%s + %s", sqls[0], sqls[1])
-	var dtOut d.DataTypes
-	dtOut = d.DTfloat
-	if dts[0] == d.DTint && dts[1] == d.DTint {
-		dtOut = d.DTint
-	}
-	return &d.FnReturn{Value: sql, Output: dtOut, Err: nil}
-}
-
-func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "and", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
+		sqls := getData(inputs...)
+		sql := fmt.Sprintf("(%s and %s)", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
 	}
 
-	sqls := getData(inputs...)
-	sql := fmt.Sprintf("(%s and %s)", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
+	func cast(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
+		}
+		sqls := getData(inputs...)
 
-func cast(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "cast", Inputs: []d.DataTypes{d.DTstring, d.DTany}, Output: d.DTany}
-	}
-	sqls := getData(inputs...)
+		var toDT d.DataTypes
+		if toDT = d.DTFromString(sqls[0]); toDT == d.DTunknown {
+			return &d.FnReturn{Err: fmt.Errorf("unknown data type %s", inputs[0].(string))}
+		}
 
-	var toDT d.DataTypes
-	if toDT = d.DTFromString(sqls[0]); toDT == d.DTunknown {
-		return &d.FnReturn{Err: fmt.Errorf("unknown data type %s", inputs[0].(string))}
-	}
+		var (
+			sql string
+			e   error
+		)
+		if sql, e = context.Dialect().CastField(sqls[1], toDT); e != nil {
+			return &d.FnReturn{Err: e}
+		}
 
-	var (
-		sql string
-		e   error
-	)
-	if sql, e = context.Dialect().CastField(sqls[1], toDT); e != nil {
-		return &d.FnReturn{Err: e}
+		return &d.FnReturn{Value: sql, Output: toDT}
 	}
 
-	return &d.FnReturn{Value: sql, Output: toDT}
-}
+	func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "divide", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
+		}
+		sqls := getData(inputs...)
 
-func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "divide", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s / %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
-
-func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s = %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("exp(%s)", sqls[0])
-
-	return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
-
-func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s >= %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s > %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s <= %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("log(%s)", sqls[0])
-	return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
-
-func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s < %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func multiply(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s * %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
-
-func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s != %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "not", Inputs: []d.DataTypes{d.DTint}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("(not %s)", sqls[0])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("(%s or %s)", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
-
-func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
-	}
-	sqls := getData(inputs...)
-
-	sql := fmt.Sprintf("%s - %s", sqls[0], sqls[1])
-	return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
-}
-
-func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "date", Inputs: []d.DataTypes{d.DTany}, Output: d.DTdate}
-	}
-	sqls := getData(inputs...)
-
-	var (
-		sql string
-		e   error
-	)
-	if sql, e = context.Dialect().CastField(sqls[0], d.DTdate); e != nil {
-		return &d.FnReturn{Err: e}
+		sql := fmt.Sprintf("%s / %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 	}
 
-	return &d.FnReturn{Value: sql, Output: d.DTdate}
-}
+	func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "eq", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
 
-func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "float", Inputs: []d.DataTypes{d.DTany}, Output: d.DTfloat}
-	}
-	sqls := getData(inputs...)
-
-	var (
-		sql string
-		e   error
-	)
-	if sql, e = context.Dialect().CastField(sqls[0], d.DTfloat); e != nil {
-		return &d.FnReturn{Err: e}
+		sql := fmt.Sprintf("%s = %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
 	}
 
-	return &d.FnReturn{Value: sql, Output: d.DTfloat}
-}
+	func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "exp", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+		}
+		sqls := getData(inputs...)
 
-func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "int", Inputs: []d.DataTypes{d.DTany}, Output: d.DTint}
-	}
-	sqls := getData(inputs...)
+		sql := fmt.Sprintf("exp(%s)", sqls[0])
 
-	var (
-		sql string
-		e   error
-	)
-	if sql, e = context.Dialect().CastField(sqls[0], d.DTint); e != nil {
-		return &d.FnReturn{Err: e}
+		return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
 	}
 
-	return &d.FnReturn{Value: sql, Output: d.DTint}
-}
+	func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "ge", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
 
-func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "string", Inputs: []d.DataTypes{d.DTany}, Output: d.DTstring}
-	}
-	sqls := getData(inputs...)
-
-	var (
-		sql string
-		e   error
-	)
-	if sql, e = context.Dialect().CastField(sqls[0], d.DTstring); e != nil {
-		return &d.FnReturn{Err: e}
+		sql := fmt.Sprintf("%s >= %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
 	}
 
-	return &d.FnReturn{Value: sql, Output: d.DTstring}
-}
+	func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "gt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("%s > %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
+	}
+
+	func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "le", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("%s <= %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
+	}
+
+	func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "log", Inputs: []d.DataTypes{d.DTfloat}, Output: d.DTfloat}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("log(%s)", sqls[0])
+		return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
+	}
+
+	func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "lt", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("%s < %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
+	}
+
+	func multiply(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "multiply", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("%s * %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
+	}
+
+	func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "ne", Inputs: []d.DataTypes{d.DTany, d.DTany}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("%s != %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
+	}
+
+	func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "not", Inputs: []d.DataTypes{d.DTint}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("(not %s)", sqls[0])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
+	}
+
+	func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "or", Inputs: []d.DataTypes{d.DTint, d.DTint}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("(%s or %s)", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTint}
+	}
+
+	func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "add", Inputs: []d.DataTypes{d.DTfloat, d.DTfloat}, Output: d.DTfloat}
+		}
+		sqls := getData(inputs...)
+
+		sql := fmt.Sprintf("%s - %s", sqls[0], sqls[1])
+		return &d.FnReturn{Value: sql, Output: d.DTfloat, Err: nil}
+	}
+
+	func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "date", Inputs: []d.DataTypes{d.DTany}, Output: d.DTdate}
+		}
+		sqls := getData(inputs...)
+
+		var (
+			sql string
+			e   error
+		)
+		if sql, e = context.Dialect().CastField(sqls[0], d.DTdate); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		return &d.FnReturn{Value: sql, Output: d.DTdate}
+	}
+
+	func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "float", Inputs: []d.DataTypes{d.DTany}, Output: d.DTfloat}
+		}
+		sqls := getData(inputs...)
+
+		var (
+			sql string
+			e   error
+		)
+		if sql, e = context.Dialect().CastField(sqls[0], d.DTfloat); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		return &d.FnReturn{Value: sql, Output: d.DTfloat}
+	}
+
+	func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "int", Inputs: []d.DataTypes{d.DTany}, Output: d.DTint}
+		}
+		sqls := getData(inputs...)
+
+		var (
+			sql string
+			e   error
+		)
+		if sql, e = context.Dialect().CastField(sqls[0], d.DTint); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		return &d.FnReturn{Value: sql, Output: d.DTint}
+	}
+
+	func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: "string", Inputs: []d.DataTypes{d.DTany}, Output: d.DTstring}
+		}
+		sqls := getData(inputs...)
+
+		var (
+			sql string
+			e   error
+		)
+		if sql, e = context.Dialect().CastField(sqls[0], d.DTstring); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		return &d.FnReturn{Value: sql, Output: d.DTstring}
+	}
 */
 ////////////////////////
 

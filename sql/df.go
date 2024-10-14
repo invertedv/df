@@ -46,6 +46,7 @@ type SQLdf struct {
 	destTableName string
 	orderBy       string
 	where         string
+	groupBy       string
 
 	*d.DFcore
 }
@@ -125,7 +126,7 @@ func (s *SQLdf) DBsave(tableName string, overwrite bool, cols ...string) error {
 	}
 
 	if overwrite {
-		if e := s.CreateTable(tableName, "", overwrite, cols...); e != nil {
+		if e := s.CreateTable(tableName, s.orderBy, overwrite, cols...); e != nil {
 			return e
 		}
 	}
@@ -164,6 +165,50 @@ func (s *SQLdf) Sort(ascending bool, keys ...string) error {
 	return nil
 }
 
+func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
+	var (
+		dts   []d.DataTypes
+		names []string
+		cs    []*SQLcol
+		e     error
+	)
+	for ind := 0; ind < len(cols); ind++ {
+		var (
+			c  d.Column
+			ex error
+		)
+		if c, ex = s.Column(cols[ind]); ex != nil {
+			return nil, ex
+		}
+
+		csql := c.(*SQLcol)
+		cs = append(cs, csql)
+		dt := csql.DataType()
+		if dt != d.DTstring && dt != d.DTint && dt != d.DTdate {
+			return nil, fmt.Errorf("cannot make table with type float")
+		}
+
+		dts = append(dts, dt)
+		names = append(names, csql.Name(""))
+	}
+
+	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), d.DTint, "count(*)")
+	cs = append(cs, count)
+	//	rate := NewColSQL("rate", df.Signature(), df.MakeQuery(), df.Version(), d.DTfloat, "count / (S")
+
+	ctx := d.NewContext(s.Dialect(), s.Files(), nil)
+	var outDF *SQLdf
+
+	if outDF, e = NewSQLdfCol(ctx, cs...); e != nil {
+		return nil, e
+	}
+
+	outDF.groupBy = strings.Join(names, ",")
+
+	return outDF, nil
+
+}
+
 func (s *SQLdf) MakeQuery() string {
 	var fields []string
 	for cx := s.Next(true); cx != nil; cx = s.Next(false) {
@@ -180,6 +225,10 @@ func (s *SQLdf) MakeQuery() string {
 	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", sig, s.sourceSQL, strings.Join(fields, ","), sig)
 	if s.where != "" {
 		qry = fmt.Sprintf("%s WHERE %s", qry, s.where)
+	}
+
+	if s.groupBy != "" {
+		qry = fmt.Sprintf("%s GROUP BY %s", qry, s.groupBy)
 	}
 
 	if s.orderBy != "" {
@@ -282,10 +331,6 @@ func (s *SQLdf) Core() *d.DFcore {
 	return s.DFcore
 }
 
-func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
-	return nil, nil
-}
-
 func (s *SQLdf) MakeColumn(value any) (d.Column, error) {
 	var dt d.DataTypes
 	if dt = d.WhatAmI(value); dt == d.DTunknown {
@@ -383,21 +428,21 @@ func (s *SQLcol) Version() int {
 	return s.version
 }
 
-func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
+func NewSQLdfCol(context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
 	var (
 		tmp *d.DFcore
 		e   error
 	)
-	mk := cols[0].(*SQLcol).SourceSQL()
-	sig := cols[0].(*SQLcol).Signature()
-	version := cols[0].(*SQLcol).Version()
+	mk := cols[0].SourceSQL()
+	sig := cols[0].Signature()
+	version := cols[0].Version()
 	for ind := 0; ind < len(cols); ind++ {
-		if cols[ind].(*SQLcol).Signature() != sig {
+		if cols[ind].Signature() != sig {
 			return nil, fmt.Errorf("incompatable columns to NewSQLdfCol")
 		}
-		if v := cols[ind].(*SQLcol).Version(); v > version {
+		if v := cols[ind].Version(); v > version {
 			version = v
-			mk = cols[0].(*SQLcol).SourceSQL()
+			mk = cols[0].SourceSQL()
 		}
 	}
 	// TODO: fix runs
@@ -413,9 +458,15 @@ func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
 		DFcore:        nil,
 	}
 
-	if tmp, e = d.NewDF(RunDFfn, StandardFunctions(), cols...); e != nil {
+	var cstd []d.Column
+	for ind := 0; ind < len(cols); ind++ {
+		cstd = append(cstd, cols[ind])
+	}
+
+	if tmp, e = d.NewDF(RunDFfn, StandardFunctions(), cstd...); e != nil {
 		return nil, e
 	}
+
 	// TODO: think about: should SetContext copy context?
 	ctx := d.NewContext(context.Dialect(), context.Files(), df)
 	tmp.SetContext(ctx)

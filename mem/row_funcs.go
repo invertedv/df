@@ -108,6 +108,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: context.Self()}
 }
 
+// TODO: what if I try to do a table on a float?
 func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "table", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},

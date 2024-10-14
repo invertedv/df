@@ -132,6 +132,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	return e
 }
 
+// TODO: think about query
 func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	qry := strings.Replace(d.insert, "?TableName", tableName, 1)
 	qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)

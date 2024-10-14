@@ -232,7 +232,7 @@ func TestParserS(t *testing.T) {
 		ez := dfx.AppendColumn(col, true)
 		assert.NotNil(t, ez)
 		fmt.Println(col.Data())
-		dfNew, e = NewSQLdfCol(dfx.Context, col)
+		dfNew, e = NewSQLdfCol(dfx.Context, col.(*SQLcol))
 		assert.Nil(t, e)
 		indx := x[ind][1].(int)
 
@@ -294,4 +294,16 @@ func TestSQLdf_Version(t *testing.T) {
 	// add col1 to a newer version of dfx -- this is OK
 	e = dfx.AppendColumn(col1, false)
 	assert.Nil(t, e)
+}
+
+func TestSQLdf_Table(t *testing.T) {
+	dfx := df4test()
+	dfTable, e := dfx.Parse("table(y,yy)")
+	assert.Nil(t, e)
+	e = dfTable.AsDF().Sort(true, "count")
+	assert.Nil(t, e)
+	fmt.Println(dfTable.AsDF().(*SQLdf).MakeQuery())
+	outCol := checker(dfTable.AsDF(), "testing.table", "count")
+	fmt.Println(outCol.Data())
+	assert.Equal(t, []int{1, 1, 1, 1, 2}, outCol.Data())
 }

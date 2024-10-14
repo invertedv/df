@@ -254,7 +254,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		}
 
 		if c.DataType() == d.DTfloat {
-			return nil, fmt.Errorf("cannot make table with table float")
+			return nil, fmt.Errorf("cannot make table with type float")
 		}
 
 		mCols = append(mCols, c.(*MemCol))
