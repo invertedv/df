@@ -55,7 +55,7 @@ func df4test() *SQLdf {
 
 	// , ln_zb_dt
 	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", df2.NewContext(dialect, nil, nil))
-	df, e1 := NewSQLdf("SELECT * FROM testing.d1", df2.NewContext(dialect, nil, nil))
+	df, e1 := NewSQLdfQry(df2.NewContext(dialect, nil, nil), "SELECT * FROM testing.d1")
 	if e1 != nil {
 		panic(e)
 	}
@@ -63,8 +63,8 @@ func df4test() *SQLdf {
 	return df
 }
 
-func checker(df df2.DF, tableName, colName string) *m.MemCol {
-	e := df.CreateTable(tableName, "y", true)
+func checker(df df2.DF, tableName, colName, orderBy string) *m.MemCol {
+	e := df.CreateTable(tableName, orderBy, true)
 	if e != nil {
 		panic(e)
 	}
@@ -94,7 +94,7 @@ func TestWhere(t *testing.T) {
 	col.Name("test")
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
-	assert.Equal(t, []int{0, 1, 1, 0, 0, 1}, checker(dfx, "testing.bbb", "test").Data())
+	assert.Equal(t, []int{0, 1, 1, 0, 0, 1}, checker(dfx, "testing.bbb", "y", "test").Data())
 
 	expr := "where(y == 1)"
 	out, e = dfx.Parse(expr)
@@ -113,6 +113,8 @@ func TestParser(t *testing.T) {
 	dfx := df4test()
 
 	x := [][]any{
+		{"if(y == 1, 2.0, (x))", 0, float64(2)},
+		{"if(y == 1, 2.0, (x))", 1, float64(-2)},
 		{"4+1--1", 0, int(6)},
 		{"!(y>=1) && y>=1", 0, 0},
 		{"exp(x-1.0)", 0, 1.0},
@@ -178,10 +180,6 @@ func TestParser(t *testing.T) {
 		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, float64(42)},
 		{"(1 + 2) - -(-1 - 2)", 0, 0},
 		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
-		{"if(y == 1, 2.0, (x))", 0, float64(1)},
-		{"if(y == 1, 2.0, (x))", 1, float64(2)},
-		{"sum(y)", 0, 12},
-		{"mean(yy)", 0, float64(32) / 6.0},
 	}
 
 	cnt := 0
@@ -198,10 +196,10 @@ func TestParser(t *testing.T) {
 
 		indx := x[ind][1].(int)
 
-		result := checker(dfx, "testing.check", "test").Element(indx)
+		result := checker(dfx, "testing.check", "test", "y").Element(indx)
 
 		if df2.WhatAmI(result) == df2.DTfloat {
-			assert.InEpsilon(t, result.(float64), x[ind][2].(float64), .001)
+			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
 			continue
 		}
 
@@ -212,8 +210,69 @@ func TestParser(t *testing.T) {
 			continue
 		}
 
-		assert.Equal(t, result, x[ind][2])
+		assert.Equal(t, x[ind][2], result)
 	}
 
 	fmt.Println("# tests: ", cnt)
+}
+
+func TestParserS(t *testing.T) {
+	dfx := df4test()
+
+	x := [][]any{
+		{"sum(y)", 0, 12},
+		{"mean(yy)", 0, float64(32) / 6.0},
+	}
+
+	var d1, d2 *SQLdf
+	cnt := 0
+	for ind := 0; ind < len(x); ind++ {
+		cnt++
+		eqn := x[ind][0].(string)
+		fmt.Println(eqn)
+		xOut, ex := dfx.Parse(eqn)
+		assert.Nil(t, ex)
+		col := xOut.AsColumn()
+		col.Name("test")
+		var (
+			dfNew *SQLdf
+			e     error
+		)
+		fmt.Println(col.Data())
+		dfNew, e = NewSQLdfCol(dfx.Context, col)
+		assert.Nil(t, e)
+		switch ind {
+		case 0:
+			d1 = dfNew
+		default:
+			d2 = dfNew
+
+		}
+
+		indx := x[ind][1].(int)
+
+		result := checker(dfNew, "testing.check", "test", "test").Element(indx)
+
+		if df2.WhatAmI(result) == df2.DTfloat {
+			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
+			continue
+		}
+
+		if df2.WhatAmI(result) == df2.DTdate {
+			assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
+			assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
+			assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
+			continue
+		}
+
+		assert.Equal(t, x[ind][2], result)
+	}
+
+	fmt.Println("# tests: ", cnt)
+
+	col, _ := d2.Column("test")
+	col.Name("testMean")
+	e := d1.AppendColumn(col, false)
+	assert.Nil(t, e)
+
 }

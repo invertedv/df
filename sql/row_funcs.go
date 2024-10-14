@@ -27,8 +27,8 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		)
 		if col, ok = inputs[j].(*SQLcol); !ok {
 			var e error
-			table := context.Self().(*SQLdf).MakeQuery()
-			if col, e = NewColScalar("", table, inputs[j]); e != nil {
+			sig := context.Self().(*SQLdf).Signature()
+			if col, e = NewColScalar("", sig, inputs[j]); e != nil {
 				return nil, e
 			}
 		}
@@ -53,7 +53,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 func StandardFunctions() d.Fns {
 
-	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, le, log, lt, multiply, ne, not, or, subtract, toDate, toFloat, toInt, toString, where}
+	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, log, lt, mean, multiply, ne, not, or, sum, subtract, toDate, toFloat, toInt, toString, where}
 	//	return d.Fns{
 	//		abs, add, and, cast, divide,
 	//		eq, exp, ge, gt, ifs, le, log, lt,
@@ -103,9 +103,10 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 		dtOut = d.DTfloat
 	}
 
-	table := context.Self().(*SQLdf).MakeQuery()
+	table := context.Self().(*SQLdf).Signature()
+	source := context.Self().(*SQLdf).MakeQuery()
 
-	outCol := NewColSQL("", table, dtOut, sql)
+	outCol := NewColSQL("", table, source, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -128,112 +129,118 @@ func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 // ***************** logical operations *****************
 
-func prep(op, name string, inps [][]d.DataTypes, outp []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: inps, Output: outp}
-	}
-	sqls := getSQL(inputs...)
-
-	// The parentheses are required based on how the parser works.
-	sql := fmt.Sprintf("(%s %s %s)", sqls[0], op, sqls[1])
-
-	table := context.Self().(*SQLdf).MakeQuery()
-
-	outCol := NewColSQL("", table, d.DTint, sql)
-
-	return &d.FnReturn{Value: outCol}
-}
-
 func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
 	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return prep(">", "gt", inps, outp, info, context, inputs...)
+	return singleFnx("gt", "(%s > %s)", "", inps, outp, info, context, inputs...)
 }
 
 func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
 	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return prep(">=", "ge", inps, outp, info, context, inputs...)
+	return singleFnx("ge", "(%s >= %s)", "", inps, outp, info, context, inputs...)
 }
 
 func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
 	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return prep("<", "lt", inps, outp, info, context, inputs...)
+	return singleFnx("lt", "(%s < %s)", "", inps, outp, info, context, inputs...)
 }
 
 func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
 	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return prep("<=", "le", inps, outp, info, context, inputs...)
+	return singleFnx("le", "(%s <= %s)", "", inps, outp, info, context, inputs...)
 }
 
 func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
 	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return prep("==", "eq", inps, outp, info, context, inputs...)
+	return singleFnx("eq", "(%s == %s)", "", inps, outp, info, context, inputs...)
 }
 
 func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
 	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return prep("!=", "ne", inps, outp, info, context, inputs...)
+	return singleFnx("ne", "(%s != %s)", "", inps, outp, info, context, inputs...)
 }
 
 func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
 	outp := []d.DataTypes{d.DTint}
-	return prep("and", "and", inps, outp, info, context, inputs...)
+	return singleFnx("and", "and(%s,%s)", "", inps, outp, info, context, inputs...)
 }
 
 func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
 	outp := []d.DataTypes{d.DTint}
-	return prep("or", "or", inps, outp, info, context, inputs...)
+	return singleFnx("or", "or(%s, %s)", "", inps, outp, info, context, inputs...)
 }
 
 func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inps := [][]d.DataTypes{{d.DTint}}
 	outp := []d.DataTypes{d.DTint}
-	return singleFn("not", inps, outp, info, context, inputs...)
+	return singleFnx("not", "not(%s)", "", inps, outp, info, context, inputs...)
 }
 
-// real functions that take a single argument
-func singleFn(name string, inp [][]d.DataTypes, outp []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
+func singleFnx(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 	}
 
-	colSQL := inputs[0].(*SQLcol).Data().(string)
-	colDt := inputs[0].(*SQLcol).DataType()
+	sqls := getSQL(inputs...)
+	dts := getDataTypes(inputs...)
 
-	sql := fmt.Sprintf("%s(%s)", name, colSQL)
+	var sa []any
+	for j := 0; j < len(sqls); j++ {
+		sa = append(sa, sqls[j])
+	}
 
-	// what datatype is the output?
-	var dtOut d.DataTypes
+	sqlOut := fmt.Sprintf(sql, sa...)
+
+	var outType d.DataTypes
+	// output type
 	for ind := 0; ind < len(inp); ind++ {
-		if colDt == inp[ind][0] {
-			dtOut = outp[ind]
+		ok := true
+		for j := 0; j < len(dts); j++ {
+			if dts[j] != inp[ind][j] {
+				ok = false
+				break
+			}
+		}
+
+		if ok {
+			outType = outp[ind]
+			break
 		}
 	}
 
-	table := context.Self().(*SQLdf).MakeQuery()
+	sig := context.Self().(*SQLdf).Signature() + suffix
+	source := context.Self().(*SQLdf).MakeQuery()
 
-	outCol := NewColSQL("", table, dtOut, sql)
+	outCol := NewColSQL("", sig, source, outType, sqlOut)
 
 	return &d.FnReturn{Value: outCol}
 }
 
+func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inp := [][]d.DataTypes{{d.DTint, d.DTfloat, d.DTfloat},
+		{d.DTint, d.DTint, d.DTint}, {d.DTint, d.DTdate, d.DTdate}, {d.DTint, d.DTstring, d.DTstring}}
+	outp := []d.DataTypes{d.DTfloat, d.DTint, d.DTdate, d.DTstring}
+	return singleFnx("if", "if(%s>0,%s,%s)", "", inp, outp, info, context, inputs...)
+}
+
 func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return singleFn("exp", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, context, inputs...)
+	return singleFnx("exp", "exp(%s)", "", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, context, inputs...)
 }
 
 func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return singleFn("log", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, context, inputs...)
+	return singleFnx("log", "log(%s)", "", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, context, inputs...)
 }
 
 func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return singleFn("abs", [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint}, info, context, inputs...)
+	return singleFnx("abs", "abs(%s)", "", [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint},
+		info, context, inputs...)
 }
 
 // ***************** type conversions *****************
@@ -255,22 +262,11 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 		return &d.FnReturn{Err: e}
 	}
 
-	/*	if _, ex := context.Self().Column(inp); ex != nil {
-			if sql, e = context.Dialect().CastConstant(inp, out); e != nil {
-				return &d.FnReturn{Err: e}
-			}
-		} else {
-			if sql, e = context.Dialect().CastField(inp, out); e != nil {
-				return &d.FnReturn{Err: e}
-			}
-		}
+	sig := context.Self().(*SQLdf).Signature()
+	source := context.Self().(*SQLdf).MakeQuery()
+	outCol := NewColSQL("", sig, source, out, sql)
 
-	*/
-
-	table := context.Self().(*SQLdf).MakeQuery()
-	outCol := NewColSQL("", table, out, sql)
 	return &d.FnReturn{Value: outCol}
-
 }
 
 func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -287,6 +283,20 @@ func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return cast("string", d.DTstring, info, context, inputs...)
+}
+
+// ***************** Functions that take a single column and return a scalar *****************
+
+func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inp := [][]d.DataTypes{{d.DTint}, {d.DTfloat}}
+	outp := []d.DataTypes{d.DTint, d.DTfloat}
+	return singleFnx("sum", "sum(%s)", "S", inp, outp, info, context, inputs...)
+}
+
+func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inp := [][]d.DataTypes{{d.DTint}, {d.DTfloat}}
+	outp := []d.DataTypes{d.DTfloat, d.DTfloat}
+	return singleFnx("mean", "avg(%s)", "S", inp, outp, info, context, inputs...)
 }
 
 /*

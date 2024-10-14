@@ -482,9 +482,9 @@ func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	data := d.MakeSlice(dt, 0, nil)
 
 	for ind := 0; ind < n; ind++ {
-		val := cols[1].Element(ind)
+		val := cols[2].Element(ind)
 		if cols[0].Element(ind).(int) > 0 {
-			val = cols[2].Element(ind)
+			val = cols[1].Element(ind)
 		}
 
 		data = d.AppendSlice(data, val, dt)
