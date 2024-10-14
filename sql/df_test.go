@@ -89,19 +89,14 @@ func TestWhere(t *testing.T) {
 	col.Name("test")
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
-	r := checker(dfx, "testing.bbb", "test").Data()
-	fmt.Println(r)
-	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, checker(dfx, "testing.bbb", "test").Data())
+	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, checker(dfx, "testing.logical", "test").Data())
 
 	expr := "where(y == 1)"
 	out, e = dfx.Parse(expr)
 	assert.Nil(t, e)
 	outDF := out.AsDF().(*SQLdf)
-	//assert.Equal(t, 10, outDF.AsDF().RowCount())
 	fmt.Println(outDF.MakeQuery())
-	e = outDF.CreateTable("testing.aaa", "y", true)
-	assert.Nil(t, e)
-	e = outDF.DBsave("testing.aaa", true)
+	e = outDF.DBsave("testing.where", true)
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.RowCount())
 }
@@ -221,7 +216,6 @@ func TestParserS(t *testing.T) {
 		{"mean(yy)", 0, float64(32) / 6.0},
 	}
 
-	var d1, d2 *SQLdf
 	cnt := 0
 	for ind := 0; ind < len(x); ind++ {
 		cnt++
@@ -240,13 +234,6 @@ func TestParserS(t *testing.T) {
 		fmt.Println(col.Data())
 		dfNew, e = NewSQLdfCol(dfx.Context, col)
 		assert.Nil(t, e)
-		switch ind {
-		case 0:
-			d1 = dfNew
-		default:
-			d2 = dfNew
-		}
-
 		indx := x[ind][1].(int)
 
 		result := checker(dfNew, "testing.check", "test").Element(indx)
@@ -267,12 +254,44 @@ func TestParserS(t *testing.T) {
 	}
 
 	fmt.Println("# tests: ", cnt)
+}
 
-	col, _ := d2.Column("test")
-	col.Name("testMean")
-	e := d1.AppendColumn(col, false)
+func TestSQLdf_Version(t *testing.T) {
+	dfx := df4test()
+	dfOld := dfx.Copy()
+	result, e := dfx.Parse("2.0*x")
 	assert.Nil(t, e)
-	fmt.Println(d1.Signature())
-	e = d1.DBsave("testing.check2", true)
+	col := result.AsColumn()
+	col.Name("x2")
+	e = dfx.AppendColumn(col, false)
+	assert.Nil(t, e)
+	assert.Equal(t, 1, dfx.Version())
+
+	result, e = dfx.Parse("abs(x2)")
+	assert.Nil(t, e)
+	col = result.AsColumn()
+	col.Name("absx2")
+
+	result, e = dfx.Parse("2*y")
+	assert.Nil(t, e)
+	col1 := result.AsColumn()
+	col1.Name("y2")
+
+	// add absx2 to an older version of dfx -- this is not OK
+	e = dfOld.AppendColumn(col, false)
+	assert.NotNil(t, e)
+
+	// add absx2 to current version of dfx -- this is OK
+	e = dfx.AppendColumn(col, false)
+	assert.Nil(t, e)
+
+	data := checker(dfx, "testing.version", "absx2")
+	assert.Equal(t, data.Data(), []float64{2, 4, 6, 0, 4, 7})
+	fmt.Println(data)
+
+	assert.Equal(t, dfx.Version(), 2)
+	assert.Equal(t, col1.(*SQLcol).Version(), 1)
+	// add col1 to a newer version of dfx -- this is OK
+	e = dfx.AppendColumn(col1, false)
 	assert.Nil(t, e)
 }

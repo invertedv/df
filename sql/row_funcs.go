@@ -28,7 +28,8 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		if col, ok = inputs[j].(*SQLcol); !ok {
 			var e error
 			sig := context.Self().(*SQLdf).Signature()
-			if col, e = NewColScalar("", sig, inputs[j]); e != nil {
+			ver := context.Self().(*SQLdf).Version()
+			if col, e = NewColScalar("", sig, ver, inputs[j]); e != nil {
 				return nil, e
 			}
 		}
@@ -105,8 +106,9 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 
 	table := context.Self().(*SQLdf).Signature()
 	source := context.Self().(*SQLdf).MakeQuery()
+	version := context.Self().(*SQLdf).Version()
 
-	outCol := NewColSQL("", table, source, dtOut, sql)
+	outCol := NewColSQL("", table, source, version, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -216,9 +218,10 @@ func singleFnx(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes
 	}
 
 	sig := context.Self().(*SQLdf).Signature() + suffix
+	ver := context.Self().(*SQLdf).Version()
 	source := context.Self().(*SQLdf).MakeQuery()
 
-	outCol := NewColSQL("", sig, source, outType, sqlOut)
+	outCol := NewColSQL("", sig, source, ver, outType, sqlOut)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -263,8 +266,9 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 	}
 
 	sig := context.Self().(*SQLdf).Signature()
+	ver := context.Self().(*SQLdf).Version()
 	source := context.Self().(*SQLdf).MakeQuery()
-	outCol := NewColSQL("", sig, source, out, sql)
+	outCol := NewColSQL("", sig, source, ver, out, sql)
 
 	return &d.FnReturn{Value: outCol}
 }

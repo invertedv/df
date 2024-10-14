@@ -29,9 +29,9 @@ df Signature
     - using NewSQLdfQry this is newly generated
     - using NewSQLdfCol this is the common signature of the columns
 
-CONSIDER adding a version so we have signature + version, so an earlier calc would be ok to add but a later calc would
-not...
-
+There's a new signature if:
+- replace a column
+- drop a column
 
 */
 
@@ -39,7 +39,9 @@ type SQLdf struct {
 	rowCount int
 
 	sourceSQL string // source SQL used to query DB
+
 	signature string // unique 4-character signature to identify this data source
+	version   int
 
 	destTableName string
 	orderBy       string
@@ -55,12 +57,14 @@ type SQLcol struct {
 	sql      string
 
 	sourceSQL string // source SQL used to query DB
+
 	signature string // unique 4-character signature to identify this data source
+	version   int
 
 	catMap d.CategoryMap
 }
 
-func NewColSQL(name, signature, sourceSQL string, dt d.DataTypes, sql string) *SQLcol {
+func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, sql string) *SQLcol {
 	col := &SQLcol{
 		name:      name,
 		rowCount:  0,
@@ -68,13 +72,14 @@ func NewColSQL(name, signature, sourceSQL string, dt d.DataTypes, sql string) *S
 		sql:       sql,
 		sourceSQL: sourceSQL,
 		signature: signature,
+		version:   version,
 		catMap:    nil,
 	}
 
 	return col
 }
 
-func NewColScalar(name, sig string, val any) (*SQLcol, error) {
+func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
 	var dt d.DataTypes
 
 	if dt = d.WhatAmI(val); dt != d.DTint && dt != d.DTfloat && dt != d.DTdate && dt != d.DTstring {
@@ -95,6 +100,7 @@ func NewColScalar(name, sig string, val any) (*SQLcol, error) {
 		dType:     dt,
 		sql:       sql,
 		signature: sig,
+		version:   version,
 		catMap:    nil,
 	}
 
@@ -171,7 +177,6 @@ func (s *SQLdf) MakeQuery() string {
 	}
 
 	sig := u.RandomLetters(sigLen)
-	//	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", s.signature, s.sourceSQL, strings.Join(fields, ","), s.signature)
 	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", sig, s.sourceSQL, strings.Join(fields, ","), sig)
 	if s.where != "" {
 		qry = fmt.Sprintf("%s WHERE %s", qry, s.where)
@@ -188,7 +193,13 @@ func (s *SQLdf) MakeQuery() string {
 
 func (s *SQLdf) DropColumns(colNames ...string) error {
 	s.signature = u.RandomLetters(sigLen)
+	s.version = 0
+
 	return s.Core().DropColumns(colNames...)
+}
+
+func (s *SQLdf) Version() int {
+	return s.version
 }
 
 func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
@@ -203,6 +214,16 @@ func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 
 	if s.Signature() != c.Signature() {
 		return fmt.Errorf("added column not from same source")
+	}
+	if s.Version() < c.Version() {
+		return fmt.Errorf("added column from newer version")
+	}
+
+	s.version++
+
+	if _, e := s.Column(col.Name("")); e == nil {
+		s.signature = u.RandomLetters(sigLen)
+		s.version = 0
 	}
 
 	return s.Core().AppendColumn(col, replace)
@@ -295,7 +316,8 @@ func (s *SQLdf) Copy() d.DF {
 		rowCount:      0,
 		sourceSQL:     s.sourceSQL,
 		destTableName: "",
-		signature:     u.RandomLetters(sigLen),
+		signature:     s.signature,
+		version:       s.version,
 		orderBy:       s.orderBy,
 		where:         s.where,
 		DFcore:        dfCore,
@@ -331,13 +353,18 @@ func (s *SQLcol) Name(renameTo string) string {
 }
 
 func (s *SQLcol) Copy() d.Column {
-	return &SQLcol{
-		name: s.name,
-		//		n:      s.n,
-		dType:  s.dType,
-		sql:    s.sql,
-		catMap: s.catMap,
+	n := &SQLcol{
+		name:      s.name,
+		rowCount:  0,
+		dType:     s.dType,
+		sql:       s.sql,
+		sourceSQL: s.sourceSQL,
+		signature: s.signature,
+		version:   s.version,
+		catMap:    s.catMap,
 	}
+
+	return n
 }
 
 func (s *SQLcol) SourceSQL() string {
@@ -352,6 +379,10 @@ func (s *SQLcol) Signature() string {
 	return s.signature
 }
 
+func (s *SQLcol) Version() int {
+	return s.version
+}
+
 func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
 	var (
 		tmp *d.DFcore
@@ -359,9 +390,14 @@ func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
 	)
 	mk := cols[0].(*SQLcol).SourceSQL()
 	sig := cols[0].(*SQLcol).Signature()
+	version := cols[0].(*SQLcol).Version()
 	for ind := 0; ind < len(cols); ind++ {
 		if cols[ind].(*SQLcol).Signature() != sig {
 			return nil, fmt.Errorf("incompatable columns to NewSQLdfCol")
+		}
+		if v := cols[ind].(*SQLcol).Version(); v > version {
+			version = v
+			mk = cols[0].(*SQLcol).SourceSQL()
 		}
 	}
 	// TODO: fix runs
@@ -370,6 +406,7 @@ func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
 		rowCount:      0,
 		sourceSQL:     mk,
 		signature:     sig,
+		version:       version,
 		destTableName: "",
 		orderBy:       "",
 		where:         "",
@@ -413,6 +450,7 @@ func NewSQLdfQry(context *d.Context, query string) (*SQLdf, error) {
 	df := &SQLdf{
 		sourceSQL:     query,
 		signature:     u.RandomLetters(sigLen),
+		version:       0,
 		destTableName: "",
 	}
 	for ind := 0; ind < len(colTypes); ind++ {
@@ -420,6 +458,7 @@ func NewSQLdfQry(context *d.Context, query string) (*SQLdf, error) {
 			name:      colNames[ind],
 			dType:     colTypes[ind],
 			signature: df.signature,
+			version:   0,
 			sql:       "",
 			catMap:    nil,
 		}
