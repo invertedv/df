@@ -13,6 +13,27 @@ import (
 // TODO:
 // - implement summary functions
 // - implement appendDF
+// - add orderBy to DBsave
+
+const sigLen = 4
+
+/*
+ df SourceSQL
+    - using NewSQLdfQry this is the sourceSQL supplied
+    - using NewSQLdfCol this is the sourceSQL of the columns
+
+col SourceSQL
+    - This is the MakeSQL output of the dataframe the column is calculated from
+
+df Signature
+    - using NewSQLdfQry this is newly generated
+    - using NewSQLdfCol this is the common signature of the columns
+
+CONSIDER adding a version so we have signature + version, so an earlier calc would be ok to add but a later calc would
+not...
+
+
+*/
 
 type SQLdf struct {
 	rowCount int
@@ -149,7 +170,9 @@ func (s *SQLdf) MakeQuery() string {
 		fields = append(fields, field)
 	}
 
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", s.signature, s.sourceSQL, strings.Join(fields, ","), s.signature)
+	sig := u.RandomLetters(sigLen)
+	//	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", s.signature, s.sourceSQL, strings.Join(fields, ","), s.signature)
+	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", sig, s.sourceSQL, strings.Join(fields, ","), sig)
 	if s.where != "" {
 		qry = fmt.Sprintf("%s WHERE %s", qry, s.where)
 	}
@@ -163,6 +186,11 @@ func (s *SQLdf) MakeQuery() string {
 
 // TODO: overwrite Drop method and change the signature first
 
+func (s *SQLdf) DropColumns(colNames ...string) error {
+	s.signature = u.RandomLetters(sigLen)
+	return s.Core().DropColumns(colNames...)
+}
+
 func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 	var (
 		c  *SQLcol
@@ -173,7 +201,7 @@ func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 		return fmt.Errorf("AppendColumn requires *SQLcol")
 	}
 
-	if s.SourceSQL() != c.SourceSQL() {
+	if s.Signature() != c.Signature() {
 		return fmt.Errorf("added column not from same source")
 	}
 
@@ -267,7 +295,7 @@ func (s *SQLdf) Copy() d.DF {
 		rowCount:      0,
 		sourceSQL:     s.sourceSQL,
 		destTableName: "",
-		signature:     s.signature,
+		signature:     u.RandomLetters(sigLen),
 		orderBy:       s.orderBy,
 		where:         s.where,
 		DFcore:        dfCore,
@@ -330,8 +358,9 @@ func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
 		e   error
 	)
 	mk := cols[0].(*SQLcol).SourceSQL()
+	sig := cols[0].(*SQLcol).Signature()
 	for ind := 0; ind < len(cols); ind++ {
-		if cols[ind].(*SQLcol).SourceSQL() != mk {
+		if cols[ind].(*SQLcol).Signature() != sig {
 			return nil, fmt.Errorf("incompatable columns to NewSQLdfCol")
 		}
 	}
@@ -340,7 +369,7 @@ func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
 	df := &SQLdf{
 		rowCount:      0,
 		sourceSQL:     mk,
-		signature:     u.RandomLetters(4),
+		signature:     sig,
 		destTableName: "",
 		orderBy:       "",
 		where:         "",
@@ -353,12 +382,11 @@ func NewSQLdfCol(context *d.Context, cols ...d.Column) (*SQLdf, error) {
 	// TODO: think about: should SetContext copy context?
 	ctx := d.NewContext(context.Dialect(), context.Files(), df)
 	tmp.SetContext(ctx)
-	//	tmp.Context.SetSelf(df)
 
 	df.DFcore = tmp
 
 	// populate sourceSQL for each column
-	qry := df.SourceSQL()
+	qry := df.SourceSQL() // this will be the make query from the columns
 	for c := df.Next(true); c != nil; c = df.Next(false) {
 		c1 := c.(*SQLcol)
 		c1.sourceSQL = qry
@@ -384,7 +412,7 @@ func NewSQLdfQry(context *d.Context, query string) (*SQLdf, error) {
 
 	df := &SQLdf{
 		sourceSQL:     query,
-		signature:     u.RandomLetters(4),
+		signature:     u.RandomLetters(sigLen),
 		destTableName: "",
 	}
 	for ind := 0; ind < len(colTypes); ind++ {

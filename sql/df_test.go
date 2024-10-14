@@ -63,12 +63,8 @@ func df4test() *SQLdf {
 	return df
 }
 
-func checker(df df2.DF, tableName, colName, orderBy string) *m.MemCol {
-	e := df.CreateTable(tableName, orderBy, true)
-	if e != nil {
-		panic(e)
-	}
-	e = df.DBsave(tableName, true)
+func checker(df df2.DF, tableName, colName string) *m.MemCol {
+	e := df.DBsave(tableName, true)
 	if e != nil {
 		panic(e)
 	}
@@ -81,7 +77,6 @@ func checker(df df2.DF, tableName, colName, orderBy string) *m.MemCol {
 		panic(e2)
 	}
 	return colm.(*m.MemCol)
-
 }
 
 func TestWhere(t *testing.T) {
@@ -94,7 +89,9 @@ func TestWhere(t *testing.T) {
 	col.Name("test")
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
-	assert.Equal(t, []int{0, 1, 1, 0, 0, 1}, checker(dfx, "testing.bbb", "y", "test").Data())
+	r := checker(dfx, "testing.bbb", "test").Data()
+	fmt.Println(r)
+	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, checker(dfx, "testing.bbb", "test").Data())
 
 	expr := "where(y == 1)"
 	out, e = dfx.Parse(expr)
@@ -196,7 +193,7 @@ func TestParser(t *testing.T) {
 
 		indx := x[ind][1].(int)
 
-		result := checker(dfx, "testing.check", "test", "y").Element(indx)
+		result := checker(dfx, "testing.check", "test").Element(indx)
 
 		if df2.WhatAmI(result) == df2.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
@@ -238,6 +235,8 @@ func TestParserS(t *testing.T) {
 			dfNew *SQLdf
 			e     error
 		)
+		ez := dfx.AppendColumn(col, true)
+		assert.NotNil(t, ez)
 		fmt.Println(col.Data())
 		dfNew, e = NewSQLdfCol(dfx.Context, col)
 		assert.Nil(t, e)
@@ -246,12 +245,11 @@ func TestParserS(t *testing.T) {
 			d1 = dfNew
 		default:
 			d2 = dfNew
-
 		}
 
 		indx := x[ind][1].(int)
 
-		result := checker(dfNew, "testing.check", "test", "test").Element(indx)
+		result := checker(dfNew, "testing.check", "test").Element(indx)
 
 		if df2.WhatAmI(result) == df2.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
@@ -274,5 +272,7 @@ func TestParserS(t *testing.T) {
 	col.Name("testMean")
 	e := d1.AppendColumn(col, false)
 	assert.Nil(t, e)
-
+	fmt.Println(d1.Signature())
+	e = d1.DBsave("testing.check2", true)
+	assert.Nil(t, e)
 }
