@@ -299,6 +299,8 @@ func TestSQLdf_Version(t *testing.T) {
 func TestSQLdf_Table(t *testing.T) {
 	dfx := df4test()
 	dfTable, e := dfx.Parse("table(y,yy)")
+	f := dfTable.AsDF().(*SQLdf).MakeQuery()
+	fmt.Println(f)
 	assert.Nil(t, e)
 	e = dfTable.AsDF().Sort(true, "count")
 	assert.Nil(t, e)

@@ -270,7 +270,8 @@ func (df *DFcore) Copy() *DFcore {
 	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
 		panic(e)
 	}
-	outDF.SetContext(df.Context)
+	context := NewContext(df.Context.Dialect(), df.Context.Files(), nil)
+	outDF.SetContext(context)
 
 	// don't copy context
 

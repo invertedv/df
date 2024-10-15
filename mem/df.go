@@ -400,8 +400,9 @@ func (m *MemDF) Copy() d.DF {
 		DFcore:      dfC,
 	}
 
-	ctx := d.NewContext(m.Dialect(), nil, mNew)
-	mNew.SetContext(ctx)
+	//	ctx := d.NewContext(m.Dialect(), nil, mNew)
+	//	mNew.SetContext(ctx)
+	mNew.SetSelf(mNew)
 
 	return mNew
 }
