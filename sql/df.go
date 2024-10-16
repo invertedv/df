@@ -192,7 +192,46 @@ func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 }
 
 func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
-	return nil, nil
+	n1 := s.ColumnNames()
+
+	if len(n1) != len(dfNew.ColumnNames()) {
+		return nil, fmt.Errorf("dataframes cannot be appended")
+	}
+
+	for c := s.Next(true); c != nil; c = s.Next(false) {
+		var (
+			cNew d.Column
+			e    error
+		)
+		if cNew, e = dfNew.Column(c.Name("")); e != nil {
+			return nil, fmt.Errorf("missing column %s in AppendDF", c.Name(""))
+		}
+
+		if c.DataType() != cNew.DataType() {
+			return nil, fmt.Errorf("column %s has differing data types in AppendDF", c.Name(""))
+		}
+	}
+
+	var (
+		sql string
+		e   error
+	)
+	if sql, e = s.Context.Dialect().Union(s.MakeQuery(n1...), dfNew.(*SQLdf).MakeQuery(n1...), n1...); e != nil {
+		return nil, e
+	}
+
+	var (
+		dfOut *SQLdf
+		eOut  error
+	)
+	ctx := d.NewContext(s.Context.Dialect(), nil, nil)
+	if dfOut, eOut = NewSQLdfQry(ctx, sql); eOut != nil {
+		return nil, eOut
+	}
+
+	dfOut.SetSelf(dfOut)
+
+	return dfOut, nil
 }
 
 func (s *SQLdf) Copy() d.DF {
@@ -267,9 +306,22 @@ func (s *SQLdf) FileSave(fileName string) error {
 	return nil
 }
 
-func (s *SQLdf) MakeQuery() string {
+func (s *SQLdf) MakeQuery(colNames ...string) string {
 	var fields []string
-	for cx := s.Next(true); cx != nil; cx = s.Next(false) {
+	if colNames == nil {
+		colNames = s.ColumnNames()
+	}
+
+	for _, cn := range colNames {
+		var (
+			cx d.Column
+			e  error
+		)
+
+		if cx, e = s.Column(cn); e != nil {
+			panic(e)
+		}
+
 		var field string
 		field = cx.Name("")
 		if fn := cx.Data().(string); fn != "" {

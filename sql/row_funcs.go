@@ -7,6 +7,7 @@ import (
 )
 
 // TODO: sortDF, toCat, fuzzCat, ...
+// TODO: appendDF in both mem and sql
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 	info := fn(true, nil)
@@ -55,12 +56,8 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 }
 
 func StandardFunctions() d.Fns {
-	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, log, lt, mean, multiply, ne, not, or, sum, subtract, table, toDate, toFloat, toInt, toString, where}
-	//	return d.Fns{
-	//		abs, add, and, cast, divide,
-	//		eq, exp, ge, gt, ifs, le, log, lt,
-	//		multiply, ne, not, or, subtract,
-	//		toDate, toFloat, toInt, toString}
+	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
+		multiply, ne, not, or, sum, subtract, table, toDate, toFloat, toInt, toString, where}
 }
 
 // ////////  Standard Fns

@@ -96,40 +96,57 @@ func (d *Dialect) Close() error {
 }
 
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {
-	if overwrite {
-		qry := strings.Replace(d.dropIf, "?TableName", tableName, 1)
-		if _, ex := d.db.Exec(qry); ex != nil {
-			return ex
-		}
-	}
+	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
-	if orderBy == "" {
-		orderBy = fields[0]
-	}
-
-	create := strings.Replace(d.create, "?TableName", tableName, 1)
-	create = strings.Replace(create, "?OrderBy", orderBy, 1)
-
-	var flds []string
-	for ind := 0; ind < len(fields); ind++ {
-		var (
-			dbType string
-			e      error
-		)
-		if dbType, e = d.dbtype(types[ind]); e != nil {
-			return e
+	if d.DialectName() == "clickhouse" {
+		if overwrite {
+			qry := strings.Replace(d.dropIf, "?TableName", tableName, 1)
+			if _, ex := d.db.Exec(qry); ex != nil {
+				return ex
+			}
 		}
 
-		field := strings.Replace(d.fields, "?Field", fields[ind], 1)
-		field = strings.Replace(field, "?Type", dbType, 1)
-		flds = append(flds, field)
+		if orderBy == "" {
+			orderBy = fields[0]
+		}
+
+		create := strings.Replace(d.create, "?TableName", tableName, 1)
+		create = strings.Replace(create, "?OrderBy", orderBy, 1)
+
+		var flds []string
+		for ind := 0; ind < len(fields); ind++ {
+			var (
+				dbType string
+				e      error
+			)
+			if dbType, e = d.dbtype(types[ind]); e != nil {
+				return e
+			}
+
+			field := strings.Replace(d.fields, "?Field", fields[ind], 1)
+			field = strings.Replace(field, "?Type", dbType, 1)
+			flds = append(flds, field)
+		}
+
+		create = strings.Replace(create, "?fields", strings.Join(flds, ","), 1)
+
+		_, e = d.db.Exec(create)
 	}
-
-	create = strings.Replace(create, "?fields", strings.Join(flds, ","), 1)
-
-	_, e := d.db.Exec(create)
 
 	return e
+}
+
+func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, error) {
+	e := fmt.Errorf("no implemention of Union for %s", d.DialectName())
+	var sql string
+
+	if d.DialectName() == "clickhouse" {
+		cols := strings.Join(colNames, ",")
+		sql = fmt.Sprintf("SELECT %s FROM (%s) UNION ALL (%s)", cols, table1, table2)
+		e = nil
+	}
+
+	return sql, e
 }
 
 // TODO: think about query
