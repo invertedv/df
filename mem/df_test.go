@@ -226,6 +226,7 @@ func TestToCat(t *testing.T) {
 	assert.Nil(t, ex)
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
+	// list of values you want to keep
 	expr = "cat(y,  +1, -5)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)

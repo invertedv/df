@@ -10,11 +10,6 @@ import (
 	d "github.com/invertedv/df"
 )
 
-// TODO:
-// - implement summary functions
-// - implement appendDF
-// - add orderBy to DBsave
-
 /*
  df SourceSQL
     - using NewSQLdfQry this is the sourceSQL supplied
@@ -410,9 +405,10 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		names = append(names, csql.Name(""))
 	}
 
-	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), d.DTint, "count(*)")
+	// TODO: toInt32 is Clickhouse
+	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), d.DTint, "cast(count(*) AS Int32)")
 	cs = append(cs, count)
-	rateSQL := fmt.Sprintf("count(*) / (SELECT count(*) FROM (%s))", s.MakeQuery())
+	rateSQL := fmt.Sprintf("cast(count(*) / (SELECT count(*) FROM (%s)) AS Float32)", s.MakeQuery())
 	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), d.DTfloat, rateSQL)
 	cs = append(cs, rate)
 

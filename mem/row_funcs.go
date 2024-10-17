@@ -570,7 +570,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	for ind := 1; ind < len(inputs); ind++ {
 		c := inputs[ind].(*MemCol)
 		if c.DataType() != col.DataType() {
-			return &d.FnReturn{Err: fmt.Errorf("levels of cat are not the same as the column")}
+			return &d.FnReturn{Err: fmt.Errorf("types of cat are not the same as the column")}
 		}
 
 		levels = append(levels, c.Element(0))
@@ -660,6 +660,8 @@ func fuzzCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: outCol}
 }
 
+// toCategorical
+// - levels: list of values to keep, any others get set to default
 func toCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*MemCol, error) {
 	if col.DataType() == d.DTfloat {
 		return nil, fmt.Errorf("cannot make float to categorical")

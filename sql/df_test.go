@@ -313,24 +313,29 @@ func TestSQLdf_Table(t *testing.T) {
 func TestSQLdf_AppendDF(t *testing.T) {
 	dfx := df4test()
 	dfy := df4test()
-	fmt.Println(dfx.Signature())
-	fmt.Println(dfx.Context.Self().(*SQLdf).Signature())
 	dfOut, e := dfx.AppendDF(dfy)
-	fmt.Println(dfx.Signature())
-	fmt.Println(dfx.Context.Self().(*SQLdf).Signature())
 	assert.Nil(t, e)
 	e = dfOut.DBsave("testing.append", true)
 	assert.Nil(t, e)
-
 	var c *df2.Parsed
 	c, e = dfx.Parse("exp(x)")
 	assert.Nil(t, e)
 	col := c.AsColumn()
 	col.Name("newCol")
-	fmt.Println(col.(*SQLcol).Signature())
-	fmt.Println(dfOut.(*SQLdf).Signature())
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
 	_, e = dfx.AppendDF(dfy)
 	assert.NotNil(t, e)
+}
+
+func TestCat(t *testing.T) {
+	dfx := df4test()
+	r, e := dfx.Parse("cat(y)")
+	assert.Nil(t, e)
+	s := r.AsColumn()
+	s.Name("caty")
+	e = dfx.AppendColumn(s, false)
+	assert.Nil(t, e)
+	e = dfx.DBsave("testing.cat", true)
+	assert.Nil(t, e)
 }

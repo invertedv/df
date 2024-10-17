@@ -263,9 +263,10 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 }
 
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
+	wn := u.RandomLetters(4)
 	const skeleton = "WITH d3212 AS (%s) SELECT * FROM d3212 LIMIT 1"
 
-	q := fmt.Sprintf(skeleton, qry)
+	q := strings.ReplaceAll(fmt.Sprintf(skeleton, qry), "d3212", wn)
 
 	var rows *sql.Rows
 	rows, err = d.db.Query(q)

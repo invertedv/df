@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	d "github.com/invertedv/df"
+	m "github.com/invertedv/df/mem"
 )
 
 // TODO: sortDF, toCat, fuzzCat, ...
@@ -57,7 +58,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
-		multiply, ne, not, or, sum, subtract, table, toDate, toFloat, toInt, toString, where}
+		multiply, ne, not, or, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
 }
 
 // ////////  Standard Fns
@@ -98,6 +99,72 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	return &d.FnReturn{Value: outDF}
+}
+
+// ***************** categorical operations *****************
+// TODO: implement levels option
+// TODO: check if works with dates
+// TODO: add "Case" to dialect
+func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
+			Output:  []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical},
+			Varying: true}
+	}
+
+	col := inputs[0].(*SQLcol)
+	cn := col.Name("")
+	dt := col.DataType()
+	if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
+		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
+	}
+
+	// 1. make table of feature
+	// 2. retrieve values
+	// 3. build map sql
+	df := context.Self().(*SQLdf)
+
+	var (
+		tabl d.DF
+		e    error
+	)
+	if tabl, e = df.Table(true, cn); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	x := tabl.(*SQLdf).MakeQuery()
+	fmt.Println(x)
+	var (
+		mDF *m.MemDF
+		e1  error
+	)
+	if mDF, e1 = m.DBLoad(x, context.Dialect()); e1 != nil {
+		return &d.FnReturn{Err: e1}
+	}
+
+	mDF.Sort(true, cn)
+
+	var (
+		inCol d.Column
+		e2    error
+	)
+
+	if inCol, e2 = mDF.Column(cn); e2 != nil {
+		return &d.FnReturn{Err: e2}
+	}
+
+	sql := "CASE\n"
+	caseNo := 0
+	for ind := 0; ind < inCol.Len(); ind++ {
+		val := inCol.(*m.MemCol).Element(ind)
+		sql += fmt.Sprintf("WHEN %s = %v THEN %d\n", cn, val, caseNo)
+		caseNo++
+	}
+	sql += "END"
+	fmt.Println(sql)
+
+	outCol := NewColSQL("", df.Signature(), df.MakeQuery(), df.Version(), d.DTint, sql)
+	return &d.FnReturn{Value: outCol}
 }
 
 // ***************** arithmetic operations *****************
