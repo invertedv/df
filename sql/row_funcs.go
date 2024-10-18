@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"maps"
 
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
@@ -57,7 +58,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 }
 
 func StandardFunctions() d.Fns {
-	return d.Fns{abs, add, and, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
+	return d.Fns{abs, add, and, applyCat, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
 		multiply, ne, not, or, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
 }
 
@@ -102,9 +103,7 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 }
 
 // ***************** categorical operations *****************
-// TODO: implement levels option
-// TODO: check if works with dates
-// TODO: add "Case" to dialect
+
 func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
@@ -113,58 +112,189 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	col := inputs[0].(*SQLcol)
-	cn := col.Name("")
 	dt := col.DataType()
 	if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
 		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
 	}
 
-	// 1. make table of feature
-	// 2. retrieve values
-	// 3. build map sql
-	df := context.Self().(*SQLdf)
+	fuzz := 1
+	if len(inputs) > 1 {
+		f := inputs[1].(*SQLcol).Data()
 
+		var (
+			ex error
+			fa any
+		)
+		if fa, ex = d.ToDataType(f, d.DTint, true); ex != nil {
+			return &d.FnReturn{Err: fmt.Errorf("cannot interpret fuzz as integer in cat")}
+		}
+
+		fuzz = fa.(int)
+		if fuzz < 1 {
+			return &d.FnReturn{Err: fmt.Errorf("fuzz value must be positive")}
+		}
+	}
+
+	var (
+		outCol *SQLcol
+		e      error
+	)
+
+	if outCol, e = toCategorical(context.Self().(*SQLdf), col, nil, fuzz, nil, nil); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	return &d.FnReturn{Value: outCol}
+}
+
+func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
+			{d.DTstring, d.DTcategorical, d.DTstring}, {d.DTdate, d.DTcategorical, d.DTdate}},
+			Output: []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical}}
+	}
+
+	newData := inputs[0].(*SQLcol)
+	oldData := inputs[1].(*SQLcol)
+	newVal := inputs[2].(*SQLcol)
+
+	if newData.DataType() != oldData.rawType {
+		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
+	}
+
+	var (
+		defaultValue any
+		e            error
+	)
+
+	if newVal.DataType() != newData.DataType() {
+		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
+	}
+
+	if defaultValue, e = d.ToDataType(newVal.Data(), newVal.DataType(), true); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	var levels []any
+	for k := range oldData.catMap {
+		levels = append(levels, k)
+	}
+
+	var outCol *SQLcol
+	if outCol, e = toCategorical(context.Self().(*SQLdf), newData, oldData.catMap, 0, defaultValue, levels); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	outCol.rawType = newData.DataType()
+	outFn := &d.FnReturn{Value: outCol}
+
+	return outFn
+}
+
+func toCategorical(df *SQLdf, col *SQLcol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*SQLcol, error) {
+	nextInt := 0
+	for k, v := range catMap {
+		if k != nil && d.WhatAmI(k) != col.DataType() {
+			return nil, fmt.Errorf("map and column not same data types")
+		}
+
+		if v >= nextInt {
+			nextInt = v + 1
+		}
+	}
+
+	toMap := make(d.CategoryMap)
+	maps.Copy(toMap, catMap)
+
+	if _, ok := toMap[defaultVal]; !ok {
+		toMap[defaultVal] = -1
+	}
+
+	cn := col.Name("")
 	var (
 		tabl d.DF
 		e    error
 	)
 	if tabl, e = df.Table(true, cn); e != nil {
-		return &d.FnReturn{Err: e}
+		return nil, e
 	}
 
 	x := tabl.(*SQLdf).MakeQuery()
-	fmt.Println(x)
 	var (
 		mDF *m.MemDF
 		e1  error
 	)
-	if mDF, e1 = m.DBLoad(x, context.Dialect()); e1 != nil {
-		return &d.FnReturn{Err: e1}
+	if mDF, e1 = m.DBLoad(x, df.Dialect()); e1 != nil {
+		return nil, e
 	}
 
-	mDF.Sort(true, cn)
+	_ = mDF.Sort(true, cn)
 
 	var (
 		inCol d.Column
 		e2    error
 	)
-
 	if inCol, e2 = mDF.Column(cn); e2 != nil {
-		return &d.FnReturn{Err: e2}
+		return nil, e2
 	}
 
-	sql := "CASE\n"
+	var (
+		counts d.Column
+		e3     error
+	)
+	if counts, e3 = mDF.Column("count"); e3 != nil {
+		return nil, e3
+	}
+
+	cnts := make(d.CategoryMap)
 	caseNo := 0
+	var whens, equalTo []string
 	for ind := 0; ind < inCol.Len(); ind++ {
+		outVal := caseNo
 		val := inCol.(*m.MemCol).Element(ind)
-		sql += fmt.Sprintf("WHEN %s = %v THEN %d\n", cn, val, caseNo)
-		caseNo++
-	}
-	sql += "END"
-	fmt.Println(sql)
+		ct := counts.(*m.MemCol).Element(ind).(int)
+		catVal := val
 
-	outCol := NewColSQL("", df.Signature(), df.MakeQuery(), df.Version(), d.DTint, sql)
-	return &d.FnReturn{Value: outCol}
+		if fuzz > 1 && ct < fuzz {
+			outVal = -1
+		}
+
+		if levels != nil && !d.In(val, levels) {
+			if v, ok := toMap[defaultVal]; ok {
+				outVal = v
+			}
+
+			catVal = defaultVal
+		}
+
+		if v, ok := toMap[val]; ok {
+			outVal = v
+		}
+
+		toMap[val] = outVal
+
+		cnts[catVal] += ct
+
+		whens = append(whens, fmt.Sprintf("%s = %s", cn, df.Dialect().ToString(val)))
+		equalTo = append(equalTo, fmt.Sprintf("%d", outVal))
+		if outVal == caseNo {
+			caseNo++
+		}
+	}
+
+	var (
+		sql1 string
+		ex   error
+	)
+	if sql1, ex = df.Dialect().Case(whens, equalTo); ex != nil {
+		return nil, ex
+	}
+
+	outCol := NewColSQL("", df.Signature(), df.MakeQuery(), df.Version(), d.DTcategorical, sql1)
+	outCol.rawType = col.DataType()
+	outCol.catMap, outCol.catCounts = toMap, cnts
+
+	return outCol, nil
 }
 
 // ***************** arithmetic operations *****************
@@ -191,11 +321,11 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 		dtOut = d.DTfloat
 	}
 
-	table := context.Self().(*SQLdf).Signature()
+	tabl := context.Self().(*SQLdf).Signature()
 	source := context.Self().(*SQLdf).MakeQuery()
 	version := context.Self().(*SQLdf).Version()
 
-	outCol := NewColSQL("", table, source, version, dtOut, sql)
+	outCol := NewColSQL("", tabl, source, version, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
 }

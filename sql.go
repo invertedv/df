@@ -117,10 +117,10 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 		for ind := 0; ind < len(fields); ind++ {
 			var (
 				dbType string
-				e      error
+				ex     error
 			)
-			if dbType, e = d.dbtype(types[ind]); e != nil {
-				return e
+			if dbType, ex = d.dbtype(types[ind]); ex != nil {
+				return ex
 			}
 
 			field := strings.Replace(d.fields, "?Field", fields[ind], 1)
@@ -386,4 +386,39 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 	}
 
 	return d.dbTypes[pos], nil
+}
+
+// ToString returns a string version of val that can be placed into SQL
+func (d *Dialect) ToString(val any) string {
+	if d.DialectName() == "clickhouse" {
+		x := Any2String(val)
+		if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
+			x = fmt.Sprintf("'%s'", x)
+		}
+		return x
+	}
+
+	panic(fmt.Errorf("unsupported db dialect"))
+}
+
+// Case creates a CASE statement.
+// - whens slice of conditions
+// - vals slice of the value to set the result to if condition is true
+func (d *Dialect) Case(whens, vals []string) (string, error) {
+	if len(whens) != len(vals) {
+		return "", fmt.Errorf("whens and vals must be same length in Dialect.Case")
+	}
+
+	var s string
+	e := fmt.Errorf("unsupported db dialect")
+	if d.DialectName() == "clickhouse" {
+		e = nil
+		s = "CASE\n"
+		for ind := 0; ind < len(whens); ind++ {
+			s += fmt.Sprintf("WHEN %s THEN %s\n", whens[ind], vals[ind])
+		}
+		s += "END"
+	}
+
+	return s, e
 }

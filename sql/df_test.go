@@ -299,14 +299,10 @@ func TestSQLdf_Version(t *testing.T) {
 func TestSQLdf_Table(t *testing.T) {
 	dfx := df4test()
 	dfTable, e := dfx.Parse("table(y,yy)")
-	f := dfTable.AsDF().(*SQLdf).MakeQuery()
-	fmt.Println(f)
 	assert.Nil(t, e)
 	e = dfTable.AsDF().Sort(true, "count")
 	assert.Nil(t, e)
-	fmt.Println(dfTable.AsDF().(*SQLdf).MakeQuery())
 	outCol := checker(dfTable.AsDF(), "testing.table", "count")
-	fmt.Println(outCol.Data())
 	assert.Equal(t, []int{1, 1, 1, 1, 2}, outCol.Data())
 }
 
@@ -330,12 +326,44 @@ func TestSQLdf_AppendDF(t *testing.T) {
 
 func TestCat(t *testing.T) {
 	dfx := df4test()
+
+	r, e := dfx.Parse("cat(y, 2)")
+	assert.Nil(t, e)
+	s := r.AsColumn()
+	s.Name("caty")
+	e = dfx.AppendColumn(s, false)
+	assert.Nil(t, e)
+
+	//	r, e = dfx.Parse("cat(z)")
+	//	assert.Nil(t, e)
+	//	s = r.AsColumn()
+	//	s.Name("catz")
+	//	e = dfx.AppendColumn(s, false)
+	//	assert.Nil(t, e)
+
+	e = dfx.DBsave("testing.cat", true)
+	assert.Nil(t, e)
+}
+
+func TestApplyCat(t *testing.T) {
+	dfx := df4test()
 	r, e := dfx.Parse("cat(y)")
 	assert.Nil(t, e)
 	s := r.AsColumn()
 	s.Name("caty")
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
+
+	r, e = dfx.Parse("applyCat(yy, caty, -5)")
+	assert.Nil(t, e)
+	s = r.AsColumn()
+	s.Name("catyy")
+	e = dfx.AppendColumn(s, false)
+	assert.Nil(t, e)
+
 	e = dfx.DBsave("testing.cat", true)
 	assert.Nil(t, e)
 }
+
+// mem & sql out of sync
+//

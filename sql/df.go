@@ -405,10 +405,20 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		names = append(names, csql.Name(""))
 	}
 
-	// TODO: toInt32 is Clickhouse
-	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), d.DTint, "cast(count(*) AS Int32)")
+	var (
+		cc, cf string
+		ex     error
+	)
+	if cc, ex = s.Dialect().CastField("count(*)", d.DTint, d.DTint); ex != nil {
+		return nil, ex
+	}
+	if cf, ex = s.Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
+		return nil, ex
+	}
+
+	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), d.DTint, cc)
 	cs = append(cs, count)
-	rateSQL := fmt.Sprintf("cast(count(*) / (SELECT count(*) FROM (%s)) AS Float32)", s.MakeQuery())
+	rateSQL := fmt.Sprintf(cf, s.MakeQuery())
 	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), d.DTfloat, rateSQL)
 	cs = append(cs, rate)
 
@@ -486,7 +496,9 @@ type SQLcol struct {
 	signature string // unique 4-character signature to identify this data source
 	version   int    // version of the dataframe that existed when this column was added
 
-	catMap d.CategoryMap
+	rawType   d.DataTypes
+	catMap    d.CategoryMap
+	catCounts d.CategoryMap
 }
 
 func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, sql string) *SQLcol {
@@ -592,4 +604,8 @@ func (s *SQLcol) Version() int {
 func newSignature() string {
 	const sigLen = 4
 	return u.RandomLetters(sigLen)
+}
+
+func (s *SQLcol) RawType() d.DataTypes {
+	return s.rawType
 }

@@ -24,7 +24,7 @@ func Any2Float64(inVal any) (*float64, error) {
 	case float64:
 		outVal = x
 	case string:
-		xx, e := strconv.ParseFloat(x, 64)
+		xx, e := strconv.ParseFloat(back2Num(x), 64)
 		if e != nil {
 			return nil, e
 		}
@@ -79,7 +79,7 @@ func Any2Int(inVal any) (*int, error) {
 
 		outVal = int(x)
 	case string:
-		xx, e := strconv.ParseInt(x, 10, 32)
+		xx, e := strconv.ParseInt(back2Num(x), 10, 32)
 		if e != nil {
 			return nil, fmt.Errorf("cannot convert %v to int: Any2Int", inVal)
 		}
@@ -89,6 +89,14 @@ func Any2Int(inVal any) (*int, error) {
 	}
 
 	return &outVal, nil
+}
+
+// sql/df will convert negative values, e.g. -5,  to sql (0 - 5)
+func back2Num(s string) string {
+	s = strings.ReplaceAll(s, "(0 -", "")
+	s = strings.ReplaceAll(s, ")", "")
+	s = strings.ReplaceAll(s, " ", "")
+	return s
 }
 
 func ToInt(xIn any, cast bool) (xOut any, err error) {
@@ -380,9 +388,23 @@ func Comparator(x, y any, op string) (bool, error) {
 }
 
 func In(check any, pop []any) bool {
-	for _, val := range pop {
-		if check == val {
-			return true
+	switch WhatAmI(check) {
+	case DTfloat, DTint, DTstring:
+		for _, val := range pop {
+			if check == val {
+				return true
+			}
+		}
+	case DTdate:
+		// avoids complications due to time zones
+		c := check.(time.Time)
+		for _, val := range pop {
+			v := val.(time.Time)
+			if c.Year() == v.Year() &&
+				c.Month() == v.Month() &&
+				c.Day() == v.Day() {
+				return true
+			}
 		}
 	}
 

@@ -628,7 +628,6 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	var outCol *MemCol
-	_ = defaultValue
 	if outCol, e = toCategorical(newData, oldData.catMap, 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
@@ -660,6 +659,7 @@ func fuzzCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: outCol}
 }
 
+// TODO: does this sync with sql version?
 // toCategorical
 // - levels: list of values to keep, any others get set to default
 func toCategorical(col *MemCol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*MemCol, error) {
