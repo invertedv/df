@@ -3,6 +3,7 @@ package df
 import (
 	_ "embed"
 	"fmt"
+	"maps"
 	"sort"
 	"time"
 
@@ -239,6 +240,119 @@ func (m *MemDF) Row(rowNum int) []any {
 	}
 
 	return r
+}
+
+func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
+	var (
+		col d.Column
+		e0  error
+	)
+	if col, e0 = m.Column(colName); e0 != nil {
+		return nil, e0
+	}
+
+	if col.DataType() == d.DTfloat {
+		return nil, fmt.Errorf("cannot make float to categorical")
+	}
+
+	nextInt := 0
+	for k, v := range catMap {
+		if k != nil && d.WhatAmI(k) != col.DataType() {
+			return nil, fmt.Errorf("map and column not same data types")
+		}
+
+		if v >= nextInt {
+			nextInt = v + 1
+		}
+	}
+
+	toMap := make(d.CategoryMap)
+	maps.Copy(toMap, catMap)
+
+	if _, ok := toMap[defaultVal]; !ok {
+		toMap[defaultVal] = -1
+	}
+
+	cnts := make(d.CategoryMap)
+
+	data := d.MakeSlice(d.DTint, 0, nil)
+	for ind := 0; ind < col.Len(); ind++ {
+		inVal := col.(*MemCol).Element(ind)
+		if levels != nil && !d.In(inVal, levels) {
+			inVal = defaultVal
+		}
+
+		cnts[inVal]++
+
+		if mapVal, ok := toMap[inVal]; ok {
+			data = d.AppendSlice(data, mapVal, d.DTint)
+			continue
+		}
+
+		toMap[inVal] = nextInt
+		data = d.AppendSlice(data, nextInt, d.DTint)
+		nextInt++
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+
+	if outCol, e = NewMemCol("", data); e != nil {
+		return nil, e
+	}
+
+	outCol.dType = d.DTcategorical
+
+	outCol.catMap = toMap
+	outCol.catCounts = cnts
+
+	if fuzz > 1 {
+		outCol = fuzzCategorical(outCol, fuzz, defaultVal)
+	}
+
+	return outCol, nil
+}
+
+func fuzzCategoricalx(col *MemCol, fuzzValue int, defaultVal any) *MemCol {
+	catMap := make(d.CategoryMap)
+	catCounts := make(d.CategoryMap)
+	data := make([]int, col.Len())
+	copy(data, col.Data().([]int))
+	consVals := []int{-1} // map values to keep
+
+	for k, v := range col.catMap {
+		if col.catCounts[k] >= fuzzValue {
+			catMap[k] = v
+			catCounts[k] = col.catCounts[k]
+			consVals = append(consVals, v)
+			continue
+		}
+
+		catCounts[defaultVal]++
+	}
+
+	sort.Ints(consVals)
+
+	for ind, x := range col.Data().([]int) {
+		checkVal := x
+		if indx := sort.SearchInts(consVals, checkVal); indx == len(consVals) || consVals[indx] != checkVal {
+			data[ind] = -1
+		}
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+	if outCol, e = NewMemCol("", data); e != nil {
+		panic(e) // should not happen
+	}
+
+	outCol.catMap, outCol.catCounts, outCol.dType = catMap, catCounts, d.DTcategorical
+
+	return outCol
 }
 
 func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
@@ -590,4 +704,44 @@ func AppendRows(col1, col2 d.Column, name string) (*MemCol, error) {
 	}
 
 	return col, nil
+}
+
+func fuzzCategorical(col *MemCol, fuzzValue int, defaultVal any) *MemCol {
+	catMap := make(d.CategoryMap)
+	catCounts := make(d.CategoryMap)
+	data := make([]int, col.Len())
+	copy(data, col.Data().([]int))
+	consVals := []int{-1} // map values to keep
+
+	for k, v := range col.catMap {
+		if col.catCounts[k] >= fuzzValue {
+			catMap[k] = v
+			catCounts[k] = col.catCounts[k]
+			consVals = append(consVals, v)
+			continue
+		}
+
+		catCounts[defaultVal]++
+	}
+
+	sort.Ints(consVals)
+
+	for ind, x := range col.Data().([]int) {
+		checkVal := x
+		if indx := sort.SearchInts(consVals, checkVal); indx == len(consVals) || consVals[indx] != checkVal {
+			data[ind] = -1
+		}
+	}
+
+	var (
+		outCol *MemCol
+		e      error
+	)
+	if outCol, e = NewMemCol("", data); e != nil {
+		panic(e) // should not happen
+	}
+
+	outCol.catMap, outCol.catCounts, outCol.dType = catMap, catCounts, d.DTcategorical
+
+	return outCol
 }

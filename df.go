@@ -9,7 +9,9 @@ import (
 )
 
 // TODO: think about
-// data types -- what if try to add a cat var?
+// how do I want cat() to work? Levels? fuzz?
+// consider how to handle passing a small column of parameters...
+// NewColSequence ?? ...
 // How to address elements (e.g. replace all values where x=4)
 // Add orderBy to DBsave
 
@@ -39,8 +41,18 @@ type DF interface {
 	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) (DF, error)
 	Core() *DFcore
+
+	// Categorical takes an input column of type DTint, DTdate or DTstring and creates a categorical column
+	// - colName : name of column to work on
+	// - catMap : existing categorical map to apply.  Use nil if there is not one.
+	// - fuzz : # of counts below which to map to the defaultVal category
+	// - defaultVal : level of feature to use as the "other" value. This can be an existing level of the Column or a new one.
+	// - levels : array of acceptable levels.  Any level not found in this slice is mapped to the defaultVal
+	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Table(sortByRows bool, cols ...string) (DF, error)
 }
+
+//
 
 type Ereturn func() error
 

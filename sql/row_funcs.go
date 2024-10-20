@@ -2,10 +2,7 @@ package sql
 
 import (
 	"fmt"
-	"maps"
-
 	d "github.com/invertedv/df"
-	m "github.com/invertedv/df/mem"
 )
 
 // TODO: sortDF, toCat, fuzzCat, ...
@@ -136,11 +133,11 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	var (
-		outCol *SQLcol
+		outCol d.Column
 		e      error
 	)
 
-	if outCol, e = toCategorical(context.Self().(*SQLdf), col, nil, fuzz, nil, nil); e != nil {
+	if outCol, e = context.Self().(*SQLdf).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -180,121 +177,15 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		levels = append(levels, k)
 	}
 
-	var outCol *SQLcol
-	if outCol, e = toCategorical(context.Self().(*SQLdf), newData, oldData.catMap, 0, defaultValue, levels); e != nil {
+	var outCol d.Column
+	if outCol, e = context.Self().(*SQLdf).Categorical(newData.Name(""), oldData.catMap, 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
-	outCol.rawType = newData.DataType()
+	outCol.(*SQLcol).rawType = newData.DataType()
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
-}
-
-func toCategorical(df *SQLdf, col *SQLcol, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (*SQLcol, error) {
-	nextInt := 0
-	for k, v := range catMap {
-		if k != nil && d.WhatAmI(k) != col.DataType() {
-			return nil, fmt.Errorf("map and column not same data types")
-		}
-
-		if v >= nextInt {
-			nextInt = v + 1
-		}
-	}
-
-	toMap := make(d.CategoryMap)
-	maps.Copy(toMap, catMap)
-
-	if _, ok := toMap[defaultVal]; !ok {
-		toMap[defaultVal] = -1
-	}
-
-	cn := col.Name("")
-	var (
-		tabl d.DF
-		e    error
-	)
-	if tabl, e = df.Table(true, cn); e != nil {
-		return nil, e
-	}
-
-	x := tabl.(*SQLdf).MakeQuery()
-	var (
-		mDF *m.MemDF
-		e1  error
-	)
-	if mDF, e1 = m.DBLoad(x, df.Dialect()); e1 != nil {
-		return nil, e
-	}
-
-	_ = mDF.Sort(true, cn)
-
-	var (
-		inCol d.Column
-		e2    error
-	)
-	if inCol, e2 = mDF.Column(cn); e2 != nil {
-		return nil, e2
-	}
-
-	var (
-		counts d.Column
-		e3     error
-	)
-	if counts, e3 = mDF.Column("count"); e3 != nil {
-		return nil, e3
-	}
-
-	cnts := make(d.CategoryMap)
-	caseNo := 0
-	var whens, equalTo []string
-	for ind := 0; ind < inCol.Len(); ind++ {
-		outVal := caseNo
-		val := inCol.(*m.MemCol).Element(ind)
-		ct := counts.(*m.MemCol).Element(ind).(int)
-		catVal := val
-
-		if fuzz > 1 && ct < fuzz {
-			outVal = -1
-		}
-
-		if levels != nil && !d.In(val, levels) {
-			if v, ok := toMap[defaultVal]; ok {
-				outVal = v
-			}
-
-			catVal = defaultVal
-		}
-
-		if v, ok := toMap[val]; ok {
-			outVal = v
-		}
-
-		toMap[val] = outVal
-
-		cnts[catVal] += ct
-
-		whens = append(whens, fmt.Sprintf("%s = %s", cn, df.Dialect().ToString(val)))
-		equalTo = append(equalTo, fmt.Sprintf("%d", outVal))
-		if outVal == caseNo {
-			caseNo++
-		}
-	}
-
-	var (
-		sql1 string
-		ex   error
-	)
-	if sql1, ex = df.Dialect().Case(whens, equalTo); ex != nil {
-		return nil, ex
-	}
-
-	outCol := NewColSQL("", df.Signature(), df.MakeQuery(), df.Version(), d.DTcategorical, sql1)
-	outCol.rawType = col.DataType()
-	outCol.catMap, outCol.catCounts = toMap, cnts
-
-	return outCol, nil
 }
 
 // ***************** arithmetic operations *****************

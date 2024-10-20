@@ -2,8 +2,11 @@ package sql
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"time"
+
+	m "github.com/invertedv/df/mem"
 
 	u "github.com/invertedv/utilities"
 
@@ -50,6 +53,22 @@ type SQLdf struct {
 	groupBy string
 
 	*d.DFcore
+}
+
+type SQLcol struct {
+	name      string
+	rowCountX int
+	dType     d.DataTypes
+	sql       string // SQL to generate this column
+
+	sourceSQL string // SQL that produces the result set that populates this column
+
+	signature string // unique 4-character signature to identify this data source
+	version   int    // version of the dataframe that existed when this column was added
+
+	catMap    d.CategoryMap
+	catCounts d.CategoryMap
+	rawType   d.DataTypes
 }
 
 func NewSQLdfCol(context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
@@ -380,6 +399,120 @@ func (s *SQLdf) SourceSQL() string {
 	return s.sourceSQL
 }
 
+func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
+	var (
+		col d.Column
+		e   error
+	)
+	if col, e = s.Column(colName); e != nil {
+		return nil, e
+	}
+
+	nextInt := 0
+	for k, v := range catMap {
+		if k != nil && d.WhatAmI(k) != col.DataType() {
+			return nil, fmt.Errorf("map and column not same data types")
+		}
+
+		if v >= nextInt {
+			nextInt = v + 1
+		}
+	}
+
+	toMap := make(d.CategoryMap)
+	maps.Copy(toMap, catMap)
+
+	if _, ok := toMap[defaultVal]; !ok {
+		toMap[defaultVal] = -1
+	}
+
+	cn := col.Name("")
+	var (
+		tabl d.DF
+		e4   error
+	)
+	if tabl, e4 = s.Table(true, cn); e4 != nil {
+		return nil, e4
+	}
+
+	x := tabl.(*SQLdf).MakeQuery()
+	var (
+		mDF *m.MemDF
+		e1  error
+	)
+	if mDF, e1 = m.DBLoad(x, s.Dialect()); e1 != nil {
+		return nil, e
+	}
+
+	_ = mDF.Sort(true, cn)
+
+	var (
+		inCol d.Column
+		e2    error
+	)
+	if inCol, e2 = mDF.Column(cn); e2 != nil {
+		return nil, e2
+	}
+
+	var (
+		counts d.Column
+		e3     error
+	)
+	if counts, e3 = mDF.Column("count"); e3 != nil {
+		return nil, e3
+	}
+
+	cnts := make(d.CategoryMap)
+	caseNo := 0
+	var whens, equalTo []string
+	for ind := 0; ind < inCol.Len(); ind++ {
+		outVal := caseNo
+		val := inCol.(*m.MemCol).Element(ind)
+		ct := counts.(*m.MemCol).Element(ind).(int)
+		catVal := val
+
+		if fuzz > 1 && ct < fuzz {
+			outVal = -1
+		}
+
+		if levels != nil && !d.In(val, levels) {
+			if v, ok := toMap[defaultVal]; ok {
+				outVal = v
+			}
+
+			catVal = defaultVal
+		}
+
+		if v, ok := toMap[val]; ok {
+			outVal = v
+		}
+
+		toMap[val] = outVal
+
+		cnts[catVal] += ct
+
+		whens = append(whens, fmt.Sprintf("%s = %s", cn, s.Dialect().ToString(val)))
+		equalTo = append(equalTo, fmt.Sprintf("%d", outVal))
+		if outVal == caseNo {
+			caseNo++
+		}
+	}
+
+	var (
+		sql1 string
+		ex   error
+	)
+	if sql1, ex = s.Dialect().Case(whens, equalTo); ex != nil {
+		return nil, ex
+	}
+
+	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), d.DTcategorical, sql1)
+	outCol.rawType = col.DataType()
+	outCol.catMap, outCol.catCounts = toMap, cnts
+
+	return outCol, nil
+}
+
 func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	var (
 		names []string
@@ -485,26 +618,9 @@ func (s *SQLdf) MakeColumnXX(value any) (d.Column, error) {
 
 // ***************** SQLcol *****************
 
-type SQLcol struct {
-	name     string
-	rowCount int
-	dType    d.DataTypes
-	sql      string
-
-	sourceSQL string // SQL that produces the result set that populates this column
-
-	signature string // unique 4-character signature to identify this data source
-	version   int    // version of the dataframe that existed when this column was added
-
-	rawType   d.DataTypes
-	catMap    d.CategoryMap
-	catCounts d.CategoryMap
-}
-
 func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, sql string) *SQLcol {
 	col := &SQLcol{
 		name:      name,
-		rowCount:  0,
 		dType:     dt,
 		sql:       sql,
 		sourceSQL: sourceSQL,
@@ -533,12 +649,10 @@ func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
 
 	col := &SQLcol{
 		name:      name,
-		rowCount:  0,
 		dType:     dt,
 		sql:       sql,
 		signature: sig,
 		version:   version,
-		catMap:    nil,
 	}
 
 	return col, nil
@@ -551,7 +665,6 @@ func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
 func (s *SQLcol) Copy() d.Column {
 	n := &SQLcol{
 		name:      s.name,
-		rowCount:  0,
 		dType:     s.dType,
 		sql:       s.sql,
 		sourceSQL: s.sourceSQL,

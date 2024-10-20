@@ -327,7 +327,7 @@ func TestSQLdf_AppendDF(t *testing.T) {
 func TestCat(t *testing.T) {
 	dfx := df4test()
 
-	r, e := dfx.Parse("cat(y, 2)")
+	r, e := dfx.Parse("cat(y, 1)")
 	assert.Nil(t, e)
 	s := r.AsColumn()
 	s.Name("caty")
