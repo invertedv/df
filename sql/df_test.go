@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	df2 "github.com/invertedv/df"
+	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -36,7 +36,7 @@ func newConnect(host, user, password string) (db *sql.DB, err error) {
 	return db, db.Ping()
 }
 
-func df4test() *SQLdf {
+func testDF() *SQLdf {
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
@@ -50,12 +50,12 @@ func df4test() *SQLdf {
 		panic(e)
 	}
 
-	var dialect *df2.Dialect
-	dialect, e = df2.NewDialect("clickhouse", db)
+	var dialect *d.Dialect
+	dialect, e = d.NewDialect("clickhouse", db)
 
 	// , ln_zb_dt
-	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", df2.NewContext(dialect, nil, nil))
-	df, e1 := NewSQLdfQry(df2.NewContext(dialect, nil, nil), "SELECT * FROM testing.d1")
+	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", d.NewContext(dialect, nil, nil))
+	df, e1 := NewSQLdfQry(d.NewContext(dialect, nil, nil), "SELECT * FROM testing.d1")
 	if e1 != nil {
 		panic(e)
 	}
@@ -63,33 +63,44 @@ func df4test() *SQLdf {
 	return df
 }
 
-func checker(df df2.DF, tableName, colName string) *m.MemCol {
-	e := df.DBsave(tableName, true)
+func checker(df d.DF, colName string, col d.Column, indx int) any {
+	if col != nil {
+		col.Name(colName)
+		if e := df.AppendColumn(col, true); e != nil {
+			panic(e)
+		}
+	}
+
+	e := df.DBsave("testing.checker", true)
 	if e != nil {
 		panic(e)
 	}
-	memDF, e1 := m.DBLoad(fmt.Sprintf("SELECT * FROM %s", tableName), df.(*SQLdf).Dialect())
+	memDF, e1 := m.DBLoad("SELECT * FROM testing.checker", df.(*SQLdf).Dialect())
 	if e1 != nil {
 		panic(e1)
 	}
-	colm, e2 := memDF.Column(colName)
-	if e2 != nil {
-		panic(e2)
+
+	if colRet, e := memDF.Column(colName); e == nil {
+		if indx < 0 {
+			return colRet.Data()
+		}
+
+		if x := colRet.(*m.MemCol).Element(indx); x != nil {
+			return x
+		}
 	}
-	return colm.(*m.MemCol)
+
+	panic(fmt.Errorf("error in checker"))
 }
 
 func TestWhere(t *testing.T) {
-	dfx := df4test()
+	dfx := testDF()
 	defer func() { _ = dfx.Context.Dialect().DB().Close() }()
 
 	out, e := dfx.Parse("y == 1 || z == '20060310'")
 	assert.Nil(t, e)
-	col := out.AsColumn().(*SQLcol)
-	col.Name("test")
-	e = dfx.AppendColumn(col, false)
-	assert.Nil(t, e)
-	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, checker(dfx, "testing.logical", "test").Data())
+	result := checker(dfx, "test", out.AsColumn(), -1)
+	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, result)
 
 	expr := "where(y == 1)"
 	out, e = dfx.Parse(expr)
@@ -102,7 +113,7 @@ func TestWhere(t *testing.T) {
 }
 
 func TestParser(t *testing.T) {
-	dfx := df4test()
+	dfx := testDF()
 
 	x := [][]any{
 		{"if(y == 1, 2.0, (x))", 0, float64(2)},
@@ -181,21 +192,14 @@ func TestParser(t *testing.T) {
 		fmt.Println(eqn)
 		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
-		col := xOut.AsColumn()
-		col.Name("test")
-		e := dfx.AppendColumn(col, true)
-		assert.Nil(t, e)
+		result := checker(dfx, "test", xOut.AsColumn(), x[ind][1].(int))
 
-		indx := x[ind][1].(int)
-
-		result := checker(dfx, "testing.check", "test").Element(indx)
-
-		if df2.WhatAmI(result) == df2.DTfloat {
+		if d.WhatAmI(result) == d.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
 			continue
 		}
 
-		if df2.WhatAmI(result) == df2.DTdate {
+		if d.WhatAmI(result) == d.DTdate {
 			assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
 			assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
 			assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
@@ -209,7 +213,7 @@ func TestParser(t *testing.T) {
 }
 
 func TestParserS(t *testing.T) {
-	dfx := df4test()
+	dfx := testDF()
 
 	x := [][]any{
 		{"sum(y)", 0, 12},
@@ -231,19 +235,19 @@ func TestParserS(t *testing.T) {
 		)
 		ez := dfx.AppendColumn(col, true)
 		assert.NotNil(t, ez)
-		fmt.Println(col.Data())
+
 		dfNew, e = NewSQLdfCol(dfx.Context, col.(*SQLcol))
 		assert.Nil(t, e)
 		indx := x[ind][1].(int)
 
-		result := checker(dfNew, "testing.check", "test").Element(indx)
+		result := checker(dfNew, "test", nil, indx)
 
-		if df2.WhatAmI(result) == df2.DTfloat {
+		if d.WhatAmI(result) == d.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
 			continue
 		}
 
-		if df2.WhatAmI(result) == df2.DTdate {
+		if d.WhatAmI(result) == d.DTdate {
 			assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
 			assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
 			assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
@@ -257,7 +261,7 @@ func TestParserS(t *testing.T) {
 }
 
 func TestSQLdf_Version(t *testing.T) {
-	dfx := df4test()
+	dfx := testDF()
 	dfOld := dfx.Copy()
 	result, e := dfx.Parse("2.0*x")
 	assert.Nil(t, e)
@@ -285,35 +289,36 @@ func TestSQLdf_Version(t *testing.T) {
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
 
-	data := checker(dfx, "testing.version", "absx2")
-	assert.Equal(t, data.Data(), []float64{2, 4, 6, 0, 4, 7})
+	data := checker(dfx, "absx2", col, -1)
+	assert.Equal(t, data, []float64{2, 4, 6, 0, 4, 7})
 	fmt.Println(data)
 
-	assert.Equal(t, dfx.Version(), 2)
+	assert.Equal(t, dfx.Version(), 3)
 	assert.Equal(t, col1.(*SQLcol).Version(), 1)
+
 	// add col1 to a newer version of dfx -- this is OK
 	e = dfx.AppendColumn(col1, false)
 	assert.Nil(t, e)
 }
 
 func TestSQLdf_Table(t *testing.T) {
-	dfx := df4test()
+	dfx := testDF()
 	dfTable, e := dfx.Parse("table(y,yy)")
 	assert.Nil(t, e)
 	e = dfTable.AsDF().Sort(true, "count")
 	assert.Nil(t, e)
-	outCol := checker(dfTable.AsDF(), "testing.table", "count")
-	assert.Equal(t, []int{1, 1, 1, 1, 2}, outCol.Data())
+	outCol := checker(dfTable.AsDF(), "count", nil, -1)
+	assert.Equal(t, []int{1, 1, 1, 1, 2}, outCol)
 }
 
 func TestSQLdf_AppendDF(t *testing.T) {
-	dfx := df4test()
-	dfy := df4test()
+	dfx := testDF()
+	dfy := testDF()
 	dfOut, e := dfx.AppendDF(dfy)
 	assert.Nil(t, e)
 	e = dfOut.DBsave("testing.append", true)
 	assert.Nil(t, e)
-	var c *df2.Parsed
+	var c *d.Parsed
 	c, e = dfx.Parse("exp(x)")
 	assert.Nil(t, e)
 	col := c.AsColumn()
@@ -325,7 +330,7 @@ func TestSQLdf_AppendDF(t *testing.T) {
 }
 
 func TestCat(t *testing.T) {
-	dfx := df4test()
+	dfx := testDF()
 
 	r, e := dfx.Parse("cat(y, 1)")
 	assert.Nil(t, e)
@@ -346,7 +351,7 @@ func TestCat(t *testing.T) {
 }
 
 func TestApplyCat(t *testing.T) {
-	dfx := df4test()
+	dfx := testDF()
 	r, e := dfx.Parse("cat(y)")
 	assert.Nil(t, e)
 	s := r.AsColumn()

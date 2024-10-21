@@ -195,9 +195,25 @@ func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 		return fmt.Errorf("added column from newer version")
 	}
 
-	s.version++
+	// increment version # if append is a new column or an existing column of the same type
+	exists, sameType := false, false
+	if cx, e := s.Column(col.Name("")); e == nil {
+		exists = true
+		if cx.DataType() == col.DataType() {
+			sameType = true
+		}
+	}
 
-	if _, e := s.Column(col.Name("")); e == nil {
+	if exists && sameType {
+		s.version++
+	}
+
+	if !exists {
+		s.version++
+	}
+
+	// create a new signature if the append is replacing an existing column but is not the same type
+	if exists && !sameType {
 		s.signature = newSignature()
 		s.version = 0
 	}

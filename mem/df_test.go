@@ -10,11 +10,11 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 
-	"github.com/invertedv/df"
+	d "github.com/invertedv/df"
 	"github.com/stretchr/testify/assert"
 )
 
-func makeMemDF() *MemDF {
+func testDF() *MemDF {
 	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3.5})
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 15, 14})
@@ -32,8 +32,27 @@ func makeMemDF() *MemDF {
 	return dfx
 }
 
+func checker(df d.DF, colName string, col d.Column, indx int) any {
+	col.Name(colName)
+	if e := df.AppendColumn(col, true); e != nil {
+		panic(e)
+	}
+
+	if colRet, e := df.Column(colName); e == nil {
+		if indx < 0 {
+			return colRet.Data()
+		}
+
+		if x := colRet.(*MemCol).Element(indx); x != nil {
+			return x
+		}
+	}
+
+	panic(fmt.Errorf("error in checker"))
+}
+
 func TestParse_Sort(t *testing.T) {
-	dfx := makeMemDF()
+	dfx := testDF()
 	//e := dfx.Sort(true, "y", "z")
 	_, e := dfx.Parse("sort('asc', y, x)")
 	assert.Nil(t, e)
@@ -44,7 +63,7 @@ func TestParse_Sort(t *testing.T) {
 }
 
 func TestParse_Table(t *testing.T) {
-	dfx := makeMemDF()
+	dfx := testDF()
 	df1, e := dfx.Parse("table(y,yy)")
 	assert.Nil(t, e)
 	fmt.Println(df1.AsDF().Column("count"))
@@ -56,9 +75,9 @@ func TestParse_Table(t *testing.T) {
 }
 
 func TestParser(t *testing.T) {
-	dfx := makeMemDF()
+	dfx := testDF()
 	eqn := "date(z)"
-	colx, e := df.ParseExpr(eqn, dfx.DFcore)
+	colx, e := d.ParseExpr(eqn, dfx.DFcore)
 	assert.Nil(t, e)
 	col := colx.AsColumn()
 	col.Name("dt")
@@ -134,16 +153,12 @@ func TestParser(t *testing.T) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
-		//xOut, ex := df.ParseExpr(eqn, dfx)
-		//		xOut, ex := df.Parse(eqn, dfx.DFcore)
 		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
 
-		indx := x[ind][1].(int)
-		result := xOut.AsColumn().(*MemCol).Element(indx)
+		result := checker(dfx, "test", xOut.AsColumn(), x[ind][1].(int))
 
-		_ = dfx.DropColumns("ab")
-		if xOut.AsColumn().DataType() == df.DTfloat {
+		if xOut.AsColumn().DataType() == d.DTfloat {
 			assert.InEpsilon(t, result.(float64), x[ind][2].(float64), .001)
 			continue
 		}
@@ -155,7 +170,7 @@ func TestParser(t *testing.T) {
 }
 
 func TestFuzzCat(t *testing.T) {
-	dfx := makeMemDF()
+	dfx := testDF()
 	expr := "cat(y)"
 
 	colx, ex := dfx.Parse(expr)
@@ -174,7 +189,7 @@ func TestFuzzCat(t *testing.T) {
 func TestApplyCat(t *testing.T) {
 	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	//	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
-	dfx := makeMemDF()
+	dfx := testDF()
 	expr := "cat(y)"
 	colx, ex := dfx.Parse(expr)
 	assert.Nil(t, ex)
@@ -207,10 +222,10 @@ func TestApplyCat(t *testing.T) {
 func TestToCat(t *testing.T) {
 	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	// z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx := makeMemDF()
+	dfx := testDF()
 	expr := "date(z)"
 	var (
-		colx *df.Parsed
+		colx *d.Parsed
 		ex   error
 	)
 	colx, ex = dfx.Parse(expr)
@@ -222,28 +237,33 @@ func TestToCat(t *testing.T) {
 
 	expr = "cat(y)"
 	colx, ex = dfx.Parse(expr)
-	exp := []int{0, 1, 2, 0, 3, 4}
 	assert.Nil(t, ex)
-	assert.Equal(t, exp, colx.AsColumn().Data())
+
+	result := checker(dfx, "test", colx.AsColumn(), -1)
+	expected := []int{0, 1, 2, 0, 3, 4}
+	assert.Equal(t, expected, result)
 
 	// list of values you want to keep
 	expr = "cat(y,  +1, -5)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	exp = []int{0, 1, -1, 0, -1, -1}
-	assert.Equal(t, exp, colx.AsColumn().Data())
+	result = checker(dfx, "test", colx.AsColumn(), -1)
+	expected = []int{0, 1, -1, 0, -1, -1}
+	assert.Equal(t, expected, result)
 
 	expr = "cat(z)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	exp = []int{0, 1, 2, 2, 3, 4}
-	assert.Equal(t, exp, colx.AsColumn().Data())
+	result = checker(dfx, "test", colx.AsColumn(), -1)
+	expected = []int{0, 1, 2, 2, 3, 4}
+	assert.Equal(t, expected, result)
 
 	expr = "cat(dt)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	exp = []int{0, 1, 2, 2, 3, 4}
-	assert.Equal(t, exp, colx.AsColumn().Data())
+	result = checker(dfx, "test", colx.AsColumn(), -1)
+	expected = []int{0, 1, 2, 2, 3, 4}
+	assert.Equal(t, expected, result)
 
 	expr = "cat(x)"
 	colx, ex = dfx.Parse(expr)
@@ -251,9 +271,9 @@ func TestToCat(t *testing.T) {
 }
 
 func TestSumx(t *testing.T) {
-	dfx := makeMemDF()
+	dfx := testDF()
 	var (
-		col *df.Parsed
+		col *d.Parsed
 		e   error
 	)
 	col, e = dfx.Parse("float(sum(y))*x")
@@ -380,8 +400,8 @@ func TestLoadSQL(t *testing.T) {
 	db, e = newConnect(host, user, password)
 	assert.Nil(t, e)
 
-	var dialect *df.Dialect
-	dialect, e = df.NewDialect("clickhouse", db)
+	var dialect *d.Dialect
+	dialect, e = d.NewDialect("clickhouse", db)
 	assert.Nil(t, e)
 	memDF, e1 := DBLoad("SELECT * FROM zip.zip3 LIMIT 10", dialect)
 	assert.Nil(t, e1)
@@ -397,7 +417,7 @@ func TestLoadSQL(t *testing.T) {
 }
 
 func TestWhere(t *testing.T) {
-	dfx := makeMemDF()
+	dfx := testDF()
 	expr := "where(y>1)"
 	outDF, e := dfx.Parse(expr)
 	assert.Nil(t, e)
@@ -431,12 +451,12 @@ func TestAppendRows(t *testing.T) {
 }
 
 func TestMemDF_AppendDF(t *testing.T) {
-	dfx := makeMemDF()
-	dfy := makeMemDF()
+	dfx := testDF()
+	dfy := testDF()
 
 	dfz, e := dfx.AppendDF(dfy)
 	assert.Nil(t, e)
-	var col df.Column
+	var col d.Column
 	col, e = dfz.Column("x")
 	assert.Nil(t, e)
 	assert.Equal(t, float64(1), col.(*MemCol).Element(0))
@@ -456,7 +476,7 @@ func TestMemDF_Table(t *testing.T) {
 	e = dfx.AppendColumn(dt, false)
 	assert.Nil(t, e)
 
-	var tab df.DF
+	var tab d.DF
 	tab, e = dfx.Table(false, "x", "y")
 	assert.Nil(t, e)
 	cNames := tab.ColumnNames()
