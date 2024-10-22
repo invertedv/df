@@ -33,9 +33,11 @@ func testDF() *MemDF {
 }
 
 func checker(df d.DF, colName string, col d.Column, indx int) any {
-	col.Name(colName)
-	if e := df.AppendColumn(col, true); e != nil {
-		panic(e)
+	if col != nil {
+		col.Name(colName)
+		if e := df.AppendColumn(col, true); e != nil {
+			panic(e)
+		}
 	}
 
 	if colRet, e := df.Column(colName); e == nil {
@@ -53,13 +55,10 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 
 func TestParse_Sort(t *testing.T) {
 	dfx := testDF()
-	//e := dfx.Sort(true, "y", "z")
 	_, e := dfx.Parse("sort('asc', y, x)")
 	assert.Nil(t, e)
-	y, _ := dfx.Column("y")
-	yy, _ := dfx.Column("yy")
-	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, y.Data())
-	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, yy.Data())
+	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", nil, -1))
+	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", nil, -1))
 }
 
 func TestParse_Table(t *testing.T) {
@@ -85,6 +84,7 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"4+1--1", 0, int(6)},
 		{"if(y == 1, 2.0, (x))", 0, float64(2)},
 		{"if(y == 1, 2.0, (x))", 1, float64(-2)},
 		{"string(dt)", 0, "2022-12-31"},
@@ -402,8 +402,9 @@ func TestLoadSQL(t *testing.T) {
 
 	var dialect *d.Dialect
 	dialect, e = d.NewDialect("clickhouse", db)
+	ctx := d.NewContext(dialect, nil, nil)
 	assert.Nil(t, e)
-	memDF, e1 := DBLoad("SELECT * FROM zip.zip3 LIMIT 10", dialect)
+	memDF, e1 := DBLoad("SELECT * FROM zip.zip3 LIMIT 10", ctx)
 	assert.Nil(t, e1)
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)

@@ -246,6 +246,18 @@ func (d *Dialect) Read(qry string) ([]any, error) {
 		}
 	}
 
+	// change any dates to midnight UTC o.w. comparisons may not work
+	for c := 0; c < len(types); c++ {
+		if types[c] != DTdate {
+			continue
+		}
+
+		col := memData[c].([]time.Time)
+		for rx := 0; rx < n; rx++ {
+			col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
+		}
+	}
+
 	return memData, nil
 }
 

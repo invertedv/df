@@ -342,15 +342,16 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 		cols = df.ColumnNames()
 	}
 
-	if orderBy != "" && !df.HasColumns(strings.Split(orderBy, ",")...) {
-		return fmt.Errorf("not all columns present in OrderBy %s", orderBy)
+	noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
+	if orderBy != "" && !df.HasColumns(strings.Split(noDesc, ",")...) {
+		return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
 	}
 
 	if dts, e = df.ColumnTypes(cols...); e != nil {
 		return e
 	}
 
-	return df.Context.dialect.Create(tableName, orderBy, cols, dts, overwrite)
+	return df.Context.dialect.Create(tableName, noDesc, cols, dts, overwrite)
 }
 
 func (df *DFcore) HasColumns(cols ...string) bool {

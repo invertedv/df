@@ -15,14 +15,14 @@ import (
 
 /*
  df SourceSQL
-    - using NewSQLdfQry this is the sourceSQL supplied
+    - using DBload this is the sourceSQL supplied
     - using NewSQLdfCol this is the sourceSQL of the columns
 
 col SourceSQL
     - This is the MakeSQL output of the dataframe the column is calculated from
 
 df Signature
-    - using NewSQLdfQry this is newly generated
+    - using DBload this is newly generated
     - using NewSQLdfCol this is the common signature of the columns
 
 There's a new signature if:
@@ -124,7 +124,7 @@ func NewSQLdfCol(context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
 	return df, nil
 }
 
-func NewSQLdfQry(context *d.Context, query string) (*SQLdf, error) {
+func DBload(query string, context *d.Context) (*SQLdf, error) {
 	var (
 		e        error
 		colTypes []d.DataTypes
@@ -255,7 +255,7 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 		eOut  error
 	)
 	ctx := d.NewContext(s.Context.Dialect(), nil, nil)
-	if dfOut, eOut = NewSQLdfQry(ctx, sql); eOut != nil {
+	if dfOut, eOut = DBload(sql, ctx); eOut != nil {
 		return nil, eOut
 	}
 
@@ -456,7 +456,7 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		mDF *m.MemDF
 		e1  error
 	)
-	if mDF, e1 = m.DBLoad(x, s.Dialect()); e1 != nil {
+	if mDF, e1 = m.DBLoad(x, s.Context); e1 != nil {
 		return nil, e
 	}
 

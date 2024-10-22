@@ -55,7 +55,7 @@ func testDF() *SQLdf {
 
 	// , ln_zb_dt
 	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", d.NewContext(dialect, nil, nil))
-	df, e1 := NewSQLdfQry(d.NewContext(dialect, nil, nil), "SELECT * FROM testing.d1")
+	df, e1 := DBload("SELECT * FROM testing.d1", d.NewContext(dialect, nil, nil))
 	if e1 != nil {
 		panic(e)
 	}
@@ -75,7 +75,7 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	if e != nil {
 		panic(e)
 	}
-	memDF, e1 := m.DBLoad("SELECT * FROM testing.checker", df.(*SQLdf).Dialect())
+	memDF, e1 := m.DBLoad("SELECT * FROM testing.checker", df.(*SQLdf).Context)
 	if e1 != nil {
 		panic(e1)
 	}
@@ -301,6 +301,7 @@ func TestSQLdf_Version(t *testing.T) {
 	assert.Nil(t, e)
 }
 
+// TODO: implement SORT
 func TestSQLdf_Table(t *testing.T) {
 	dfx := testDF()
 	dfTable, e := dfx.Parse("table(y,yy)")
@@ -348,6 +349,14 @@ func TestCat(t *testing.T) {
 
 	e = dfx.DBsave("testing.cat", true)
 	assert.Nil(t, e)
+}
+
+func TestParse_Sort(t *testing.T) {
+	dfx := testDF()
+	_, e := dfx.Parse("sort('desc', y, x)")
+	assert.Nil(t, e)
+	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", nil, -1))
+	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", nil, -1))
 }
 
 func TestApplyCat(t *testing.T) {

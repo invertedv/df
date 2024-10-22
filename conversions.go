@@ -152,7 +152,7 @@ func ToDate(xIn any, cast bool) (xOut any, err error) {
 func Any2String(inVal any) string {
 	switch x := inVal.(type) {
 	case string:
-		return x
+		return strings.Trim(x, "'") // for sql
 	case time.Time:
 		return x.Format("2006-01-02")
 	case float32, float64:

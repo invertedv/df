@@ -60,19 +60,19 @@ func NewMemDF(runDF d.RunFn, funcs d.Fns, cols ...*MemCol) (*MemDF, error) {
 	return outDF, nil
 }
 
-func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
+func DBLoad(qry string, ctx *d.Context) (*MemDF, error) {
 	var (
 		columnNames []string
 		columnTypes []d.DataTypes
 		e           error
 	)
 
-	if columnNames, columnTypes, e = dialect.Types(qry); e != nil {
+	if columnNames, columnTypes, e = ctx.Dialect().Types(qry); e != nil {
 		return nil, e
 	}
 
 	var memData []any
-	if memData, e = dialect.Read(qry); e != nil {
+	if memData, e = ctx.Dialect().Read(qry); e != nil {
 		return nil, e
 	}
 
@@ -98,7 +98,7 @@ func DBLoad(qry string, dialect *d.Dialect) (*MemDF, error) {
 
 	memDF.sourceQuery = qry
 
-	memDF.SetContext(d.NewContext(dialect, d.NewFiles(), memDF, nil))
+	memDF.SetContext(d.NewContext(ctx.Dialect(), d.NewFiles(), memDF, nil))
 
 	return memDF, nil
 }
@@ -108,7 +108,7 @@ func (m *MemDF) SourceQuery() string {
 }
 
 func (m *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
-	return nil
+	return fmt.Errorf("not implemented")
 }
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars

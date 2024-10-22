@@ -2,10 +2,11 @@ package sql
 
 import (
 	"fmt"
+
 	d "github.com/invertedv/df"
 )
 
-// TODO: sortDF, toCat, fuzzCat, ...
+// TODO: toCat, fuzzCat, ...
 // TODO: appendDF in both mem and sql
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
@@ -56,7 +57,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
-		multiply, ne, not, or, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
+		multiply, ne, not, or, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
 }
 
 // ////////  Standard Fns
@@ -97,6 +98,49 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	return &d.FnReturn{Value: outDF}
+}
+
+func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
+			Output: []d.DataTypes{d.DTdf}, Varying: true}
+	}
+
+	ascending := true
+	// Any2String will strip out the single quotes
+	if d.Any2String(inputs[0].(*SQLcol).Data()) == "desc" {
+		ascending = false
+	}
+
+	var (
+		colNames []string
+		e        error
+	)
+
+	if colNames, e = getNames(1, inputs...); e != nil {
+		return &d.FnReturn{Err: e}
+	}
+
+	if ex := context.Self().Sort(ascending, colNames...); ex != nil {
+		return &d.FnReturn{Err: ex}
+	}
+
+	return &d.FnReturn{Value: context.Self()}
+}
+
+// getNames returns the names of the input Columns starting with startInd element
+func getNames(startInd int, cols ...any) ([]string, error) {
+	var colNames []string
+	for ind := startInd; ind < len(cols); ind++ {
+		var cn string
+		if cn = cols[ind].(*SQLcol).Name(""); cn == "" {
+			return nil, fmt.Errorf("column with no name in table")
+		}
+
+		colNames = append(colNames, cn)
+	}
+
+	return colNames, nil
 }
 
 // ***************** categorical operations *****************
@@ -377,7 +421,7 @@ func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 func getSQL(inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
-		sOut = append(sOut, inputs[ind].(*SQLcol).Data().(string))
+		sOut = append(sOut, inputs[ind].(*SQLcol).Data().(string)) // HERE
 	}
 
 	return sOut
