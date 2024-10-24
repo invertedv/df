@@ -143,7 +143,7 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	return colNames, nil
 }
 
-// ***************** categorical operations *****************
+// ***************** categorical Operations *****************
 
 func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
@@ -260,6 +260,7 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 	source := context.Self().(*SQLdf).MakeQuery()
 	version := context.Self().(*SQLdf).Version()
 
+	sql, _ = context.Dialect().CastField(sql, dtOut, dtOut)
 	outCol := NewColSQL("", tabl, source, version, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
@@ -489,6 +490,7 @@ func fnGen(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes, in
 	sig := context.Self().(*SQLdf).Signature() + suffix
 	ver := context.Self().(*SQLdf).Version()
 	source := context.Self().(*SQLdf).MakeQuery()
+	sqlOut, _ = context.Dialect().CastField(sqlOut, outType, outType)
 
 	outCol := NewColSQL("", sig, source, ver, outType, sqlOut)
 

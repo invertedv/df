@@ -93,9 +93,14 @@ func Any2Int(inVal any) (*int, error) {
 
 // sql/df will convert negative values, e.g. -5,  to sql (0 - 5)
 func back2Num(s string) string {
-	s = strings.ReplaceAll(s, "(0 -", "")
-	s = strings.ReplaceAll(s, ")", "")
 	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "(0-", "-")
+	s = strings.ReplaceAll(s, ")", "")
+	s = strings.ReplaceAll(s, "cast(", "")
+	s = strings.ReplaceAll(s, "ASInt32", "")
+	s = strings.ReplaceAll(s, "ASFloat64", "")
+	s = strings.ReplaceAll(s, "ASString", "")
+	s = strings.ReplaceAll(s, "ASDate", "")
 	return s
 }
 
@@ -240,7 +245,7 @@ func MakeSlice(dt DataTypes, n int, initVal any) any {
 		}
 
 		return xout
-	case DTint:
+	case DTint, DTcategorical:
 		xout := make([]int, n)
 		if initVal == nil {
 			return xout
@@ -282,7 +287,7 @@ func AppendSlice(x, xadd any, dt DataTypes) any {
 	switch dt {
 	case DTfloat:
 		x = append(x.([]float64), xadd.(float64))
-	case DTint:
+	case DTint, DTcategorical:
 		x = append(x.([]int), xadd.(int))
 	case DTdate:
 		x = append(x.([]time.Time), xadd.(time.Time))

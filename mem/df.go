@@ -32,7 +32,15 @@ type MemCol struct {
 
 // ///////// MemDF
 
-func NewMemDF(runDF d.RunFn, funcs d.Fns, cols ...*MemCol) (*MemDF, error) {
+func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*MemCol) (*MemDF, error) {
+	if runDF == nil {
+		runDF = RunDFfn
+	}
+
+	if funcs == nil {
+		funcs = StandardFunctions()
+	}
+
 	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := 0; ind < len(cols); ind++ {
@@ -53,6 +61,9 @@ func NewMemDF(runDF d.RunFn, funcs d.Fns, cols ...*MemCol) (*MemDF, error) {
 	}
 
 	df.SetContext(d.NewContext(nil, nil, nil, nil))
+	if context != nil {
+		df.SetContext(context)
+	}
 
 	outDF := &MemDF{DFcore: df}
 	outDF.Context.SetSelf(outDF)
@@ -85,7 +96,7 @@ func DBLoad(qry string, ctx *d.Context) (*MemDF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewMemDF(RunDFfn, StandardFunctions(), col); e != nil {
+			if memDF, e = NewDFcol(RunDFfn, StandardFunctions(), nil, col); e != nil {
 				return nil, e
 			}
 			continue
@@ -381,7 +392,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		e     error
 	)
 
-	if outDF, e = NewMemDF(m.Runner(), m.Fns(), outCols...); e != nil {
+	if outDF, e = NewDFcol(m.Runner(), m.Fns(), m.Context, outCols...); e != nil {
 		return nil, e
 	}
 

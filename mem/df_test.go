@@ -19,7 +19,7 @@ func testDF() *MemDF {
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 15, 14})
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx, e := NewMemDF(RunDFfn, StandardFunctions(), x, y, z, yy)
+	dfx, e := NewDFcol(RunDFfn, StandardFunctions(), nil, x, y, z, yy)
 	if e != nil {
 		panic(e)
 	}
@@ -243,14 +243,6 @@ func TestToCat(t *testing.T) {
 	expected := []int{0, 1, 2, 0, 3, 4}
 	assert.Equal(t, expected, result)
 
-	// list of values you want to keep
-	expr = "cat(y,  +1, -5)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	result = checker(dfx, "test", colx.AsColumn(), -1)
-	expected = []int{0, 1, -1, 0, -1, -1}
-	assert.Equal(t, expected, result)
-
 	expr = "cat(z)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
@@ -468,7 +460,7 @@ func TestMemDF_Table(t *testing.T) {
 	x, _ := NewMemCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
 	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
 	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
-	dfx, e := NewMemDF(RunDFfn, StandardFunctions(), x, y, z)
+	dfx, e := NewDFcol(RunDFfn, StandardFunctions(), nil, x, y, z)
 	assert.Nil(t, e)
 	dtx, ex := dfx.Parse("date(z)")
 	assert.Nil(t, ex)

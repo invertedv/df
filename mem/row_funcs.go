@@ -549,7 +549,7 @@ func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return compare("!=", "ne", info, context, inputs...)
 }
 
-// ***************** Categorical Functions *****************
+// ***************** Categorical Operations *****************
 
 func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
@@ -564,14 +564,13 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
 	}
 
-	var levels []any
-	for ind := 1; ind < len(inputs); ind++ {
-		c := inputs[ind].(*MemCol)
-		if c.DataType() != col.DataType() {
-			return &d.FnReturn{Err: fmt.Errorf("types of cat are not the same as the column")}
+	fuzz := 1
+	if len(inputs) > 1 {
+		c := inputs[1].(*MemCol)
+		if c.DataType() != d.DTint {
+			return &d.FnReturn{Err: fmt.Errorf("fuzz parameter to Cat must be type int")}
 		}
-
-		levels = append(levels, c.Element(0))
+		fuzz = c.Element(0).(int)
 	}
 
 	var (
@@ -579,7 +578,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = context.Self().(*MemDF).Categorical(col.Name(""), nil, 1, nil, levels); e != nil {
+	if outCol, e = context.Self().(*MemDF).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 

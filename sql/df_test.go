@@ -116,6 +116,7 @@ func TestParser(t *testing.T) {
 	dfx := testDF()
 
 	x := [][]any{
+		{"int(-3.0)", 0, -3},
 		{"if(y == 1, 2.0, (x))", 0, float64(2)},
 		{"if(y == 1, 2.0, (x))", 1, float64(-2)},
 		{"4+1--1", 0, int(6)},
@@ -236,7 +237,7 @@ func TestParserS(t *testing.T) {
 		ez := dfx.AppendColumn(col, true)
 		assert.NotNil(t, ez)
 
-		dfNew, e = NewSQLdfCol(dfx.Context, col.(*SQLcol))
+		dfNew, e = NewDFcol(nil, nil, dfx.Context, col.(*SQLcol))
 		assert.Nil(t, e)
 		indx := x[ind][1].(int)
 

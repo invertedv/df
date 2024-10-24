@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const which = "mem"
+const which = "sql"
 
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
@@ -95,6 +95,8 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	}
 
 	if which == "sql" {
+		q := df.(*s.SQLdf).MakeQuery()
+		fmt.Println(q)
 		memDF, e1 := m.DBLoad(df.(*s.SQLdf).MakeQuery(), df.Core().Context)
 		if e1 != nil {
 			panic(e1)
@@ -208,12 +210,22 @@ func TestParser(t *testing.T) {
 
 	cnt := 0
 	for ind := 0; ind < len(x); ind++ {
+		var r d.DF
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
 		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
-		result := checker(dfx, "test", xOut.AsColumn(), x[ind][1].(int))
+		xOut.AsColumn().Name("test")
+		//m.NewDFcol()
+		if which == "sql" {
+			r, ex = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context, xOut.AsColumn().(*s.SQLcol))
+		} else {
+			r, ex = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context, xOut.AsColumn().(*m.MemCol))
+		}
+
+		assert.Nil(t, ex)
+		result := checker(r, "test", nil, x[ind][1].(int))
 
 		if d.WhatAmI(result) == d.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
@@ -231,4 +243,84 @@ func TestParser(t *testing.T) {
 	}
 
 	fmt.Println("# tests: ", cnt)
+}
+
+func TestToCat(t *testing.T) {
+	dfx := loadData()
+	expr := "date(z)"
+	var (
+		colx *d.Parsed
+		ex   error
+	)
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	col := colx.AsColumn()
+	col.Name("dt1")
+	ex = dfx.AppendColumn(col, false)
+	assert.Nil(t, ex)
+
+	// try with DTint
+	expr = "cat(y)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	colx.AsColumn().Name("test")
+	ex = dfx.AppendColumn(colx.AsColumn(), true)
+	assert.Nil(t, ex)
+
+	dft, ea := dfx.Table(false, "test")
+	assert.Nil(t, ea)
+	result := checker(dft, "count", nil, -1).([]int)
+
+	expected := []int{2, 1, 1, 1, 1}
+	assert.Equal(t, expected, result)
+
+	// try with DTstring
+	expr = "cat(z)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	colx.AsColumn().Name("test")
+	ex = dfx.AppendColumn(colx.AsColumn(), true)
+	assert.Nil(t, ex)
+
+	dft, ea = dfx.Table(false, "test")
+	assert.Nil(t, ea)
+	result = checker(dft, "count", nil, -1).([]int)
+
+	expected = []int{2, 1, 1, 1, 1}
+	assert.Equal(t, expected, result)
+
+	// try with DTdate
+	expr = "cat(dt1)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	colx.AsColumn().Name("test")
+	ex = dfx.AppendColumn(colx.AsColumn(), true)
+	assert.Nil(t, ex)
+
+	dft, ea = dfx.Table(false, "test")
+	assert.Nil(t, ea)
+	result = checker(dft, "count", nil, -1).([]int)
+
+	expected = []int{2, 1, 1, 1, 1}
+	assert.Equal(t, expected, result)
+
+	// try with fuzz > 1
+	expr = "cat(y, 2)"
+	colx, ex = dfx.Parse(expr)
+	assert.Nil(t, ex)
+	colx.AsColumn().Name("test")
+	ex = dfx.AppendColumn(colx.AsColumn(), true)
+	assert.Nil(t, ex)
+
+	dft, ea = dfx.Table(false, "test")
+	assert.Nil(t, ea)
+	result = checker(dft, "count", nil, -1).([]int)
+
+	expected = []int{4, 2}
+	assert.Equal(t, expected, result)
+
+	// try with DTfloat
+	expr = "cat(x)"
+	colx, ex = dfx.Parse(expr)
+	assert.NotNil(t, ex)
 }

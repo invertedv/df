@@ -16,14 +16,14 @@ import (
 /*
  df SourceSQL
     - using DBload this is the sourceSQL supplied
-    - using NewSQLdfCol this is the sourceSQL of the columns
+    - using NewDFcol this is the sourceSQL of the columns
 
 col SourceSQL
     - This is the MakeSQL output of the dataframe the column is calculated from
 
 df Signature
     - using DBload this is newly generated
-    - using NewSQLdfCol this is the common signature of the columns
+    - using NewDFcol this is the common signature of the columns
 
 There's a new signature if:
 - replace a column
@@ -71,7 +71,16 @@ type SQLcol struct {
 	rawType   d.DataTypes
 }
 
-func NewSQLdfCol(context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
+func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
+	if runDF == nil {
+		runDF = RunDFfn
+	}
+
+	if funcs == nil {
+		funcs = StandardFunctions()
+	}
+
+	//func NewDFcol(context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
 	var (
 		tmp *d.DFcore
 		e   error
@@ -81,7 +90,7 @@ func NewSQLdfCol(context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
 	version := cols[0].Version()
 	for ind := 0; ind < len(cols); ind++ {
 		if cols[ind].Signature() != sig {
-			return nil, fmt.Errorf("incompatable columns to NewSQLdfCol")
+			return nil, fmt.Errorf("incompatable columns to NewDFcol")
 		}
 		if v := cols[ind].Version(); v > version {
 			version = v
@@ -521,6 +530,9 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	if sql1, ex = s.Dialect().Case(whens, equalTo); ex != nil {
 		return nil, ex
 	}
+	if sql1, ex = s.Dialect().CastField(sql1, d.DTint, d.DTint); ex != nil {
+		return nil, ex
+	}
 
 	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), d.DTcategorical, sql1)
 	outCol.rawType = col.DataType()
@@ -547,7 +559,7 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		csql := c.(*SQLcol)
 		cs = append(cs, csql)
 		dt := csql.DataType()
-		if dt != d.DTstring && dt != d.DTint && dt != d.DTdate {
+		if dt != d.DTstring && dt != d.DTint && dt != d.DTdate && dt != d.DTcategorical {
 			return nil, fmt.Errorf("cannot make table with type float")
 		}
 
@@ -574,11 +586,15 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	ctx := d.NewContext(s.Dialect(), s.Files(), nil)
 	var outDF *SQLdf
 
-	if outDF, e = NewSQLdfCol(ctx, cs...); e != nil {
+	if outDF, e = NewDFcol(s.Runner(), s.Fns(), ctx, cs...); e != nil {
 		return nil, e
 	}
 
 	outDF.groupBy = strings.Join(names, ",")
+	outDF.orderBy = "count DESC"
+	if sortByRows {
+		outDF.orderBy = outDF.groupBy
+	}
 
 	return outDF, nil
 }
