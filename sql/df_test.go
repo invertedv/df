@@ -71,11 +71,13 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 		}
 	}
 
-	e := df.DBsave("testing.checker", true)
-	if e != nil {
-		panic(e)
-	}
-	memDF, e1 := m.DBLoad("SELECT * FROM testing.checker", df.(*SQLdf).Context)
+	//e := df.DBsave("testing.checker", true)
+	//	if e != nil {
+	//		panic(e)
+	//	}
+	//	memDF, e1 := m.DBLoad("SELECT * FROM testing.checker", df.(*SQLdf).Context)
+	q := df.(*SQLdf).MakeQuery()
+	memDF, e1 := m.DBLoad(q, df.(*SQLdf).Context)
 	if e1 != nil {
 		panic(e1)
 	}
@@ -116,6 +118,11 @@ func TestParser(t *testing.T) {
 	dfx := testDF()
 
 	x := [][]any{
+		{"string(float(1)+.234)", 0, "1.234"},
+		{"dt != date(20221231)", 0, 0},
+		{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+		{"3--y", 0, 4},
+		{"3--3", 0, 6},
 		{"int(-3.0)", 0, -3},
 		{"if(y == 1, 2.0, (x))", 0, float64(2)},
 		{"if(y == 1, 2.0, (x))", 1, float64(-2)},
@@ -125,13 +132,10 @@ func TestParser(t *testing.T) {
 		{"abs(x)", 0, 1.0},
 		{"abs(y)", 1, 5},
 		{"(x/0.1)*float(y+100)", 0, 1010.0},
-		{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
 		{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-		{"dt != date(20221231)", 0, 0},
 		{"dt != date(20221231)", 1, 1},
 		{"dt == date(20221231)", 0, 1},
 		{"dt == date(20221231)", 1, 0},
-		{"string(float(1))", 0, "1.00"},
 		{"float('1.1')", 0, float64(1.1)},
 		{"int(2.9)", 0, 2},
 		{"float(1)", 0, 1.0},
@@ -331,6 +335,7 @@ func TestSQLdf_AppendDF(t *testing.T) {
 	assert.NotNil(t, e)
 }
 
+// TODO: make cat give exact same values btw mem and sql
 func TestCat(t *testing.T) {
 	dfx := testDF()
 
@@ -354,10 +359,15 @@ func TestCat(t *testing.T) {
 
 func TestParse_Sort(t *testing.T) {
 	dfx := testDF()
-	_, e := dfx.Parse("sort('desc', y, x)")
+	_, e := dfx.Parse("sort('asc', y, x)")
 	assert.Nil(t, e)
 	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", nil, -1))
 	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", nil, -1))
+
+	_, e = dfx.Parse("sort('desc', y, x)")
+	assert.Nil(t, e)
+	assert.Equal(t, []int{6, 5, 4, 1, 1, -5}, checker(dfx, "y", nil, -1))
+	assert.Equal(t, []int{16, 14, 15, 1, 1, -15}, checker(dfx, "yy", nil, -1))
 }
 
 func TestApplyCat(t *testing.T) {
@@ -369,7 +379,7 @@ func TestApplyCat(t *testing.T) {
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 
-	r, e = dfx.Parse("applyCat(yy, caty, -5)")
+	r, e = dfx.Parse("applyCat(yy, caty, -abs(-5))")
 	assert.Nil(t, e)
 	s = r.AsColumn()
 	s.Name("catyy")

@@ -93,14 +93,16 @@ func Any2Int(inVal any) (*int, error) {
 
 // sql/df will convert negative values, e.g. -5,  to sql (0 - 5)
 func back2Num(s string) string {
+	// SQL will come in cast as a type
+	return s
+	if strings.Contains(s, "cast(") {
+		s = strings.ReplaceAll(s, "cast(", "")
+		if i := strings.Index(s, " AS "); i >= 0 {
+			s = s[:i]
+		}
+	}
+
 	s = strings.ReplaceAll(s, " ", "")
-	s = strings.ReplaceAll(s, "(0-", "-")
-	s = strings.ReplaceAll(s, ")", "")
-	s = strings.ReplaceAll(s, "cast(", "")
-	s = strings.ReplaceAll(s, "ASInt32", "")
-	s = strings.ReplaceAll(s, "ASFloat64", "")
-	s = strings.ReplaceAll(s, "ASString", "")
-	s = strings.ReplaceAll(s, "ASDate", "")
 	return s
 }
 
@@ -161,7 +163,7 @@ func Any2String(inVal any) string {
 	case time.Time:
 		return x.Format("2006-01-02")
 	case float32, float64:
-		return fmt.Sprintf("%0.2f", x)
+		return fmt.Sprintf("%v", x) // fmt.Sprintf("%0.2f", x)
 	default:
 		return fmt.Sprintf("%v", x)
 	}

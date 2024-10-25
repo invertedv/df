@@ -95,8 +95,6 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	}
 
 	if which == "sql" {
-		q := df.(*s.SQLdf).MakeQuery()
-		fmt.Println(q)
 		memDF, e1 := m.DBLoad(df.(*s.SQLdf).MakeQuery(), df.Core().Context)
 		if e1 != nil {
 			panic(e1)
@@ -157,7 +155,7 @@ func TestParser(t *testing.T) {
 		{"dt != date(20221231)", 1, 1},
 		{"dt == date(20221231)", 0, 1},
 		{"dt == date(20221231)", 1, 0},
-		{"string(float(1))", 0, "1.00"},
+		{"string(float(1)+.234)", 0, "1.234"},
 		{"float('1.1')", 0, float64(1.1)},
 		{"int(2.9)", 0, 2},
 		{"float(1)", 0, 1.0},
@@ -323,4 +321,37 @@ func TestToCat(t *testing.T) {
 	expr = "cat(x)"
 	colx, ex = dfx.Parse(expr)
 	assert.NotNil(t, ex)
+}
+
+func TestApplyCat(t *testing.T) {
+	dfx := loadData()
+	r, e := dfx.Parse("cat(y)")
+	assert.Nil(t, e)
+	s := r.AsColumn()
+	s.Name("caty")
+	e = dfx.AppendColumn(s, false)
+	assert.Nil(t, e)
+
+	r, e = dfx.Parse("applyCat(yy, caty, -5)")
+	assert.Nil(t, e)
+	s = r.AsColumn()
+	s.Name("test")
+	e = dfx.AppendColumn(s, false)
+	assert.Nil(t, e)
+
+	dft, ea := dfx.Table(false, "test")
+	assert.Nil(t, ea)
+	result := checker(dft, "count", nil, -1).([]int)
+
+	expected := []int{4, 2}
+	assert.Equal(t, expected, result)
+}
+
+func TestAppendDF(t *testing.T) {
+	dfx := loadData()
+	dfy := loadData()
+	dfOut, e := dfx.AppendDF(dfy)
+	assert.Nil(t, e)
+	exp := dfx.RowCount() + dfy.RowCount()
+	assert.Equal(t, exp, dfOut.RowCount())
 }

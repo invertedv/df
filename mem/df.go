@@ -392,7 +392,8 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		e     error
 	)
 
-	if outDF, e = NewDFcol(m.Runner(), m.Fns(), m.Context, outCols...); e != nil {
+	ctx := d.NewContext(m.Dialect(), nil, nil)
+	if outDF, e = NewDFcol(m.Runner(), m.Fns(), ctx, outCols...); e != nil {
 		return nil, e
 	}
 

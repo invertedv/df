@@ -69,6 +69,8 @@ type SQLcol struct {
 	catMap    d.CategoryMap
 	catCounts d.CategoryMap
 	rawType   d.DataTypes
+
+	rawValue any // This is for keeping the actual value of constants rather than SQL version
 }
 
 func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
@@ -364,7 +366,9 @@ func (s *SQLdf) MakeQuery(colNames ...string) string {
 		var field string
 		field = cx.Name("")
 		if fn := cx.Data().(string); fn != "" {
-			field = fmt.Sprintf("%s AS %s", fn, cx.Name(""))
+			// Need to Cast to required type here o.w. DB may default to an unsupported type
+			fnc, _ := s.Context.Dialect().CastField(fn, cx.DataType(), cx.DataType())
+			field = fmt.Sprintf("%s AS %s", fnc, cx.Name(""))
 		}
 
 		fields = append(fields, field)
@@ -662,6 +666,24 @@ func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, s
 	}
 
 	return col
+}
+
+func exprEval(expr string) any {
+	if expr == "zero" {
+		expr = "0"
+	}
+	if ot, e := d.NewOpTree(expr, m.StandardFunctions()); e == nil {
+		if e1 := ot.Build(); e1 == nil {
+			col, _ := m.NewMemCol("none", 1)
+			dfn, e2 := m.NewDFcol(m.RunDFfn, m.StandardFunctions(), nil, col)
+			_ = e2
+			if e3 := ot.Eval(dfn.Core()); e3 == nil {
+				return ot.Value().AsScalar()
+			}
+		}
+	}
+
+	return nil
 }
 
 func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
