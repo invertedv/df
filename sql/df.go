@@ -56,10 +56,10 @@ type SQLdf struct {
 }
 
 type SQLcol struct {
-	name      string
-	rowCountX int
-	dType     d.DataTypes
-	sql       string // SQL to generate this column
+	name string
+	//	rowCountX int
+	dType d.DataTypes
+	sql   string // SQL to generate this column
 
 	sourceSQL string // SQL that produces the result set that populates this column
 
@@ -70,7 +70,7 @@ type SQLcol struct {
 	catCounts d.CategoryMap
 	rawType   d.DataTypes
 
-	rawValue any // This is for keeping the actual value of constants rather than SQL version
+	scalarValue any // This is for keeping the actual value of constants rather than SQL version
 }
 
 func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
@@ -666,24 +666,6 @@ func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, s
 	}
 
 	return col
-}
-
-func exprEval(expr string) any {
-	if expr == "zero" {
-		expr = "0"
-	}
-	if ot, e := d.NewOpTree(expr, m.StandardFunctions()); e == nil {
-		if e1 := ot.Build(); e1 == nil {
-			col, _ := m.NewMemCol("none", 1)
-			dfn, e2 := m.NewDFcol(m.RunDFfn, m.StandardFunctions(), nil, col)
-			_ = e2
-			if e3 := ot.Eval(dfn.Core()); e3 == nil {
-				return ot.Value().AsScalar()
-			}
-		}
-	}
-
-	return nil
 }
 
 func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {

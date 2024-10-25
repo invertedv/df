@@ -2,9 +2,9 @@ package sql
 
 import (
 	"fmt"
-	m "github.com/invertedv/df/mem"
 
 	d "github.com/invertedv/df"
+	m "github.com/invertedv/df/mem"
 )
 
 // TODO: toCat, fuzzCat, ...
@@ -41,9 +41,9 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 			}
 		}
 
-		// if this is an *SQLcol with no rawValue, then it's a true column from the data frame and there's no point
+		// if this is an *SQLcol with no scalarValue, then it's a true column from the data frame and there's no point
 		// to trying to evaluate it as a scalar
-		if ok && col.rawValue == nil {
+		if ok && col.scalarValue == nil {
 			skip = true
 		}
 
@@ -55,20 +55,21 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		return nil, fmt.Errorf("bad parameters to %s", info.Name)
 	}
 
-	// if none of the inputs are of type *SQLcol, then see if we can process them as a scalar formula
+	// if scalars are available for all the inputs, then process them as a scalar formula
 	if !skip {
-		fnR1 := m.StandardFunctions().Get(info.Name)
-		if fnR1 != nil {
+		// get the corresponding mem function
+		if fnMem := m.StandardFunctions().Get(info.Name); fnMem != nil {
 			var (
 				col   *m.MemCol
 				e     error
 				inpsx []any
 			)
 
+			// Create *MemCol version of the inputs
 			for j := 0; j < len(inputs); j++ {
 				v := inputs[j]
-				if cols[j].rawValue != nil {
-					v = cols[j].rawValue
+				if cols[j].scalarValue != nil {
+					v = cols[j].scalarValue
 				}
 				if col, e = m.NewMemCol("", v); e != nil {
 					return nil, e
@@ -76,7 +77,8 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 				inpsx = append(inpsx, col)
 			}
 
-			if val := fnR1(false, context, inpsx...); val.Err == nil {
+			// run the function, convert output to SQLcol
+			if val := fnMem(false, context, inpsx...); val.Err == nil {
 				mCol := val.Value.(*m.MemCol)
 				dt := mCol.DataType()
 				sql, _ := context.Dialect().CastField(d.Any2String(mCol.Element(0)), dt, dt)
@@ -84,7 +86,8 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 				ver := context.Self().(*SQLdf).Version()
 				src := context.Self().(*SQLdf).MakeQuery()
 				retCol := NewColSQL("", sig, src, ver, mCol.DataType(), sql)
-				retCol.rawValue = mCol.Element(0)
+				// Place the value of the output in .scalarValue in case that's needed later
+				retCol.scalarValue = mCol.Element(0)
 				return retCol, nil
 			}
 		}
@@ -257,7 +260,7 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
 	}
 
-	if defaultValue, e = d.ToDataType(newVal.rawValue, newVal.DataType(), true); e != nil {
+	if defaultValue, e = d.ToDataType(newVal.scalarValue, newVal.DataType(), true); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
