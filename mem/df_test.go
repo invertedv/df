@@ -181,7 +181,7 @@ func TestFuzzCat(t *testing.T) {
 	expr = "fuzzCat(c, 2, 100)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	exp := []int{0, -1, -1, 0, -1, -1}
+	exp := []int{1, -1, -1, 1, -1, -1}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 }
 
@@ -202,7 +202,7 @@ func TestApplyCat(t *testing.T) {
 	expr = "applyCat(yy, c, 6)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	exp := []int{0, v, v, 0, v, v}
+	exp := []int{1, v, v, 1, v, v}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	// default is not a known category level
@@ -210,7 +210,7 @@ func TestApplyCat(t *testing.T) {
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
 	v = -1
-	exp = []int{0, v, v, 0, v, v}
+	exp = []int{1, v, v, 1, v, v}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	expr = "c + y"
@@ -219,8 +219,8 @@ func TestApplyCat(t *testing.T) {
 }
 
 func TestToCat(t *testing.T) {
-	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
-	// z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
+	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5}) -5, 1, 1, 4, 5, 6
+	// z, _ := NewMemCol("z", []string{"20221231"/3, "20000101"/0, "20060102"/1, "20060102"/1, "20230915"/4, "20060310"/2})
 	dfx := testDF()
 	expr := "date(z)"
 	var (
@@ -239,21 +239,21 @@ func TestToCat(t *testing.T) {
 	assert.Nil(t, ex)
 
 	result := checker(dfx, "test", colx.AsColumn(), -1)
-	expected := []int{0, 1, 2, 0, 3, 4}
+	expected := []int{1, 0, 4, 1, 2, 3}
 	assert.Equal(t, expected, result)
 
 	expr = "cat(z)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
 	result = checker(dfx, "test", colx.AsColumn(), -1)
-	expected = []int{0, 1, 2, 2, 3, 4}
+	expected = []int{3, 0, 1, 1, 4, 2}
 	assert.Equal(t, expected, result)
 
 	expr = "cat(dt)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
 	result = checker(dfx, "test", colx.AsColumn(), -1)
-	expected = []int{0, 1, 2, 2, 3, 4}
+	expected = []int{3, 0, 1, 1, 4, 2}
 	assert.Equal(t, expected, result)
 
 	expr = "cat(x)"

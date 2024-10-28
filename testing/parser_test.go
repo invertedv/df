@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const which = "sql"
+const which = "mem"
 
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
@@ -262,29 +262,16 @@ func TestToCat(t *testing.T) {
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
 	colx.AsColumn().Name("test")
-	ex = dfx.AppendColumn(colx.AsColumn(), true)
-	assert.Nil(t, ex)
-
-	dft, ea := dfx.Table(false, "test")
-	assert.Nil(t, ea)
-	result := checker(dft, "count", nil, -1).([]int)
-
-	expected := []int{2, 1, 1, 1, 1}
+	result := checker(dfx, "test", colx.AsColumn(), -1)
+	expected := []int{1, 0, 4, 1, 2, 3}
 	assert.Equal(t, expected, result)
 
 	// try with DTstring
 	expr = "cat(z)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	colx.AsColumn().Name("test")
-	ex = dfx.AppendColumn(colx.AsColumn(), true)
-	assert.Nil(t, ex)
-
-	dft, ea = dfx.Table(false, "test")
-	assert.Nil(t, ea)
-	result = checker(dft, "count", nil, -1).([]int)
-
-	expected = []int{2, 1, 1, 1, 1}
+	result = checker(dfx, "test", colx.AsColumn(), -1)
+	expected = []int{3, 0, 1, 1, 4, 2}
 	assert.Equal(t, expected, result)
 
 	// try with DTdate
@@ -292,29 +279,16 @@ func TestToCat(t *testing.T) {
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
 	colx.AsColumn().Name("test")
-	ex = dfx.AppendColumn(colx.AsColumn(), true)
-	assert.Nil(t, ex)
-
-	dft, ea = dfx.Table(false, "test")
-	assert.Nil(t, ea)
-	result = checker(dft, "count", nil, -1).([]int)
-
-	expected = []int{2, 1, 1, 1, 1}
+	result = checker(dfx, "test", colx.AsColumn(), -1)
+	expected = []int{3, 0, 1, 1, 4, 2}
 	assert.Equal(t, expected, result)
 
 	// try with fuzz > 1
 	expr = "cat(y, 2)"
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
-	colx.AsColumn().Name("test")
-	ex = dfx.AppendColumn(colx.AsColumn(), true)
-	assert.Nil(t, ex)
-
-	dft, ea = dfx.Table(false, "test")
-	assert.Nil(t, ea)
-	result = checker(dft, "count", nil, -1).([]int)
-
-	expected = []int{4, 2}
+	result = checker(dfx, "test", colx.AsColumn(), -1)
+	expected = []int{0, -1, -1, 0, -1, -1}
 	assert.Equal(t, expected, result)
 
 	// try with DTfloat
@@ -336,14 +310,24 @@ func TestApplyCat(t *testing.T) {
 	assert.Nil(t, e)
 	s = r.AsColumn()
 	s.Name("test")
-	e = dfx.AppendColumn(s, false)
+	result := checker(dfx, "test", s, -1)
+
+	// -5 maps to 0 so all new values map to 0
+	expected := []int{1, 0, 0, 1, 0, 0}
+	assert.Equal(t, expected, result)
+
+	// try with fuzz > 1
+	r, e = dfx.Parse("cat(y,2)")
+	assert.Nil(t, e)
+	r.AsColumn().Name("caty2")
+	e = dfx.AppendColumn(r.AsColumn(), false)
 	assert.Nil(t, e)
 
-	dft, ea := dfx.Table(false, "test")
-	assert.Nil(t, ea)
-	result := checker(dft, "count", nil, -1).([]int)
-
-	expected := []int{4, 2}
+	r, e = dfx.Parse("applyCat(yy,caty2,-5)")
+	assert.Nil(t, e)
+	r.AsColumn().Name("test")
+	result = checker(dfx, "test", r.AsColumn(), -1)
+	expected = []int{0, -1, -1, 0, -1, -1}
 	assert.Equal(t, expected, result)
 }
 

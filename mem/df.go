@@ -266,6 +266,15 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		return nil, fmt.Errorf("cannot make float to categorical")
 	}
 
+	var (
+		tab d.DF
+		e2  error
+	)
+	if tab, e2 = m.Table(true, colName); e2 != nil {
+		return nil, e2
+	}
+
+	// check incoming map is of the correct types
 	nextInt := 0
 	for k, v := range catMap {
 		if k != nil && d.WhatAmI(k) != col.DataType() {
@@ -277,6 +286,7 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		}
 	}
 
+	// toMap is the output map
 	toMap := make(d.CategoryMap)
 	maps.Copy(toMap, catMap)
 
@@ -284,25 +294,43 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		toMap[defaultVal] = -1
 	}
 
+	// cnts will count the frequencies of each level of toMap
 	cnts := make(d.CategoryMap)
+
+	lvls, _ := tab.Column(colName)
+	cs, _ := tab.Column("count")
+	for ind := 0; ind < tab.RowCount(); ind++ {
+		lvl := lvls.(*MemCol).Element(ind)
+		cnt := cs.(*MemCol).Element(ind).(int)
+		if levels != nil && !d.In(lvl, levels) {
+			lvl = defaultVal
+		}
+
+		if cnt < fuzz {
+			lvl = defaultVal
+		}
+
+		if _, ok := toMap[lvl]; !ok {
+			toMap[lvl] = nextInt
+			nextInt++
+		}
+		cnts[lvl] += cnt
+	}
 
 	data := d.MakeSlice(d.DTint, 0, nil)
 	for ind := 0; ind < col.Len(); ind++ {
 		inVal := col.(*MemCol).Element(ind)
-		if levels != nil && !d.In(inVal, levels) {
-			inVal = defaultVal
+
+		var (
+			ok     bool
+			mapVal int
+		)
+		// if inVal isn't in the map, map it to the default level
+		if mapVal, ok = toMap[inVal]; !ok {
+			mapVal, _ = toMap[defaultVal]
 		}
 
-		cnts[inVal]++
-
-		if mapVal, ok := toMap[inVal]; ok {
-			data = d.AppendSlice(data, mapVal, d.DTint)
-			continue
-		}
-
-		toMap[inVal] = nextInt
-		data = d.AppendSlice(data, nextInt, d.DTint)
-		nextInt++
+		data = d.AppendSlice(data, mapVal, d.DTint)
 	}
 
 	var (
@@ -324,46 +352,6 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	}
 
 	return outCol, nil
-}
-
-func fuzzCategoricalx(col *MemCol, fuzzValue int, defaultVal any) *MemCol {
-	catMap := make(d.CategoryMap)
-	catCounts := make(d.CategoryMap)
-	data := make([]int, col.Len())
-	copy(data, col.Data().([]int))
-	consVals := []int{-1} // map values to keep
-
-	for k, v := range col.catMap {
-		if col.catCounts[k] >= fuzzValue {
-			catMap[k] = v
-			catCounts[k] = col.catCounts[k]
-			consVals = append(consVals, v)
-			continue
-		}
-
-		catCounts[defaultVal]++
-	}
-
-	sort.Ints(consVals)
-
-	for ind, x := range col.Data().([]int) {
-		checkVal := x
-		if indx := sort.SearchInts(consVals, checkVal); indx == len(consVals) || consVals[indx] != checkVal {
-			data[ind] = -1
-		}
-	}
-
-	var (
-		outCol *MemCol
-		e      error
-	)
-	if outCol, e = NewMemCol("", data); e != nil {
-		panic(e) // should not happen
-	}
-
-	outCol.catMap, outCol.catCounts, outCol.dType = catMap, catCounts, d.DTcategorical
-
-	return outCol
 }
 
 func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
