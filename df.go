@@ -31,6 +31,8 @@ type DF interface {
 	Fns() Fns
 	AppendDFcore(df2 DF) (*DFcore, error)
 	Parse(expr string) (*Parsed, error)
+	Context() *Context
+	Core() *DFcore
 
 	// specific to underlying data source
 	AppendDF(df DF) (DF, error)
@@ -40,8 +42,6 @@ type DF interface {
 	RowCount() int
 	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) (DF, error)
-	Core() *DFcore
-
 	// Categorical takes an input column of type DTint, DTdate or DTstring and creates a categorical column
 	// - colName : name of column to work on
 	// - catMap : existing categorical map to apply.  Use nil if there is not one.
@@ -67,7 +67,7 @@ type DFcore struct {
 
 	current *columnList
 
-	*Context
+	ctx *Context
 }
 
 type columnList struct {
@@ -194,7 +194,7 @@ func (df *DFcore) Runner() RunFn {
 }
 
 func (df *DFcore) SetContext(c *Context) {
-	df.Context = c
+	df.ctx = c
 }
 
 func (df *DFcore) Next(reset bool) Column {
@@ -268,6 +268,14 @@ func (df *DFcore) Fn(fn Ereturn) error {
 	return fn()
 }
 
+func (df *DFcore) Context() *Context {
+	return df.ctx
+}
+
+func (df *DFcore) Core() *DFcore {
+	return df
+}
+
 func (df *DFcore) Copy() *DFcore {
 	var cols []Column
 	for c := df.Next(true); c != nil; c = df.Next(false) {
@@ -282,7 +290,7 @@ func (df *DFcore) Copy() *DFcore {
 	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
 		panic(e)
 	}
-	context := NewContext(df.Context.Dialect(), df.Context.Files(), nil)
+	context := NewContext(df.Context().Dialect(), df.Context().Files(), nil)
 	outDF.SetContext(context)
 
 	// don't copy context
@@ -334,7 +342,7 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 		dts []DataTypes
 	)
 
-	if df.Context.dialect == nil {
+	if df.Context().dialect == nil {
 		return fmt.Errorf("no database defined")
 	}
 
@@ -351,7 +359,7 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 		return e
 	}
 
-	return df.Context.dialect.Create(tableName, noDesc, cols, dts, overwrite)
+	return df.Context().dialect.Create(tableName, noDesc, cols, dts, overwrite)
 }
 
 func (df *DFcore) HasColumns(cols ...string) bool {
@@ -389,7 +397,7 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 		e   error
 	)
 
-	if col, e = df.runFn(fn, df.Context, vals); e != nil {
+	if col, e = df.runFn(fn, df.Context(), vals); e != nil {
 		return nil, e
 	}
 
@@ -505,7 +513,7 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	subsetDF := &DFcore{
 		head:     subHead,
 		rowFuncs: df.rowFuncs,
-		Context:  df.Context,
+		ctx:      df.Context(),
 	}
 
 	return subsetDF, nil
@@ -550,7 +558,7 @@ func Compatible(x, y DataTypes, strict bool) bool {
 }
 
 func (d DataTypes) IsNumeric() bool {
-	return d == DTfloat || d == DTint
+	return d == DTfloat || d == DTint || d == DTcategorical
 }
 
 //////// Fns Methods
@@ -599,5 +607,3 @@ func (cm CategoryMap) Min() int {
 
 	return *minVal
 }
-
-////////////////

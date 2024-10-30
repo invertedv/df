@@ -30,6 +30,12 @@ var (
 	chInsert string
 )
 
+const (
+	ch = "clickhouse"
+	pg = "postgress"
+	ms = "mysql"
+)
+
 type Dialect struct {
 	db      *sql.DB
 	dialect string
@@ -50,12 +56,12 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 
 	var types string
 	switch d.dialect {
-	case "clickhouse":
+	case ch:
 		d.create, d.fields, d.dropIf, d.insert = chCreate, chFields, chDropIf, chInsert
 		types = chTypes
-	case "postgress":
+	case pg:
 		d.create = ""
-	case "mysql":
+	case ms:
 		d.create = ""
 	default:
 		return nil, fmt.Errorf("no skeletons for database %s", dialect)
@@ -98,7 +104,7 @@ func (d *Dialect) Close() error {
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {
 	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
-	if d.DialectName() == "clickhouse" {
+	if d.DialectName() == ch {
 		if overwrite {
 			qry := strings.Replace(d.dropIf, "?TableName", tableName, 1)
 			if _, ex := d.db.Exec(qry); ex != nil {
@@ -138,15 +144,15 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 
 func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, error) {
 	e := fmt.Errorf("no implemention of Union for %s", d.DialectName())
-	var sql string
+	var sqlx string
 
-	if d.DialectName() == "clickhouse" {
+	if d.DialectName() == ch {
 		cols := strings.Join(colNames, ",")
-		sql = fmt.Sprintf("SELECT %s FROM (%s) UNION ALL (%s)", cols, table1, table2)
+		sqlx = fmt.Sprintf("SELECT %s FROM (%s) UNION ALL (%s)", cols, table1, table2)
 		e = nil
 	}
 
-	return sql, e
+	return sqlx, e
 }
 
 // TODO: think about query
@@ -275,7 +281,9 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 }
 
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
-	wn := u.RandomLetters(4)
+	const withLen = 4
+
+	wn := u.RandomLetters(withLen)
 	const skeleton = "WITH d3212 AS (%s) SELECT * FROM d3212 LIMIT 1"
 
 	q := strings.ReplaceAll(fmt.Sprintf(skeleton, qry), "d3212", wn)
@@ -316,40 +324,14 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 }
 
 func (d *Dialect) Quote() string {
-	if d.dialect == "clickhouse" {
+	if d.dialect == ch {
 		return "'"
 	}
 
 	return ""
 }
 
-func (d *Dialect) CastConstantXXXX(constant string, toDT DataTypes) (sql string, err error) {
-	var (
-		dbType string
-		e      error
-	)
-
-	if _, ex := ToDataType(constant, toDT, true); ex != nil {
-		return "", ex
-	}
-
-	if dbType, e = d.dbtype(toDT); e != nil {
-		return "", e
-	}
-
-	if d.dialect == "clickhouse" {
-		sql = fmt.Sprintf("cast(%s AS %s)", constant, dbType)
-		if toDT == DTdate {
-			sql = fmt.Sprintf("cast('%s' AS %s)", constant, dbType)
-		}
-
-		return sql, nil
-	}
-
-	return "", fmt.Errorf("unknown error")
-}
-
-func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sql string, err error) {
+func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr string, err error) {
 	var (
 		dbType string
 		e      error
@@ -358,20 +340,20 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sql strin
 		return "", e
 	}
 
-	if d.dialect == "clickhouse" {
+	if d.dialect == ch {
 		// is this a constant?
 		if x, ex := ToDate(fieldName, true); ex == nil {
-			sql = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
-			return sql, nil
+			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
+			return sqlStr, nil
 		}
 
 		if fromDT == DTfloat && toDT == DTstring {
-			sql = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
-			return sql, nil
+			sqlStr = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
+			return sqlStr, nil
 		}
 
-		sql = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
-		return sql, nil
+		sqlStr = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
+		return sqlStr, nil
 	}
 
 	return "", fmt.Errorf("unknown error")
@@ -384,7 +366,7 @@ func (d *Dialect) Ifs(x, y, op string) (string, error) {
 		return "", fmt.Errorf("unknown comparison: %s", op)
 	}
 
-	if d.dialect == "clickhouse" {
+	if d.dialect == ch {
 		return fmt.Sprintf("toInt32(%s%s%s)", x, op, y), nil
 	}
 
@@ -402,7 +384,7 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 
 // ToString returns a string version of val that can be placed into SQL
 func (d *Dialect) ToString(val any) string {
-	if d.DialectName() == "clickhouse" {
+	if d.DialectName() == ch {
 		x := Any2String(val)
 		if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
 			x = fmt.Sprintf("'%s'", x)
@@ -423,7 +405,7 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 
 	var s string
 	e := fmt.Errorf("unsupported db dialect")
-	if d.DialectName() == "clickhouse" {
+	if d.DialectName() == ch {
 		e = nil
 		s = "CASE\n"
 		for ind := 0; ind < len(whens); ind++ {

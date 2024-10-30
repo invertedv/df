@@ -24,7 +24,7 @@ func Any2Float64(inVal any) (*float64, error) {
 	case float64:
 		outVal = x
 	case string:
-		xx, e := strconv.ParseFloat(back2Num(x), 64)
+		xx, e := strconv.ParseFloat(x, 64)
 		if e != nil {
 			return nil, e
 		}
@@ -79,7 +79,7 @@ func Any2Int(inVal any) (*int, error) {
 
 		outVal = int(x)
 	case string:
-		xx, e := strconv.ParseInt(back2Num(x), 10, 32)
+		xx, e := strconv.ParseInt(x, 10, 32)
 		if e != nil {
 			return nil, fmt.Errorf("cannot convert %v to int: Any2Int", inVal)
 		}
@@ -89,21 +89,6 @@ func Any2Int(inVal any) (*int, error) {
 	}
 
 	return &outVal, nil
-}
-
-// sql/df will convert negative values, e.g. -5,  to sql (0 - 5)
-func back2Num(s string) string {
-	// SQL will come in cast as a type
-	return s
-	if strings.Contains(s, "cast(") {
-		s = strings.ReplaceAll(s, "cast(", "")
-		if i := strings.Index(s, " AS "); i >= 0 {
-			s = s[:i]
-		}
-	}
-
-	s = strings.ReplaceAll(s, " ", "")
-	return s
 }
 
 func ToInt(xIn any, cast bool) (xOut any, err error) {
@@ -163,7 +148,7 @@ func Any2String(inVal any) string {
 	case time.Time:
 		return x.Format("2006-01-02")
 	case float32, float64:
-		return fmt.Sprintf("%v", x) // fmt.Sprintf("%0.2f", x)
+		return fmt.Sprintf("%v", x)
 	default:
 		return fmt.Sprintf("%v", x)
 	}
@@ -193,17 +178,12 @@ func ToDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 		return ToString(x, cast)
 	case DTany:
 		return x, nil
+	default:
+		return nil, fmt.Errorf("type not supported in ToDataType")
 	}
-
-	return nil, fmt.Errorf("not supported")
 }
 
 func BestType(xIn any) (xOut any, dt DataTypes, err error) {
-	// HERE
-	//	if x, e := ToDataType(xIn, DTdate, true); e == nil {
-	//		return x, DTdate, nil
-	//	}
-
 	if x, e := ToDataType(xIn, DTint, true); e == nil {
 		return x, DTint, nil
 	}
@@ -280,9 +260,9 @@ func MakeSlice(dt DataTypes, n int, initVal any) any {
 		}
 
 		return xout
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 func AppendSlice(x, xadd any, dt DataTypes) any {
@@ -295,24 +275,11 @@ func AppendSlice(x, xadd any, dt DataTypes) any {
 		x = append(x.([]time.Time), xadd.(time.Time))
 	case DTstring:
 		x = append(x.([]string), xadd.(string))
+	default:
+		return nil
 	}
 
 	return x
-}
-
-func InitAny(dt DataTypes) any {
-	switch dt {
-	case DTfloat:
-		return float64(0)
-	case DTint:
-		return 0
-	case DTstring:
-		return ""
-	case DTdate:
-		return time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	}
-
-	return nil
 }
 
 func Address(data any, dt DataTypes, indx int) any {
@@ -325,9 +292,9 @@ func Address(data any, dt DataTypes, indx int) any {
 		return &data.([]string)[indx]
 	case DTdate:
 		return &data.([]time.Time)[indx]
+	default:
+		return nil
 	}
-
-	return nil
 }
 
 func GT(x, y any) (bool, error) {
@@ -413,6 +380,8 @@ func In(check any, pop []any) bool {
 				return true
 			}
 		}
+	default:
+		return false
 	}
 
 	return false

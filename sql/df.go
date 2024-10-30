@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"strings"
-	"time"
 
 	m "github.com/invertedv/df/mem"
 
@@ -30,8 +29,6 @@ There's a new signature if:
 - drop a column
 
 */
-
-// ***************** SQLdf *****************
 
 // SQLdf is the implementation of DF for SQL.
 //
@@ -62,6 +59,7 @@ type SQLcol struct {
 	sql   string // SQL to generate this column
 
 	sourceSQL string // SQL that produces the result set that populates this column
+	dlct      *d.Dialect
 
 	signature string // unique 4-character signature to identify this data source
 	version   int    // version of the dataframe that existed when this column was added
@@ -73,6 +71,8 @@ type SQLcol struct {
 	scalarValue any // This is for keeping the actual value of constants rather than SQL version
 }
 
+// ***************** SQLdf - Create *****************
+
 func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
 	if runDF == nil {
 		runDF = RunDFfn
@@ -82,7 +82,6 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 		funcs = StandardFunctions()
 	}
 
-	//func NewDFcol(context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
 	var (
 		tmp *d.DFcore
 		e   error
@@ -90,10 +89,12 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 	mk := cols[0].SourceSQL()
 	sig := cols[0].Signature()
 	version := cols[0].Version()
+	dlct := context.Dialect()
 	for ind := 0; ind < len(cols); ind++ {
 		if cols[ind].Signature() != sig {
 			return nil, fmt.Errorf("incompatable columns to NewDFcol")
 		}
+		cols[ind].dlct = dlct
 		if v := cols[ind].Version(); v > version {
 			version = v
 			mk = cols[0].SourceSQL()
@@ -115,7 +116,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 		cstd = append(cstd, cols[ind])
 	}
 
-	if tmp, e = d.NewDF(RunDFfn, StandardFunctions(), cstd...); e != nil {
+	if tmp, e = d.NewDF(runDF, funcs, cstd...); e != nil {
 		return nil, e
 	}
 
@@ -143,7 +144,8 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 		cols     []d.Column
 	)
 
-	if context.Dialect() == nil {
+	dlct := context.Dialect()
+	if dlct == nil {
 		return nil, fmt.Errorf("no DB defined in Context for NewSQLdf")
 	}
 	if colNames, colTypes, e = context.Dialect().Types(query); e != nil {
@@ -155,11 +157,13 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 		signature: newSignature(),
 		version:   0,
 	}
+
 	for ind := 0; ind < len(colTypes); ind++ {
 		sqlCol := &SQLcol{
 			name:      colNames[ind],
 			dType:     colTypes[ind],
 			signature: df.signature,
+			dlct:      dlct,
 			version:   0,
 			sql:       "",
 			catMap:    nil,
@@ -175,7 +179,7 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 	}
 	// TODO: think about: should SetContext copy context?
 	tmp.SetContext(context)
-	tmp.Context.SetSelf(df)
+	tmp.Context().SetSelf(df)
 
 	df.DFcore = tmp
 
@@ -188,6 +192,8 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 
 	return df, nil
 }
+
+// ***************** SQLdf - Methods *****************
 
 func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 	var (
@@ -257,7 +263,7 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 		sql string
 		e   error
 	)
-	if sql, e = s.Context.Dialect().Union(s.MakeQuery(n1...), dfNew.(*SQLdf).MakeQuery(n1...), n1...); e != nil {
+	if sql, e = s.Context().Dialect().Union(s.MakeQuery(n1...), dfNew.(*SQLdf).MakeQuery(n1...), n1...); e != nil {
 		return nil, e
 	}
 
@@ -265,167 +271,14 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 		dfOut *SQLdf
 		eOut  error
 	)
-	ctx := d.NewContext(s.Context.Dialect(), nil, nil)
+	ctx := d.NewContext(s.Context().Dialect(), nil, nil)
 	if dfOut, eOut = DBload(sql, ctx); eOut != nil {
 		return nil, eOut
 	}
 
-	dfOut.SetSelf(dfOut)
+	dfOut.Context().SetSelf(dfOut)
 
 	return dfOut, nil
-}
-
-func (s *SQLdf) Copy() d.DF {
-	dfCore := s.Core().Copy()
-	dfNew := &SQLdf{
-		sourceSQL: s.sourceSQL,
-		signature: s.signature,
-		version:   s.version,
-		orderBy:   s.orderBy,
-		groupBy:   s.groupBy,
-		where:     s.where,
-		DFcore:    dfCore,
-	}
-
-	dfNew.SetSelf(dfNew)
-	return dfNew
-}
-
-func (s *SQLdf) Core() *d.DFcore {
-	return s.DFcore
-}
-
-func (s *SQLdf) DBsave(tableName string, overwrite bool, cols ...string) error {
-	if cols == nil {
-		cols = s.ColumnNames()
-	}
-
-	if overwrite {
-		if e := s.CreateTable(tableName, s.orderBy, overwrite, cols...); e != nil {
-			return e
-		}
-	}
-
-	return s.Dialect().Insert(tableName, s.MakeQuery(), strings.Join(cols, ","))
-}
-
-// TODO: overwrite Drop method and change the signature first
-func (s *SQLdf) DropColumns(colNames ...string) error {
-	s.signature = newSignature()
-	s.version = 0
-
-	return s.Core().DropColumns(colNames...)
-}
-
-func (s *SQLdf) FileSave(fileName string) error {
-	if e := s.Files().Create(fileName); e != nil {
-		return e
-	}
-	defer func() { _ = s.Files().Close() }()
-
-	qry := s.MakeQuery()
-	rows, addr, fieldNames, e := s.Dialect().Rows(qry)
-	if e != nil {
-		return e
-	}
-
-	s.Files().FieldNames = fieldNames
-	if ex := s.Files().WriteHeader(); ex != nil {
-		return ex
-	}
-
-	for rows.Next() {
-		if ex := rows.Scan(addr...); ex != nil {
-			return ex
-		}
-
-		if ex := s.Files().WriteLine(addr); ex != nil {
-			return ex
-		}
-	}
-
-	return nil
-}
-
-func (s *SQLdf) MakeQuery(colNames ...string) string {
-	var fields []string
-	if colNames == nil {
-		colNames = s.ColumnNames()
-	}
-
-	for _, cn := range colNames {
-		var (
-			cx d.Column
-			e  error
-		)
-
-		if cx, e = s.Column(cn); e != nil {
-			panic(e)
-		}
-
-		var field string
-		field = cx.Name("")
-		if fn := cx.Data().(string); fn != "" {
-			// Need to Cast to required type here o.w. DB may default to an unsupported type
-			fnc, _ := s.Context.Dialect().CastField(fn, cx.DataType(), cx.DataType())
-			field = fmt.Sprintf("%s AS %s", fnc, cx.Name(""))
-		}
-
-		fields = append(fields, field)
-	}
-
-	sig := newSignature()
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", sig, s.sourceSQL, strings.Join(fields, ",\n"), sig)
-	if s.where != "" {
-		qry = fmt.Sprintf("%s WHERE %s\n", qry, s.where)
-	}
-
-	if s.groupBy != "" {
-		qry = fmt.Sprintf("%s GROUP BY %s\n", qry, s.groupBy)
-	}
-
-	if s.orderBy != "" {
-		qry = fmt.Sprintf("%s ORDER BY %s\n", qry, s.orderBy)
-	}
-
-	return qry
-}
-
-func (s *SQLdf) RowCount() int {
-	var (
-		rowCount int
-		e        error
-	)
-	if rowCount, e = s.Dialect().RowCount(s.MakeQuery()); e != nil {
-		panic(e)
-	}
-
-	return rowCount
-}
-
-func (s *SQLdf) Signature() string {
-	return s.signature
-}
-
-func (s *SQLdf) Sort(ascending bool, keys ...string) error {
-	for _, k := range keys {
-		if _, e := s.Column(k); e != nil {
-			return e
-		}
-	}
-
-	if !ascending {
-		for ind := 0; ind < len(keys); ind++ {
-			keys[ind] += " DESC"
-		}
-	}
-
-	s.orderBy = strings.Join(keys, ",")
-	return nil
-}
-
-func (s *SQLdf) SourceSQL() string {
-	return s.sourceSQL
 }
 
 func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
@@ -469,7 +322,7 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		mDF *m.MemDF
 		e1  error
 	)
-	if mDF, e1 = m.DBLoad(x, s.Context); e1 != nil {
+	if mDF, e1 = m.DBLoad(x, s.Context()); e1 != nil {
 		return nil, e
 	}
 
@@ -520,7 +373,7 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 
 		cnts[catVal] += ct
 
-		whens = append(whens, fmt.Sprintf("%s = %s", cn, s.Dialect().ToString(val)))
+		whens = append(whens, fmt.Sprintf("%s = %s", cn, s.Context().Dialect().ToString(val)))
 		equalTo = append(equalTo, fmt.Sprintf("%d", outVal))
 		if outVal == caseNo {
 			caseNo++
@@ -531,10 +384,10 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		sql1 string
 		ex   error
 	)
-	if sql1, ex = s.Dialect().Case(whens, equalTo); ex != nil {
+	if sql1, ex = s.Context().Dialect().Case(whens, equalTo); ex != nil {
 		return nil, ex
 	}
-	if sql1, ex = s.Dialect().CastField(sql1, d.DTint, d.DTint); ex != nil {
+	if sql1, ex = s.Context().Dialect().CastField(sql1, d.DTint, d.DTint); ex != nil {
 		return nil, ex
 	}
 
@@ -543,6 +396,154 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	outCol.catMap, outCol.catCounts = toMap, cnts
 
 	return outCol, nil
+}
+
+func (s *SQLdf) Copy() d.DF {
+	dfCore := s.Core().Copy()
+	dfNew := &SQLdf{
+		sourceSQL: s.sourceSQL,
+		signature: s.signature,
+		version:   s.version,
+		orderBy:   s.orderBy,
+		groupBy:   s.groupBy,
+		where:     s.where,
+		DFcore:    dfCore,
+	}
+
+	dfNew.Context().SetSelf(dfNew)
+	return dfNew
+}
+
+func (s *SQLdf) DBsave(tableName string, overwrite bool, cols ...string) error {
+	if cols == nil {
+		cols = s.ColumnNames()
+	}
+
+	if overwrite {
+		if e := s.CreateTable(tableName, s.orderBy, overwrite, cols...); e != nil {
+			return e
+		}
+	}
+
+	return s.Context().Dialect().Insert(tableName, s.MakeQuery(), strings.Join(cols, ","))
+}
+
+func (s *SQLdf) DropColumns(colNames ...string) error {
+	s.signature = newSignature()
+	s.version = 0
+
+	return s.Core().DropColumns(colNames...)
+}
+
+func (s *SQLdf) FileSave(fileName string) error {
+	if e := s.Context().Files().Create(fileName); e != nil {
+		return e
+	}
+	defer func() { _ = s.Context().Files().Close() }()
+
+	qry := s.MakeQuery()
+	rows, addr, fieldNames, e := s.Context().Dialect().Rows(qry)
+	if e != nil {
+		return e
+	}
+
+	s.Context().Files().FieldNames = fieldNames
+	if ex := s.Context().Files().WriteHeader(); ex != nil {
+		return ex
+	}
+
+	for rows.Next() {
+		if ex := rows.Scan(addr...); ex != nil {
+			return ex
+		}
+
+		if ex := s.Context().Files().WriteLine(addr); ex != nil {
+			return ex
+		}
+	}
+
+	return nil
+}
+
+func (s *SQLdf) MakeQuery(colNames ...string) string {
+	var fields []string
+	if colNames == nil {
+		colNames = s.ColumnNames()
+	}
+
+	for _, cn := range colNames {
+		var (
+			cx d.Column
+			e  error
+		)
+
+		if cx, e = s.Column(cn); e != nil {
+			panic(e)
+		}
+
+		var field string
+		field = cx.Name("")
+		if fn := cx.Data().(string); fn != "" {
+			// Need to Cast to required type here o.w. DB may default to an unsupported type
+			fnc, _ := s.Context().Dialect().CastField(fn, cx.DataType(), cx.DataType())
+			field = fmt.Sprintf("%s AS %s", fnc, cx.Name(""))
+		}
+
+		fields = append(fields, field)
+	}
+
+	sig := newSignature()
+	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", sig, s.sourceSQL, strings.Join(fields, ",\n"), sig)
+	if s.where != "" {
+		qry = fmt.Sprintf("%s WHERE %s\n", qry, s.where)
+	}
+
+	if s.groupBy != "" {
+		qry = fmt.Sprintf("%s GROUP BY %s\n", qry, s.groupBy)
+	}
+
+	if s.orderBy != "" {
+		qry = fmt.Sprintf("%s ORDER BY %s\n", qry, s.orderBy)
+	}
+
+	return qry
+}
+
+func (s *SQLdf) RowCount() int {
+	var (
+		rowCount int
+		e        error
+	)
+	if rowCount, e = s.Context().Dialect().RowCount(s.MakeQuery()); e != nil {
+		panic(e)
+	}
+
+	return rowCount
+}
+
+func (s *SQLdf) Signature() string {
+	return s.signature
+}
+
+func (s *SQLdf) Sort(ascending bool, keys ...string) error {
+	for _, k := range keys {
+		if _, e := s.Column(k); e != nil {
+			return e
+		}
+	}
+
+	if !ascending {
+		for ind := 0; ind < len(keys); ind++ {
+			keys[ind] += " DESC"
+		}
+	}
+
+	s.orderBy = strings.Join(keys, ",")
+	return nil
+}
+
+func (s *SQLdf) SourceSQL() string {
+	return s.sourceSQL
 }
 
 func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
@@ -574,10 +575,10 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		cc, cf string
 		ex     error
 	)
-	if cc, ex = s.Dialect().CastField("count(*)", d.DTint, d.DTint); ex != nil {
+	if cc, ex = s.Context().Dialect().CastField("count(*)", d.DTint, d.DTint); ex != nil {
 		return nil, ex
 	}
-	if cf, ex = s.Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
+	if cf, ex = s.Context().Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
 		return nil, ex
 	}
 
@@ -587,7 +588,7 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), d.DTfloat, rateSQL)
 	cs = append(cs, rate)
 
-	ctx := d.NewContext(s.Dialect(), s.Files(), nil)
+	ctx := d.NewContext(s.Context().Dialect(), s.Context().Files(), nil)
 	var outDF *SQLdf
 
 	if outDF, e = NewDFcol(s.Runner(), s.Fns(), ctx, cs...); e != nil {
@@ -628,31 +629,7 @@ func (s *SQLdf) Where(col d.Column) (d.DF, error) {
 	return dfNew, nil
 }
 
-func (s *SQLdf) MakeColumnXX(value any) (d.Column, error) {
-	var dt d.DataTypes
-	if dt = d.WhatAmI(value); dt == d.DTunknown {
-		return nil, fmt.Errorf("unsupported data type")
-	}
-
-	val := fmt.Sprintf("%v", value)
-	if dt == d.DTstring {
-		val = s.Dialect().Quote() + val + s.Dialect().Quote()
-	}
-
-	if dt == d.DTdate {
-		val = s.Dialect().Quote() + value.(time.Time).Format("2006-01-02") + s.Dialect().Quote()
-	}
-
-	cx := &SQLcol{
-		name:  "",
-		dType: dt,
-		sql:   val,
-	}
-
-	return cx, nil
-}
-
-// ***************** SQLcol *****************
+// ***************** SQLcol - Create *****************
 
 func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, sql string) *SQLcol {
 	col := &SQLcol{
@@ -694,8 +671,36 @@ func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
 	return col, nil
 }
 
+// ***************** SQLCol - Methods *****************
+
+// TODO:
 func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
-	return nil, nil
+	if s.DataType() != col.DataType() {
+		return nil, fmt.Errorf("incompatible columns in AppendRows")
+	}
+	q1 := s.MakeQuery()
+	c := col.Copy()
+	c.Name(s.Name(""))
+	q2 := s.MakeQuery()
+
+	var (
+		source string
+		e      error
+	)
+	if source, e = s.dlct.Union(q1, q2, s.Name("")); e != nil {
+		return nil, e
+	}
+
+	outCol := &SQLcol{
+		name:      s.Name(""),
+		dType:     s.DataType(),
+		sql:       "",
+		sourceSQL: source,
+		dlct:      s.dlct,
+		signature: newSignature(),
+		version:   0,
+	}
+	return outCol, nil
 }
 
 func (s *SQLcol) Copy() d.Column {
@@ -704,9 +709,14 @@ func (s *SQLcol) Copy() d.Column {
 		dType:     s.dType,
 		sql:       s.sql,
 		sourceSQL: s.sourceSQL,
-		signature: s.signature,
-		version:   s.version,
-		catMap:    s.catMap,
+		dlct:      s.dlct,
+
+		signature:   s.signature,
+		version:     s.version,
+		catMap:      s.catMap,
+		catCounts:   s.catCounts,
+		rawType:     s.rawType,
+		scalarValue: s.scalarValue,
 	}
 
 	return n
@@ -728,12 +738,23 @@ func (s *SQLcol) Len() int {
 	return -1
 }
 
+func (s *SQLcol) MakeQuery() string {
+	sig := newSignature()
+	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", sig, s.sourceSQL, s.Name(""), sig)
+
+	return qry
+}
+
 func (s *SQLcol) Name(renameTo string) string {
 	if renameTo != "" {
 		s.name = renameTo
 	}
 
 	return s.name
+}
+
+func (s *SQLcol) RawType() d.DataTypes {
+	return s.rawType
 }
 
 func (s *SQLcol) Signature() string {
@@ -748,13 +769,9 @@ func (s *SQLcol) Version() int {
 	return s.version
 }
 
-// helpers
+// ***************** Helpers *****************
 
 func newSignature() string {
 	const sigLen = 4
 	return u.RandomLetters(sigLen)
-}
-
-func (s *SQLcol) RawType() d.DataTypes {
-	return s.rawType
 }

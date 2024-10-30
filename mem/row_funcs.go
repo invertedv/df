@@ -1,10 +1,7 @@
 package df
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"hash/fnv"
 	"math"
 
 	d "github.com/invertedv/df"
@@ -49,8 +46,6 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		return nil, fnR.Err
 	}
 
-	//TODO: check return type
-
 	return fnR.Value, nil
 }
 
@@ -58,7 +53,7 @@ func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, eq,
 		exp, ge, gt, ifs, le, lt, log, mean, multiply,
 		ne, not, or, sortDF, subtract, sum, table, toCat,
-		toDate, toFloat, toInt, toString, fuzzCat,
+		toDate, toFloat, toInt, toString,
 		where,
 	}
 }
@@ -106,7 +101,6 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: context.Self()}
 }
 
-// TODO: what if I try to do a table on a float?
 func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "table", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},
@@ -402,6 +396,8 @@ func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			}
 
 			data.([]int)[ind] = x
+		default:
+			panic(fmt.Errorf("crazy error in abs"))
 		}
 	}
 
@@ -635,27 +631,6 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return outFn
 }
 
-func fuzzCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "fuzzCat", Inputs: [][]d.DataTypes{{d.DTcategorical, d.DTint, d.DTint}, {d.DTcategorical, d.DTint, d.DTstring},
-			{d.DTcategorical, d.DTint, d.DTdate}}, Output: []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical}}
-	}
-
-	col := inputs[0].(*MemCol)
-	fuzz := inputs[1].(*MemCol).Element(0).(int)
-	defCol := inputs[2].(*MemCol)
-
-	if defCol.DataType() != col.RawType() {
-		return &d.FnReturn{Err: fmt.Errorf("default not same type as underlying in fuzzCat")}
-	}
-
-	defaultVal := defCol.Element(0)
-
-	outCol := fuzzCategorical(col, fuzz, defaultVal)
-
-	return &d.FnReturn{Value: outCol}
-}
-
 // ***************** Helpers *****************
 
 func parameters(inputs ...any) (cols []*MemCol, n int) {
@@ -703,126 +678,4 @@ func okParams(cols []*MemCol, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok
 	}
 
 	return false, d.DTunknown
-}
-
-func makeTable(cols ...*MemCol) []*MemCol {
-	type oneD map[any]int64
-	type entry struct {
-		count int
-		row   []any
-	}
-
-	// the levels of each column in the table are stored in mps which maps the native value to int64
-	// the byte representation of the int64 are concatenated and fed to the hash function
-	var mps []oneD
-
-	// nextIndx is the next index value to use for each column
-	nextIndx := make([]int64, len(cols))
-	for ind := 0; ind < len(cols); ind++ {
-		mps = append(mps, make(oneD))
-	}
-
-	// tabMap is the map represenation of the table. The key is the hash value.
-	tabMap := make(map[uint64]*entry)
-
-	// buf is the 8 byte representation of the index number for a level of a column
-	buf := new(bytes.Buffer)
-	// h will be the hash of the bytes of the index numbers for each level of the table columns
-	h := fnv.New64()
-
-	// scan the rows to build the table
-	for row := 0; row < cols[0].Len(); row++ {
-		// str is the byte array that is hashed, its length is 8 times the # of columns
-		var str []byte
-
-		// rowVal holds the values of the columns for that row of the table
-		var rowVal []any
-		for c := 0; c < len(cols); c++ {
-			val := cols[c].Element(row)
-			rowVal = append(rowVal, val)
-			var (
-				cx int64
-				ok bool
-			)
-
-			if cx, ok = mps[c][val]; !ok {
-				mps[c][val] = nextIndx[c]
-				cx = nextIndx[c]
-				nextIndx[c]++
-			}
-
-			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
-				panic(e)
-			}
-
-			str = append(str, buf.Bytes()...)
-			buf.Reset()
-		}
-
-		_, _ = h.Write(str)
-		// increment the counter if that row is already mapped, o.w. add a new row
-		if v, ok := tabMap[h.Sum64()]; ok {
-			v.count++
-		} else {
-			tabMap[h.Sum64()] = &entry{
-				count: 1,
-				row:   rowVal,
-			}
-		}
-
-		h.Reset()
-	}
-
-	// build the table in d.DF format
-	var outData []any
-	for c := 0; c < len(cols); c++ {
-		outData = append(outData, d.MakeSlice(cols[c].DataType(), 0, nil))
-	}
-
-	outData = append(outData, d.MakeSlice(d.DTint, 0, nil))
-
-	for _, v := range tabMap {
-		for c := 0; c < len(v.row); c++ {
-			outData[c] = d.AppendSlice(outData[c], v.row[c], cols[c].DataType())
-		}
-
-		outData[len(v.row)] = d.AppendSlice(outData[len(v.row)], v.count, d.DTint)
-	}
-
-	// make into columns
-	var outCols []*MemCol
-	var (
-		mCol *MemCol
-		e    error
-	)
-	for c := 0; c < len(cols); c++ {
-		if mCol, e = NewMemCol(cols[c].Name(""), outData[c]); e != nil {
-			panic(e)
-		}
-
-		outCols = append(outCols, mCol)
-	}
-
-	if mCol, e = NewMemCol("count", outData[len(cols)]); e != nil {
-		panic(e)
-	}
-
-	outCols = append(outCols, mCol)
-
-	return outCols
-}
-
-// getNames returns the names of the input Columns starting with startInd element
-func getNames(startInd int, cols ...any) ([]string, error) {
-	var colNames []string
-	for ind := startInd; ind < len(cols); ind++ {
-		var cn string
-		if cn = cols[ind].(*MemCol).Name(""); cn == "" {
-			return nil, fmt.Errorf("column with no name in table")
-		}
-
-		colNames = append(colNames, cn)
-	}
-
-	return colNames, nil
 }

@@ -1,8 +1,11 @@
 package df
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"maps"
 	"sort"
 	"time"
@@ -30,7 +33,7 @@ type MemCol struct {
 	rawType   d.DataTypes
 }
 
-// ///////// MemDF
+// ***************** MemDF - Create *****************
 
 func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*MemCol) (*MemDF, error) {
 	if runDF == nil {
@@ -66,7 +69,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*MemCol) (
 	}
 
 	outDF := &MemDF{DFcore: df}
-	outDF.Context.SetSelf(outDF)
+	outDF.Context().SetSelf(outDF)
 
 	return outDF, nil
 }
@@ -114,13 +117,7 @@ func DBLoad(qry string, ctx *d.Context) (*MemDF, error) {
 	return memDF, nil
 }
 
-func (m *MemDF) SourceQuery() string {
-	return m.sourceQuery
-}
-
-func (m *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
-	return fmt.Errorf("not implemented")
-}
+// ***************** MemDF - Methods *****************
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
@@ -150,107 +147,31 @@ func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
 	return nil
 }
 
-func (m *MemDF) Less(i, j int) bool {
-	for ind := 0; ind < len(m.by); ind++ {
-		var less bool
-		if m.ascending {
-			less = m.by[ind].Less(i, j)
-
-		} else {
-			less = m.by[ind].Greater(i, j)
-		}
-
-		// if greater, it's false
-		if !less {
-			return false
-		}
-
-		// if < (rather than <=) it's true
-		if m.by[ind].Less(i, j) && !m.by[ind].Less(j, i) {
-			return true
-		}
-
-		// equal -- keep checking
+func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
+	if _, ok := df.(*MemDF); !ok {
+		return nil, fmt.Errorf("must be *MemDF to append to *MemDF")
 	}
 
-	return true
-}
+	var (
+		dfCore *d.DFcore
+		e      error
+	)
 
-func (m *MemDF) Swap(i, j int) {
-	for h := m.Next(true); h != nil; h = m.Next(false) {
-		data := h.(*MemCol).data
-		switch h.DataType() {
-		case d.DTfloat:
-			data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
-		case d.DTint:
-			data.([]int)[i], data.([]int)[j] = data.([]int)[j], data.([]int)[i]
-		case d.DTstring:
-			data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
-		case d.DTdate:
-			data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
-		default:
-			panic(fmt.Errorf("unsupported data type in Swap"))
-		}
-	}
-}
-
-func (m *MemDF) Sort(ascending bool, cols ...string) error {
-	var by []*MemCol
-
-	for ind := 0; ind < len(cols); ind++ {
-		var (
-			x d.Column
-			e error
-		)
-
-		if x, e = m.Column(cols[ind]); e != nil {
-			return e
-		}
-
-		by = append(by, x.(*MemCol))
+	if dfCore, e = m.AppendDFcore(df); e != nil {
+		return nil, e
 	}
 
-	m.by = by
-	m.ascending = ascending
-	sort.Sort(m)
-
-	return nil
-}
-
-func (m *MemDF) RowCount() int {
-	return m.Next(true).Len()
-}
-
-// Len is required for sort
-func (m *MemDF) Len() int {
-	return m.RowCount()
-}
-
-func (m *MemDF) Row(rowNum int) []any {
-	if rowNum >= m.RowCount() {
-		return nil
+	ndf := &MemDF{
+		sourceQuery: "",
+		by:          nil,
+		DFcore:      dfCore,
 	}
 
-	var r []any
-	for cx := m.Next(true); cx != nil; cx = m.Next(false) {
-		var v any
-		i := u.MinInt(rowNum, cx.Len()-1)
-		switch cx.DataType() {
-		case d.DTfloat:
-			v = cx.Data().([]float64)[i]
-		case d.DTint, d.DTcategorical:
-			v = cx.Data().([]int)[i]
-		case d.DTdate:
-			v = cx.Data().([]time.Time)[i]
-		case d.DTstring:
-			v = cx.Data().([]string)[i]
-		default:
-			panic(fmt.Errorf("unknown data type in Row"))
-		}
-		r = append(r, v)
-	}
+	return ndf, nil
+}
 
-	return r
+func (m *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
+	return fmt.Errorf("not implemented")
 }
 
 func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
@@ -327,7 +248,7 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		)
 		// if inVal isn't in the map, map it to the default level
 		if mapVal, ok = toMap[inVal]; !ok {
-			mapVal, _ = toMap[defaultVal]
+			mapVal = toMap[defaultVal]
 		}
 
 		data = d.AppendSlice(data, mapVal, d.DTint)
@@ -347,11 +268,154 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	outCol.catMap = toMap
 	outCol.catCounts = cnts
 
-	if fuzz > 1 {
-		outCol = fuzzCategorical(outCol, fuzz, defaultVal)
+	return outCol, nil
+}
+
+func (m *MemDF) Copy() d.DF {
+	dfC := m.DFcore.Copy()
+
+	mNew := &MemDF{
+		sourceQuery: "",
+		by:          nil,
+		ascending:   false,
+		DFcore:      dfC,
 	}
 
-	return outCol, nil
+	mNew.Context().SetSelf(mNew)
+
+	return mNew
+}
+
+func (m *MemDF) FileSave(fileName string) error {
+	if e := m.Context().Files().Create(fileName); e != nil {
+		return e
+	}
+	defer func() { _ = m.Context().Files().Close() }()
+
+	m.Context().Files().FieldNames = m.ColumnNames()
+
+	if e := m.Context().Files().WriteHeader(); e != nil {
+		return e
+	}
+
+	for ind := 0; ind < m.RowCount(); ind++ {
+		var row []any
+		if row = m.Row(ind); row == nil {
+			return fmt.Errorf("unexpected end of MemDF")
+		}
+		if e := m.Context().Files().WriteLine(row); e != nil {
+			return e
+		}
+	}
+
+	return nil
+}
+
+// Len is required for sort
+func (m *MemDF) Len() int {
+	return m.RowCount()
+}
+
+func (m *MemDF) Less(i, j int) bool {
+	for ind := 0; ind < len(m.by); ind++ {
+		var less bool
+		if m.ascending {
+			less = m.by[ind].Less(i, j)
+
+		} else {
+			less = m.by[ind].Greater(i, j)
+		}
+
+		// if greater, it's false
+		if !less {
+			return false
+		}
+
+		// if < (rather than <=) it's true
+		if m.by[ind].Less(i, j) && !m.by[ind].Less(j, i) {
+			return true
+		}
+
+		// equal -- keep checking
+	}
+
+	return true
+}
+
+func (m *MemDF) Row(rowNum int) []any {
+	if rowNum >= m.RowCount() {
+		return nil
+	}
+
+	var r []any
+	for cx := m.Next(true); cx != nil; cx = m.Next(false) {
+		var v any
+		i := u.MinInt(rowNum, cx.Len()-1)
+		switch cx.DataType() {
+		case d.DTfloat:
+			v = cx.Data().([]float64)[i]
+		case d.DTint, d.DTcategorical:
+			v = cx.Data().([]int)[i]
+		case d.DTdate:
+			v = cx.Data().([]time.Time)[i]
+		case d.DTstring:
+			v = cx.Data().([]string)[i]
+		default:
+			panic(fmt.Errorf("unknown data type in Row"))
+		}
+		r = append(r, v)
+	}
+
+	return r
+}
+
+func (m *MemDF) RowCount() int {
+	return m.Next(true).Len()
+}
+
+func (m *MemDF) Sort(ascending bool, cols ...string) error {
+	var by []*MemCol
+
+	for ind := 0; ind < len(cols); ind++ {
+		var (
+			x d.Column
+			e error
+		)
+
+		if x, e = m.Column(cols[ind]); e != nil {
+			return e
+		}
+
+		by = append(by, x.(*MemCol))
+	}
+
+	m.by = by
+	m.ascending = ascending
+	sort.Sort(m)
+
+	return nil
+}
+
+func (m *MemDF) SourceQuery() string {
+	return m.sourceQuery
+}
+
+func (m *MemDF) Swap(i, j int) {
+	for h := m.Next(true); h != nil; h = m.Next(false) {
+		data := h.(*MemCol).data
+		switch h.DataType() {
+		case d.DTfloat:
+			data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
+		case d.DTint:
+			data.([]int)[i], data.([]int)[j] = data.([]int)[j], data.([]int)[i]
+		case d.DTstring:
+			data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
+		case d.DTdate:
+			data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
+		default:
+			panic(fmt.Errorf("unsupported data type in Swap"))
+		}
+	}
 }
 
 func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
@@ -380,7 +444,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		e     error
 	)
 
-	ctx := d.NewContext(m.Dialect(), nil, nil)
+	ctx := d.NewContext(m.Context().Dialect(), nil, nil)
 	if outDF, e = NewDFcol(m.Runner(), m.Fns(), ctx, outCols...); e != nil {
 		return nil, e
 	}
@@ -418,35 +482,6 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	return outDF, nil
 }
 
-func (m *MemDF) Core() *d.DFcore {
-	return m.DFcore
-}
-
-func (m *MemDF) FileSave(fileName string) error {
-	if e := m.Files().Create(fileName); e != nil {
-		return e
-	}
-	defer func() { _ = m.Files().Close() }()
-
-	m.Files().FieldNames = m.ColumnNames()
-
-	if e := m.Files().WriteHeader(); e != nil {
-		return e
-	}
-
-	for ind := 0; ind < m.RowCount(); ind++ {
-		var row []any
-		if row = m.Row(ind); row == nil {
-			return fmt.Errorf("unexpected end of MemDF")
-		}
-		if e := m.Files().WriteLine(row); e != nil {
-			return e
-		}
-	}
-
-	return nil
-}
-
 func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
 	if indicator.Len() != m.RowCount() {
 		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), m.RowCount())
@@ -481,47 +516,7 @@ func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
 	return dfNew, nil
 }
 
-func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
-	if _, ok := df.(*MemDF); !ok {
-		return nil, fmt.Errorf("must be *MemDF to append to *MemDF")
-	}
-
-	var (
-		dfCore *d.DFcore
-		e      error
-	)
-
-	if dfCore, e = m.AppendDFcore(df); e != nil {
-		return nil, e
-	}
-
-	ndf := &MemDF{
-		sourceQuery: "",
-		by:          nil,
-		DFcore:      dfCore,
-	}
-
-	return ndf, nil
-}
-
-func (m *MemDF) Copy() d.DF {
-	dfC := m.DFcore.Copy()
-
-	mNew := &MemDF{
-		sourceQuery: "",
-		by:          nil,
-		ascending:   false,
-		DFcore:      dfC,
-	}
-
-	//	ctx := d.NewContext(m.Dialect(), nil, mNew)
-	//	mNew.SetContext(ctx)
-	mNew.SetSelf(mNew)
-
-	return mNew
-}
-
-///////////// MemCol
+// ***************** MemCol - Create *****************
 
 func NewMemCol(name string, data any) (*MemCol, error) {
 	var dt d.DataTypes
@@ -553,62 +548,14 @@ func NewMemCol(name string, data any) (*MemCol, error) {
 	return c, nil
 }
 
-func (m *MemCol) DataType() d.DataTypes {
-	return m.dType
-}
+// ***************** MemCol - Methods *****************
 
-func (m *MemCol) Len() int {
-	switch m.dType {
-	case d.DTfloat:
-		return len(m.Data().([]float64))
-	case d.DTint, d.DTcategorical:
-		return len(m.Data().([]int))
-	case d.DTstring:
-		return len(m.Data().([]string))
-	case d.DTdate:
-		return len(m.Data().([]time.Time))
-	default:
-		return -1
-	}
-}
-
-func (m *MemCol) Data() any {
-	return m.data
-}
-
-func (m *MemCol) Name(renameTo string) string {
-	if renameTo != "" {
-		m.name = renameTo
-	}
-
-	return m.name
-}
-
-func (m *MemCol) Element(row int) any {
-	if m.Len() == 1 {
-		row = 0
-	}
-
-	switch m.dType {
-	case d.DTfloat:
-		return m.Data().([]float64)[row]
-	case d.DTint, d.DTcategorical:
-		return m.Data().([]int)[row]
-	case d.DTstring:
-		return m.Data().([]string)[row]
-	case d.DTdate:
-		return m.Data().([]time.Time)[row]
-	default:
-		panic(fmt.Errorf("unsupported data type in Element"))
-	}
+func (m *MemCol) AppendRows(col2 d.Column) (d.Column, error) {
+	return AppendRows(m, col2, m.Name(""))
 }
 
 func (m *MemCol) CategoryMap() d.CategoryMap {
 	return m.catMap
-}
-
-func (m *MemCol) RawType() d.DataTypes {
-	return m.rawType
 }
 
 func (m *MemCol) Copy() d.Column {
@@ -641,22 +588,30 @@ func (m *MemCol) Copy() d.Column {
 	return col
 }
 
-func (m *MemCol) AppendRows(col2 d.Column) (d.Column, error) {
-	return AppendRows(m, col2, m.Name(""))
+func (m *MemCol) Data() any {
+	return m.data
 }
 
-func (m *MemCol) Less(i, j int) bool {
+func (m *MemCol) DataType() d.DataTypes {
+	return m.dType
+}
+
+func (m *MemCol) Element(row int) any {
+	if m.Len() == 1 {
+		row = 0
+	}
+
 	switch m.dType {
 	case d.DTfloat:
-		return m.data.([]float64)[i] <= m.data.([]float64)[j]
-	case d.DTint:
-		return m.data.([]int)[i] <= m.data.([]int)[j]
+		return m.Data().([]float64)[row]
+	case d.DTint, d.DTcategorical:
+		return m.Data().([]int)[row]
 	case d.DTstring:
-		return m.data.([]string)[i] <= m.data.([]string)[j]
+		return m.Data().([]string)[row]
 	case d.DTdate:
-		return !m.data.([]time.Time)[i].After(m.data.([]time.Time)[j])
+		return m.Data().([]time.Time)[row]
 	default:
-		panic(fmt.Errorf("unsupported data type in Less"))
+		panic(fmt.Errorf("unsupported data type in Element"))
 	}
 }
 
@@ -674,6 +629,50 @@ func (m *MemCol) Greater(i, j int) bool {
 		panic(fmt.Errorf("unsupported data type in Less"))
 	}
 }
+
+func (m *MemCol) Len() int {
+	switch m.dType {
+	case d.DTfloat:
+		return len(m.Data().([]float64))
+	case d.DTint, d.DTcategorical:
+		return len(m.Data().([]int))
+	case d.DTstring:
+		return len(m.Data().([]string))
+	case d.DTdate:
+		return len(m.Data().([]time.Time))
+	default:
+		return -1
+	}
+}
+
+func (m *MemCol) Less(i, j int) bool {
+	switch m.dType {
+	case d.DTfloat:
+		return m.data.([]float64)[i] <= m.data.([]float64)[j]
+	case d.DTint:
+		return m.data.([]int)[i] <= m.data.([]int)[j]
+	case d.DTstring:
+		return m.data.([]string)[i] <= m.data.([]string)[j]
+	case d.DTdate:
+		return !m.data.([]time.Time)[i].After(m.data.([]time.Time)[j])
+	default:
+		panic(fmt.Errorf("unsupported data type in Less"))
+	}
+}
+
+func (m *MemCol) Name(renameTo string) string {
+	if renameTo != "" {
+		m.name = renameTo
+	}
+
+	return m.name
+}
+
+func (m *MemCol) RawType() d.DataTypes {
+	return m.rawType
+}
+
+// ***************** Helpers *****************
 
 func AppendRows(col1, col2 d.Column, name string) (*MemCol, error) {
 	if col1.DataType() != col2.DataType() {
@@ -706,42 +705,124 @@ func AppendRows(col1, col2 d.Column, name string) (*MemCol, error) {
 	return col, nil
 }
 
-func fuzzCategorical(col *MemCol, fuzzValue int, defaultVal any) *MemCol {
-	catMap := make(d.CategoryMap)
-	catCounts := make(d.CategoryMap)
-	data := make([]int, col.Len())
-	copy(data, col.Data().([]int))
-	consVals := []int{-1} // map values to keep
-
-	for k, v := range col.catMap {
-		if col.catCounts[k] >= fuzzValue {
-			catMap[k] = v
-			catCounts[k] = col.catCounts[k]
-			consVals = append(consVals, v)
-			continue
-		}
-
-		catCounts[defaultVal]++
+func makeTable(cols ...*MemCol) []*MemCol {
+	type oneD map[any]int64
+	type entry struct {
+		count int
+		row   []any
 	}
 
-	sort.Ints(consVals)
+	// the levels of each column in the table are stored in mps which maps the native value to int64
+	// the byte representation of the int64 are concatenated and fed to the hash function
+	var mps []oneD
 
-	for ind, x := range col.Data().([]int) {
-		checkVal := x
-		if indx := sort.SearchInts(consVals, checkVal); indx == len(consVals) || consVals[indx] != checkVal {
-			data[ind] = -1
-		}
+	// nextIndx is the next index value to use for each column
+	nextIndx := make([]int64, len(cols))
+	for ind := 0; ind < len(cols); ind++ {
+		mps = append(mps, make(oneD))
 	}
 
+	// tabMap is the map represenation of the table. The key is the hash value.
+	tabMap := make(map[uint64]*entry)
+
+	// buf is the 8 byte representation of the index number for a level of a column
+	buf := new(bytes.Buffer)
+	// h will be the hash of the bytes of the index numbers for each level of the table columns
+	h := fnv.New64()
+
+	// scan the rows to build the table
+	for row := 0; row < cols[0].Len(); row++ {
+		// str is the byte array that is hashed, its length is 8 times the # of columns
+		var str []byte
+
+		// rowVal holds the values of the columns for that row of the table
+		var rowVal []any
+		for c := 0; c < len(cols); c++ {
+			val := cols[c].Element(row)
+			rowVal = append(rowVal, val)
+			var (
+				cx int64
+				ok bool
+			)
+
+			if cx, ok = mps[c][val]; !ok {
+				mps[c][val] = nextIndx[c]
+				cx = nextIndx[c]
+				nextIndx[c]++
+			}
+
+			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
+				panic(e)
+			}
+
+			str = append(str, buf.Bytes()...)
+			buf.Reset()
+		}
+
+		_, _ = h.Write(str)
+		// increment the counter if that row is already mapped, o.w. add a new row
+		if v, ok := tabMap[h.Sum64()]; ok {
+			v.count++
+		} else {
+			tabMap[h.Sum64()] = &entry{
+				count: 1,
+				row:   rowVal,
+			}
+		}
+
+		h.Reset()
+	}
+
+	// build the table in d.DF format
+	var outData []any
+	for c := 0; c < len(cols); c++ {
+		outData = append(outData, d.MakeSlice(cols[c].DataType(), 0, nil))
+	}
+
+	outData = append(outData, d.MakeSlice(d.DTint, 0, nil))
+
+	for _, v := range tabMap {
+		for c := 0; c < len(v.row); c++ {
+			outData[c] = d.AppendSlice(outData[c], v.row[c], cols[c].DataType())
+		}
+
+		outData[len(v.row)] = d.AppendSlice(outData[len(v.row)], v.count, d.DTint)
+	}
+
+	// make into columns
+	var outCols []*MemCol
 	var (
-		outCol *MemCol
-		e      error
+		mCol *MemCol
+		e    error
 	)
-	if outCol, e = NewMemCol("", data); e != nil {
-		panic(e) // should not happen
+	for c := 0; c < len(cols); c++ {
+		if mCol, e = NewMemCol(cols[c].Name(""), outData[c]); e != nil {
+			panic(e)
+		}
+
+		outCols = append(outCols, mCol)
 	}
 
-	outCol.catMap, outCol.catCounts, outCol.dType = catMap, catCounts, d.DTcategorical
+	if mCol, e = NewMemCol("count", outData[len(cols)]); e != nil {
+		panic(e)
+	}
 
-	return outCol
+	outCols = append(outCols, mCol)
+
+	return outCols
+}
+
+// getNames returns the names of the input Columns starting with startInd element
+func getNames(startInd int, cols ...any) ([]string, error) {
+	var colNames []string
+	for ind := startInd; ind < len(cols); ind++ {
+		var cn string
+		if cn = cols[ind].(*MemCol).Name(""); cn == "" {
+			return nil, fmt.Errorf("column with no name in table")
+		}
+
+		colNames = append(colNames, cn)
+	}
+
+	return colNames, nil
 }

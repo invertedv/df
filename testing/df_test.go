@@ -21,8 +21,8 @@ const which = "mem"
 
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
-func newConnect(host, user, password string) (db *sql.DB, err error) {
-	db = clickhouse.OpenDB(
+func newConnect(host, user, password string) *sql.DB {
+	db := clickhouse.OpenDB(
 		&clickhouse.Options{
 			Addr: []string{host + ":9000"},
 			Auth: clickhouse.Auth{
@@ -37,7 +37,10 @@ func newConnect(host, user, password string) (db *sql.DB, err error) {
 			},
 		})
 
-	return db, db.Ping()
+	if e := db.Ping(); e != nil {
+		panic(e)
+	}
+	return db
 }
 
 func loadData() d.DF {
@@ -46,29 +49,34 @@ func loadData() d.DF {
 	host := os.Getenv("host")
 	password := os.Getenv("password")
 
-	var (
-		db *sql.DB
-		e  error
-	)
+	db := newConnect(host, user, password)
 
-	if db, e = newConnect(host, user, password); e != nil {
+	var (
+		dialect *d.Dialect
+		e       error
+	)
+	if dialect, e = d.NewDialect("clickhouse", db); e != nil {
 		panic(e)
 	}
 
-	var dialect *d.Dialect
-	dialect, e = d.NewDialect("clickhouse", db)
 	ctx := d.NewContext(dialect, nil, nil)
 
 	if which == "sql" {
-		df, e1 := s.DBload(table, ctx)
-		if e1 != nil {
+		var (
+			df *s.SQLdf
+			e1 error
+		)
+		if df, e1 = s.DBload(table, ctx); e1 != nil {
 			panic(e1)
 		}
 		return df
 	}
 
-	df, e2 := m.DBLoad(table, ctx)
-	if e2 != nil {
+	var (
+		df *m.MemDF
+		e2 error
+	)
+	if df, e2 = m.DBLoad(table, ctx); e2 != nil {
 		panic(e2)
 	}
 
@@ -95,7 +103,7 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	}
 
 	if which == "sql" {
-		memDF, e1 := m.DBLoad(df.(*s.SQLdf).MakeQuery(), df.Core().Context)
+		memDF, e1 := m.DBLoad(df.(*s.SQLdf).MakeQuery(), df.Context())
 		if e1 != nil {
 			panic(e1)
 		}
@@ -121,6 +129,9 @@ func TestParse_Table(t *testing.T) {
 	e = df1.Sort(false, "count")
 	assert.Nil(t, e)
 	assert.Equal(t, []int{2, 1, 1, 1, 1}, checker(df1, "count", nil, -1))
+
+	_, e = dfx.Parse("table(x)")
+	assert.NotNil(t, e)
 }
 
 func TestParse_Sort(t *testing.T) {
@@ -141,9 +152,9 @@ func TestParser(t *testing.T) {
 		{"dt != date(20221231)", 1, 1},
 		{"dt == date(20221231)", 0, 1},
 		{"dt == date(20221231)", 1, 0},
-		{"4+1--1", 0, int(6)},
-		{"if(y == 1, 2.0, (x))", 0, float64(2)},
-		{"if(y == 1, 2.0, (x))", 1, float64(-2)},
+		{"4+1--1", 0, 6},
+		{"if(y == 1, 2.0, (x))", 0, 2.0},
+		{"if(y == 1, 2.0, (x))", 1, -2.0},
 		{"!(y>=1) && y>=1", 0, 0},
 		{"exp(x-1.0)", 0, 1.0},
 		{"abs(x)", 0, 1.0},
@@ -156,7 +167,7 @@ func TestParser(t *testing.T) {
 		{"dt == date(20221231)", 0, 1},
 		{"dt == date(20221231)", 1, 0},
 		{"string(float(1)+.234)", 0, "1.234"},
-		{"float('1.1')", 0, float64(1.1)},
+		{"float('1.1')", 0, 1.1},
 		{"int(2.9)", 0, 2},
 		{"float(1)", 0, 1.0},
 		{"string(dt)", 0, "2022-12-31"},
@@ -164,7 +175,7 @@ func TestParser(t *testing.T) {
 		{"x--1.0", 0, 2.0},
 		{"x*10.0", 0, 10.0},
 		{"int(x)", 5, 3},
-		{"(float(4+2) * abs(-3.0/2.0))", 0, float64(9)},
+		{"(float(4+2) * abs(-3.0/2.0))", 0, 9.0},
 		{"y != 1", 0, 0},
 		{"y>=1 && y>=1 && dt >= date(20221231)", 0, 1},
 		{"y>=1 && y>=1 && dt > date(20221231)", 0, 0},
@@ -190,20 +201,20 @@ func TestParser(t *testing.T) {
 		{"0 && 1", 0, 0},
 		{"0 || 0", 0, 0},
 		{"0 || 1", 0, 1},
-		{"4+3", 0, int(7)},
+		{"4+3", 0, 7},
 		{"4-1-1-1-1", 0, 0},
-		{"4+1-1", 0, int(4)},
-		{"float(4)+1.0--1.0", 0, float64(6)},
+		{"4+1-1", 0, 4},
+		{"float(4)+1.0--1.0", 0, 6.0},
 		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
 		{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
-		{"-x +2.0", 0, float64(1)},
-		{"-x +4.0", 1, float64(6)},
+		{"-x +2.0", 0, 1.0},
+		{"-x +4.0", 1, 6.0},
 		{"x/0.0", 0, math.Inf(1)},
-		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, float64(42)},
+		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, 42.0},
 		{"(1 + 2) - -(-1 - 2)", 0, 0},
-		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
+		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, 2.0},
 	}
 
 	cnt := 0
@@ -215,11 +226,11 @@ func TestParser(t *testing.T) {
 		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
 		xOut.AsColumn().Name("test")
-		//m.NewDFcol()
+
 		if which == "sql" {
-			r, ex = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context, xOut.AsColumn().(*s.SQLcol))
+			r, ex = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context(), xOut.AsColumn().(*s.SQLcol))
 		} else {
-			r, ex = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context, xOut.AsColumn().(*m.MemCol))
+			r, ex = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context(), xOut.AsColumn().(*m.MemCol))
 		}
 
 		assert.Nil(t, ex)
@@ -293,7 +304,7 @@ func TestToCat(t *testing.T) {
 
 	// try with DTfloat
 	expr = "cat(x)"
-	colx, ex = dfx.Parse(expr)
+	_, ex = dfx.Parse(expr)
 	assert.NotNil(t, ex)
 }
 
@@ -301,16 +312,16 @@ func TestApplyCat(t *testing.T) {
 	dfx := loadData()
 	r, e := dfx.Parse("cat(y)")
 	assert.Nil(t, e)
-	s := r.AsColumn()
-	s.Name("caty")
-	e = dfx.AppendColumn(s, false)
+	sx := r.AsColumn()
+	sx.Name("caty")
+	e = dfx.AppendColumn(sx, false)
 	assert.Nil(t, e)
 
 	r, e = dfx.Parse("applyCat(yy, caty, -5)")
 	assert.Nil(t, e)
-	s = r.AsColumn()
-	s.Name("test")
-	result := checker(dfx, "test", s, -1)
+	sx = r.AsColumn()
+	sx.Name("test")
+	result := checker(dfx, "test", sx, -1)
 
 	// -5 maps to 0 so all new values map to 0
 	expected := []int{1, 0, 0, 1, 0, 0}

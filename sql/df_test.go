@@ -50,14 +50,20 @@ func testDF() *SQLdf {
 		panic(e)
 	}
 
-	var dialect *d.Dialect
-	dialect, e = d.NewDialect("clickhouse", db)
+	var (
+		dialect *d.Dialect
+		e1      error
+	)
+	if dialect, e1 = d.NewDialect("clickhouse", db); e1 != nil {
+		panic(e1)
+	}
 
-	// , ln_zb_dt
-	//	df, e1 := NewSQLdf("SELECT ln_id, vintage, ln_orig_ir, last_dt FROM fannie.final limit 10000", d.NewContext(dialect, nil, nil))
-	df, e1 := DBload("SELECT * FROM testing.d1", d.NewContext(dialect, nil, nil))
-	if e1 != nil {
-		panic(e)
+	var (
+		df *SQLdf
+		e2 error
+	)
+	if df, e2 = DBload("SELECT * FROM testing.d1", d.NewContext(dialect, nil, nil)); e2 != nil {
+		panic(e2)
 	}
 
 	return df
@@ -70,14 +76,8 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 			panic(e)
 		}
 	}
-
-	//e := df.DBsave("testing.checker", true)
-	//	if e != nil {
-	//		panic(e)
-	//	}
-	//	memDF, e1 := m.DBLoad("SELECT * FROM testing.checker", df.(*SQLdf).Context)
 	q := df.(*SQLdf).MakeQuery()
-	memDF, e1 := m.DBLoad(q, df.(*SQLdf).Context)
+	memDF, e1 := m.DBLoad(q, df.(*SQLdf).Context())
 	if e1 != nil {
 		panic(e1)
 	}
@@ -97,7 +97,7 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 
 func TestWhere(t *testing.T) {
 	dfx := testDF()
-	defer func() { _ = dfx.Context.Dialect().DB().Close() }()
+	defer func() { _ = dfx.Context().Dialect().DB().Close() }()
 
 	out, e := dfx.Parse("y == 1 || z == '20060310'")
 	assert.Nil(t, e)
@@ -241,7 +241,7 @@ func TestParserS(t *testing.T) {
 		ez := dfx.AppendColumn(col, true)
 		assert.NotNil(t, ez)
 
-		dfNew, e = NewDFcol(nil, nil, dfx.Context, col.(*SQLcol))
+		dfNew, e = NewDFcol(nil, nil, dfx.Context(), col.(*SQLcol))
 		assert.Nil(t, e)
 		indx := x[ind][1].(int)
 
