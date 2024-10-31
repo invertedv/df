@@ -326,7 +326,7 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		mDF *m.MemDF
 		e1  error
 	)
-	if mDF, e1 = m.DBLoad(x, s.Context()); e1 != nil {
+	if mDF, e1 = m.DBLoad(x, s.Context().Dialect()); e1 != nil {
 		return nil, e
 	}
 
@@ -419,21 +419,9 @@ func (s *SQLdf) Copy() d.DF {
 }
 
 func (s *SQLdf) DBsave(tableName string, overwrite bool) error {
-	exists := s.Context().Dialect().Exists(tableName)
-
-	if overwrite || !exists {
-		if exists {
-			if e := s.Context().Dialect().DropTable(tableName); e != nil {
-				return e
-			}
-		}
-
-		if e := s.Context().Dialect().CreateTable(tableName, s.orderBy, overwrite, s); e != nil {
-			return e
-		}
-	}
-
-	return s.Context().Dialect().Save(tableName, s)
+	_ = s.Context().Dialect().Save(tableName, s.orderBy, overwrite, s)
+	e := s.Context().Dialect().IterSave(tableName, s) // HERE
+	return e
 }
 
 func (s *SQLdf) DropColumns(colNames ...string) error {

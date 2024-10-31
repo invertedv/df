@@ -77,7 +77,7 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 		}
 	}
 	q := df.(*SQLdf).MakeQuery()
-	memDF, e1 := m.DBLoad(q, df.(*SQLdf).Context())
+	memDF, e1 := m.DBLoad(q, df.(*SQLdf).Context().Dialect())
 	if e1 != nil {
 		panic(e1)
 	}
@@ -322,7 +322,8 @@ func TestSQLdf_AppendDF(t *testing.T) {
 	dfy := testDF()
 	dfOut, e := dfx.AppendDF(dfy)
 	assert.Nil(t, e)
-	e = dfOut.DBsave("testing.append", true)
+	e = dfx.Context().Dialect().Save("testing.append", "k", true, dfOut)
+	//	e = dfOut.DBsave("testing.append", true)
 	assert.Nil(t, e)
 	var c *d.Parsed
 	c, e = dfx.Parse("exp(x)")

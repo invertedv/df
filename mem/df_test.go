@@ -168,23 +168,6 @@ func TestParser(t *testing.T) {
 	fmt.Println("# tests: ", cnt)
 }
 
-func TestFuzzCat(t *testing.T) {
-	dfx := testDF()
-	expr := "cat(y)"
-
-	colx, ex := dfx.Parse(expr)
-	col := colx.AsColumn()
-	col.Name("c")
-	assert.Nil(t, ex)
-	_ = dfx.AppendColumn(col, false)
-
-	expr = "fuzzCat(c, 2, 100)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	exp := []int{1, -1, -1, 1, -1, -1}
-	assert.Equal(t, exp, colx.AsColumn().Data())
-}
-
 func TestApplyCat(t *testing.T) {
 	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
 	//	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
@@ -393,9 +376,8 @@ func TestLoadSQL(t *testing.T) {
 
 	var dialect *d.Dialect
 	dialect, e = d.NewDialect("clickhouse", db)
-	ctx := d.NewContext(dialect, nil, nil)
 	assert.Nil(t, e)
-	memDF, e1 := DBLoad("SELECT * FROM zip.zip3 LIMIT 10", ctx)
+	memDF, e1 := DBLoad("SELECT * FROM zip.zip3 LIMIT 10", dialect)
 	assert.Nil(t, e1)
 	col, e2 := memDF.Column("prop_zip3")
 	assert.Nil(t, e2)

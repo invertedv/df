@@ -75,19 +75,19 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*MemCol) (
 	return outDF, nil
 }
 
-func DBLoad(qry string, ctx *d.Context) (*MemDF, error) {
+func DBLoad(qry string, dlct *d.Dialect) (*MemDF, error) {
 	var (
 		columnNames []string
 		columnTypes []d.DataTypes
 		e           error
 	)
 
-	if columnNames, columnTypes, e = ctx.Dialect().Types(qry); e != nil {
+	if columnNames, columnTypes, e = dlct.Types(qry); e != nil {
 		return nil, e
 	}
 
 	var memData []any
-	if memData, e = ctx.Dialect().Load(qry); e != nil {
+	if memData, e = dlct.Load(qry); e != nil {
 		return nil, e
 	}
 
@@ -114,7 +114,7 @@ func DBLoad(qry string, ctx *d.Context) (*MemDF, error) {
 	memDF.sourceQuery = qry
 	memDF.row = -1
 
-	memDF.SetContext(d.NewContext(ctx.Dialect(), memDF, nil))
+	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
 
 	return memDF, nil
 }
@@ -191,7 +191,11 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 }
 
 func (m *MemDF) DBsave(tableName string, overwrite bool) error {
-	return fmt.Errorf("not implemented")
+	if m.Context().Dialect() == nil {
+		return fmt.Errorf("no dialect")
+	}
+
+	return m.Context().Dialect().Save(tableName, "", overwrite, m)
 }
 
 func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {

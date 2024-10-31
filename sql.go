@@ -272,6 +272,17 @@ func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	return e
 }
 
+func (d *Dialect) InsertValues(tableName string, values []byte) error {
+	e := fmt.Errorf("db not implemented")
+
+	if d.DialectName() == ch {
+		qry := fmt.Sprintf("INSERT INTO %s VALUES ", tableName) + string(values)
+		_, e = d.db.Exec(qry)
+	}
+
+	return e
+}
+
 func (d *Dialect) Load(qry string) ([]any, error) {
 	var (
 		e     error
@@ -396,23 +407,76 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 
 // This should check if a query is available...then do insert or iterate
 
-func (d *Dialect) Save(tableName string, df DF) error {
-	return d.Insert(tableName, df.MakeQuery(), strings.Join(df.ColumnNames(), ","))
+func (d *Dialect) IterSave(tableName string, df DF) error {
+	const maxBuf = 10000
+	var buffer []byte
+	bSep := byte(',')
+	bOpen := byte('(')
+	bClose := byte(')')
 
-	/*	if e := d.CreateTable(tableName, s.orderBy, overwrite, cols...); e != nil {
+	for eof, row := df.Iter(true); eof == false; eof, row = df.Iter(false) {
+		if buffer != nil {
+			buffer = append(buffer, bSep)
+		}
+
+		buffer = append(buffer, bOpen)
+		for ind := 0; ind < len(row); ind++ {
+			var x any
+			switch xx := row[ind].(type) {
+			case int, float64, string, time.Time:
+				x = xx
+			case *int:
+				x = *xx
+			case *float64:
+				x = *xx
+			case *string:
+				x = *xx
+			case *time.Time:
+				x = *xx
+			}
+			buffer = append(append(buffer, []byte(d.ToString(x))...), bSep)
+		}
+
+		buffer[len(buffer)-1] = bClose
+
+		if len(buffer) >= maxBuf || eof {
+			if e := d.InsertValues(tableName, buffer); e != nil {
+				return e
+			}
+			fmt.Println(string(buffer))
+			buffer = nil
+		}
+	}
+
+	if buffer != nil {
+		if e := d.InsertValues(tableName, buffer); e != nil {
 			return e
 		}
-
-		for eof, row := df.Iter(true); !eof; eof, row = df.Iter(false) {
-			//		if ex := d.InsertLine(row); ex != nil {
-			//			return ex
-			//		}
-			_ = row
-		}
-
-	*/
+	}
 
 	return nil
+}
+
+func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {
+	exists := d.Exists(tableName)
+
+	if overwrite || !exists {
+		if exists {
+			if e := d.DropTable(tableName); e != nil {
+				return e
+			}
+		}
+
+		if e := d.CreateTable(tableName, orderBy, overwrite, df); e != nil {
+			return e
+		}
+	}
+
+	if qry := df.MakeQuery(); qry != "" {
+		return d.Insert(tableName, df.MakeQuery(), strings.Join(df.ColumnNames(), ","))
+	}
+
+	return d.IterSave(tableName, df)
 }
 
 // ToString returns a string version of val that can be placed into SQL

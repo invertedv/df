@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// THINK about...how self interacts in context...
+
 const which = "sql"
 
 // NewConnect established a new connection to ClickHouse.
@@ -76,9 +78,12 @@ func loadData() d.DF {
 		df *m.MemDF
 		e2 error
 	)
-	if df, e2 = m.DBLoad(table, ctx); e2 != nil {
+	if df, e2 = m.DBLoad(table, dialect); e2 != nil {
 		panic(e2)
 	}
+
+	df.SetContext(ctx)
+	df.Context().SetSelf(df)
 
 	return df
 }
@@ -103,7 +108,7 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	}
 
 	if which == "sql" {
-		memDF, e1 := m.DBLoad(df.(*s.SQLdf).MakeQuery(), df.Context())
+		memDF, e1 := m.DBLoad(df.(*s.SQLdf).MakeQuery(), df.Context().Dialect())
 		if e1 != nil {
 			panic(e1)
 		}
@@ -119,6 +124,13 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	}
 
 	panic(fmt.Errorf("error in checker"))
+}
+
+func TestDBSave(t *testing.T) {
+	dfx := loadData()
+	dlct := dfx.Context().Dialect()
+	e := dlct.Save("testing.test", "k", true, dfx)
+	assert.Nil(t, e)
 }
 
 func TestFileSave(t *testing.T) {
