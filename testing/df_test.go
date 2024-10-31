@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const which = "mem"
+const which = "sql"
 
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
@@ -119,6 +119,16 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	}
 
 	panic(fmt.Errorf("error in checker"))
+}
+
+func TestFileSave(t *testing.T) {
+	const fileName = "/home/will/tmp/test.csv"
+	dfx := loadData()
+	f, e := d.NewFiles()
+	assert.Nil(t, e)
+	e = f.Save(fileName, dfx)
+	assert.Nil(t, e)
+	// TODO: load file and check
 }
 
 func TestParse_Table(t *testing.T) {

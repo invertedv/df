@@ -19,6 +19,7 @@ type MemDF struct {
 	sourceQuery string
 	by          []*MemCol
 	ascending   bool
+	row         int
 
 	*d.DFcore
 }
@@ -68,7 +69,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*MemCol) (
 		df.SetContext(context)
 	}
 
-	outDF := &MemDF{DFcore: df}
+	outDF := &MemDF{DFcore: df, row: -1}
 	outDF.Context().SetSelf(outDF)
 
 	return outDF, nil
@@ -86,7 +87,7 @@ func DBLoad(qry string, ctx *d.Context) (*MemDF, error) {
 	}
 
 	var memData []any
-	if memData, e = ctx.Dialect().Read(qry); e != nil {
+	if memData, e = ctx.Dialect().Load(qry); e != nil {
 		return nil, e
 	}
 
@@ -111,10 +112,29 @@ func DBLoad(qry string, ctx *d.Context) (*MemDF, error) {
 	}
 
 	memDF.sourceQuery = qry
+	memDF.row = -1
 
-	memDF.SetContext(d.NewContext(ctx.Dialect(), d.NewFiles(), memDF, nil))
+	memDF.SetContext(d.NewContext(ctx.Dialect(), memDF, nil))
 
 	return memDF, nil
+}
+
+func (m *MemDF) Iter(reset bool) (eof bool, row []any) {
+	if reset {
+		m.row = 0
+	}
+
+	if m.row+1 > m.RowCount() {
+		return true, nil
+	}
+
+	for c := m.Next(true); c != nil; c = m.Next(false) {
+		row = append(row, c.(*MemCol).Element(m.row))
+	}
+
+	m.row++
+
+	return false, row
 }
 
 // ***************** MemDF - Methods *****************
@@ -170,7 +190,7 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 	return ndf, nil
 }
 
-func (m *MemDF) DBsave(tableName string, overwrite bool, cols ...string) error {
+func (m *MemDF) DBsave(tableName string, overwrite bool) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -286,31 +306,6 @@ func (m *MemDF) Copy() d.DF {
 	return mNew
 }
 
-func (m *MemDF) FileSave(fileName string) error {
-	if e := m.Context().Files().Create(fileName); e != nil {
-		return e
-	}
-	defer func() { _ = m.Context().Files().Close() }()
-
-	m.Context().Files().FieldNames = m.ColumnNames()
-
-	if e := m.Context().Files().WriteHeader(); e != nil {
-		return e
-	}
-
-	for ind := 0; ind < m.RowCount(); ind++ {
-		var row []any
-		if row = m.Row(ind); row == nil {
-			return fmt.Errorf("unexpected end of MemDF")
-		}
-		if e := m.Context().Files().WriteLine(row); e != nil {
-			return e
-		}
-	}
-
-	return nil
-}
-
 // Len is required for sort
 func (m *MemDF) Len() int {
 	return m.RowCount()
@@ -342,7 +337,12 @@ func (m *MemDF) Less(i, j int) bool {
 	return true
 }
 
-func (m *MemDF) Row(rowNum int) []any {
+func (m *MemDF) MakeQuery() string {
+	return ""
+}
+
+// TODO: delete
+func (m *MemDF) RowX(rowNum int) []any {
 	if rowNum >= m.RowCount() {
 		return nil
 	}

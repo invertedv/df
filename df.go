@@ -37,8 +37,8 @@ type DF interface {
 	// specific to underlying data source
 	AppendDF(df DF) (DF, error)
 	Copy() DF
-	DBsave(tableName string, overwrite bool, cols ...string) error
-	FileSave(fileName string) error
+	DBsave(tableName string, overwrite bool) error
+	//	Save(f *Files) error
 	RowCount() int
 	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) (DF, error)
@@ -50,6 +50,8 @@ type DF interface {
 	// - levels : array of acceptable levels.  Any level not found in this slice is mapped to the defaultVal
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Table(sortByRows bool, cols ...string) (DF, error)
+	Iter(reset bool) (eof bool, row []any)
+	MakeQuery() string
 }
 
 //
@@ -290,7 +292,7 @@ func (df *DFcore) Copy() *DFcore {
 	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
 		panic(e)
 	}
-	context := NewContext(df.Context().Dialect(), df.Context().Files(), nil)
+	context := NewContext(df.Context().Dialect(), nil)
 	outDF.SetContext(context)
 
 	// don't copy context

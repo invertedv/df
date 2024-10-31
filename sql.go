@@ -11,6 +11,9 @@ import (
 	u "github.com/invertedv/utilities"
 )
 
+// Can Save any DF to a table
+// Can Load any query to []any
+
 // All code interacting with a database is here
 
 var (
@@ -89,12 +92,54 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	return d, nil
 }
 
-func (d *Dialect) DB() *sql.DB {
-	return d.db
+// Case creates a CASE statement.
+// - whens slice of conditions
+// - vals slice of the value to set the result to if condition is true
+func (d *Dialect) Case(whens, vals []string) (string, error) {
+	if len(whens) != len(vals) {
+		return "", fmt.Errorf("whens and vals must be same length in Dialect.Case")
+	}
+
+	var s string
+	e := fmt.Errorf("unsupported db dialect")
+	if d.DialectName() == ch {
+		e = nil
+		s = "CASE\n"
+		for ind := 0; ind < len(whens); ind++ {
+			s += fmt.Sprintf("WHEN %s THEN %s\n", whens[ind], vals[ind])
+		}
+		s += "END"
+	}
+
+	return s, e
 }
 
-func (d *Dialect) DialectName() string {
-	return d.dialect
+func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr string, err error) {
+	var (
+		dbType string
+		e      error
+	)
+	if dbType, e = d.dbtype(toDT); e != nil {
+		return "", e
+	}
+
+	if d.dialect == ch {
+		// is this a constant?
+		if x, ex := ToDate(fieldName, true); ex == nil {
+			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
+			return sqlStr, nil
+		}
+
+		if fromDT == DTfloat && toDT == DTstring {
+			sqlStr = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
+			return sqlStr, nil
+		}
+
+		sqlStr = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
+		return sqlStr, nil
+	}
+
+	return "", fmt.Errorf("unknown error")
 }
 
 func (d *Dialect) Close() error {
@@ -105,13 +150,6 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
 	if d.DialectName() == ch {
-		if overwrite {
-			qry := strings.Replace(d.dropIf, "?TableName", tableName, 1)
-			if _, ex := d.db.Exec(qry); ex != nil {
-				return ex
-			}
-		}
-
 		if orderBy == "" {
 			orderBy = fields[0]
 		}
@@ -142,71 +180,99 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	return e
 }
 
-func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, error) {
-	e := fmt.Errorf("no implemention of Union for %s", d.DialectName())
-	var sqlx string
+func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF) error {
+	var (
+		e   error
+		dts []DataTypes
+	)
 
-	if d.DialectName() == ch {
-		cols := strings.Join(colNames, ",")
-		sqlx = fmt.Sprintf("SELECT %s FROM (%s) UNION ALL (%s)", cols, table1, table2)
-		e = nil
+	cols := df.ColumnNames()
+
+	noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
+	if orderBy != "" && !df.Core().HasColumns(strings.Split(noDesc, ",")...) {
+		return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
 	}
 
-	return sqlx, e
+	if dts, e = df.ColumnTypes(cols...); e != nil {
+		return e
+	}
+
+	return df.Context().dialect.Create(tableName, noDesc, cols, dts, overwrite)
 }
 
-// TODO: think about query
-func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
-	qry := strings.Replace(d.insert, "?TableName", tableName, 1)
-	qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)
-	qry = strings.Replace(qry, "?Fields", fields, 1)
+func (d *Dialect) DB() *sql.DB {
+	return d.db
+}
 
-	_, e := d.db.Exec(qry)
+func (d *Dialect) DialectName() string {
+	return d.dialect
+}
+
+func (d *Dialect) DropTable(tableName string) error {
+	if !d.Exists(tableName) {
+		return nil
+	}
+
+	qry := fmt.Sprintf("DROP TABLE %s", tableName)
+	_, e := d.DB().Exec(qry)
 
 	return e
 }
 
-func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
-	var (
-		fieldTypes []DataTypes
-		e          error
-	)
+func (d *Dialect) Exists(tableName string) bool {
+	if d.DialectName() == ch {
+		qry := fmt.Sprintf("EXISTS TABLE %s", tableName)
 
-	if fieldNames, fieldTypes, e = d.Types(qry); e != nil {
-		return nil, nil, nil, e
-	}
+		res, e := d.DB().Query(qry)
+		if e != nil {
+			panic(e)
+		}
+		defer func() { _ = res.Close() }()
 
-	if rows, e = d.db.Query(qry); e != nil {
-		return nil, nil, nil, e
-	}
+		var exist uint8
+		res.Next()
+		if ex := res.Scan(&exist); ex != nil {
+			panic(ex)
+		}
 
-	var addr []any
-	for ind := 0; ind < len(fieldTypes); ind++ {
-		var (
-			vFt  float64
-			vInt int
-			vDt  time.Time
-			vStr string
-		)
-		switch fieldTypes[ind] {
-		case DTfloat:
-
-			addr = append(addr, &vFt)
-		case DTint:
-			addr = append(addr, &vInt)
-		case DTdate:
-			addr = append(addr, &vDt)
-		case DTstring:
-			addr = append(addr, &vStr)
-		default:
-			return nil, nil, nil, fmt.Errorf("unknown type in Rows")
+		if exist == 1 {
+			return true
 		}
 	}
 
-	return rows, addr, fieldNames, nil
+	return false
 }
 
-func (d *Dialect) Read(qry string) ([]any, error) {
+func (d *Dialect) Ifs(x, y, op string) (string, error) {
+	const ops = ">,>=,<,<=,==,!="
+	op = strings.ReplaceAll(op, " ", "")
+	if !u.Has(op, ",", ops) {
+		return "", fmt.Errorf("unknown comparison: %s", op)
+	}
+
+	if d.dialect == ch {
+		return fmt.Sprintf("toInt32(%s%s%s)", x, op, y), nil
+	}
+
+	return "", fmt.Errorf("unknown error")
+}
+
+// TODO: think about query
+func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
+	e := fmt.Errorf("db not implemented")
+
+	if d.DialectName() == ch {
+		qry := strings.Replace(d.insert, "?TableName", tableName, 1)
+		qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)
+		qry = strings.Replace(qry, "?Fields", fields, 1)
+
+		_, e = d.db.Exec(qry)
+	}
+
+	return e
+}
+
+func (d *Dialect) Load(qry string) ([]any, error) {
 	var (
 		e     error
 		names []string
@@ -267,6 +333,14 @@ func (d *Dialect) Read(qry string) ([]any, error) {
 	return memData, nil
 }
 
+func (d *Dialect) Quote() string {
+	if d.dialect == ch {
+		return "'"
+	}
+
+	return ""
+}
+
 func (d *Dialect) RowCount(qry string) (int, error) {
 	const skeleton = "WITH d AS (%s) SELECT count(*) AS n FROM d"
 	var n int
@@ -278,6 +352,80 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 	}
 
 	return n, nil
+}
+
+func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
+	var (
+		fieldTypes []DataTypes
+		e          error
+	)
+
+	if fieldNames, fieldTypes, e = d.Types(qry); e != nil {
+		return nil, nil, nil, e
+	}
+
+	if rows, e = d.db.Query(qry); e != nil {
+		return nil, nil, nil, e
+	}
+
+	var addr []any
+	for ind := 0; ind < len(fieldTypes); ind++ {
+		var (
+			vFt  float64
+			vInt int
+			vDt  time.Time
+			vStr string
+		)
+		switch fieldTypes[ind] {
+		case DTfloat:
+
+			addr = append(addr, &vFt)
+		case DTint:
+			addr = append(addr, &vInt)
+		case DTdate:
+			addr = append(addr, &vDt)
+		case DTstring:
+			addr = append(addr, &vStr)
+		default:
+			return nil, nil, nil, fmt.Errorf("unknown type in Rows")
+		}
+	}
+
+	return rows, addr, fieldNames, nil
+}
+
+// This should check if a query is available...then do insert or iterate
+
+func (d *Dialect) Save(tableName string, df DF) error {
+	return d.Insert(tableName, df.MakeQuery(), strings.Join(df.ColumnNames(), ","))
+
+	/*	if e := d.CreateTable(tableName, s.orderBy, overwrite, cols...); e != nil {
+			return e
+		}
+
+		for eof, row := df.Iter(true); !eof; eof, row = df.Iter(false) {
+			//		if ex := d.InsertLine(row); ex != nil {
+			//			return ex
+			//		}
+			_ = row
+		}
+
+	*/
+
+	return nil
+}
+
+// ToString returns a string version of val that can be placed into SQL
+func (d *Dialect) ToString(val any) string {
+	if d.DialectName() == ch {
+		x := Any2String(val)
+		if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
+			x = fmt.Sprintf("'%s'", x)
+		}
+		return x
+	}
+
+	panic(fmt.Errorf("unsupported db dialect"))
 }
 
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
@@ -323,54 +471,17 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	return fieldNames, fieldTypes, nil
 }
 
-func (d *Dialect) Quote() string {
-	if d.dialect == ch {
-		return "'"
+func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, error) {
+	e := fmt.Errorf("no implemention of Union for %s", d.DialectName())
+	var sqlx string
+
+	if d.DialectName() == ch {
+		cols := strings.Join(colNames, ",")
+		sqlx = fmt.Sprintf("SELECT %s FROM (%s) UNION ALL (%s)", cols, table1, table2)
+		e = nil
 	}
 
-	return ""
-}
-
-func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr string, err error) {
-	var (
-		dbType string
-		e      error
-	)
-	if dbType, e = d.dbtype(toDT); e != nil {
-		return "", e
-	}
-
-	if d.dialect == ch {
-		// is this a constant?
-		if x, ex := ToDate(fieldName, true); ex == nil {
-			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
-			return sqlStr, nil
-		}
-
-		if fromDT == DTfloat && toDT == DTstring {
-			sqlStr = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
-			return sqlStr, nil
-		}
-
-		sqlStr = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
-		return sqlStr, nil
-	}
-
-	return "", fmt.Errorf("unknown error")
-}
-
-func (d *Dialect) Ifs(x, y, op string) (string, error) {
-	const ops = ">,>=,<,<=,==,!="
-	op = strings.ReplaceAll(op, " ", "")
-	if !u.Has(op, ",", ops) {
-		return "", fmt.Errorf("unknown comparison: %s", op)
-	}
-
-	if d.dialect == ch {
-		return fmt.Sprintf("toInt32(%s%s%s)", x, op, y), nil
-	}
-
-	return "", fmt.Errorf("unknown error")
+	return sqlx, e
 }
 
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {
@@ -380,39 +491,4 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 	}
 
 	return d.dbTypes[pos], nil
-}
-
-// ToString returns a string version of val that can be placed into SQL
-func (d *Dialect) ToString(val any) string {
-	if d.DialectName() == ch {
-		x := Any2String(val)
-		if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
-			x = fmt.Sprintf("'%s'", x)
-		}
-		return x
-	}
-
-	panic(fmt.Errorf("unsupported db dialect"))
-}
-
-// Case creates a CASE statement.
-// - whens slice of conditions
-// - vals slice of the value to set the result to if condition is true
-func (d *Dialect) Case(whens, vals []string) (string, error) {
-	if len(whens) != len(vals) {
-		return "", fmt.Errorf("whens and vals must be same length in Dialect.Case")
-	}
-
-	var s string
-	e := fmt.Errorf("unsupported db dialect")
-	if d.DialectName() == ch {
-		e = nil
-		s = "CASE\n"
-		for ind := 0; ind < len(whens); ind++ {
-			s += fmt.Sprintf("WHEN %s THEN %s\n", whens[ind], vals[ind])
-		}
-		s += "END"
-	}
-
-	return s, e
 }

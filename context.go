@@ -1,22 +1,15 @@
 package df
 
 type Context struct {
-	dialect *Dialect
-	files   *Files
 	self    DF
+	dialect *Dialect
 
 	unassigned []any
 }
 
-func NewContext(dialect *Dialect, files *Files, df DF, unassigned ...any) *Context {
-	// Fill with default values
-	if files == nil {
-		files = NewFiles()
-	}
-
+func NewContext(dialect *Dialect, df DF, unassigned ...any) *Context {
 	return &Context{
 		dialect:    dialect,
-		files:      files,
 		unassigned: unassigned,
 		self:       df,
 	}
@@ -24,10 +17,6 @@ func NewContext(dialect *Dialect, files *Files, df DF, unassigned ...any) *Conte
 
 func (c *Context) Dialect() *Dialect {
 	return c.dialect
-}
-
-func (c *Context) Files() *Files {
-	return c.files
 }
 
 func (c *Context) Unassigned() []any {
@@ -40,4 +29,12 @@ func (c *Context) Self() DF {
 
 func (c *Context) SetSelf(df DF) {
 	c.self = df
+}
+
+func (c *Context) SetDialect(d *Dialect) {
+	c.dialect = d
+}
+
+func (c *Context) SetUnassigned(u ...any) {
+	c.unassigned = u
 }

@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"database/sql"
 	"fmt"
 	"maps"
 	"strings"
@@ -50,6 +51,9 @@ type SQLdf struct {
 	groupBy string
 
 	*d.DFcore
+
+	rows *sql.Rows
+	row  []any
 }
 
 type SQLcol struct {
@@ -121,7 +125,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 	}
 
 	// TODO: think about: should SetContext copy context?
-	ctx := d.NewContext(context.Dialect(), context.Files(), df)
+	ctx := d.NewContext(context.Dialect(), df)
 	tmp.SetContext(ctx)
 
 	df.DFcore = tmp
@@ -263,7 +267,7 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 		sql string
 		e   error
 	)
-	if sql, e = s.Context().Dialect().Union(s.MakeQuery(n1...), dfNew.(*SQLdf).MakeQuery(n1...), n1...); e != nil {
+	if sql, e = s.Context().Dialect().Union(s.MakeQuery(), dfNew.(*SQLdf).MakeQuery(), n1...); e != nil {
 		return nil, e
 	}
 
@@ -414,18 +418,22 @@ func (s *SQLdf) Copy() d.DF {
 	return dfNew
 }
 
-func (s *SQLdf) DBsave(tableName string, overwrite bool, cols ...string) error {
-	if cols == nil {
-		cols = s.ColumnNames()
-	}
+func (s *SQLdf) DBsave(tableName string, overwrite bool) error {
+	exists := s.Context().Dialect().Exists(tableName)
 
-	if overwrite {
-		if e := s.CreateTable(tableName, s.orderBy, overwrite, cols...); e != nil {
+	if overwrite || !exists {
+		if exists {
+			if e := s.Context().Dialect().DropTable(tableName); e != nil {
+				return e
+			}
+		}
+
+		if e := s.Context().Dialect().CreateTable(tableName, s.orderBy, overwrite, s); e != nil {
 			return e
 		}
 	}
 
-	return s.Context().Dialect().Insert(tableName, s.MakeQuery(), strings.Join(cols, ","))
+	return s.Context().Dialect().Save(tableName, s)
 }
 
 func (s *SQLdf) DropColumns(colNames ...string) error {
@@ -435,49 +443,42 @@ func (s *SQLdf) DropColumns(colNames ...string) error {
 	return s.Core().DropColumns(colNames...)
 }
 
-func (s *SQLdf) FileSave(fileName string) error {
-	if e := s.Context().Files().Create(fileName); e != nil {
-		return e
-	}
-	defer func() { _ = s.Context().Files().Close() }()
-
-	qry := s.MakeQuery()
-	rows, addr, fieldNames, e := s.Context().Dialect().Rows(qry)
-	if e != nil {
-		return e
-	}
-
-	s.Context().Files().FieldNames = fieldNames
-	if ex := s.Context().Files().WriteHeader(); ex != nil {
-		return ex
-	}
-
-	for rows.Next() {
-		if ex := rows.Scan(addr...); ex != nil {
-			return ex
-		}
-
-		if ex := s.Context().Files().WriteLine(addr); ex != nil {
-			return ex
+func (s *SQLdf) Iter(reset bool) (eof bool, row []any) {
+	if reset {
+		qry := s.MakeQuery()
+		var e error
+		s.rows, s.row, _, e = s.Context().Dialect().Rows(qry)
+		if e != nil {
+			_ = s.rows.Close()
+			return true, nil
 		}
 	}
 
-	return nil
+	if ok := s.rows.Next(); !ok {
+		return true, nil
+	}
+
+	if ex := s.rows.Scan(s.row...); ex != nil {
+		_ = s.rows.Close()
+		return true, nil
+	}
+
+	return false, s.row
 }
 
-func (s *SQLdf) MakeQuery(colNames ...string) string {
+func (s *SQLdf) MakeQuery() string {
 	var fields []string
-	if colNames == nil {
-		colNames = s.ColumnNames()
-	}
 
-	for _, cn := range colNames {
+	colNames := s.ColumnNames()
+
+	for ind := 0; ind < len(colNames); ind++ {
+		//	for _, cn := range colNames {
 		var (
 			cx d.Column
 			e  error
 		)
 
-		if cx, e = s.Column(cn); e != nil {
+		if cx, e = s.Column(colNames[ind]); e != nil {
 			panic(e)
 		}
 
@@ -588,7 +589,7 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), d.DTfloat, rateSQL)
 	cs = append(cs, rate)
 
-	ctx := d.NewContext(s.Context().Dialect(), s.Context().Files(), nil)
+	ctx := d.NewContext(s.Context().Dialect(), nil)
 	var outDF *SQLdf
 
 	if outDF, e = NewDFcol(s.Runner(), s.Fns(), ctx, cs...); e != nil {

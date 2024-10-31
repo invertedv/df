@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// can Save any DF to file
+// can load any file to []any
+
+// TODO: need to make a reader.... and SQL needs an insertRow?? No, if from file must load to MemDF first then DBSave
+
 // All code interacting with files is here
 
 const (
@@ -19,7 +24,6 @@ const (
 )
 
 type Files struct {
-	FieldNames  []string
 	EOL         byte
 	Sep         byte
 	StringDelim byte
@@ -27,11 +31,10 @@ type Files struct {
 	FloatFormat string
 	Header      bool
 
-	file     *os.File
-	fileName string
+	file *os.File
 }
 
-func NewFiles() *Files {
+func NewFiles() (*Files, error) {
 	f := &Files{
 		EOL:         byte(EOL),
 		Sep:         byte(Sep),
@@ -41,12 +44,37 @@ func NewFiles() *Files {
 		Header:      Header,
 	}
 
-	return f
+	return f, nil
+}
+
+// same as SQL
+func (f *Files) Load(fileName string) ([]any, error) {
+	return nil, nil
+}
+
+func (f *Files) Save(fileName string, df DF) error {
+	defer func() { _ = f.Close() }()
+	var e error
+	if f.file, e = os.Create(fileName); e != nil {
+		return e
+	}
+
+	if e = f.WriteHeader(df.ColumnNames()); e != nil {
+		return e
+	}
+
+	for eof, row := df.Iter(true); !eof; eof, row = df.Iter(false) {
+		if ex := f.WriteLine(row); ex != nil {
+			return ex
+		}
+	}
+
+	return nil
 }
 
 func (f *Files) Open(fileName string) error {
 	var e error
-	f.fileName = fileName
+	//f.fileName = fileName
 	f.file, e = os.Open(fileName)
 
 	return e
@@ -54,15 +82,15 @@ func (f *Files) Open(fileName string) error {
 
 func (f *Files) Create(fileName string) error {
 	var e error
-	f.fileName = fileName
+	//	f.fileName = fileName
 	f.file, e = os.Create(fileName)
 
 	return e
 }
 
-func (f *Files) FileName() string {
-	return f.fileName
-}
+//func (f *Files) FileName() string {
+//	return f.fileName
+//}
 
 func (f *Files) Close() error {
 	if f.file != nil {
@@ -113,16 +141,14 @@ func (f *Files) WriteLine(v []any) error {
 	return e
 }
 
-func (f *Files) WriteHeader() error {
+func (f *Files) WriteHeader(fieldNames []string) error {
 	if !f.Header {
 		return nil
 	}
 
-	if f.FieldNames == nil {
-		return fmt.Errorf("field names or types not set in *Files")
+	if _, e := f.file.WriteString(strings.Join(fieldNames, string(rune(f.Sep))) + string(rune(f.EOL))); e != nil {
+		return e
 	}
 
-	_, e := f.file.WriteString(strings.Join(f.FieldNames, string(rune(f.Sep))) + string(rune(f.EOL)))
-
-	return e
+	return nil
 }

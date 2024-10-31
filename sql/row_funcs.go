@@ -7,9 +7,6 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
-// TODO: toCat, fuzzCat, ...
-// TODO: appendDF in both mem and sql
-
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 	info := fn(true, nil)
 	if !info.Varying && len(inputs) != len(info.Inputs[0]) {
