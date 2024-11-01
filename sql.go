@@ -52,10 +52,19 @@ type Dialect struct {
 	exists string
 
 	fields string
+
+	bufSize int // in MB
 }
 
 func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
-	d := &Dialect{db: db, dialect: strings.ToLower(dialect)}
+	dialect = strings.ToLower(dialect)
+	switch dialect {
+	case ch, ms, pg:
+	default:
+		return nil, fmt.Errorf("unsupported db type: %s", dialect)
+	}
+
+	d := &Dialect{db: db, dialect: dialect, bufSize: 1024}
 
 	var types string
 	switch d.dialect {
@@ -283,6 +292,59 @@ func (d *Dialect) InsertValues(tableName string, values []byte) error {
 	return e
 }
 
+func (d *Dialect) IterSave(tableName string, df DF) error {
+	const (
+		bSep   = byte(',')
+		bOpen  = byte('(')
+		bClose = byte(')')
+	)
+
+	var buffer []byte
+	bsize := d.bufSize * 1024 * 1024
+
+	for eof, row := df.Iter(true); eof == false; eof, row = df.Iter(false) {
+		if buffer != nil {
+			buffer = append(buffer, bSep)
+		}
+
+		buffer = append(buffer, bOpen)
+		for ind := 0; ind < len(row); ind++ {
+			var x any
+			switch xx := row[ind].(type) {
+			case int, float64, string, time.Time:
+				x = xx
+			case *int:
+				x = *xx
+			case *float64:
+				x = *xx
+			case *string:
+				x = *xx
+			case *time.Time:
+				x = *xx
+			}
+			buffer = append(append(buffer, []byte(d.ToString(x))...), bSep)
+		}
+
+		buffer[len(buffer)-1] = bClose
+
+		if bsize > 0 && len(buffer) >= bsize {
+			if e := d.InsertValues(tableName, buffer); e != nil {
+				return e
+			}
+			fmt.Println(string(buffer))
+			buffer = nil
+		}
+	}
+
+	if buffer != nil {
+		if e := d.InsertValues(tableName, buffer); e != nil {
+			return e
+		}
+	}
+
+	return nil
+}
+
 func (d *Dialect) Load(qry string) ([]any, error) {
 	var (
 		e     error
@@ -342,6 +404,10 @@ func (d *Dialect) Load(qry string) ([]any, error) {
 	}
 
 	return memData, nil
+}
+
+func (d *Dialect) BufSize() int {
+	return d.bufSize
 }
 
 func (d *Dialect) Quote() string {
@@ -405,58 +471,6 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	return rows, addr, fieldNames, nil
 }
 
-// This should check if a query is available...then do insert or iterate
-
-func (d *Dialect) IterSave(tableName string, df DF) error {
-	const maxBuf = 10000
-	var buffer []byte
-	bSep := byte(',')
-	bOpen := byte('(')
-	bClose := byte(')')
-
-	for eof, row := df.Iter(true); eof == false; eof, row = df.Iter(false) {
-		if buffer != nil {
-			buffer = append(buffer, bSep)
-		}
-
-		buffer = append(buffer, bOpen)
-		for ind := 0; ind < len(row); ind++ {
-			var x any
-			switch xx := row[ind].(type) {
-			case int, float64, string, time.Time:
-				x = xx
-			case *int:
-				x = *xx
-			case *float64:
-				x = *xx
-			case *string:
-				x = *xx
-			case *time.Time:
-				x = *xx
-			}
-			buffer = append(append(buffer, []byte(d.ToString(x))...), bSep)
-		}
-
-		buffer[len(buffer)-1] = bClose
-
-		if len(buffer) >= maxBuf || eof {
-			if e := d.InsertValues(tableName, buffer); e != nil {
-				return e
-			}
-			fmt.Println(string(buffer))
-			buffer = nil
-		}
-	}
-
-	if buffer != nil {
-		if e := d.InsertValues(tableName, buffer); e != nil {
-			return e
-		}
-	}
-
-	return nil
-}
-
 func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {
 	exists := d.Exists(tableName)
 
@@ -477,6 +491,10 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {
 	}
 
 	return d.IterSave(tableName, df)
+}
+
+func (d *Dialect) SetBufSize(mb int) {
+	d.bufSize = mb
 }
 
 // ToString returns a string version of val that can be placed into SQL
