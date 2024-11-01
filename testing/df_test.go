@@ -19,11 +19,23 @@ import (
 
 // THINK about...how self interacts in context...
 
-const which = "sql"
+const (
+	dbSource = "clickhouse"
+	fileName = "/home/will/tmp/test.csv"
+	inTable  = "testing.d1"
+	outTable = "testing.test"
+
+	ch = "clickhouse"
+)
+
+// list of packages to test
+func pkgs() []string {
+	return []string{"mem", "sql"}
+}
 
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
-func newConnect(host, user, password string) *sql.DB {
+func newConnectCH(host, user, password string) *sql.DB {
 	db := clickhouse.OpenDB(
 		&clickhouse.Options{
 			Addr: []string{host + ":9000"},
@@ -45,13 +57,20 @@ func newConnect(host, user, password string) *sql.DB {
 	return db
 }
 
-func loadData() d.DF {
-	const table = "SELECT * FROM testing.d1"
+func loadData(pkg string) d.DF {
+	const table = "SELECT * FROM " + inTable
+	var db *sql.DB
+
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
 
-	db := newConnect(host, user, password)
+	switch dbSource {
+	case ch:
+		db = newConnectCH(host, user, password)
+	default:
+		panic("unsupported database")
+	}
 
 	var (
 		dialect *d.Dialect
@@ -63,7 +82,7 @@ func loadData() d.DF {
 
 	ctx := d.NewContext(dialect, nil, nil)
 
-	if which == "sql" {
+	if pkg == "sql" {
 		var (
 			df *s.SQLdf
 			e1 error
@@ -88,7 +107,7 @@ func loadData() d.DF {
 	return df
 }
 
-func checker(df d.DF, colName string, col d.Column, indx int) any {
+func checker(df d.DF, colName, which string, col d.Column, indx int) any {
 	if col != nil {
 		col.Name(colName)
 		if e := df.AppendColumn(col, true); e != nil {
@@ -126,249 +145,291 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	panic(fmt.Errorf("error in checker"))
 }
 
-func TestDBSave(t *testing.T) {
-	dfx := loadData()
-	dlct := dfx.Context().Dialect()
-	e := dlct.Save("testing.test", "k", true, dfx)
-	assert.Nil(t, e)
+func TestSQLsave(t *testing.T) {
+	const coln = "x"
+
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		dlct := dfx.Context().Dialect()
+
+		// save to a table
+		e := dlct.Save(outTable, "k", true, dfx)
+		assert.Nil(t, e)
+		c1, e1 := dfx.Column(coln)
+		assert.Nil(t, e1)
+
+		// if this is sql, populate a mem DF to get values
+		if which == "sql" {
+			dfz, ez := m.DBLoad(c1.(*s.SQLcol).MakeQuery(), dfx.Context().Dialect())
+			assert.Nil(t, ez)
+			c1, e1 = dfz.Column(coln)
+			assert.Nil(t, e1)
+		}
+		c1.Name("expected")
+
+		// pull back from database
+		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Context().Dialect())
+		assert.Nil(t, ex)
+		c2, e2 := dfy.Column(coln)
+		assert.Nil(t, e2)
+		c2.Name("actual")
+
+		// join expected & actual into a dataframe
+		ctx := d.NewContext(dfx.Context().Dialect(), nil)
+		dfb, eb := m.NewDFcol(nil, nil, ctx, c1.(*m.MemCol), c2.(*m.MemCol))
+		assert.Nil(t, eb)
+		outx, ep := dfb.Parse("actual==expected")
+		assert.Nil(t, ep)
+		assert.Equal(t, []int{1, 1, 1, 1, 1, 1}, outx.AsColumn().Data())
+	}
 }
 
 func TestFileSave(t *testing.T) {
-	const fileName = "/home/will/tmp/test.csv"
-	dfx := loadData()
-	f, e := d.NewFiles()
-	assert.Nil(t, e)
-	e = f.Save(fileName, dfx)
-	assert.Nil(t, e)
-	// TODO: load file and check
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		f, e := d.NewFiles()
+		assert.Nil(t, e)
+		e = f.Save(fileName, dfx)
+		assert.Nil(t, e)
+		// TODO: load file and check
+	}
 }
 
 func TestParse_Table(t *testing.T) {
-	dfx := loadData()
-	out, e := dfx.Parse("table(y,yy)")
-	assert.Nil(t, e)
-	df1 := out.AsDF()
-	e = df1.Sort(false, "count")
-	assert.Nil(t, e)
-	assert.Equal(t, []int{2, 1, 1, 1, 1}, checker(df1, "count", nil, -1))
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		out, e := dfx.Parse("table(y,yy)")
+		assert.Nil(t, e)
+		df1 := out.AsDF()
+		e = df1.Sort(false, "count")
+		assert.Nil(t, e)
+		assert.Equal(t, []int{2, 1, 1, 1, 1}, checker(df1, "count", which, nil, -1))
 
-	_, e = dfx.Parse("table(x)")
-	assert.NotNil(t, e)
+		_, e = dfx.Parse("table(x)")
+		assert.NotNil(t, e)
+	}
 }
 
 func TestParse_Sort(t *testing.T) {
-	dfx := loadData()
-	_, e := dfx.Parse("sort('asc', y, x)")
-	assert.Nil(t, e)
-	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", nil, -1))
-	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", nil, -1))
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		_, e := dfx.Parse("sort('asc', y, x)")
+		assert.Nil(t, e)
+		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", which, nil, -1))
+		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", which, nil, -1))
+	}
 }
 
 func TestParser(t *testing.T) {
-	dfx := loadData()
+	for _, which := range pkgs() {
+		dfx := loadData(which)
 
-	x := [][]any{
-		{"sum(y)", 0, 12},
-		{"sum(x)", 0, 7.5},
-		{"dt != date(20221231)", 0, 0},
-		{"dt != date(20221231)", 1, 1},
-		{"dt == date(20221231)", 0, 1},
-		{"dt == date(20221231)", 1, 0},
-		{"4+1--1", 0, 6},
-		{"if(y == 1, 2.0, (x))", 0, 2.0},
-		{"if(y == 1, 2.0, (x))", 1, -2.0},
-		{"!(y>=1) && y>=1", 0, 0},
-		{"exp(x-1.0)", 0, 1.0},
-		{"abs(x)", 0, 1.0},
-		{"abs(y)", 1, 5},
-		{"(x/0.1)*float(y+100)", 0, 1010.0},
-		{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-		{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-		{"dt != date(20221231)", 0, 0},
-		{"dt != date(20221231)", 1, 1},
-		{"dt == date(20221231)", 0, 1},
-		{"dt == date(20221231)", 1, 0},
-		{"string(float(1)+.234)", 0, "1.234"},
-		{"float('1.1')", 0, 1.1},
-		{"int(2.9)", 0, 2},
-		{"float(1)", 0, 1.0},
-		{"string(dt)", 0, "2022-12-31"},
-		{"z!='20060102'", 0, 1},
-		{"x--1.0", 0, 2.0},
-		{"x*10.0", 0, 10.0},
-		{"int(x)", 5, 3},
-		{"(float(4+2) * abs(-3.0/2.0))", 0, 9.0},
-		{"y != 1", 0, 0},
-		{"y>=1 && y>=1 && dt >= date(20221231)", 0, 1},
-		{"y>=1 && y>=1 && dt > date(20221231)", 0, 0},
-		{"y>=1 && y>=1", 0, 1},
-		{"!(y>=1) && y>=1", 0, 0},
-		{"!1 && 1 || 1", 0, 1},
-		{"!1 && 1 || 0", 0, 0},
-		{"!0 && 1 || 0", 0, 1},
-		{"!1 && 1", 0, 0},
-		{"1 || 0 && 1", 0, 1},
-		{"0 || 0 && 1", 0, 0},
-		{"0 || 1 && 1", 0, 1},
-		{"0 || 1 && 1 && 0", 0, 0},
-		{"(0 || 1 && 1) && 0", 0, 0},
-		{"y < 2", 0, 1},
-		{"y < 1", 0, 0},
-		{"y <= 1", 0, 1},
-		{"y > 1", 0, 0},
-		{"y >= 1", 0, 1},
-		{"y == 1", 0, 1},
-		{"y == 1", 1, 0},
-		{"y && 1", 0, 1},
-		{"0 && 1", 0, 0},
-		{"0 || 0", 0, 0},
-		{"0 || 1", 0, 1},
-		{"4+3", 0, 7},
-		{"4-1-1-1-1", 0, 0},
-		{"4+1-1", 0, 4},
-		{"float(4)+1.0--1.0", 0, 6.0},
-		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
-		{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
-		{"-x +2.0", 0, 1.0},
-		{"-x +4.0", 1, 6.0},
-		{"x/0.0", 0, math.Inf(1)},
-		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, 42.0},
-		{"(1 + 2) - -(-1 - 2)", 0, 0},
-		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, 2.0},
+		x := [][]any{
+			{"sum(y)", 0, 12},
+			{"sum(x)", 0, 7.5},
+			{"dt != date(20221231)", 0, 0},
+			{"dt != date(20221231)", 1, 1},
+			{"dt == date(20221231)", 0, 1},
+			{"dt == date(20221231)", 1, 0},
+			{"4+1--1", 0, 6},
+			{"if(y == 1, 2.0, (x))", 0, 2.0},
+			{"if(y == 1, 2.0, (x))", 1, -2.0},
+			{"!(y>=1) && y>=1", 0, 0},
+			{"exp(x-1.0)", 0, 1.0},
+			{"abs(x)", 0, 1.0},
+			{"abs(y)", 1, 5},
+			{"(x/0.1)*float(y+100)", 0, 1010.0},
+			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+			{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+			{"dt != date(20221231)", 0, 0},
+			{"dt != date(20221231)", 1, 1},
+			{"dt == date(20221231)", 0, 1},
+			{"dt == date(20221231)", 1, 0},
+			{"string(float(1)+.234)", 0, "1.234"},
+			{"float('1.1')", 0, 1.1},
+			{"int(2.9)", 0, 2},
+			{"float(1)", 0, 1.0},
+			{"string(dt)", 0, "2022-12-31"},
+			{"z!='20060102'", 0, 1},
+			{"x--1.0", 0, 2.0},
+			{"x*10.0", 0, 10.0},
+			{"int(x)", 5, 3},
+			{"(float(4+2) * abs(-3.0/2.0))", 0, 9.0},
+			{"y != 1", 0, 0},
+			{"y>=1 && y>=1 && dt >= date(20221231)", 0, 1},
+			{"y>=1 && y>=1 && dt > date(20221231)", 0, 0},
+			{"y>=1 && y>=1", 0, 1},
+			{"!(y>=1) && y>=1", 0, 0},
+			{"!1 && 1 || 1", 0, 1},
+			{"!1 && 1 || 0", 0, 0},
+			{"!0 && 1 || 0", 0, 1},
+			{"!1 && 1", 0, 0},
+			{"1 || 0 && 1", 0, 1},
+			{"0 || 0 && 1", 0, 0},
+			{"0 || 1 && 1", 0, 1},
+			{"0 || 1 && 1 && 0", 0, 0},
+			{"(0 || 1 && 1) && 0", 0, 0},
+			{"y < 2", 0, 1},
+			{"y < 1", 0, 0},
+			{"y <= 1", 0, 1},
+			{"y > 1", 0, 0},
+			{"y >= 1", 0, 1},
+			{"y == 1", 0, 1},
+			{"y == 1", 1, 0},
+			{"y && 1", 0, 1},
+			{"0 && 1", 0, 0},
+			{"0 || 0", 0, 0},
+			{"0 || 1", 0, 1},
+			{"4+3", 0, 7},
+			{"4-1-1-1-1", 0, 0},
+			{"4+1-1", 0, 4},
+			{"float(4)+1.0--1.0", 0, 6.0},
+			{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
+			{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
+			{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
+			{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
+			{"-x +2.0", 0, 1.0},
+			{"-x +4.0", 1, 6.0},
+			{"x/0.0", 0, math.Inf(1)},
+			{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, 42.0},
+			{"(1 + 2) - -(-1 - 2)", 0, 0},
+			{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, 2.0},
+		}
+
+		cnt := 0
+		for ind := 0; ind < len(x); ind++ {
+			var r d.DF
+			cnt++
+			eqn := x[ind][0].(string)
+			xOut, ex := dfx.Parse(eqn)
+			assert.Nil(t, ex)
+			xOut.AsColumn().Name("test")
+
+			if which == "sql" {
+				r, ex = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context(), xOut.AsColumn().(*s.SQLcol))
+			} else {
+				r, ex = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context(), xOut.AsColumn().(*m.MemCol))
+			}
+
+			assert.Nil(t, ex)
+			result := checker(r, "test", which, nil, x[ind][1].(int))
+
+			if d.WhatAmI(result) == d.DTfloat {
+				assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
+				continue
+			}
+
+			if d.WhatAmI(result) == d.DTdate {
+				assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
+				assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
+				assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
+				continue
+			}
+
+			assert.Equal(t, x[ind][2], result)
+		}
 	}
-
-	cnt := 0
-	for ind := 0; ind < len(x); ind++ {
-		var r d.DF
-		cnt++
-		eqn := x[ind][0].(string)
-		fmt.Println(eqn)
-		xOut, ex := dfx.Parse(eqn)
-		assert.Nil(t, ex)
-		xOut.AsColumn().Name("test")
-
-		if which == "sql" {
-			r, ex = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context(), xOut.AsColumn().(*s.SQLcol))
-		} else {
-			r, ex = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context(), xOut.AsColumn().(*m.MemCol))
-		}
-
-		assert.Nil(t, ex)
-		result := checker(r, "test", nil, x[ind][1].(int))
-
-		if d.WhatAmI(result) == d.DTfloat {
-			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
-			continue
-		}
-
-		if d.WhatAmI(result) == d.DTdate {
-			assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
-			assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
-			assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
-			continue
-		}
-
-		assert.Equal(t, x[ind][2], result)
-	}
-
-	fmt.Println("# tests: ", cnt)
 }
 
 func TestToCat(t *testing.T) {
-	dfx := loadData()
-	expr := "date(z)"
-	var (
-		colx *d.Parsed
-		ex   error
-	)
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	col := colx.AsColumn()
-	col.Name("dt1")
-	ex = dfx.AppendColumn(col, false)
-	assert.Nil(t, ex)
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		expr := "date(z)"
+		var (
+			colx *d.Parsed
+			ex   error
+		)
+		colx, ex = dfx.Parse(expr)
+		assert.Nil(t, ex)
+		col := colx.AsColumn()
+		col.Name("dt1")
+		ex = dfx.AppendColumn(col, false)
+		assert.Nil(t, ex)
 
-	// try with DTint
-	expr = "cat(y)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	colx.AsColumn().Name("test")
-	result := checker(dfx, "test", colx.AsColumn(), -1)
-	expected := []int{1, 0, 4, 1, 2, 3}
-	assert.Equal(t, expected, result)
+		// try with DTint
+		expr = "cat(y)"
+		colx, ex = dfx.Parse(expr)
+		assert.Nil(t, ex)
+		colx.AsColumn().Name("test")
+		result := checker(dfx, "test", which, colx.AsColumn(), -1)
+		expected := []int{1, 0, 4, 1, 2, 3}
+		assert.Equal(t, expected, result)
 
-	// try with DTstring
-	expr = "cat(z)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	result = checker(dfx, "test", colx.AsColumn(), -1)
-	expected = []int{3, 0, 1, 1, 4, 2}
-	assert.Equal(t, expected, result)
+		// try with DTstring
+		expr = "cat(z)"
+		colx, ex = dfx.Parse(expr)
+		assert.Nil(t, ex)
+		result = checker(dfx, "test", which, colx.AsColumn(), -1)
+		expected = []int{3, 0, 1, 1, 4, 2}
+		assert.Equal(t, expected, result)
 
-	// try with DTdate
-	expr = "cat(dt1)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	colx.AsColumn().Name("test")
-	result = checker(dfx, "test", colx.AsColumn(), -1)
-	expected = []int{3, 0, 1, 1, 4, 2}
-	assert.Equal(t, expected, result)
+		// try with DTdate
+		expr = "cat(dt1)"
+		colx, ex = dfx.Parse(expr)
+		assert.Nil(t, ex)
+		colx.AsColumn().Name("test")
+		result = checker(dfx, "test", which, colx.AsColumn(), -1)
+		expected = []int{3, 0, 1, 1, 4, 2}
+		assert.Equal(t, expected, result)
 
-	// try with fuzz > 1
-	expr = "cat(y, 2)"
-	colx, ex = dfx.Parse(expr)
-	assert.Nil(t, ex)
-	result = checker(dfx, "test", colx.AsColumn(), -1)
-	expected = []int{0, -1, -1, 0, -1, -1}
-	assert.Equal(t, expected, result)
+		// try with fuzz > 1
+		expr = "cat(y, 2)"
+		colx, ex = dfx.Parse(expr)
+		assert.Nil(t, ex)
+		result = checker(dfx, "test", which, colx.AsColumn(), -1)
+		expected = []int{0, -1, -1, 0, -1, -1}
+		assert.Equal(t, expected, result)
 
-	// try with DTfloat
-	expr = "cat(x)"
-	_, ex = dfx.Parse(expr)
-	assert.NotNil(t, ex)
+		// try with DTfloat
+		expr = "cat(x)"
+		_, ex = dfx.Parse(expr)
+		assert.NotNil(t, ex)
+	}
 }
 
 func TestApplyCat(t *testing.T) {
-	dfx := loadData()
-	r, e := dfx.Parse("cat(y)")
-	assert.Nil(t, e)
-	sx := r.AsColumn()
-	sx.Name("caty")
-	e = dfx.AppendColumn(sx, false)
-	assert.Nil(t, e)
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		r, e := dfx.Parse("cat(y)")
+		assert.Nil(t, e)
+		sx := r.AsColumn()
+		sx.Name("caty")
+		e = dfx.AppendColumn(sx, false)
+		assert.Nil(t, e)
 
-	r, e = dfx.Parse("applyCat(yy, caty, -5)")
-	assert.Nil(t, e)
-	sx = r.AsColumn()
-	sx.Name("test")
-	result := checker(dfx, "test", sx, -1)
+		r, e = dfx.Parse("applyCat(yy, caty, -5)")
+		assert.Nil(t, e)
+		sx = r.AsColumn()
+		sx.Name("test")
+		result := checker(dfx, "test", which, sx, -1)
 
-	// -5 maps to 0 so all new values map to 0
-	expected := []int{1, 0, 0, 1, 0, 0}
-	assert.Equal(t, expected, result)
+		// -5 maps to 0 so all new values map to 0
+		expected := []int{1, 0, 0, 1, 0, 0}
+		assert.Equal(t, expected, result)
 
-	// try with fuzz > 1
-	r, e = dfx.Parse("cat(y,2)")
-	assert.Nil(t, e)
-	r.AsColumn().Name("caty2")
-	e = dfx.AppendColumn(r.AsColumn(), false)
-	assert.Nil(t, e)
+		// try with fuzz > 1
+		r, e = dfx.Parse("cat(y,2)")
+		assert.Nil(t, e)
+		r.AsColumn().Name("caty2")
+		e = dfx.AppendColumn(r.AsColumn(), false)
+		assert.Nil(t, e)
 
-	r, e = dfx.Parse("applyCat(yy,caty2,-5)")
-	assert.Nil(t, e)
-	r.AsColumn().Name("test")
-	result = checker(dfx, "test", r.AsColumn(), -1)
-	expected = []int{0, -1, -1, 0, -1, -1}
-	assert.Equal(t, expected, result)
+		r, e = dfx.Parse("applyCat(yy,caty2,-5)")
+		assert.Nil(t, e)
+		r.AsColumn().Name("test")
+		result = checker(dfx, "test", which, r.AsColumn(), -1)
+		expected = []int{0, -1, -1, 0, -1, -1}
+		assert.Equal(t, expected, result)
+	}
 }
 
 func TestAppendDF(t *testing.T) {
-	dfx := loadData()
-	dfy := loadData()
-	dfOut, e := dfx.AppendDF(dfy)
-	assert.Nil(t, e)
-	exp := dfx.RowCount() + dfy.RowCount()
-	assert.Equal(t, exp, dfOut.RowCount())
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		dfy := loadData(which)
+		dfOut, e := dfx.AppendDF(dfy)
+		assert.Nil(t, e)
+		exp := dfx.RowCount() + dfy.RowCount()
+		assert.Equal(t, exp, dfOut.RowCount())
+	}
 }

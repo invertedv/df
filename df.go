@@ -37,8 +37,6 @@ type DF interface {
 	// specific to underlying data source
 	AppendDF(df DF) (DF, error)
 	Copy() DF
-	//	DBsave(tableName string, overwrite bool) error
-	//	Save(f *Files) error
 	RowCount() int
 	Sort(ascending bool, keys ...string) error
 	Where(indicator Column) (DF, error)
