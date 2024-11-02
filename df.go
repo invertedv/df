@@ -48,7 +48,7 @@ type DF interface {
 	// - levels : array of acceptable levels.  Any level not found in this slice is mapped to the defaultVal
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Table(sortByRows bool, cols ...string) (DF, error)
-	Iter(reset bool) (eof bool, row []any)
+	Iter(reset bool) (row []any, err error)
 	MakeQuery() string
 }
 

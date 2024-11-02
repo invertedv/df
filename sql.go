@@ -302,7 +302,7 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 	var buffer []byte
 	bsize := d.bufSize * 1024 * 1024
 
-	for eof, row := df.Iter(true); eof == false; eof, row = df.Iter(false) {
+	for row, e := df.Iter(true); e == nil; row, e = df.Iter(false) {
 		if buffer != nil {
 			buffer = append(buffer, bSep)
 		}

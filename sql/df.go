@@ -3,6 +3,7 @@ package sql
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"maps"
 	"strings"
 
@@ -431,27 +432,27 @@ func (s *SQLdf) DropColumns(colNames ...string) error {
 	return s.Core().DropColumns(colNames...)
 }
 
-func (s *SQLdf) Iter(reset bool) (eof bool, row []any) {
+func (s *SQLdf) Iter(reset bool) (row []any, err error) {
 	if reset {
 		qry := s.MakeQuery()
 		var e error
 		s.rows, s.row, _, e = s.Context().Dialect().Rows(qry)
 		if e != nil {
 			_ = s.rows.Close()
-			return true, nil
+			return nil, e
 		}
 	}
 
 	if ok := s.rows.Next(); !ok {
-		return true, nil
+		return nil, io.EOF
 	}
 
 	if ex := s.rows.Scan(s.row...); ex != nil {
 		_ = s.rows.Close()
-		return true, nil
+		return nil, io.EOF
 	}
 
-	return false, s.row
+	return s.row, nil
 }
 
 func (s *SQLdf) MakeQuery() string {

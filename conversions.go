@@ -184,6 +184,11 @@ func ToDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
 }
 
 func BestType(xIn any) (xOut any, dt DataTypes, err error) {
+	// HERE added 11/2 WHY wasn't this here?
+	if x, e := ToDataType(xIn, DTdate, true); e == nil {
+		return x, DTdate, nil
+	}
+
 	if x, e := ToDataType(xIn, DTint, true); e == nil {
 		return x, DTint, nil
 	}

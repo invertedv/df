@@ -386,8 +386,7 @@ func TestLoadSQL(t *testing.T) {
 	//	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
 	//	assert.Nil(t, ed)
 	fmt.Println("len", memDF.Len())
-	f, ex := d.NewFiles()
-	assert.Nil(t, ex)
+	f := d.NewFiles()
 	ed := f.Save("/home/will/tmp/test.csv", memDF)
 	assert.Nil(t, ed)
 }

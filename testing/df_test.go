@@ -3,6 +3,7 @@ package testing
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"testing"
@@ -27,6 +28,25 @@ const (
 
 	ch = "clickhouse"
 )
+
+func TestFiles(t *testing.T) {
+	f := d.NewFiles()
+	f.Strict = false
+	e := f.Open("/home/will/tmp/test.csv", nil, nil)
+	assert.Nil(t, e)
+	fmt.Println(f.FieldNames)
+	fmt.Println(f.FieldTypes)
+
+	for {
+		x, e := f.ReadLine()
+		fmt.Println(x, e)
+		if e == io.EOF {
+			break
+		}
+	}
+	e = f.Close()
+	assert.Nil(t, e)
+}
 
 // list of packages to test
 func pkgs() []string {
@@ -187,9 +207,8 @@ func TestSQLsave(t *testing.T) {
 func TestFileSave(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		f, e := d.NewFiles()
-		assert.Nil(t, e)
-		e = f.Save(fileName, dfx)
+		f := d.NewFiles()
+		e := f.Save(fileName, dfx)
 		assert.Nil(t, e)
 		// TODO: load file and check
 	}

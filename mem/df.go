@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"maps"
 	"sort"
 	"time"
@@ -119,13 +120,13 @@ func DBLoad(qry string, dlct *d.Dialect) (*MemDF, error) {
 	return memDF, nil
 }
 
-func (m *MemDF) Iter(reset bool) (eof bool, row []any) {
+func (m *MemDF) Iter(reset bool) (row []any, err error) {
 	if reset {
 		m.row = 0
 	}
 
 	if m.row+1 > m.RowCount() {
-		return true, nil
+		return nil, io.EOF
 	}
 
 	for c := m.Next(true); c != nil; c = m.Next(false) {
@@ -134,7 +135,7 @@ func (m *MemDF) Iter(reset bool) (eof bool, row []any) {
 
 	m.row++
 
-	return false, row
+	return row, nil
 }
 
 // ***************** MemDF - Methods *****************
