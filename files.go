@@ -90,6 +90,23 @@ func NewFiles(fieldNames []string, fieldTypes []DataTypes, fieldWidths []int) *F
 	return f
 }
 
+func (f *Files) Close() error {
+	if f.file != nil {
+		return f.file.Close()
+	}
+
+	return nil
+}
+
+func (f *Files) Create(fileName string) error {
+	var e error
+
+	f.fileName = fileName
+	f.file, e = os.Create(fileName)
+
+	return e
+}
+
 func (f *Files) FieldNames() []string {
 	return f.fieldNames
 }
@@ -105,8 +122,8 @@ func (f *Files) FieldWidths() []int {
 func (f *Files) Load() ([]any, error) {
 	defer func() { _ = f.Close() }()
 	var memData []any
-	for ind := 0; ind < len(f.fieldNames); ind++ {
-		memData = append(memData, MakeSlice(f.fieldTypes[ind], 0, nil))
+	for ind := 0; ind < len(f.FieldNames()); ind++ {
+		memData = append(memData, MakeSlice(f.FieldTypes()[ind], 0, nil))
 	}
 
 	for {
@@ -115,7 +132,7 @@ func (f *Files) Load() ([]any, error) {
 			e1  error
 		)
 
-		if row, e1 = f.ReadLine(); e1 != nil {
+		if row, e1 = f.Read(); e1 != nil {
 			if e1 == io.EOF {
 				break
 			}
@@ -125,31 +142,11 @@ func (f *Files) Load() ([]any, error) {
 
 		r := row.([]any)
 		for ind := 0; ind < len(r); ind++ {
-			memData[ind] = AppendSlice(memData[ind], r[ind], f.fieldTypes[ind])
+			memData[ind] = AppendSlice(memData[ind], r[ind], f.FieldTypes()[ind])
 		}
 	}
 
 	return memData, nil
-}
-
-func (f *Files) Save(fileName string, df DF) error {
-	defer func() { _ = f.Close() }()
-	var e error
-	if f.file, e = os.Create(fileName); e != nil {
-		return e
-	}
-
-	if e = f.WriteHeader(df.ColumnNames()); e != nil {
-		return e
-	}
-
-	for row, eof := df.Iter(true); eof == nil; row, eof = df.Iter(false) {
-		if ex := f.WriteLine(row); ex != nil {
-			return ex
-		}
-	}
-
-	return nil
 }
 
 func (f *Files) Open(fileName string) error {
@@ -161,83 +158,46 @@ func (f *Files) Open(fileName string) error {
 
 	f.rdr = bufio.NewReader(f.file)
 
-	if f.fieldNames == nil && !f.Header {
+	if f.FieldNames() == nil && !f.Header {
 		return fmt.Errorf("no field names specified and no header")
 	}
 
 	// skip first line if field names are supplied
-	if f.Header && f.fieldNames != nil {
-		if _, e1 := f.ReadLine(); e1 != nil {
+	if f.Header && f.FieldNames() != nil {
+		if _, e1 := f.Read(); e1 != nil {
 			return e1
 		}
 	}
 
-	if f.fieldNames == nil {
-		if e1 := f.ReadHeader(); e1 != nil {
+	if f.FieldNames() == nil {
+		if e1 := f.readHeader(); e1 != nil {
 			return e1
 		}
 	}
 
-	if f.fieldTypes == nil {
-		if e2 := f.Detect(); e2 != nil {
+	if f.FieldTypes() == nil {
+		if e2 := f.detect(); e2 != nil {
 			return e2
 		}
 	}
 
-	if len(f.fieldTypes) != len(f.fieldNames) {
+	if len(f.FieldTypes()) != len(f.FieldNames()) {
 		return fmt.Errorf("field names and field types aren't same length")
 	}
 
-	if f.fieldWidths != nil && len(f.fieldWidths) != len(f.fieldNames) {
+	if f.FieldWidths() != nil && len(f.FieldWidths()) != len(f.FieldNames()) {
 		return fmt.Errorf("field widths and field names aren't the same length")
 	}
 
 	return nil
 }
 
-func (f *Files) readFixed() ([]string, error) {
-	adder := 0
-	if f.EOL != 0 {
-		adder = 1
-	}
-
-	b := make([]byte, f.lineWidth+adder)
-	n, eOrEOF := f.file.Read(b)
-
-	if n == f.lineWidth+adder {
-		return f.splitFixed(b), nil
-	}
-
-	if eOrEOF == nil {
-		return nil, io.EOF
-	}
-
-	return nil, eOrEOF
-}
-
-func (f *Files) readSep() ([]string, error) {
-	var (
-		line   string
-		eOrEOF error
-	)
-	if line, eOrEOF = f.rdr.ReadString(f.EOL); (eOrEOF == io.EOF && line == "") || (eOrEOF != nil && eOrEOF != io.EOF) {
-		return nil, eOrEOF
-	}
-
-	var vals []string
-	if vals = f.splitSep(f.DropEOL(line)); f.fieldNames != nil && len(vals) != len(f.fieldNames) {
-		return nil, fmt.Errorf("line %s has wrong number of fields", line)
-	}
-
-	return vals, nil
-}
-
-func (f *Files) ReadLine() (any, error) {
+func (f *Files) Read() (any, error) {
 	var (
 		vals []string
 		e    error
 	)
-	if f.fieldWidths != nil {
+	if f.FieldWidths() != nil {
 		if vals, e = f.readFixed(); e != nil {
 			return nil, e
 		}
@@ -247,26 +207,26 @@ func (f *Files) ReadLine() (any, error) {
 		}
 	}
 
-	if f.fieldTypes == nil {
+	if f.FieldTypes() == nil {
 		return vals, nil
 	}
 	var out []any
 
-	for ind := 0; ind < len(f.fieldNames); ind++ {
+	for ind := 0; ind < len(f.FieldNames()); ind++ {
 		var (
 			x any
 			e error
 		)
 		fld := vals[ind]
 
-		dt := f.fieldTypes[ind]
-		v := f.SmartTrim(fld, dt)
+		dt := f.FieldTypes()[ind]
+		v := f.smartTrim(fld, dt)
 		if x, e = ToDataType(v, dt, true); e != nil {
 			switch f.Strict {
 			case true:
 				return nil, e
 			case false:
-				x = f.Default(f.fieldTypes[ind])
+				x = f.defaultValue(f.FieldTypes()[ind])
 			}
 		}
 		out = append(out, x)
@@ -276,48 +236,27 @@ func (f *Files) ReadLine() (any, error) {
 
 }
 
-func (f *Files) Default(dt DataTypes) any {
-	switch dt {
-	case DTint:
-		return f.DefaultInt
-	case DTfloat:
-		return f.DefaultFloat
-	case DTdate:
-		return f.DefaultDate
-	case DTstring:
-		return f.DefaultString
-	default:
-		panic(fmt.Errorf("unsupported data type in files"))
-	}
-}
-
-func (f *Files) DropEOL(line string) string {
-	if line[len(line)-1] == f.EOL {
-		return line[0 : len(line)-1]
-	}
-
-	return line
-}
-
-func (f *Files) Create(fileName string) error {
+func (f *Files) Save(fileName string, df DF) error {
+	defer func() { _ = f.Close() }()
 	var e error
+	if f.file, e = os.Create(fileName); e != nil {
+		return e
+	}
 
-	f.fileName = fileName
-	f.file, e = os.Create(fileName)
+	if e = f.writeHeader(df.ColumnNames()); e != nil {
+		return e
+	}
 
-	return e
-}
-
-func (f *Files) Close() error {
-	if f.file != nil {
-		return f.file.Close()
+	for row, eof := df.Iter(true); eof == nil; row, eof = df.Iter(false) {
+		if ex := f.Write(row); ex != nil {
+			return ex
+		}
 	}
 
 	return nil
 }
 
-// TODO: consider fixed-width option?
-func (f *Files) WriteLine(v []any) error {
+func (f *Files) Write(v []any) error {
 	var line []byte
 	for ind := 0; ind < len(v); ind++ {
 		var lx []byte
@@ -364,36 +303,22 @@ func (f *Files) WriteLine(v []any) error {
 	return e
 }
 
-func (f *Files) WriteHeader(fieldNames []string) error {
-	if !f.Header {
-		return nil
+func (f *Files) defaultValue(dt DataTypes) any {
+	switch dt {
+	case DTint:
+		return f.DefaultInt
+	case DTfloat:
+		return f.DefaultFloat
+	case DTdate:
+		return f.DefaultDate
+	case DTstring:
+		return f.DefaultString
+	default:
+		panic(fmt.Errorf("unsupported data type in files"))
 	}
-
-	// TODO: place stringDelim around these?
-	if _, e := f.file.WriteString(strings.Join(fieldNames, string(rune(f.Sep))) + string(rune(f.EOL))); e != nil {
-		return e
-	}
-
-	return nil
 }
 
-func (f *Files) ReadHeader() error {
-	var (
-		x any
-		e error
-	)
-
-	if x, e = f.ReadLine(); e != nil {
-		return e
-	}
-
-	f.fieldNames = x.([]string)
-
-	return nil
-}
-
-func (f *Files) Detect() error {
-
+func (f *Files) detect() error {
 	counts := make([]*ctr, 0)
 
 	rn := 0
@@ -404,7 +329,7 @@ func (f *Files) Detect() error {
 			e2   error
 		)
 
-		if v, e2 = f.ReadLine(); e2 != nil {
+		if v, e2 = f.Read(); e2 != nil {
 			if e2 == io.EOF {
 				break
 			}
@@ -414,7 +339,7 @@ func (f *Files) Detect() error {
 
 		vals = v.([]string)
 
-		if len(vals) != len(f.fieldNames) {
+		if len(vals) != len(f.FieldNames()) {
 			return fmt.Errorf("inconsistent # of fields in file")
 		}
 
@@ -457,24 +382,73 @@ func (f *Files) Detect() error {
 	return f.Open(f.fileName)
 }
 
-type ctr struct {
-	cInt    int
-	cFloat  int
-	cDate   int
-	cString int
+func (f *Files) dropEOL(line string) string {
+	if line[len(line)-1] == f.EOL {
+		return line[0 : len(line)-1]
+	}
+
+	return line
 }
 
-func (c *ctr) max() DataTypes {
-	switch m := u.MaxInt(c.cInt, c.cFloat, c.cDate, c.cString); m {
-	case c.cDate:
-		return DTdate
-	case c.cInt:
-		return DTint
-	case c.cFloat:
-		return DTfloat
-	default:
-		return DTstring
+func (f *Files) readFixed() ([]string, error) {
+	adder := 0
+	if f.EOL != 0 {
+		adder = 1
 	}
+
+	b := make([]byte, f.lineWidth+adder)
+	n, eOrEOF := f.file.Read(b)
+
+	if n == f.lineWidth+adder {
+		return f.splitFixed(b), nil
+	}
+
+	if eOrEOF == nil {
+		return nil, io.EOF
+	}
+
+	return nil, eOrEOF
+}
+
+func (f *Files) readHeader() error {
+	var (
+		x any
+		e error
+	)
+
+	if x, e = f.Read(); e != nil {
+		return e
+	}
+
+	f.fieldNames = x.([]string)
+
+	return nil
+}
+
+func (f *Files) readSep() ([]string, error) {
+	var (
+		line   string
+		eOrEOF error
+	)
+	if line, eOrEOF = f.rdr.ReadString(f.EOL); (eOrEOF == io.EOF && line == "") || (eOrEOF != nil && eOrEOF != io.EOF) {
+		return nil, eOrEOF
+	}
+
+	var vals []string
+	if vals = f.splitSep(f.dropEOL(line)); f.FieldNames() != nil && len(vals) != len(f.FieldNames()) {
+		return nil, fmt.Errorf("line %s has wrong number of fields", line)
+	}
+
+	return vals, nil
+}
+
+func (f *Files) smartTrim(line string, dt DataTypes) string {
+	if dt != DTstring {
+		return strings.Trim(line, " ")
+	}
+
+	x := strings.Trim(line, string(f.StringDelim)+" ")
+	return x
 }
 
 func (f *Files) splitSep(line string) []string {
@@ -501,23 +475,49 @@ func (f *Files) splitSep(line string) []string {
 	return split
 }
 
-func (f *Files) SmartTrim(line string, dt DataTypes) string {
-	if dt != DTstring {
-		return strings.Trim(line, " ")
-	}
-
-	x := strings.Trim(line, string(f.StringDelim)+" ")
-	return x
-}
-
 func (f *Files) splitFixed(b []byte) []string {
 	var out []string
 	start := 0
-	for ind := 0; ind < len(f.fieldWidths); ind++ {
-		fld := strings.Trim(string(b[start:start+f.fieldWidths[ind]]), " ")
+	for ind := 0; ind < len(f.FieldWidths()); ind++ {
+		fld := strings.Trim(string(b[start:start+f.FieldWidths()[ind]]), " ")
 		out = append(out, fld)
-		start += f.fieldWidths[ind]
+		start += f.FieldWidths()[ind]
 	}
 
 	return out
+}
+
+func (f *Files) writeHeader(fieldNames []string) error {
+	if !f.Header {
+		return nil
+	}
+
+	// TODO: place stringDelim around these?
+	if _, e := f.file.WriteString(strings.Join(fieldNames, string(rune(f.Sep))) + string(rune(f.EOL))); e != nil {
+		return e
+	}
+
+	return nil
+}
+
+// ****************** used by detect *********************
+
+type ctr struct {
+	cInt    int
+	cFloat  int
+	cDate   int
+	cString int
+}
+
+func (c *ctr) max() DataTypes {
+	switch m := u.MaxInt(c.cInt, c.cFloat, c.cDate, c.cString); m {
+	case c.cDate:
+		return DTdate
+	case c.cInt:
+		return DTint
+	case c.cFloat:
+		return DTfloat
+	default:
+		return DTstring
+	}
 }

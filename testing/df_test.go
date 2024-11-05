@@ -20,28 +20,76 @@ import (
 // THINK about...how self interacts in context...
 
 const (
-	dbSource  = "clickhouse"
-	fileName  = "/home/will/tmp/test.csv"
-	fileNameW = "/home/will/tmp/testFW2.txt"
-	inTable   = "testing.d1"
-	outTable  = "testing.test"
+	dbSource   = "clickhouse"
+	fileName   = "/home/will/tmp/test.csv"
+	fileNameW1 = "/home/will/tmp/testFW.txt"
+	fileNameW2 = "/home/will/tmp/testFW1.txt"
+	fileNameW3 = "/home/will/tmp/testFW2.txt"
+	inTable    = "testing.d1"
+	outTable   = "testing.test"
 
 	ch = "clickhouse"
 )
 
 func TestFiles1(t *testing.T) {
 	dfx := loadData("mem")
+
+	// specify both fieldNames and fieldTypes
+	// file has no EOL characters
 	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
 	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
 	fieldWidths := []int{1, 5, 2, 3, 10, 8}
-	_ = fieldTypes
-	_ = fieldNames
-	f := d.NewFiles(nil, nil, fieldWidths)
-	f.Strict, f.Header = false, true
-	//f.EOL = 0
-	e := f.Open(fileNameW)
+	f := d.NewFiles(fieldNames, fieldTypes, fieldWidths)
+	f.Strict, f.Header = false, false
+	f.EOL = 0
+	e := f.Open(fileNameW1)
 	assert.Nil(t, e)
 	dfy, e1 := m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
+
+	// file has EOL characters
+	f = d.NewFiles(fieldNames, fieldTypes, fieldWidths)
+	f.Strict, f.Header = false, false
+	e = f.Open(fileNameW2)
+	assert.Nil(t, e)
+	dfy, e1 = m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
+
+	// file has EOL characters and a header, but still specify these
+	f = d.NewFiles(fieldNames, fieldTypes, fieldWidths)
+	f.Strict, f.Header = false, true
+	e = f.Open(fileNameW3)
+	assert.Nil(t, e)
+	dfy, e1 = m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
+
+	// file has EOL characters and a header, have it read fieldNames and infer types
+	f = d.NewFiles(nil, nil, fieldWidths)
+	f.Strict, f.Header = false, true
+	e = f.Open(fileNameW3)
+	assert.Nil(t, e)
+	dfy, e1 = m.FileLoad(f)
 	assert.Nil(t, e1)
 	for _, cn := range dfx.ColumnNames() {
 		cx, ex := dfx.Column(cn)
