@@ -22,7 +22,7 @@ import (
 const (
 	dbSource  = "clickhouse"
 	fileName  = "/home/will/tmp/test.csv"
-	fileNameW = "/home/will/tmp/testFW.txt"
+	fileNameW = "/home/will/tmp/testFW2.txt"
 	inTable   = "testing.d1"
 	outTable  = "testing.test"
 
@@ -34,9 +34,11 @@ func TestFiles1(t *testing.T) {
 	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
 	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
 	fieldWidths := []int{1, 5, 2, 3, 10, 8}
-	f := d.NewFiles(fieldNames, fieldTypes, fieldWidths)
-	f.Strict, f.Header = false, false
-	f.EOL = 0
+	_ = fieldTypes
+	_ = fieldNames
+	f := d.NewFiles(nil, nil, fieldWidths)
+	f.Strict, f.Header = false, true
+	//f.EOL = 0
 	e := f.Open(fileNameW)
 	assert.Nil(t, e)
 	dfy, e1 := m.FileLoad(f)

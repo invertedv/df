@@ -165,9 +165,9 @@ func (f *Files) Open(fileName string) error {
 		return fmt.Errorf("no field names specified and no header")
 	}
 
-	// skip first line
+	// skip first line if field names are supplied
 	if f.Header && f.fieldNames != nil {
-		if _, e1 := f.rdr.ReadString(f.EOL); e1 != nil {
+		if _, e1 := f.ReadLine(); e1 != nil {
 			return e1
 		}
 	}
@@ -195,84 +195,27 @@ func (f *Files) Open(fileName string) error {
 	return nil
 }
 
-func (f *Files) ParseSep(line string) (any, error) {
-	var vals []string
-	if vals = f.SmartSplit(f.DropEOF(line)); len(vals) != len(f.fieldNames) {
-		return nil, fmt.Errorf("line %s has wrong number of fields", line)
+func (f *Files) readFixed() ([]string, error) {
+	adder := 0
+	if f.EOL != 0 {
+		adder = 1
 	}
 
-	if f.fieldTypes == nil {
-		return vals, nil
-	}
-	var out []any
+	b := make([]byte, f.lineWidth+adder)
+	n, eOrEOF := f.file.Read(b)
 
-	for ind := 0; ind < len(vals); ind++ {
-		var (
-			x any
-			e error
-		)
-		if x, e = ToDataType(f.SmartTrim(vals[ind], f.fieldTypes[ind]), f.fieldTypes[ind], true); e != nil {
-			switch f.Strict {
-			case true:
-				return nil, e
-			case false:
-				x = f.Default(f.fieldTypes[ind])
-			}
-		}
-		out = append(out, x)
+	if n == f.lineWidth+adder {
+		return f.splitFixed(b), nil
 	}
 
-	return out, nil
+	if eOrEOF == nil {
+		return nil, io.EOF
+	}
+
+	return nil, eOrEOF
 }
 
-func (f *Files) ParseFixed(b []byte) (any, error) {
-
-	if f.fieldTypes == nil {
-		return string(b), nil
-	}
-	var out []any
-
-	start := 0
-	for ind := 0; ind < len(f.fieldNames); ind++ {
-		var (
-			x any
-			e error
-		)
-		fld := strings.ReplaceAll(string(b[start:start+f.fieldWidths[ind]]), " ", "")
-		start += f.fieldWidths[ind]
-		if x, e = ToDataType(f.SmartTrim(fld, f.fieldTypes[ind]), f.fieldTypes[ind], true); e != nil {
-			switch f.Strict {
-			case true:
-				return nil, e
-			case false:
-				x = f.Default(f.fieldTypes[ind])
-			}
-		}
-		out = append(out, x)
-	}
-
-	return out, nil
-}
-
-func (f *Files) ReadLine() (any, error) {
-	if f.lineWidth > 0 {
-		adder := 0
-		if f.EOL != 0 {
-			adder = 1
-		}
-		b := make([]byte, f.lineWidth+adder)
-		n, eOrEOF := f.file.Read(b)
-		if n == f.lineWidth+adder {
-			return f.ParseFixed(b)
-		}
-
-		if eOrEOF == nil {
-			return nil, io.EOF
-		}
-
-		return nil, eOrEOF
-	}
-
+func (f *Files) readSep() ([]string, error) {
 	var (
 		line   string
 		eOrEOF error
@@ -281,7 +224,56 @@ func (f *Files) ReadLine() (any, error) {
 		return nil, eOrEOF
 	}
 
-	return f.ParseSep(line)
+	var vals []string
+	if vals = f.splitSep(f.DropEOL(line)); f.fieldNames != nil && len(vals) != len(f.fieldNames) {
+		return nil, fmt.Errorf("line %s has wrong number of fields", line)
+	}
+
+	return vals, nil
+}
+
+func (f *Files) ReadLine() (any, error) {
+	var (
+		vals []string
+		e    error
+	)
+	if f.fieldWidths != nil {
+		if vals, e = f.readFixed(); e != nil {
+			return nil, e
+		}
+	} else {
+		if vals, e = f.readSep(); e != nil {
+			return nil, e
+		}
+	}
+
+	if f.fieldTypes == nil {
+		return vals, nil
+	}
+	var out []any
+
+	for ind := 0; ind < len(f.fieldNames); ind++ {
+		var (
+			x any
+			e error
+		)
+		fld := vals[ind]
+
+		dt := f.fieldTypes[ind]
+		v := f.SmartTrim(fld, dt)
+		if x, e = ToDataType(v, dt, true); e != nil {
+			switch f.Strict {
+			case true:
+				return nil, e
+			case false:
+				x = f.Default(f.fieldTypes[ind])
+			}
+		}
+		out = append(out, x)
+	}
+
+	return out, nil
+
 }
 
 func (f *Files) Default(dt DataTypes) any {
@@ -299,7 +291,7 @@ func (f *Files) Default(dt DataTypes) any {
 	}
 }
 
-func (f *Files) DropEOF(line string) string {
+func (f *Files) DropEOL(line string) string {
 	if line[len(line)-1] == f.EOL {
 		return line[0 : len(line)-1]
 	}
@@ -387,15 +379,15 @@ func (f *Files) WriteHeader(fieldNames []string) error {
 
 func (f *Files) ReadHeader() error {
 	var (
-		line string
-		e    error
+		x any
+		e error
 	)
 
-	if line, e = f.rdr.ReadString(f.EOL); e != nil {
+	if x, e = f.ReadLine(); e != nil {
 		return e
 	}
 
-	f.fieldNames = strings.Split(f.DropEOF(line), string(f.Sep))
+	f.fieldNames = x.([]string)
 
 	return nil
 }
@@ -485,7 +477,7 @@ func (c *ctr) max() DataTypes {
 	}
 }
 
-func (f *Files) SmartSplit(line string) []string {
+func (f *Files) splitSep(line string) []string {
 	if !strings.Contains(line, string(f.StringDelim)) {
 		return strings.Split(line, string(f.Sep))
 	}
@@ -510,9 +502,22 @@ func (f *Files) SmartSplit(line string) []string {
 }
 
 func (f *Files) SmartTrim(line string, dt DataTypes) string {
-	if dt != DTstring || f.StringDelim == 0 {
-		return line
+	if dt != DTstring {
+		return strings.Trim(line, " ")
 	}
 
-	return strings.Trim(line, string(f.StringDelim))
+	x := strings.Trim(line, string(f.StringDelim)+" ")
+	return x
+}
+
+func (f *Files) splitFixed(b []byte) []string {
+	var out []string
+	start := 0
+	for ind := 0; ind < len(f.fieldWidths); ind++ {
+		fld := strings.Trim(string(b[start:start+f.fieldWidths[ind]]), " ")
+		out = append(out, fld)
+		start += f.fieldWidths[ind]
+	}
+
+	return out
 }
