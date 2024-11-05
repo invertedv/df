@@ -3,7 +3,6 @@ package testing
 import (
 	"database/sql"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"testing"
@@ -21,31 +20,55 @@ import (
 // THINK about...how self interacts in context...
 
 const (
-	dbSource = "clickhouse"
-	fileName = "/home/will/tmp/test.csv"
-	inTable  = "testing.d1"
-	outTable = "testing.test"
+	dbSource  = "clickhouse"
+	fileName  = "/home/will/tmp/test.csv"
+	fileNameW = "/home/will/tmp/testFW.txt"
+	inTable   = "testing.d1"
+	outTable  = "testing.test"
 
 	ch = "clickhouse"
 )
 
-func TestFiles(t *testing.T) {
-	f := d.NewFiles()
-	f.Strict = false
-	e := f.Open("/home/will/tmp/test.csv", nil, nil)
+func TestFiles1(t *testing.T) {
+	dfx := loadData("mem")
+	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
+	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
+	fieldWidths := []int{1, 5, 2, 3, 10, 8}
+	f := d.NewFiles(fieldNames, fieldTypes, fieldWidths)
+	f.Strict, f.Header = false, false
+	f.EOL = 0
+	e := f.Open(fileNameW)
 	assert.Nil(t, e)
-	fmt.Println(f.FieldNames)
-	fmt.Println(f.FieldTypes)
-
-	for {
-		x, e := f.ReadLine()
-		fmt.Println(x, e)
-		if e == io.EOF {
-			break
-		}
+	dfy, e1 := m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
 	}
-	e = f.Close()
+}
+
+func TestFiles(t *testing.T) {
+	dfx := loadData("mem")
+	fs := d.NewFiles(nil, nil, nil)
+	e0 := fs.Save(fileName, dfx)
+	assert.Nil(t, e0)
+
+	f := d.NewFiles(nil, nil, nil)
+	f.Strict = false
+	e := f.Open(fileName)
 	assert.Nil(t, e)
+	dfy, e1 := m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
 }
 
 // list of packages to test
@@ -207,7 +230,7 @@ func TestSQLsave(t *testing.T) {
 func TestFileSave(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		f := d.NewFiles()
+		f := d.NewFiles(nil, nil, nil)
 		e := f.Save(fileName, dfx)
 		assert.Nil(t, e)
 		// TODO: load file and check

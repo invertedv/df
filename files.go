@@ -20,8 +20,7 @@ import (
 
 // All code interacting with files is here
 
-// TODO: change EOF to io.EOF everywhere
-// TODO: need to be able to override
+// Defaults
 var (
 	Sep         = ','
 	EOL         = '\n'
@@ -29,7 +28,7 @@ var (
 	DateFormat  = "20060102"
 	FloatFormat = "%.2f"
 	Header      = true
-	Strict      = true
+	Strict      = false
 
 	DefaultInt    = math.MaxInt
 	DefaultFloat  = math.MaxFloat64
@@ -47,21 +46,25 @@ type Files struct {
 	Header bool
 	Peek   int
 
-	FileName   string
-	FieldNames []string
-	FieldTypes []DataTypes
-	Strict     bool
+	fileName    string
+	fieldNames  []string
+	fieldTypes  []DataTypes
+	fieldWidths []int
+	Strict      bool
 
 	DefaultInt    int
 	DefaultFloat  float64
 	DefaultString string
 	DefaultDate   time.Time
 
-	file *os.File
-	rdr  *bufio.Reader
+	lineWidth int
+	file      *os.File
+	rdr       *bufio.Reader
 }
 
-func NewFiles() *Files {
+// TODO: need to add check for len(fieldWidths)
+
+func NewFiles(fieldNames []string, fieldTypes []DataTypes, fieldWidths []int) *Files {
 	f := &Files{
 		EOL:           byte(EOL),
 		Sep:           byte(Sep),
@@ -74,14 +77,59 @@ func NewFiles() *Files {
 		DefaultFloat:  DefaultFloat,
 		DefaultDate:   DefaultDate,
 		DefaultString: DefaultString,
+
+		fieldNames:  fieldNames,
+		fieldTypes:  fieldTypes,
+		fieldWidths: fieldWidths,
+	}
+
+	for _, w := range fieldWidths {
+		f.lineWidth += w
 	}
 
 	return f
 }
 
-// same as SQL
-func (f *Files) Load(fileName string) ([]any, error) {
-	return nil, nil
+func (f *Files) FieldNames() []string {
+	return f.fieldNames
+}
+
+func (f *Files) FieldTypes() []DataTypes {
+	return f.fieldTypes
+}
+
+func (f *Files) FieldWidths() []int {
+	return f.fieldWidths
+}
+
+func (f *Files) Load() ([]any, error) {
+	defer func() { _ = f.Close() }()
+	var memData []any
+	for ind := 0; ind < len(f.fieldNames); ind++ {
+		memData = append(memData, MakeSlice(f.fieldTypes[ind], 0, nil))
+	}
+
+	for {
+		var (
+			row any
+			e1  error
+		)
+
+		if row, e1 = f.ReadLine(); e1 != nil {
+			if e1 == io.EOF {
+				break
+			}
+
+			return nil, e1
+		}
+
+		r := row.([]any)
+		for ind := 0; ind < len(r); ind++ {
+			memData[ind] = AppendSlice(memData[ind], r[ind], f.fieldTypes[ind])
+		}
+	}
+
+	return memData, nil
 }
 
 func (f *Files) Save(fileName string, df DF) error {
@@ -104,55 +152,56 @@ func (f *Files) Save(fileName string, df DF) error {
 	return nil
 }
 
-func (f *Files) Open(fileName string, fieldNames []string, fieldTypes []DataTypes) error {
+func (f *Files) Open(fileName string) error {
 	var e error
-
-	f.FileName = fileName
+	f.fileName = fileName
 	if f.file, e = os.Open(fileName); e != nil {
 		return e
 	}
 
 	f.rdr = bufio.NewReader(f.file)
 
-	if f.FieldNames == nil && !f.Header {
+	if f.fieldNames == nil && !f.Header {
 		return fmt.Errorf("no field names specified and no header")
 	}
 
-	f.FieldNames = fieldNames
+	// skip first line
+	if f.Header && f.fieldNames != nil {
+		if _, e1 := f.rdr.ReadString(f.EOL); e1 != nil {
+			return e1
+		}
+	}
 
-	if f.FieldNames == nil {
+	if f.fieldNames == nil {
 		if e1 := f.ReadHeader(); e1 != nil {
 			return e1
 		}
 	}
 
-	f.FieldTypes = fieldTypes
-
-	if f.FieldTypes == nil {
+	if f.fieldTypes == nil {
 		if e2 := f.Detect(); e2 != nil {
 			return e2
 		}
 	}
 
+	if len(f.fieldTypes) != len(f.fieldNames) {
+		return fmt.Errorf("field names and field types aren't same length")
+	}
+
+	if f.fieldWidths != nil && len(f.fieldWidths) != len(f.fieldNames) {
+		return fmt.Errorf("field widths and field names aren't the same length")
+	}
+
 	return nil
 }
 
-func (f *Files) ReadLine() (any, error) {
-	var (
-		line   string
-		eOrEOF error
-	)
-
-	if line, eOrEOF = f.rdr.ReadString(f.EOL); (eOrEOF == io.EOF && line == "") || (eOrEOF != nil && eOrEOF != io.EOF) {
-		return nil, eOrEOF
-	}
-
+func (f *Files) ParseSep(line string) (any, error) {
 	var vals []string
-	if vals = f.SmartSplit(f.DropEOF(line)); len(vals) != len(f.FieldNames) {
+	if vals = f.SmartSplit(f.DropEOF(line)); len(vals) != len(f.fieldNames) {
 		return nil, fmt.Errorf("line %s has wrong number of fields", line)
 	}
 
-	if f.FieldTypes == nil {
+	if f.fieldTypes == nil {
 		return vals, nil
 	}
 	var out []any
@@ -162,20 +211,77 @@ func (f *Files) ReadLine() (any, error) {
 			x any
 			e error
 		)
-		x = vals[ind]
-		if x, e = ToDataType(f.SmartTrim(vals[ind], f.FieldTypes[ind]), f.FieldTypes[ind], true); e != nil {
+		if x, e = ToDataType(f.SmartTrim(vals[ind], f.fieldTypes[ind]), f.fieldTypes[ind], true); e != nil {
 			switch f.Strict {
 			case true:
 				return nil, e
 			case false:
-				x = f.Default(f.FieldTypes[ind])
+				x = f.Default(f.fieldTypes[ind])
 			}
 		}
-
 		out = append(out, x)
 	}
 
 	return out, nil
+}
+
+func (f *Files) ParseFixed(b []byte) (any, error) {
+
+	if f.fieldTypes == nil {
+		return string(b), nil
+	}
+	var out []any
+
+	start := 0
+	for ind := 0; ind < len(f.fieldNames); ind++ {
+		var (
+			x any
+			e error
+		)
+		fld := strings.ReplaceAll(string(b[start:start+f.fieldWidths[ind]]), " ", "")
+		start += f.fieldWidths[ind]
+		if x, e = ToDataType(f.SmartTrim(fld, f.fieldTypes[ind]), f.fieldTypes[ind], true); e != nil {
+			switch f.Strict {
+			case true:
+				return nil, e
+			case false:
+				x = f.Default(f.fieldTypes[ind])
+			}
+		}
+		out = append(out, x)
+	}
+
+	return out, nil
+}
+
+func (f *Files) ReadLine() (any, error) {
+	if f.lineWidth > 0 {
+		adder := 0
+		if f.EOL != 0 {
+			adder = 1
+		}
+		b := make([]byte, f.lineWidth+adder)
+		n, eOrEOF := f.file.Read(b)
+		if n == f.lineWidth+adder {
+			return f.ParseFixed(b)
+		}
+
+		if eOrEOF == nil {
+			return nil, io.EOF
+		}
+
+		return nil, eOrEOF
+	}
+
+	var (
+		line   string
+		eOrEOF error
+	)
+	if line, eOrEOF = f.rdr.ReadString(f.EOL); (eOrEOF == io.EOF && line == "") || (eOrEOF != nil && eOrEOF != io.EOF) {
+		return nil, eOrEOF
+	}
+
+	return f.ParseSep(line)
 }
 
 func (f *Files) Default(dt DataTypes) any {
@@ -190,7 +296,6 @@ func (f *Files) Default(dt DataTypes) any {
 		return f.DefaultString
 	default:
 		panic(fmt.Errorf("unsupported data type in files"))
-
 	}
 }
 
@@ -205,7 +310,7 @@ func (f *Files) DropEOF(line string) string {
 func (f *Files) Create(fileName string) error {
 	var e error
 
-	f.FileName = fileName
+	f.fileName = fileName
 	f.file, e = os.Create(fileName)
 
 	return e
@@ -216,9 +321,10 @@ func (f *Files) Close() error {
 		return f.file.Close()
 	}
 
-	return fmt.Errorf("no open files")
+	return nil
 }
 
+// TODO: consider fixed-width option?
 func (f *Files) WriteLine(v []any) error {
 	var line []byte
 	for ind := 0; ind < len(v); ind++ {
@@ -232,8 +338,10 @@ func (f *Files) WriteLine(v []any) error {
 			lx = []byte(d.Format(f.DateFormat))
 		case string:
 			lx = []byte(d)
-			lx = append([]byte{f.StringDelim}, lx...)
-			lx = append(lx, f.StringDelim)
+			if f.StringDelim != 0 {
+				lx = append([]byte{f.StringDelim}, lx...)
+				lx = append(lx, f.StringDelim)
+			}
 		case *float64:
 			lx = []byte(fmt.Sprintf(f.FloatFormat, *d))
 		case *int:
@@ -242,8 +350,10 @@ func (f *Files) WriteLine(v []any) error {
 			lx = []byte(d.Format(f.DateFormat))
 		case *string:
 			lx = []byte(*d)
-			lx = append([]byte{f.StringDelim}, lx...)
-			lx = append(lx, f.StringDelim)
+			if f.StringDelim != 0 {
+				lx = append([]byte{f.StringDelim}, lx...)
+				lx = append(lx, f.StringDelim)
+			}
 		default:
 			lx = []byte("#err#")
 		}
@@ -252,9 +362,11 @@ func (f *Files) WriteLine(v []any) error {
 			line = append(line, f.Sep)
 		}
 	}
+
 	if _, e := f.file.Write(line); e != nil {
 		return e
 	}
+
 	_, e := f.file.Write([]byte{f.EOL})
 
 	return e
@@ -265,6 +377,7 @@ func (f *Files) WriteHeader(fieldNames []string) error {
 		return nil
 	}
 
+	// TODO: place stringDelim around these?
 	if _, e := f.file.WriteString(strings.Join(fieldNames, string(rune(f.Sep))) + string(rune(f.EOL))); e != nil {
 		return e
 	}
@@ -282,7 +395,7 @@ func (f *Files) ReadHeader() error {
 		return e
 	}
 
-	f.FieldNames = strings.Split(f.DropEOF(line), string(f.Sep))
+	f.fieldNames = strings.Split(f.DropEOF(line), string(f.Sep))
 
 	return nil
 }
@@ -309,7 +422,7 @@ func (f *Files) Detect() error {
 
 		vals = v.([]string)
 
-		if len(vals) != len(f.FieldNames) {
+		if len(vals) != len(f.fieldNames) {
 			return fmt.Errorf("inconsistent # of fields in file")
 		}
 
@@ -345,14 +458,11 @@ func (f *Files) Detect() error {
 	}
 
 	for ind := 0; ind < len(counts); ind++ {
-		f.FieldTypes = append(f.FieldTypes, counts[ind].max())
+		f.fieldTypes = append(f.fieldTypes, counts[ind].max())
 	}
 
-	_ = f.file.Close()
-	f.file, _ = os.Open(f.FileName)
-	f.rdr = bufio.NewReader(f.file)
-
-	return nil
+	_ = f.Close()
+	return f.Open(f.fileName)
 }
 
 type ctr struct {
@@ -384,7 +494,7 @@ func (f *Files) SmartSplit(line string) []string {
 	in := false
 	start := 0
 	for ind := 0; ind < len(line); ind++ {
-		if line[ind] == f.StringDelim {
+		if f.StringDelim != 0 && line[ind] == f.StringDelim {
 			in = !in
 		}
 
@@ -400,7 +510,7 @@ func (f *Files) SmartSplit(line string) []string {
 }
 
 func (f *Files) SmartTrim(line string, dt DataTypes) string {
-	if dt != DTstring {
+	if dt != DTstring || f.StringDelim == 0 {
 		return line
 	}
 

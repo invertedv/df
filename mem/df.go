@@ -120,6 +120,42 @@ func DBLoad(qry string, dlct *d.Dialect) (*MemDF, error) {
 	return memDF, nil
 }
 
+func FileLoad(f *d.Files) (*MemDF, error) {
+	var (
+		memData []any
+		e       error
+	)
+	if memData, e = f.Load(); e != nil {
+		return nil, e
+	}
+
+	var memDF *MemDF
+	for ind := 0; ind < len(f.FieldNames()); ind++ {
+		var col *MemCol
+
+		if col, e = NewMemCol(f.FieldNames()[ind], memData[ind]); e != nil {
+			return nil, e
+		}
+
+		if ind == 0 {
+			if memDF, e = NewDFcol(RunDFfn, StandardFunctions(), nil, col); e != nil {
+				return nil, e
+			}
+			continue
+		}
+
+		if ex := memDF.AppendColumn(col, false); ex != nil {
+			return nil, ex
+		}
+	}
+
+	memDF.row = -1
+
+	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
+
+	return memDF, nil
+}
+
 func (m *MemDF) Iter(reset bool) (row []any, err error) {
 	if reset {
 		m.row = 0
