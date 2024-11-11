@@ -86,7 +86,7 @@ func TestParser(t *testing.T) {
 	x := [][]any{
 		{"4+1--1", 0, int(6)},
 		{"if(y == 1, 2.0, (x))", 0, float64(2)},
-		{"if(y == 1, 2.0, (x))", 1, float64(-2)},
+		{"if(y == 1, x, 2.0)", 1, float64(2)},
 		{"string(dt)", 0, "2022-12-31"},
 		{"string(float(1)+.234)", 0, "1.234"},
 		{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
@@ -386,9 +386,22 @@ func TestLoadSQL(t *testing.T) {
 	//	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
 	//	assert.Nil(t, ed)
 	fmt.Println("len", memDF.Len())
-	f := d.NewFiles()
+	f := d.NewFiles(nil, nil, nil)
 	ed := f.Save("/home/will/tmp/test.csv", memDF)
 	assert.Nil(t, ed)
+}
+
+func TestMemCol_Replace(t *testing.T) {
+	dfx := testDF()
+	indCol, e0 := dfx.Parse("y==-5")
+	assert.Nil(t, e0)
+	coly, e := dfx.Column("y")
+	assert.Nil(t, e)
+	colyy, e1 := dfx.Column("yy")
+	assert.Nil(t, e1)
+	colR, e2 := coly.(*MemCol).Replace(indCol.AsColumn(), colyy)
+	assert.Nil(t, e2)
+	assert.Equal(t, colR.(*MemCol).Data(), []int{1, -15, 6, 1, 4, 5})
 }
 
 func TestWhere(t *testing.T) {

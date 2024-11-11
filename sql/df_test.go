@@ -336,6 +336,22 @@ func TestSQLdf_AppendDF(t *testing.T) {
 	assert.NotNil(t, e)
 }
 
+func TestMemCol_Replace(t *testing.T) {
+	dfx := testDF()
+	indCol, e0 := dfx.Parse("y==-5")
+	assert.Nil(t, e0)
+	indCol.AsColumn().Name("ind")
+	e3 := dfx.AppendColumn(indCol.AsColumn(), false)
+	assert.Nil(t, e3)
+	coly, e := dfx.Column("y")
+	assert.Nil(t, e)
+	colyy, e1 := dfx.Column("yy")
+	assert.Nil(t, e1)
+	colR, e2 := coly.(*SQLcol).Replace(indCol.AsColumn(), colyy)
+	assert.Nil(t, e2)
+	assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", colR, -1))
+}
+
 // TODO: make cat give exact same values btw mem and sql
 func TestCat(t *testing.T) {
 	dfx := testDF()

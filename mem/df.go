@@ -156,28 +156,11 @@ func FileLoad(f *d.Files) (*MemDF, error) {
 	return memDF, nil
 }
 
-func (m *MemDF) Iter(reset bool) (row []any, err error) {
-	if reset {
-		m.row = 0
-	}
-
-	if m.row+1 > m.RowCount() {
-		return nil, io.EOF
-	}
-
-	for c := m.Next(true); c != nil; c = m.Next(false) {
-		row = append(row, c.(*MemCol).Element(m.row))
-	}
-
-	m.row++
-
-	return row, nil
-}
-
 // ***************** MemDF - Methods *****************
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
+	panicer(col)
 	if m.RowCount() != col.Len() && col.Len() > 1 {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
@@ -345,6 +328,24 @@ func (m *MemDF) Copy() d.DF {
 	mNew.Context().SetSelf(mNew)
 
 	return mNew
+}
+
+func (m *MemDF) Iter(reset bool) (row []any, err error) {
+	if reset {
+		m.row = 0
+	}
+
+	if m.row+1 > m.RowCount() {
+		return nil, io.EOF
+	}
+
+	for c := m.Next(true); c != nil; c = m.Next(false) {
+		row = append(row, c.(*MemCol).Element(m.row))
+	}
+
+	m.row++
+
+	return row, nil
 }
 
 // Len is required for sort
@@ -524,6 +525,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 }
 
 func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
+	panicer(indicator)
 	if indicator.Len() != m.RowCount() {
 		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), m.RowCount())
 	}
@@ -592,6 +594,7 @@ func NewMemCol(name string, data any) (*MemCol, error) {
 // ***************** MemCol - Methods *****************
 
 func (m *MemCol) AppendRows(col2 d.Column) (d.Column, error) {
+	panicer(col2)
 	return AppendRows(m, col2, m.Name(""))
 }
 
@@ -711,6 +714,43 @@ func (m *MemCol) Name(renameTo string) string {
 
 func (m *MemCol) RawType() d.DataTypes {
 	return m.rawType
+}
+
+func (m *MemCol) Replace(indicator, replacement d.Column) (d.Column, error) {
+	panicer(indicator, replacement)
+	if m.DataType() != replacement.DataType() {
+		return nil, fmt.Errorf("incompatible columns in Replace")
+	}
+
+	n := u.MaxInt(m.Len(), indicator.Len(), replacement.Len())
+	if (m.Len() > 1 && m.Len() != n) || (indicator.Len() > 1 && indicator.Len() != n) ||
+		(replacement.Len() > 1 && replacement.Len() != n) {
+		return nil, fmt.Errorf("columns not same length in Replacef")
+	}
+
+	if indicator.DataType() != d.DTint {
+		return nil, fmt.Errorf("indicator not type DTint in Replace")
+	}
+
+	data := d.MakeSlice(m.DataType(), 0, nil)
+
+	for ind := 0; ind < n; ind++ {
+		x := m.Element(ind)
+		if indicator.(*MemCol).Element(ind).(int) > 0 {
+			x = replacement.(*MemCol).Element(ind)
+		}
+
+		data = d.AppendSlice(data, x, m.DataType())
+	}
+	var (
+		outCol *MemCol
+		e      error
+	)
+	if outCol, e = NewMemCol("", data); e != nil {
+		return nil, e
+	}
+
+	return outCol, nil
 }
 
 // ***************** Helpers *****************
@@ -866,4 +906,12 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	}
 
 	return colNames, nil
+}
+
+func panicer(cols ...d.Column) {
+	for _, c := range cols {
+		if _, ok := c.(*MemCol); !ok {
+			panic("non-*MemCol argument")
+		}
+	}
 }

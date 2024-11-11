@@ -9,7 +9,7 @@ import (
 )
 
 // TODO: think about
-// how do I want cat() to work? Levels? fuzz?
+// eliminate reliance on utility import
 // consider how to handle passing a small column of parameters...
 // NewColSequence ?? ...
 // How to address elements (e.g. replace all values where x=4)
@@ -79,12 +79,13 @@ type columnList struct {
 
 // Column interface defines the methods the columns of DFcore that must be supported
 type Column interface {
-	Name(reNameTo string) string
+	AppendRows(col Column) (Column, error)
+	Copy() Column
+	Data() any
 	DataType() DataTypes
 	Len() int
-	Data() any
-	Copy() Column
-	AppendRows(col Column) (Column, error)
+	Name(reNameTo string) string
+	Replace(ind, repl Column) (Column, error)
 }
 
 // DataTypes are the types of data that the package supports
@@ -106,10 +107,10 @@ const (
 
 //go:generate stringer -type=DataTypes
 
-// max value of DataTypes type
+// MaxDT is max value of DataTypes type
 const MaxDT = DTany
 
-////////// Row Function typs
+// *********** Function types ***********
 
 type Fns []Fn
 
@@ -129,7 +130,7 @@ type FnReturn struct {
 
 type RunFn func(fn Fn, context *Context, inputs []any) (any, error)
 
-////////// DFCore
+// *********** DFcore ***********
 
 func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
@@ -159,143 +160,31 @@ func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 	return &DFcore{head: head, rowFuncs: funcs, runFn: runner}, nil
 }
 
-// /////////// DFcore methods
+// *********** DFcore methods ***********
 
-func (df *DFcore) Parse(expr string) (*Parsed, error) {
-	var (
-		ot  *OpTree
-		err error
-	)
-
-	if ot, err = NewOpTree(expr, df.Fns()); err != nil {
-		return nil, err
+func (df *DFcore) AppendColumn(col Column, replace bool) error {
+	if replace {
+		_ = df.DropColumns(col.Name(""))
 	}
 
-	if e := ot.Build(); e != nil {
-		return nil, e
+	if !df.ValidName(col.Name("")) {
+		return fmt.Errorf("invalid column name: %s", col.Name(""))
 	}
 
-	if e := ot.Eval(df); e != nil {
-		return nil, e
+	// find last column
+	var tail *columnList
+	for tail = df.head; tail.next != nil; tail = tail.next {
 	}
 
-	p := ot.Value()
-
-	return p, nil
-}
-
-func (df *DFcore) Fns() Fns {
-	return df.rowFuncs
-}
-
-// HERE
-func (df *DFcore) Runner() RunFn {
-	return df.runFn
-}
-
-func (df *DFcore) SetContext(c *Context) {
-	df.ctx = c
-}
-
-func (df *DFcore) Next(reset bool) Column {
-	if reset || df.current == nil {
-		df.current = df.head
-		return df.current.col
+	dfl := &columnList{
+		col:   col,
+		prior: tail,
+		next:  nil,
 	}
 
-	if df.current.next == nil {
-		df.current = nil
-		return nil
-	}
+	tail.next = dfl
 
-	df.current = df.current.next
-	return df.current.col
-}
-
-func (df *DFcore) ColumnCount() int {
-	cols := 0
-	for c := df.head; c != nil; c = c.next {
-		cols++
-	}
-
-	return cols
-}
-
-func (df *DFcore) ColumnNames() []string {
-	var names []string
-
-	for h := df.head; h != nil; h = h.next {
-		names = append(names, h.col.Name(""))
-	}
-
-	return names
-}
-
-func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
-	var types []DataTypes
-
-	if colNames == nil {
-		colNames = df.ColumnNames()
-	}
-
-	for ind := 0; ind < len(colNames); ind++ {
-		var (
-			c Column
-			e error
-		)
-		if c, e = df.Column(colNames[ind]); e != nil {
-			return nil, e
-		}
-
-		types = append(types, c.DataType())
-
-	}
-
-	return types, nil
-}
-
-func (df *DFcore) Column(colName string) (col Column, err error) {
-	for h := df.head; h != nil; h = h.next {
-		if (h.col).Name("") == colName {
-			return h.col, nil
-		}
-	}
-
-	return nil, fmt.Errorf("column %s not found", colName)
-}
-
-func (df *DFcore) Fn(fn Ereturn) error {
-	return fn()
-}
-
-func (df *DFcore) Context() *Context {
-	return df.ctx
-}
-
-func (df *DFcore) Core() *DFcore {
-	return df
-}
-
-func (df *DFcore) Copy() *DFcore {
-	var cols []Column
-	for c := df.Next(true); c != nil; c = df.Next(false) {
-		cols = append(cols, c.Copy())
-	}
-
-	var (
-		outDF *DFcore
-		e     error
-	)
-
-	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
-		panic(e)
-	}
-	context := NewContext(df.Context().Dialect(), nil)
-	outDF.SetContext(context)
-
-	// don't copy context
-
-	return outDF
+	return nil
 }
 
 func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
@@ -328,20 +217,92 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 	return NewDF(df.Runner(), df.Fns(), cols...)
 }
 
-/*
-Save DB -> DB
-     DB -> file
-     Mem -> DB
-     Mem -> file
+func (df *DFcore) Column(colName string) (col Column, err error) {
+	for h := df.head; h != nil; h = h.next {
+		if (h.col).Name("") == colName {
+			return h.col, nil
+		}
+	}
 
-*/
+	return nil, fmt.Errorf("column %s not found", colName)
+}
 
-func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error {
+func (df *DFcore) ColumnCount() int {
+	cols := 0
+	for c := df.head; c != nil; c = c.next {
+		cols++
+	}
+
+	return cols
+}
+
+func (df *DFcore) ColumnNames() []string {
+	var names []string
+
+	for h := df.head; h != nil; h = h.next {
+		names = append(names, h.col.Name(""))
+	}
+
+	return names
+}
+
+func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
+	var types []DataTypes
+
+	if colNames != nil && !df.HasColumns(colNames...) {
+		return nil, fmt.Errorf("some columns on in DFcore in ColumnTypes")
+	}
+
+	if colNames == nil {
+		colNames = df.ColumnNames()
+	}
+
+	for ind := 0; ind < len(colNames); ind++ {
+		var (
+			c Column
+			e error
+		)
+		if c, e = df.Column(colNames[ind]); e != nil {
+			return nil, e
+		}
+
+		types = append(types, c.DataType())
+	}
+
+	return types, nil
+}
+
+func (df *DFcore) Context() *Context {
+	return df.ctx
+}
+
+func (df *DFcore) Copy() *DFcore {
+	var cols []Column
+	for c := df.Next(true); c != nil; c = df.Next(false) {
+		cols = append(cols, c.Copy())
+	}
+
 	var (
-		e   error
-		dts []DataTypes
+		outDF *DFcore
+		e     error
 	)
 
+	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
+		panic(e)
+	}
+	context := NewContext(df.Context().Dialect(), nil)
+	outDF.SetContext(context)
+
+	// don't copy context
+
+	return outDF
+}
+
+func (df *DFcore) Core() *DFcore {
+	return df
+}
+
+func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error {
 	if df.Context().dialect == nil {
 		return fmt.Errorf("no database defined")
 	}
@@ -355,22 +316,15 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 		return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
 	}
 
+	var (
+		e   error
+		dts []DataTypes
+	)
 	if dts, e = df.ColumnTypes(cols...); e != nil {
 		return e
 	}
 
 	return df.Context().dialect.Create(tableName, noDesc, cols, dts, overwrite)
-}
-
-func (df *DFcore) HasColumns(cols ...string) bool {
-	dfCols := df.ColumnNames()
-	for _, c := range cols {
-		if !u.Has(c, "", dfCols...) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
@@ -396,59 +350,11 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 		col any
 		e   error
 	)
-
 	if col, e = df.runFn(fn, df.Context(), vals); e != nil {
 		return nil, e
 	}
 
 	return col, nil
-}
-
-func (df *DFcore) ValidName(columnName string) bool {
-	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
-	if _, e := df.Column(columnName); e == nil {
-		return false
-	}
-
-	if strings.ContainsAny(columnName, illegal) {
-		return false
-	}
-
-	return true
-}
-
-func (df *DFcore) AppendColumn(col Column, replace bool) error {
-	if replace {
-		_ = df.DropColumns(col.Name(""))
-	}
-
-	if !df.ValidName(col.Name("")) {
-		return fmt.Errorf("invalid column name: %s", col.Name(""))
-	}
-
-	var tail *columnList
-	for tail = df.head; tail.next != nil; tail = tail.next {
-	}
-
-	dfl := &columnList{
-		col:   col,
-		prior: tail,
-		next:  nil,
-	}
-
-	tail.next = dfl
-
-	return nil
-}
-
-func (df *DFcore) node(colName string) (node *columnList, err error) {
-	for h := df.head; h != nil; h = h.next {
-		if h.col.Name("") == colName {
-			return h, nil
-		}
-	}
-
-	return nil, fmt.Errorf("column %s not found", colName)
 }
 
 func (df *DFcore) DropColumns(colNames ...string) error {
@@ -479,6 +385,25 @@ func (df *DFcore) DropColumns(colNames ...string) error {
 	}
 
 	return nil
+}
+
+func (df *DFcore) Fn(fn Ereturn) error {
+	return fn()
+}
+
+func (df *DFcore) Fns() Fns {
+	return df.rowFuncs
+}
+
+func (df *DFcore) HasColumns(cols ...string) bool {
+	dfCols := df.ColumnNames()
+	for _, c := range cols {
+		if !u.Has(c, "", dfCols...) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
@@ -519,7 +444,75 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	return subsetDF, nil
 }
 
-/////////// DataTypes
+func (df *DFcore) Next(reset bool) Column {
+	if reset || df.current == nil {
+		df.current = df.head
+		return df.current.col
+	}
+
+	if df.current.next == nil {
+		df.current = nil
+		return nil
+	}
+
+	df.current = df.current.next
+	return df.current.col
+}
+
+func (df *DFcore) Parse(expr string) (*Parsed, error) {
+	var (
+		ot *OpTree
+		e  error
+	)
+	if ot, e = NewOpTree(expr, df.Fns()); e != nil {
+		return nil, e
+	}
+
+	if ex := ot.Build(); ex != nil {
+		return nil, ex
+	}
+
+	if ex := ot.Eval(df); ex != nil {
+		return nil, ex
+	}
+
+	p := ot.Value()
+
+	return p, nil
+}
+
+func (df *DFcore) Runner() RunFn {
+	return df.runFn
+}
+
+func (df *DFcore) SetContext(c *Context) {
+	df.ctx = c
+}
+
+func (df *DFcore) ValidName(columnName string) bool {
+	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
+	if _, e := df.Column(columnName); e == nil {
+		return false
+	}
+
+	if strings.ContainsAny(columnName, illegal) {
+		return false
+	}
+
+	return true
+}
+
+func (df *DFcore) node(colName string) (node *columnList, err error) {
+	for h := df.head; h != nil; h = h.next {
+		if h.col.Name("") == colName {
+			return h, nil
+		}
+	}
+
+	return nil, fmt.Errorf("column %s not found", colName)
+}
+
+//  *********** DataTypes functions ***********
 
 func DTFromString(nm string) DataTypes {
 	const skeleton = "%v"
@@ -537,7 +530,7 @@ func DTFromString(nm string) DataTypes {
 	return DataTypes(uint8(pos))
 }
 
-func Compatible(x, y DataTypes, strict bool) bool {
+func CompatibleXX(x, y DataTypes, strict bool) bool {
 	if x == DTany || y == DTany {
 		return true
 	}
@@ -561,7 +554,7 @@ func (d DataTypes) IsNumeric() bool {
 	return d == DTfloat || d == DTint || d == DTcategorical
 }
 
-//////// Fns Methods
+// *********** Fns Methods ***********
 
 func (fs Fns) Get(fnName string) Fn {
 	for _, f := range fs {
@@ -573,7 +566,7 @@ func (fs Fns) Get(fnName string) Fn {
 	return nil
 }
 
-////////////////
+// *********** Category Map methods ***********
 
 type CategoryMap map[any]int
 

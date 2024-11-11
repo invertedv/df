@@ -63,7 +63,7 @@ type Files struct {
 }
 
 // TODO: need to add check for len(fieldWidths)
-
+// params DON'T make sense if doing a save...
 func NewFiles(fieldNames []string, fieldTypes []DataTypes, fieldWidths []int) *Files {
 	f := &Files{
 		EOL:           byte(EOL),

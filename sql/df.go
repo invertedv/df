@@ -201,6 +201,7 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 // ***************** SQLdf - Methods *****************
 
 func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
+	panicer(col)
 	var (
 		c  *SQLcol
 		ok bool
@@ -265,10 +266,10 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 	}
 
 	var (
-		sql string
-		e   error
+		sqlx string
+		e    error
 	)
-	if sql, e = s.Context().Dialect().Union(s.MakeQuery(), dfNew.(*SQLdf).MakeQuery(), n1...); e != nil {
+	if sqlx, e = s.Context().Dialect().Union(s.MakeQuery(), dfNew.(*SQLdf).MakeQuery(), n1...); e != nil {
 		return nil, e
 	}
 
@@ -277,7 +278,7 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 		eOut  error
 	)
 	ctx := d.NewContext(s.Context().Dialect(), nil, nil)
-	if dfOut, eOut = DBload(sql, ctx); eOut != nil {
+	if dfOut, eOut = DBload(sqlx, ctx); eOut != nil {
 		return nil, eOut
 	}
 
@@ -599,6 +600,7 @@ func (s *SQLdf) Version() int {
 }
 
 func (s *SQLdf) Where(col d.Column) (d.DF, error) {
+	panicer(col)
 	if col == nil {
 		return nil, fmt.Errorf("where column is nil")
 	}
@@ -663,8 +665,8 @@ func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
 
 // ***************** SQLCol - Methods *****************
 
-// TODO:
 func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
+	panicer(col)
 	if s.DataType() != col.DataType() {
 		return nil, fmt.Errorf("incompatible columns in AppendRows")
 	}
@@ -747,6 +749,39 @@ func (s *SQLcol) RawType() d.DataTypes {
 	return s.rawType
 }
 
+func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
+	if s.Signature() != indicator.(*SQLcol).Signature() {
+		return nil, fmt.Errorf("not the same signature in Replace")
+	}
+
+	if s.DataType() != replacement.DataType() {
+		return nil, fmt.Errorf("incompatible columns in Replace")
+	}
+
+	if s.Len() != indicator.Len() || s.Len() != replacement.Len() {
+		return nil, fmt.Errorf("columns must be same length in Replace")
+	}
+
+	if indicator.DataType() != d.DTint {
+		return nil, fmt.Errorf("indicator not type DTint in Replace")
+	}
+
+	whens := []string{fmt.Sprintf("%s > 0", indicator.Name("")),
+		fmt.Sprintf("%s <= 0", indicator.Name(""))}
+	equalTo := []string{replacement.Name(""), s.Name("")}
+	var (
+		sql string
+		e   error
+	)
+	if sql, e = s.dlct.Case(whens, equalTo); e != nil {
+		return nil, e
+	}
+
+	outCol := NewColSQL("", s.Signature(), s.SourceSQL(), s.Version(), s.DataType(), sql)
+
+	return outCol, nil
+}
+
 func (s *SQLcol) Signature() string {
 	return s.signature
 }
@@ -764,4 +799,12 @@ func (s *SQLcol) Version() int {
 func newSignature() string {
 	const sigLen = 4
 	return u.RandomLetters(sigLen)
+}
+
+func panicer(cols ...d.Column) {
+	for _, c := range cols {
+		if _, ok := c.(*SQLcol); !ok {
+			panic("non-*MemCol argument")
+		}
+	}
 }

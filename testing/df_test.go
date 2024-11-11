@@ -311,6 +311,49 @@ func TestParse_Sort(t *testing.T) {
 		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", which, nil, -1))
 	}
 }
+func TestWhere(t *testing.T) {
+	for _, which := range pkgs() {
+		// via methods
+		dfx := loadData(which)
+		indCol, e0 := dfx.Parse("y==-5 || yy == 16")
+		assert.Nil(t, e0)
+		indCol.AsColumn().Name("ind")
+		e3 := dfx.AppendColumn(indCol.AsColumn(), false)
+		assert.Nil(t, e3)
+		dfOut, e4 := dfx.Where(indCol.AsColumn())
+		assert.Nil(t, e4)
+		assert.Equal(t, []int{-5, 6}, checker(dfOut, "y", which, nil, -1))
+		assert.Equal(t, []int{-15, 16}, checker(dfOut, "yy", which, nil, -1))
+
+		// via Parse
+		out, e5 := dfx.Parse("where(y == -5 || yy == 16)")
+		assert.Nil(t, e5)
+		assert.Equal(t, []int{-5, 6}, checker(out.AsDF(), "y", which, nil, -1))
+	}
+}
+
+func TestReplace(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		indCol, e0 := dfx.Parse("y==-5")
+		assert.Nil(t, e0)
+		indCol.AsColumn().Name("ind")
+		e3 := dfx.AppendColumn(indCol.AsColumn(), false)
+		assert.Nil(t, e3)
+		coly, e := dfx.Column("y")
+		assert.Nil(t, e)
+		colyy, e1 := dfx.Column("yy")
+		assert.Nil(t, e1)
+		colR, e2 := coly.Replace(indCol.AsColumn(), colyy)
+		assert.Nil(t, e2)
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", which, colR, -1))
+
+		// via Parse
+		out, e4 := dfx.Parse("if(y==-5,yy,y)")
+		assert.Nil(t, e4)
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", which, out.AsColumn(), -1))
+	}
+}
 
 func TestParser(t *testing.T) {
 	for _, which := range pkgs() {

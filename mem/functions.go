@@ -472,20 +472,17 @@ func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTdate, d.DTstring}}
 	}
 
-	cols, n := parameters(inputs...)
-	dt := cols[1].DataType()
-	data := d.MakeSlice(dt, 0, nil)
+	cols, _ := parameters(inputs...)
 
-	for ind := 0; ind < n; ind++ {
-		val := cols[2].Element(ind)
-		if cols[0].Element(ind).(int) > 0 {
-			val = cols[1].Element(ind)
-		}
-
-		data = d.AppendSlice(data, val, dt)
+	var (
+		outCol d.Column
+		e      error
+	)
+	if outCol, e = cols[2].Replace(cols[0], cols[1]); e != nil {
+		return &d.FnReturn{Err: e}
 	}
 
-	return returnCol(data)
+	return &d.FnReturn{Value: outCol}
 }
 
 // ***************** Functions that compare two columns element-wise *****************

@@ -110,20 +110,19 @@ func (p *Parsed) Which() string {
 
 func ParseExpr(expr string, df *DFcore) (*Parsed, error) {
 	var (
-		ot  *OpTree
-		err error
+		ot *OpTree
+		e  error
 	)
-
-	if ot, err = NewOpTree(expr, df.Fns()); err != nil {
-		return nil, err
-	}
-
-	if e := ot.Build(); e != nil {
+	if ot, e = NewOpTree(expr, df.Fns()); e != nil {
 		return nil, e
 	}
 
-	if e := ot.Eval(df); e != nil {
-		return nil, e
+	if ex := ot.Build(); ex != nil {
+		return nil, ex
+	}
+
+	if ex := ot.Eval(df); ex != nil {
+		return nil, ex
 	}
 
 	return ot.Value(), nil
