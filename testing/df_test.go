@@ -31,96 +31,6 @@ const (
 	ch = "clickhouse"
 )
 
-func TestFiles1(t *testing.T) {
-	dfx := loadData("mem")
-
-	// specify both fieldNames and fieldTypes
-	// file has no EOL characters
-	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
-	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
-	fieldWidths := []int{1, 5, 2, 3, 10, 8}
-	f := d.NewFiles(fieldNames, fieldTypes, fieldWidths)
-	f.Strict, f.Header = false, false
-	f.EOL = 0
-	e := f.Open(fileNameW1)
-	assert.Nil(t, e)
-	dfy, e1 := m.FileLoad(f)
-	assert.Nil(t, e1)
-	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
-		assert.Equal(t, cx.Data(), cy.Data())
-	}
-
-	// file has EOL characters
-	f = d.NewFiles(fieldNames, fieldTypes, fieldWidths)
-	f.Strict, f.Header = false, false
-	e = f.Open(fileNameW2)
-	assert.Nil(t, e)
-	dfy, e1 = m.FileLoad(f)
-	assert.Nil(t, e1)
-	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
-		assert.Equal(t, cx.Data(), cy.Data())
-	}
-
-	// file has EOL characters and a header, but still specify these
-	f = d.NewFiles(fieldNames, fieldTypes, fieldWidths)
-	f.Strict, f.Header = false, true
-	e = f.Open(fileNameW3)
-	assert.Nil(t, e)
-	dfy, e1 = m.FileLoad(f)
-	assert.Nil(t, e1)
-	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
-		assert.Equal(t, cx.Data(), cy.Data())
-	}
-
-	// file has EOL characters and a header, have it read fieldNames and infer types
-	f = d.NewFiles(nil, nil, fieldWidths)
-	f.Strict, f.Header = false, true
-	e = f.Open(fileNameW3)
-	assert.Nil(t, e)
-	dfy, e1 = m.FileLoad(f)
-	assert.Nil(t, e1)
-	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
-		assert.Equal(t, cx.Data(), cy.Data())
-	}
-}
-
-func TestFiles(t *testing.T) {
-	dfx := loadData("mem")
-	fs := d.NewFiles(nil, nil, nil)
-	e0 := fs.Save(fileName, dfx)
-	assert.Nil(t, e0)
-
-	f := d.NewFiles(nil, nil, nil)
-	f.Strict = false
-	e := f.Open(fileName)
-	assert.Nil(t, e)
-	dfy, e1 := m.FileLoad(f)
-	assert.Nil(t, e1)
-	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
-		assert.Equal(t, cx.Data(), cy.Data())
-	}
-}
-
 // list of packages to test
 func pkgs() []string {
 	return []string{"mem", "sql"}
@@ -280,7 +190,7 @@ func TestSQLsave(t *testing.T) {
 func TestFileSave(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		f := d.NewFiles(nil, nil, nil)
+		f := d.NewFiles()
 		e := f.Save(fileName, dfx)
 		assert.Nil(t, e)
 		// TODO: load file and check
@@ -566,5 +476,95 @@ func TestAppendDF(t *testing.T) {
 		assert.Nil(t, e)
 		exp := dfx.RowCount() + dfy.RowCount()
 		assert.Equal(t, exp, dfOut.RowCount())
+	}
+}
+
+func TestFiles1(t *testing.T) {
+	dfx := loadData("mem")
+
+	// specify both fieldNames and fieldTypes
+	// file has no EOL characters
+	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
+	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
+	fieldWidths := []int{1, 5, 2, 3, 10, 8}
+	f := d.NewFiles()
+	f.Strict, f.Header = false, false
+	f.EOL = 0
+	e := f.Open(fileNameW1, fieldNames, fieldTypes, fieldWidths)
+	assert.Nil(t, e)
+	dfy, e1 := m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
+
+	// file has EOL characters
+	f = d.NewFiles()
+	f.Strict, f.Header = false, false
+	e = f.Open(fileNameW2, fieldNames, fieldTypes, fieldWidths)
+	assert.Nil(t, e)
+	dfy, e1 = m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
+
+	// file has EOL characters and a header, but still specify these
+	f = d.NewFiles()
+	f.Strict, f.Header = false, true
+	e = f.Open(fileNameW3, fieldNames, fieldTypes, fieldWidths)
+	assert.Nil(t, e)
+	dfy, e1 = m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
+
+	// file has EOL characters and a header, have it read fieldNames and infer types
+	f = d.NewFiles()
+	f.Strict, f.Header = false, true
+	e = f.Open(fileNameW3, nil, nil, fieldWidths)
+	assert.Nil(t, e)
+	dfy, e1 = m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
+	}
+}
+
+func TestFiles(t *testing.T) {
+	dfx := loadData("mem")
+	fs := d.NewFiles()
+	e0 := fs.Save(fileName, dfx)
+	assert.Nil(t, e0)
+
+	f := d.NewFiles()
+	f.Strict = false
+	e := f.Open(fileName, nil, nil, nil)
+	assert.Nil(t, e)
+	dfy, e1 := m.FileLoad(f)
+	assert.Nil(t, e1)
+	for _, cn := range dfx.ColumnNames() {
+		cx, ex := dfx.Column(cn)
+		assert.Nil(t, ex)
+		cy, ey := dfy.Column(cn)
+		assert.Nil(t, ey)
+		assert.Equal(t, cx.Data(), cy.Data())
 	}
 }

@@ -155,6 +155,11 @@ func (d *Dialect) Close() error {
 	return d.db.Close()
 }
 
+func (d *Dialect) Count() string {
+	sqlx, _ := d.CastField("count(*)", DTint, DTint)
+	return sqlx
+}
+
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {
 	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
@@ -211,6 +216,10 @@ func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF) 
 
 func (d *Dialect) DB() *sql.DB {
 	return d.db
+}
+
+func (d *Dialect) BufSize() int {
+	return d.bufSize
 }
 
 func (d *Dialect) DialectName() string {
@@ -406,8 +415,32 @@ func (d *Dialect) Load(qry string) ([]any, error) {
 	return memData, nil
 }
 
-func (d *Dialect) BufSize() int {
-	return d.bufSize
+func (d *Dialect) Max(col string) string {
+	sqlx, _ := d.CastField(fmt.Sprintf("max(%s)", col), DTfloat, DTfloat)
+
+	return sqlx
+}
+
+func (d *Dialect) Mean(col string) string {
+	sqlx, _ := d.CastField(fmt.Sprintf("avg(%s)", col), DTfloat, DTfloat)
+	return sqlx
+}
+
+func (d *Dialect) Min(col string) string {
+	sqlx, _ := d.CastField(fmt.Sprintf("min(%s)", col), DTfloat, DTfloat)
+
+	return sqlx
+}
+
+func (d *Dialect) Quantile(col string, q float64) string {
+	var sqlx string
+	if d.DialectName() == ch {
+		sqlx = fmt.Sprintf("quantile(%v)(%s)", q, col)
+	}
+
+	sqlx, _ = d.CastField(sqlx, DTfloat, DTfloat)
+
+	return sqlx
 }
 
 func (d *Dialect) Quote() string {
@@ -469,6 +502,29 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	}
 
 	return rows, addr, fieldNames, nil
+}
+
+func (d *Dialect) Summary(qry, col string) ([]float64, error) {
+	const skeleton = "WITH d AS (%s) SELECT %s FROM d"
+
+	minX := fmt.Sprintf("min(%s) AS min", col)
+	q25 := d.Quantile(col, 0.25) + "AS q25"
+	q50 := d.Quantile(col, 0.5) + "AS q50"
+	q75 := d.Quantile(col, 0.75) + "AS q75"
+	maxX := fmt.Sprintf("max(%s) AS max", col)
+	mn := fmt.Sprintf("avg(%s) AS mean", col)
+	n, _ := d.CastField("count(*)", DTint, DTfloat)
+	n += " AS n"
+	flds := strings.Join([]string{minX, q25, q50, mn, q75, maxX, n}, ",")
+
+	q := fmt.Sprintf(skeleton, qry, flds)
+	row := d.db.QueryRow(q)
+	var vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN float64
+	if e := row.Scan(&vMinX, &vQ25, &vQ50, &vMn, &vQ75, &vMaxX, &vN); e != nil {
+		return nil, e
+	}
+
+	return []float64{vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN}, nil
 }
 
 func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {

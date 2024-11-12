@@ -386,9 +386,17 @@ func TestLoadSQL(t *testing.T) {
 	//	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
 	//	assert.Nil(t, ed)
 	fmt.Println("len", memDF.Len())
-	f := d.NewFiles(nil, nil, nil)
+	f := d.NewFiles()
 	ed := f.Save("/home/will/tmp/test.csv", memDF)
 	assert.Nil(t, ed)
+}
+
+func TestMemCol_String(t *testing.T) {
+	dfx := testDF()
+	cx, _ := dfx.Column("x")
+	fmt.Println(cx)
+	cx, _ = dfx.Column("y")
+	fmt.Println(cx)
 }
 
 func TestMemCol_Replace(t *testing.T) {

@@ -679,7 +679,7 @@ func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
 		source string
 		e      error
 	)
-	if source, e = s.dlct.Union(q1, q2, s.Name("")); e != nil {
+	if source, e = s.Dialect().Union(q1, q2, s.Name("")); e != nil {
 		return nil, e
 	}
 
@@ -688,7 +688,7 @@ func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
 		dType:     s.DataType(),
 		sql:       "",
 		sourceSQL: source,
-		dlct:      s.dlct,
+		dlct:      s.Dialect(),
 		signature: newSignature(),
 		version:   0,
 	}
@@ -726,8 +726,20 @@ func (s *SQLcol) DataType() d.DataTypes {
 	return s.dType
 }
 
+func (s *SQLcol) Dialect() *d.Dialect {
+	return s.dlct
+}
+
 func (s *SQLcol) Len() int {
-	return -1
+	var (
+		n  int
+		ex error
+	)
+	if n, ex = s.Dialect().RowCount(s.MakeQuery()); ex != nil {
+		panic(ex)
+	}
+
+	return n
 }
 
 func (s *SQLcol) MakeQuery() string {
@@ -773,7 +785,7 @@ func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
 		sql string
 		e   error
 	)
-	if sql, e = s.dlct.Case(whens, equalTo); e != nil {
+	if sql, e = s.Dialect().Case(whens, equalTo); e != nil {
 		return nil, e
 	}
 
@@ -788,6 +800,34 @@ func (s *SQLcol) Signature() string {
 
 func (s *SQLcol) SourceSQL() string {
 	return s.sourceSQL
+}
+
+func (s *SQLcol) String() string {
+	if s.DataType() != d.DTfloat {
+		ctx := d.NewContext(s.Dialect(), nil, nil)
+		df, _ := NewDFcol(nil, nil, ctx, s)
+		tab, _ := df.Table(false, s.Name(""))
+
+		var (
+			vals *m.MemDF
+			e    error
+		)
+		if vals, e = m.DBLoad(tab.MakeQuery(), tab.Context().Dialect()); e != nil {
+			panic(e)
+		}
+
+		l, _ := vals.Column(s.Name(""))
+		c, _ := vals.Column("count")
+
+		header := []string{l.Name(""), c.Name("")}
+		return d.PrettyPrint(header, l.Data(), c.Data())
+	}
+
+	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
+
+	header := []string{"metric", "value"}
+	vals, _ := s.Dialect().Summary(s.MakeQuery(), s.Name(""))
+	return s.Name("") + "\n" + d.PrettyPrint(header, cols, vals)
 }
 
 func (s *SQLcol) Version() int {

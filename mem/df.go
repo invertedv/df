@@ -14,6 +14,8 @@ import (
 	u "github.com/invertedv/utilities"
 
 	d "github.com/invertedv/df"
+
+	"gonum.org/v1/gonum/stat"
 )
 
 type MemDF struct {
@@ -751,6 +753,34 @@ func (m *MemCol) Replace(indicator, replacement d.Column) (d.Column, error) {
 	}
 
 	return outCol, nil
+}
+
+// TODO: add header & column name
+func (m *MemCol) String() string {
+	if m.DataType() != d.DTfloat {
+		tab, _ := NewDFcol(nil, nil, nil, makeTable(m)...)
+		_ = tab.Sort(false, "count")
+		l, _ := tab.Column(m.Name(""))
+		c, _ := tab.Column("count")
+
+		header := []string{l.Name(""), c.Name("")}
+		return d.PrettyPrint(header, l.Data(), c.Data())
+	}
+
+	x := make([]float64, m.Len())
+	copy(x, m.Data().([]float64))
+	sort.Float64s(x)
+	minx := x[0]
+	maxx := x[len(x)-1]
+	q25 := stat.Quantile(0.25, 4, x, nil)
+	q50 := stat.Quantile(0.5, 4, x, nil)
+	q75 := stat.Quantile(0.75, 4, x, nil)
+	xbar := stat.Mean(x, nil)
+	n := float64(m.Len())
+	cats := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
+	vals := []float64{minx, q25, q50, xbar, q75, maxx, n}
+	header := []string{"metric", "value"}
+	return m.Name("") + "\n" + d.PrettyPrint(header, cats, vals)
 }
 
 // ***************** Helpers *****************

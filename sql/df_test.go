@@ -317,6 +317,15 @@ func TestSQLdf_Table(t *testing.T) {
 	assert.Equal(t, []int{1, 1, 1, 1, 2}, outCol)
 }
 
+func TestSQLcol_String(t *testing.T) {
+	dfx := testDF()
+	cx, _ := dfx.Column("x")
+	fmt.Println(cx)
+
+	cx, _ = dfx.Column("y")
+	fmt.Println(cx)
+}
+
 func TestSQLdf_AppendDF(t *testing.T) {
 	dfx := testDF()
 	dfy := testDF()
