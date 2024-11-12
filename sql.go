@@ -452,10 +452,11 @@ func (d *Dialect) Quote() string {
 }
 
 func (d *Dialect) RowCount(qry string) (int, error) {
-	const skeleton = "WITH d AS (%s) SELECT count(*) AS n FROM d"
+	const skeleton = "WITH %s AS (%s) SELECT count(*) AS n FROM %s"
 	var n int
 
-	q := fmt.Sprintf(skeleton, qry)
+	sig := d.NewSignature()
+	q := fmt.Sprintf(skeleton, sig, qry, sig)
 	row := d.db.QueryRow(q)
 	if e := row.Scan(&n); e != nil {
 		return 0, e
@@ -504,8 +505,13 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	return rows, addr, fieldNames, nil
 }
 
+func (d *Dialect) NewSignature() string {
+	const sigLen = 4
+	return u.RandomLetters(sigLen)
+}
+
 func (d *Dialect) Summary(qry, col string) ([]float64, error) {
-	const skeleton = "WITH d AS (%s) SELECT %s FROM d"
+	const skeleton = "WITH %s AS (%s) SELECT %s FROM %s"
 
 	minX := fmt.Sprintf("min(%s) AS min", col)
 	q25 := d.Quantile(col, 0.25) + "AS q25"
@@ -517,7 +523,8 @@ func (d *Dialect) Summary(qry, col string) ([]float64, error) {
 	n += " AS n"
 	flds := strings.Join([]string{minX, q25, q50, mn, q75, maxX, n}, ",")
 
-	q := fmt.Sprintf(skeleton, qry, flds)
+	sig := d.NewSignature()
+	q := fmt.Sprintf(skeleton, sig, qry, flds, sig)
 	row := d.db.QueryRow(q)
 	var vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN float64
 	if e := row.Scan(&vMinX, &vQ25, &vQ50, &vMn, &vQ75, &vMaxX, &vN); e != nil {
@@ -567,12 +574,10 @@ func (d *Dialect) ToString(val any) string {
 }
 
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
-	const withLen = 4
+	const skeleton = "WITH %s AS (%s) SELECT * FROM %s LIMIT 1"
 
-	wn := u.RandomLetters(withLen)
-	const skeleton = "WITH d3212 AS (%s) SELECT * FROM d3212 LIMIT 1"
-
-	q := strings.ReplaceAll(fmt.Sprintf(skeleton, qry), "d3212", wn)
+	sig := d.NewSignature()
+	q := fmt.Sprintf(skeleton, sig, qry, sig)
 
 	var rows *sql.Rows
 	rows, err = d.db.Query(q)

@@ -251,6 +251,7 @@ func TestWhere(t *testing.T) {
 
 func TestReplace(t *testing.T) {
 	for _, which := range pkgs() {
+		fmt.Println(which)
 		dfx := loadData(which)
 		indCol, e0 := dfx.Parse("y==-5")
 		assert.Nil(t, e0)
@@ -383,6 +384,7 @@ func TestParser(t *testing.T) {
 	}
 }
 
+// TODO: consider dropping cat counts
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)

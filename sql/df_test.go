@@ -375,6 +375,7 @@ func TestCat(t *testing.T) {
 	assert.Nil(t, e)
 	s := r.AsColumn()
 	s.Name("caty")
+	fmt.Println(s)
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 	//	fmt.Println(s)

@@ -736,13 +736,30 @@ func (m *MemCol) Replace(indicator, replacement d.Column) (d.Column, error) {
 	return outCol, nil
 }
 
-// TODO: add header & column name
 func (m *MemCol) String() string {
 	if m.Name("") == "" {
 		panic("column has no name")
 	}
 
 	t := fmt.Sprintf("column: %s\ntype: %s\n", m.Name(""), m.DataType())
+
+	if m.CategoryMap() != nil {
+		var keys []string
+		var vals []int
+		for k, v := range m.CategoryMap() {
+			if k == nil {
+				k = "Other"
+			}
+			x, _ := d.ToString(k, true)
+
+			keys = append(keys, x.(string))
+			vals = append(vals, v)
+		}
+
+		header := []string{"source", "mapped to"}
+		t = t + d.PrettyPrint(header, keys, vals) + "\n"
+	}
+
 	if m.DataType() != d.DTfloat {
 		tab, _ := NewDFcol(nil, nil, nil, makeTable(m)...)
 		_ = tab.Sort(false, "count")
@@ -750,6 +767,7 @@ func (m *MemCol) String() string {
 		c, _ := tab.Column("count")
 
 		header := []string{l.Name(""), c.Name("")}
+
 		return t + d.PrettyPrint(header, l.Data(), c.Data())
 	}
 
@@ -766,6 +784,7 @@ func (m *MemCol) String() string {
 	cats := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 	vals := []float64{minx, q25, q50, xbar, q75, maxx, n}
 	header := []string{"metric", "value"}
+
 	return t + d.PrettyPrint(header, cats, vals)
 }
 

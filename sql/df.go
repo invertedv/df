@@ -58,8 +58,7 @@ type SQLdf struct {
 }
 
 type SQLcol struct {
-	name string
-	//	rowCountX int
+	name  string
 	dType d.DataTypes
 	sql   string // SQL to generate this column
 
@@ -87,10 +86,6 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 		funcs = StandardFunctions()
 	}
 
-	var (
-		tmp *d.DFcore
-		e   error
-	)
 	mk := cols[0].SourceSQL()
 	sig := cols[0].Signature()
 	version := cols[0].Version()
@@ -121,6 +116,10 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 		cstd = append(cstd, cols[ind])
 	}
 
+	var (
+		tmp *d.DFcore
+		e   error
+	)
 	if tmp, e = d.NewDF(runDF, funcs, cstd...); e != nil {
 		return nil, e
 	}
@@ -202,11 +201,11 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 
 func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 	panicer(col)
+
 	var (
 		c  *SQLcol
 		ok bool
 	)
-
 	if c, ok = col.(*SQLcol); !ok {
 		return fmt.Errorf("AppendColumn requires *SQLcol")
 	}
@@ -278,6 +277,7 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 		eOut  error
 	)
 	ctx := d.NewContext(s.Context().Dialect(), nil, nil)
+
 	if dfOut, eOut = DBload(sqlx, ctx); eOut != nil {
 		return nil, eOut
 	}
@@ -633,11 +633,11 @@ func (s *SQLdf) Where(col d.Column) (d.DF, error) {
 
 // ***************** SQLcol - Create *****************
 
-func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, dt d.DataTypes, sql string) *SQLcol {
+func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, dt d.DataTypes, sqlx string) *SQLcol {
 	col := &SQLcol{
 		name:      name,
 		dType:     dt,
-		sql:       sql,
+		sql:       sqlx,
 		sourceSQL: sourceSQL,
 		signature: signature,
 		version:   version,
@@ -655,18 +655,18 @@ func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
 		return nil, fmt.Errorf("illegal input: %s", dt)
 	}
 
-	var sql string
+	var sqlx string
 	switch dt {
 	case d.DTstring:
-		sql = "'" + val.(string) + "'"
+		sqlx = "'" + val.(string) + "'"
 	default:
-		sql = fmt.Sprintf("%v", val)
+		sqlx = fmt.Sprintf("%v", val)
 	}
 
 	col := &SQLcol{
 		name:      name,
 		dType:     dt,
-		sql:       sql,
+		sql:       sqlx,
 		signature: sig,
 		version:   version,
 	}
@@ -704,6 +704,10 @@ func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
 		version:   0,
 	}
 	return outCol, nil
+}
+
+func (s *SQLcol) CategoryMap() d.CategoryMap {
+	return s.catMap
 }
 
 func (s *SQLcol) Copy() d.Column {
@@ -755,7 +759,7 @@ func (s *SQLcol) Len() int {
 
 func (s *SQLcol) MakeQuery() string {
 	sig := newSignature()
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", sig, s.sourceSQL, s.Name(""), sig)
+	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s AS %s FROM %s", sig, s.sourceSQL, s.Data(), s.Name(""), sig)
 
 	return qry
 }
@@ -773,6 +777,8 @@ func (s *SQLcol) RawType() d.DataTypes {
 }
 
 func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
+	panicer(indicator, replacement)
+
 	if s.Signature() != indicator.(*SQLcol).Signature() {
 		return nil, fmt.Errorf("not the same signature in Replace")
 	}
@@ -781,8 +787,8 @@ func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
 		return nil, fmt.Errorf("incompatible columns in Replace")
 	}
 
-	if s.Len() != indicator.Len() || s.Len() != replacement.Len() {
-		return nil, fmt.Errorf("columns must be same length in Replace")
+	if s.Signature() != indicator.(*SQLcol).Signature() || s.Signature() != replacement.(*SQLcol).Signature() {
+		return nil, fmt.Errorf("columns not from same signature")
 	}
 
 	if indicator.DataType() != d.DTint {
@@ -793,14 +799,14 @@ func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
 		fmt.Sprintf("%s <= 0", indicator.Name(""))}
 	equalTo := []string{replacement.Name(""), s.Name("")}
 	var (
-		sql string
-		e   error
+		sqlx string
+		e    error
 	)
-	if sql, e = s.Dialect().Case(whens, equalTo); e != nil {
+	if sqlx, e = s.Dialect().Case(whens, equalTo); e != nil {
 		return nil, e
 	}
 
-	outCol := NewColSQL("", s.Signature(), s.SourceSQL(), s.Version(), s.Dialect(), s.DataType(), sql)
+	outCol := NewColSQL("", s.Signature(), s.SourceSQL(), s.Version(), s.Dialect(), s.DataType(), sqlx)
 
 	return outCol, nil
 }
@@ -819,6 +825,24 @@ func (s *SQLcol) String() string {
 	}
 
 	t := fmt.Sprintf("column: %s\ntype: %s\n", s.Name(""), s.DataType())
+
+	if s.CategoryMap() != nil {
+		var keys []string
+		var vals []int
+		for k, v := range s.CategoryMap() {
+			if k == nil {
+				k = "Other"
+			}
+			x, _ := d.ToString(k, true)
+
+			keys = append(keys, x.(string))
+			vals = append(vals, v)
+		}
+
+		header := []string{"source", "mapped to"}
+		t = t + d.PrettyPrint(header, keys, vals) + "\n"
+	}
+
 	if s.DataType() != d.DTfloat {
 		ctx := d.NewContext(s.Dialect(), nil, nil)
 		df, ex := NewDFcol(nil, nil, ctx, s)
@@ -861,7 +885,7 @@ func newSignature() string {
 func panicer(cols ...d.Column) {
 	for _, c := range cols {
 		if _, ok := c.(*SQLcol); !ok {
-			panic("non-*MemCol argument")
+			panic("non-*SQLcol argument")
 		}
 	}
 }
