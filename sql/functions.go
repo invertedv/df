@@ -82,7 +82,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 				sig := context.Self().(*SQLdf).Signature()
 				ver := context.Self().(*SQLdf).Version()
 				src := context.Self().(*SQLdf).MakeQuery()
-				retCol := NewColSQL("", sig, src, ver, mCol.DataType(), sql)
+				retCol := NewColSQL("", sig, src, ver, context.Dialect(), mCol.DataType(), sql)
 				// Place the value of the output in .scalarValue in case that's needed later
 				retCol.scalarValue = mCol.Element(0)
 				return retCol, nil
@@ -306,7 +306,7 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 	version := context.Self().(*SQLdf).Version()
 
 	//sql, _ = context.Dialect().CastField(sql, dtOut, dtOut)
-	outCol := NewColSQL("", tabl, source, version, dtOut, sql)
+	outCol := NewColSQL("", tabl, source, version, context.Dialect(), dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -408,8 +408,8 @@ func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 // ***************** type conversions *****************
 func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTdate}, {d.DTstring}},
-			Output: []d.DataTypes{out, out, out, out}}
+		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTdate}, {d.DTstring}, {d.DTcategorical}},
+			Output: []d.DataTypes{out, out, out, out, out}}
 	}
 
 	inp := inputs[0].(*SQLcol).Data().(string)
@@ -427,7 +427,8 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 	sig := context.Self().(*SQLdf).Signature()
 	ver := context.Self().(*SQLdf).Version()
 	source := context.Self().(*SQLdf).MakeQuery()
-	outCol := NewColSQL("", sig, source, ver, out, sql)
+	dlct := context.Dialect()
+	outCol := NewColSQL("", sig, source, ver, dlct, out, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -537,7 +538,7 @@ func fnGen(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes, in
 	source := context.Self().(*SQLdf).MakeQuery()
 	//	sqlOut, _ = context.Dialect().CastField(sqlOut, outType, outType)
 
-	outCol := NewColSQL("", sig, source, ver, outType, sqlOut)
+	outCol := NewColSQL("", sig, source, ver, context.Dialect(), outType, sqlOut)
 
 	return &d.FnReturn{Value: outCol}
 }

@@ -397,7 +397,7 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		return nil, ex
 	}
 
-	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), d.DTcategorical, sql1)
+	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), s.Context().Dialect(), d.DTcategorical, sql1)
 	outCol.rawType = col.DataType()
 	outCol.catMap, outCol.catCounts = toMap, cnts
 
@@ -537,6 +537,15 @@ func (s *SQLdf) SourceSQL() string {
 	return s.sourceSQL
 }
 
+func (s *SQLdf) String() string {
+	var sx string
+	for c := s.Next(true); c != nil; c = s.Next(false) {
+		sx += c.String() + "\n"
+	}
+
+	return sx
+}
+
 func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	var (
 		names []string
@@ -569,14 +578,15 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	if cc, ex = s.Context().Dialect().CastField("count(*)", d.DTint, d.DTint); ex != nil {
 		return nil, ex
 	}
+
 	if cf, ex = s.Context().Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
 		return nil, ex
 	}
 
-	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), d.DTint, cc)
+	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), s.Context().Dialect(), d.DTint, cc)
 	cs = append(cs, count)
 	rateSQL := fmt.Sprintf(cf, s.MakeQuery())
-	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), d.DTfloat, rateSQL)
+	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), s.Context().Dialect(), d.DTfloat, rateSQL)
 	cs = append(cs, rate)
 
 	ctx := d.NewContext(s.Context().Dialect(), nil)
@@ -623,7 +633,7 @@ func (s *SQLdf) Where(col d.Column) (d.DF, error) {
 
 // ***************** SQLcol - Create *****************
 
-func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, sql string) *SQLcol {
+func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, dt d.DataTypes, sql string) *SQLcol {
 	col := &SQLcol{
 		name:      name,
 		dType:     dt,
@@ -631,6 +641,7 @@ func NewColSQL(name, signature, sourceSQL string, version int, dt d.DataTypes, s
 		sourceSQL: sourceSQL,
 		signature: signature,
 		version:   version,
+		dlct:      dlct,
 		catMap:    nil,
 	}
 
@@ -789,7 +800,7 @@ func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
 		return nil, e
 	}
 
-	outCol := NewColSQL("", s.Signature(), s.SourceSQL(), s.Version(), s.DataType(), sql)
+	outCol := NewColSQL("", s.Signature(), s.SourceSQL(), s.Version(), s.Dialect(), s.DataType(), sql)
 
 	return outCol, nil
 }
@@ -803,9 +814,15 @@ func (s *SQLcol) SourceSQL() string {
 }
 
 func (s *SQLcol) String() string {
+	if s.Name("") == "" {
+		panic("column has no name")
+	}
+
+	t := fmt.Sprintf("column: %s\ntype: %s\n", s.Name(""), s.DataType())
 	if s.DataType() != d.DTfloat {
 		ctx := d.NewContext(s.Dialect(), nil, nil)
-		df, _ := NewDFcol(nil, nil, ctx, s)
+		df, ex := NewDFcol(nil, nil, ctx, s)
+		_ = ex
 		tab, _ := df.Table(false, s.Name(""))
 
 		var (
@@ -820,14 +837,14 @@ func (s *SQLcol) String() string {
 		c, _ := vals.Column("count")
 
 		header := []string{l.Name(""), c.Name("")}
-		return d.PrettyPrint(header, l.Data(), c.Data())
+		return t + d.PrettyPrint(header, l.Data(), c.Data())
 	}
 
 	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 
 	header := []string{"metric", "value"}
 	vals, _ := s.Dialect().Summary(s.MakeQuery(), s.Name(""))
-	return s.Name("") + "\n" + d.PrettyPrint(header, cols, vals)
+	return t + d.PrettyPrint(header, cols, vals)
 }
 
 func (s *SQLcol) Version() int {

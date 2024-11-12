@@ -148,6 +148,13 @@ func checker(df d.DF, colName, which string, col d.Column, indx int) any {
 	panic(fmt.Errorf("error in checker"))
 }
 
+func TestString(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		fmt.Println(dfx)
+	}
+}
+
 func TestSQLsave(t *testing.T) {
 	const coln = "x"
 

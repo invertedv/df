@@ -385,34 +385,6 @@ func (m *MemDF) MakeQuery() string {
 	return ""
 }
 
-// TODO: delete
-func (m *MemDF) RowX(rowNum int) []any {
-	if rowNum >= m.RowCount() {
-		return nil
-	}
-
-	var r []any
-	for cx := m.Next(true); cx != nil; cx = m.Next(false) {
-		var v any
-		i := u.MinInt(rowNum, cx.Len()-1)
-		switch cx.DataType() {
-		case d.DTfloat:
-			v = cx.Data().([]float64)[i]
-		case d.DTint, d.DTcategorical:
-			v = cx.Data().([]int)[i]
-		case d.DTdate:
-			v = cx.Data().([]time.Time)[i]
-		case d.DTstring:
-			v = cx.Data().([]string)[i]
-		default:
-			panic(fmt.Errorf("unknown data type in Row"))
-		}
-		r = append(r, v)
-	}
-
-	return r
-}
-
 func (m *MemDF) RowCount() int {
 	return m.Next(true).Len()
 }
@@ -442,6 +414,15 @@ func (m *MemDF) Sort(ascending bool, cols ...string) error {
 
 func (m *MemDF) SourceQuery() string {
 	return m.sourceQuery
+}
+
+func (m *MemDF) String() string {
+	var sx string
+	for c := m.Next(true); c != nil; c = m.Next(false) {
+		sx += c.String() + "\n"
+	}
+
+	return sx
 }
 
 func (m *MemDF) Swap(i, j int) {
@@ -757,6 +738,11 @@ func (m *MemCol) Replace(indicator, replacement d.Column) (d.Column, error) {
 
 // TODO: add header & column name
 func (m *MemCol) String() string {
+	if m.Name("") == "" {
+		panic("column has no name")
+	}
+
+	t := fmt.Sprintf("column: %s\ntype: %s\n", m.Name(""), m.DataType())
 	if m.DataType() != d.DTfloat {
 		tab, _ := NewDFcol(nil, nil, nil, makeTable(m)...)
 		_ = tab.Sort(false, "count")
@@ -764,7 +750,7 @@ func (m *MemCol) String() string {
 		c, _ := tab.Column("count")
 
 		header := []string{l.Name(""), c.Name("")}
-		return d.PrettyPrint(header, l.Data(), c.Data())
+		return t + d.PrettyPrint(header, l.Data(), c.Data())
 	}
 
 	x := make([]float64, m.Len())
@@ -780,7 +766,7 @@ func (m *MemCol) String() string {
 	cats := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 	vals := []float64{minx, q25, q50, xbar, q75, maxx, n}
 	header := []string{"metric", "value"}
-	return m.Name("") + "\n" + d.PrettyPrint(header, cats, vals)
+	return t + d.PrettyPrint(header, cats, vals)
 }
 
 // ***************** Helpers *****************

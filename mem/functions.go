@@ -166,8 +166,8 @@ func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 }
 
 func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTint}, {d.DTfloat}, {d.DTstring}}
-	out := []d.DataTypes{d.DTint, d.DTint, d.DTint}
+	in := [][]d.DataTypes{{d.DTint}, {d.DTfloat}, {d.DTstring}, {d.DTcategorical}}
+	out := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
 
 	return cast("int", in, out, info, context, inputs...)
 }

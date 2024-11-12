@@ -178,6 +178,11 @@ func TestApplyCat(t *testing.T) {
 	col := colx.AsColumn()
 	col.Name("c")
 	_ = dfx.AppendColumn(col, false)
+	fmt.Println(col)
+	back, ex := dfx.Parse("int(c)")
+	back.AsColumn().Name("test")
+	assert.Nil(t, ex)
+	fmt.Println(back.AsColumn())
 
 	v := col.(*MemCol).catMap[6]
 
@@ -393,10 +398,7 @@ func TestLoadSQL(t *testing.T) {
 
 func TestMemCol_String(t *testing.T) {
 	dfx := testDF()
-	cx, _ := dfx.Column("x")
-	fmt.Println(cx)
-	cx, _ = dfx.Column("y")
-	fmt.Println(cx)
+	fmt.Println(dfx)
 }
 
 func TestMemCol_Replace(t *testing.T) {

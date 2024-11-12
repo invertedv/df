@@ -319,11 +319,17 @@ func TestSQLdf_Table(t *testing.T) {
 
 func TestSQLcol_String(t *testing.T) {
 	dfx := testDF()
-	cx, _ := dfx.Column("x")
-	fmt.Println(cx)
+	fmt.Println(dfx)
+	/*	cx, _ := dfx.Column("x")
+		fmt.Println(cx)
 
-	cx, _ = dfx.Column("y")
-	fmt.Println(cx)
+		cx, _ = dfx.Column("y")
+		fmt.Println(cx)
+
+		cx, _ = dfx.Column("dt")
+		fmt.Println(cx)
+
+	*/
 }
 
 func TestSQLdf_AppendDF(t *testing.T) {
@@ -371,6 +377,12 @@ func TestCat(t *testing.T) {
 	s.Name("caty")
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
+	//	fmt.Println(s)
+	r, e = dfx.Parse("int(caty)")
+	assert.Nil(t, e)
+	r.AsColumn().Name("test")
+	fmt.Println(r.AsColumn())
+	//	fmt.Println(dfx)
 
 	//	r, e = dfx.Parse("cat(z)")
 	//	assert.Nil(t, e)

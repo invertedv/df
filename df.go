@@ -50,6 +50,7 @@ type DF interface {
 	Table(sortByRows bool, cols ...string) (DF, error)
 	Iter(reset bool) (row []any, err error)
 	MakeQuery() string
+	String() string
 }
 
 //
@@ -86,6 +87,7 @@ type Column interface {
 	Len() int
 	Name(reNameTo string) string
 	Replace(ind, repl Column) (Column, error)
+	String() string
 }
 
 // DataTypes are the types of data that the package supports
