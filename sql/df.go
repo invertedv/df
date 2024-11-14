@@ -420,12 +420,6 @@ func (s *SQLdf) Copy() d.DF {
 	return dfNew
 }
 
-//func (s *SQLdf) DBsave(tableName string, overwrite bool) error {
-//	_ = s.Context().Dialect().Save(tableName, s.orderBy, overwrite, s)
-//	e := s.Context().Dialect().IterSave(tableName, s) // HERE
-//	return e
-//}
-
 func (s *SQLdf) DropColumns(colNames ...string) error {
 	s.signature = newSignature()
 	s.version = 0
@@ -530,6 +524,10 @@ func (s *SQLdf) Sort(ascending bool, keys ...string) error {
 	}
 
 	s.orderBy = strings.Join(keys, ",")
+	src := s.MakeQuery()
+	for c := s.Next(true); c != nil; c = s.Next(false) {
+		c.(*SQLcol).sourceSQL = src
+	}
 	return nil
 }
 

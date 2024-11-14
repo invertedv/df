@@ -154,6 +154,26 @@ func checker(df d.DF, colName, which string, col d.Column, indx int) any {
 	panic(fmt.Errorf("error in checker"))
 }
 
+func TestPlot(t *testing.T) {
+	dfx := loadData("sql")
+	e := dfx.Sort(true, "x")
+	assert.Nil(t, e)
+	p := d.NewPlot(d.WithTitle("This Is A Test"), d.WithXlabel("X-Axis"),
+		d.WithYlabel("Y-Axis"), d.WithLegend(true))
+	d.WithTitle("What???")(p)
+	d.WithHeight(800)(p)
+	d.WithWidth(800)(p)
+	x, _ := dfx.Column("x")
+	y, _ := dfx.Parse("exp(x)")
+	y.AsColumn().Name("expy")
+	e1 := p.PlotXY(x, y.AsColumn(), "s1", "red")
+	assert.Nil(t, e1)
+	e2 := p.PlotXY(x, x, "s2", "black")
+	assert.Nil(t, e2)
+	e3 := p.Show("", "")
+	assert.Nil(t, e3)
+}
+
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
