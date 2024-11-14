@@ -153,7 +153,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	ascending := true
 	// Any2String will strip out the single quotes
-	if d.Any2String(inputs[0].(*SQLcol).Data()) == "desc" {
+	if d.Any2String(inputs[0].(*SQLcol).SQL()) == "desc" {
 		ascending = false
 	}
 
@@ -205,7 +205,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	fuzz := 1
 	if len(inputs) > 1 {
-		f := inputs[1].(*SQLcol).Data()
+		f := inputs[1].(*SQLcol).SQL()
 
 		var (
 			ex error
@@ -412,7 +412,7 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 			Output: []d.DataTypes{out, out, out, out, out}}
 	}
 
-	inp := inputs[0].(*SQLcol).Data().(string)
+	inp := inputs[0].(*SQLcol).SQL().(string)
 	dt := inputs[0].(*SQLcol).DataType()
 
 	var (
@@ -468,7 +468,7 @@ func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 func getSQL(inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
-		sOut = append(sOut, inputs[ind].(*SQLcol).Data().(string)) // HERE
+		sOut = append(sOut, inputs[ind].(*SQLcol).SQL().(string)) // HERE
 	}
 
 	return sOut

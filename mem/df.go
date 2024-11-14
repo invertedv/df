@@ -212,13 +212,13 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 	return ndf, nil
 }
 
-func (m *MemDF) DBsave(tableName string, overwrite bool) error {
-	if m.Context().Dialect() == nil {
-		return fmt.Errorf("no dialect")
-	}
-
-	return m.Context().Dialect().Save(tableName, "", overwrite, m)
-}
+//func (m *MemDF) DBsave(tableName string, overwrite bool) error {
+//	if m.Context().Dialect() == nil {
+//		return fmt.Errorf("no dialect")
+//	}
+//
+//	return m.Context().Dialect().Save(tableName, "", overwrite, m)
+//}
 
 func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
 	var (

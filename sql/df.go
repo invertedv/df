@@ -420,11 +420,11 @@ func (s *SQLdf) Copy() d.DF {
 	return dfNew
 }
 
-func (s *SQLdf) DBsave(tableName string, overwrite bool) error {
-	_ = s.Context().Dialect().Save(tableName, s.orderBy, overwrite, s)
-	e := s.Context().Dialect().IterSave(tableName, s) // HERE
-	return e
-}
+//func (s *SQLdf) DBsave(tableName string, overwrite bool) error {
+//	_ = s.Context().Dialect().Save(tableName, s.orderBy, overwrite, s)
+//	e := s.Context().Dialect().IterSave(tableName, s) // HERE
+//	return e
+//}
 
 func (s *SQLdf) DropColumns(colNames ...string) error {
 	s.signature = newSignature()
@@ -474,7 +474,7 @@ func (s *SQLdf) MakeQuery() string {
 
 		var field string
 		field = cx.Name("")
-		if fn := cx.Data().(string); fn != "" {
+		if fn := cx.(*SQLcol).SQL().(string); fn != "" {
 			// Need to Cast to required type here o.w. DB may default to an unsupported type
 			fnc, _ := s.Context().Dialect().CastField(fn, cx.DataType(), cx.DataType())
 			field = fmt.Sprintf("%s AS %s", fnc, cx.Name(""))
@@ -623,9 +623,9 @@ func (s *SQLdf) Where(col d.Column) (d.DF, error) {
 		return nil, fmt.Errorf("where column must be type DTint")
 	}
 
-	dfNew.where = fmt.Sprintf("%s > 0", col.Data().(string))
+	dfNew.where = fmt.Sprintf("%s > 0", col.(*SQLcol).SQL().(string))
 	if dfNew.where != "" {
-		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.Data().(string))
+		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*SQLcol).SQL().(string))
 	}
 
 	return dfNew, nil
@@ -730,6 +730,26 @@ func (s *SQLcol) Copy() d.Column {
 }
 
 func (s *SQLcol) Data() any {
+	var (
+		df *m.MemDF
+		e  error
+	)
+	if df, e = m.DBLoad(s.MakeQuery(), s.Dialect()); e != nil {
+		panic(e)
+	}
+
+	var (
+		col d.Column
+		e1  error
+	)
+	if col, e1 = df.Column(s.Name("")); e1 != nil {
+		panic(e1)
+	}
+
+	return col.(*m.MemCol).Data()
+}
+
+func (s *SQLcol) SQL() any {
 	if s.sql != "" {
 		return s.sql
 	}
@@ -759,7 +779,7 @@ func (s *SQLcol) Len() int {
 
 func (s *SQLcol) MakeQuery() string {
 	sig := newSignature()
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s AS %s FROM %s", sig, s.sourceSQL, s.Data(), s.Name(""), sig)
+	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s AS %s FROM %s", sig, s.sourceSQL, s.SQL(), s.Name(""), sig)
 
 	return qry
 }
@@ -861,7 +881,7 @@ func (s *SQLcol) String() string {
 		c, _ := vals.Column("count")
 
 		header := []string{l.Name(""), c.Name("")}
-		return t + d.PrettyPrint(header, l.Data(), c.Data())
+		return t + d.PrettyPrint(header, l.(*SQLcol).SQL(), c.(*SQLcol).SQL())
 	}
 
 	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}

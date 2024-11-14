@@ -95,6 +95,14 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	panic(fmt.Errorf("error in checker"))
 }
 
+func TestSQLcol_Data(t *testing.T) {
+	const coln = "x"
+	dfx := testDF()
+	c, e := dfx.Column(coln)
+	assert.Nil(t, e)
+	fmt.Println(c.Data())
+}
+
 func TestWhere(t *testing.T) {
 	dfx := testDF()
 	defer func() { _ = dfx.Context().Dialect().DB().Close() }()
@@ -109,7 +117,7 @@ func TestWhere(t *testing.T) {
 	assert.Nil(t, e)
 	outDF := out.AsDF().(*SQLdf)
 	fmt.Println(outDF.MakeQuery())
-	e = outDF.DBsave("testing.where", true)
+	e = outDF.Context().Dialect().Save("testing.where", "", true, outDF)
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.RowCount())
 }
@@ -338,7 +346,6 @@ func TestSQLdf_AppendDF(t *testing.T) {
 	dfOut, e := dfx.AppendDF(dfy)
 	assert.Nil(t, e)
 	e = dfx.Context().Dialect().Save("testing.append", "k", true, dfOut)
-	//	e = dfOut.DBsave("testing.append", true)
 	assert.Nil(t, e)
 	var c *d.Parsed
 	c, e = dfx.Parse("exp(x)")
@@ -392,7 +399,8 @@ func TestCat(t *testing.T) {
 	//	e = dfx.AppendColumn(s, false)
 	//	assert.Nil(t, e)
 
-	e = dfx.DBsave("testing.cat", true)
+	//e = dfx.DBsave("testing.cat", true)
+	e = dfx.Context().Dialect().Save("testing.cat", "", true, dfx)
 	assert.Nil(t, e)
 }
 
@@ -425,7 +433,7 @@ func TestApplyCat(t *testing.T) {
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 
-	e = dfx.DBsave("testing.cat", true)
+	e = dfx.Context().Dialect().Save("testing.cat", "", true, dfx)
 	assert.Nil(t, e)
 }
 

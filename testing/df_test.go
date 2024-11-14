@@ -18,18 +18,24 @@ import (
 )
 
 // THINK about...how self interacts in context...
-
+// CONSIDER making .Data fetch the data for sql....
 const (
 	dbSource   = "clickhouse"
-	fileName   = "/home/will/tmp/test.csv"
-	fileNameW1 = "/home/will/tmp/testFW.txt"
-	fileNameW2 = "/home/will/tmp/testFW1.txt"
-	fileNameW3 = "/home/will/tmp/testFW2.txt"
+	fileName   = "test.csv"
+	fileNameW1 = "testFW.txt"
+	fileNameW2 = "testFW1.txt"
+	fileNameW3 = "testFW2.txt"
 	inTable    = "testing.d1"
 	outTable   = "testing.test"
 
 	ch = "clickhouse"
 )
+
+// environment variables:
+//   - host ClickHouse IP address
+//   - user ClickHouse user
+//   - password: ClickHouse password
+//   - datapath: path (with trailing /) to data directory in this project
 
 // list of packages to test
 func pkgs() []string {
@@ -175,6 +181,7 @@ func TestSQLsave(t *testing.T) {
 			c1, e1 = dfz.Column(coln)
 			assert.Nil(t, e1)
 		}
+
 		c1.Name("expected")
 
 		// pull back from database
@@ -195,12 +202,30 @@ func TestSQLsave(t *testing.T) {
 }
 
 func TestFileSave(t *testing.T) {
+	const coln = "x"
+
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		f := d.NewFiles()
-		e := f.Save(fileName, dfx)
+
+		fn := os.Getenv("datapath") + fileName
+		e := f.Save(fn, dfx)
 		assert.Nil(t, e)
-		// TODO: load file and check
+
+		ct, _ := dfx.ColumnTypes()
+		e1 := f.Open(fn, dfx.ColumnNames(), ct, nil)
+		assert.Nil(t, e1)
+		dfy, e2 := m.FileLoad(f)
+		assert.Nil(t, e2)
+		cexp, _ := dfx.Column(coln)
+		// if sql, must pull data from query
+		if which == "sql" {
+			dfz, e3 := m.DBLoad(cexp.(*s.SQLcol).MakeQuery(), dfx.Context().Dialect())
+			assert.Nil(t, e3)
+			cexp, _ = dfz.Column(coln)
+		}
+		cact, _ := dfy.Column(coln)
+		assert.Equal(t, cexp, cact)
 	}
 }
 
@@ -210,12 +235,12 @@ func TestParse_Table(t *testing.T) {
 		out, e := dfx.Parse("table(y,yy)")
 		assert.Nil(t, e)
 		df1 := out.AsDF()
-		e = df1.Sort(false, "count")
-		assert.Nil(t, e)
+		e1 := df1.Sort(false, "count")
+		assert.Nil(t, e1)
 		assert.Equal(t, []int{2, 1, 1, 1, 1}, checker(df1, "count", which, nil, -1))
 
-		_, e = dfx.Parse("table(x)")
-		assert.NotNil(t, e)
+		_, e2 := dfx.Parse("table(x)")
+		assert.NotNil(t, e2)
 	}
 }
 
@@ -232,19 +257,19 @@ func TestWhere(t *testing.T) {
 	for _, which := range pkgs() {
 		// via methods
 		dfx := loadData(which)
-		indCol, e0 := dfx.Parse("y==-5 || yy == 16")
-		assert.Nil(t, e0)
+		indCol, e := dfx.Parse("y==-5 || yy == 16")
+		assert.Nil(t, e)
 		indCol.AsColumn().Name("ind")
-		e3 := dfx.AppendColumn(indCol.AsColumn(), false)
-		assert.Nil(t, e3)
-		dfOut, e4 := dfx.Where(indCol.AsColumn())
-		assert.Nil(t, e4)
+		e1 := dfx.AppendColumn(indCol.AsColumn(), false)
+		assert.Nil(t, e1)
+		dfOut, e2 := dfx.Where(indCol.AsColumn())
+		assert.Nil(t, e2)
 		assert.Equal(t, []int{-5, 6}, checker(dfOut, "y", which, nil, -1))
 		assert.Equal(t, []int{-15, 16}, checker(dfOut, "yy", which, nil, -1))
 
 		// via Parse
-		out, e5 := dfx.Parse("where(y == -5 || yy == 16)")
-		assert.Nil(t, e5)
+		out, e3 := dfx.Parse("where(y == -5 || yy == 16)")
+		assert.Nil(t, e3)
 		assert.Equal(t, []int{-5, 6}, checker(out.AsDF(), "y", which, nil, -1))
 	}
 }
@@ -256,14 +281,14 @@ func TestReplace(t *testing.T) {
 		indCol, e0 := dfx.Parse("y==-5")
 		assert.Nil(t, e0)
 		indCol.AsColumn().Name("ind")
-		e3 := dfx.AppendColumn(indCol.AsColumn(), false)
-		assert.Nil(t, e3)
-		coly, e := dfx.Column("y")
+		e := dfx.AppendColumn(indCol.AsColumn(), false)
 		assert.Nil(t, e)
-		colyy, e1 := dfx.Column("yy")
+		coly, e1 := dfx.Column("y")
 		assert.Nil(t, e1)
-		colR, e2 := coly.Replace(indCol.AsColumn(), colyy)
+		colyy, e2 := dfx.Column("yy")
 		assert.Nil(t, e2)
+		colR, e3 := coly.Replace(indCol.AsColumn(), colyy)
+		assert.Nil(t, e3)
 		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", which, colR, -1))
 
 		// via Parse
@@ -354,17 +379,17 @@ func TestParser(t *testing.T) {
 			var r d.DF
 			cnt++
 			eqn := x[ind][0].(string)
-			xOut, ex := dfx.Parse(eqn)
-			assert.Nil(t, ex)
+			xOut, e := dfx.Parse(eqn)
+			assert.Nil(t, e)
 			xOut.AsColumn().Name("test")
 
 			if which == "sql" {
-				r, ex = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context(), xOut.AsColumn().(*s.SQLcol))
+				r, e = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context(), xOut.AsColumn().(*s.SQLcol))
 			} else {
-				r, ex = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context(), xOut.AsColumn().(*m.MemCol))
+				r, e = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context(), xOut.AsColumn().(*m.MemCol))
 			}
 
-			assert.Nil(t, ex)
+			assert.Nil(t, e)
 			result := checker(r, "test", which, nil, x[ind][1].(int))
 
 			if d.WhatAmI(result) == d.DTfloat {
@@ -388,68 +413,64 @@ func TestParser(t *testing.T) {
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		expr := "date(z)"
-		var (
-			colx *d.Parsed
-			ex   error
-		)
-		colx, ex = dfx.Parse(expr)
-		assert.Nil(t, ex)
+
+		colx, e := dfx.Parse("date(z)")
+		assert.Nil(t, e)
 		col := colx.AsColumn()
 		col.Name("dt1")
-		ex = dfx.AppendColumn(col, false)
-		assert.Nil(t, ex)
+		e = dfx.AppendColumn(col, false)
+		assert.Nil(t, e)
 
 		// try with DTint
-		expr = "cat(y)"
-		colx, ex = dfx.Parse(expr)
-		assert.Nil(t, ex)
+		colx, e = dfx.Parse("cat(y)")
+		assert.Nil(t, e)
 		colx.AsColumn().Name("test")
 		result := checker(dfx, "test", which, colx.AsColumn(), -1)
 		expected := []int{1, 0, 4, 1, 2, 3}
 		assert.Equal(t, expected, result)
 
 		// try with DTstring
-		expr = "cat(z)"
-		colx, ex = dfx.Parse(expr)
-		assert.Nil(t, ex)
+		colx, e = dfx.Parse("cat(z)")
+		assert.Nil(t, e)
 		result = checker(dfx, "test", which, colx.AsColumn(), -1)
 		expected = []int{3, 0, 1, 1, 4, 2}
 		assert.Equal(t, expected, result)
 
 		// try with DTdate
-		expr = "cat(dt1)"
-		colx, ex = dfx.Parse(expr)
-		assert.Nil(t, ex)
+		colx, e = dfx.Parse("cat(dt1)")
+		assert.Nil(t, e)
 		colx.AsColumn().Name("test")
 		result = checker(dfx, "test", which, colx.AsColumn(), -1)
 		expected = []int{3, 0, 1, 1, 4, 2}
 		assert.Equal(t, expected, result)
 
 		// try with fuzz > 1
-		expr = "cat(y, 2)"
-		colx, ex = dfx.Parse(expr)
-		assert.Nil(t, ex)
+		colx, e = dfx.Parse("cat(y, 2)")
+		assert.Nil(t, e)
 		result = checker(dfx, "test", which, colx.AsColumn(), -1)
 		expected = []int{0, -1, -1, 0, -1, -1}
 		assert.Equal(t, expected, result)
 
 		// try with DTfloat
-		expr = "cat(x)"
-		_, ex = dfx.Parse(expr)
-		assert.NotNil(t, ex)
+		_, e = dfx.Parse("cat(x)")
+		assert.NotNil(t, e)
 	}
 }
 
 func TestApplyCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		r, e := dfx.Parse("cat(y)")
+
+		var (
+			r *d.Parsed
+			e error
+		)
+		r, e = dfx.Parse("cat(y)")
 		assert.Nil(t, e)
 		sx := r.AsColumn()
 		sx.Name("caty")
-		e = dfx.AppendColumn(sx, false)
-		assert.Nil(t, e)
+		e1 := dfx.AppendColumn(sx, false)
+		assert.Nil(t, e1)
 
 		r, e = dfx.Parse("applyCat(yy, caty, -5)")
 		assert.Nil(t, e)
@@ -465,8 +486,8 @@ func TestApplyCat(t *testing.T) {
 		r, e = dfx.Parse("cat(y,2)")
 		assert.Nil(t, e)
 		r.AsColumn().Name("caty2")
-		e = dfx.AppendColumn(r.AsColumn(), false)
-		assert.Nil(t, e)
+		e2 := dfx.AppendColumn(r.AsColumn(), false)
+		assert.Nil(t, e2)
 
 		r, e = dfx.Parse("applyCat(yy,caty2,-5)")
 		assert.Nil(t, e)
@@ -488,7 +509,7 @@ func TestAppendDF(t *testing.T) {
 	}
 }
 
-func TestFiles1(t *testing.T) {
+func TestFilesOpen(t *testing.T) {
 	dfx := loadData("mem")
 
 	// specify both fieldNames and fieldTypes
@@ -499,73 +520,73 @@ func TestFiles1(t *testing.T) {
 	f := d.NewFiles()
 	f.Strict, f.Header = false, false
 	f.EOL = 0
-	e := f.Open(fileNameW1, fieldNames, fieldTypes, fieldWidths)
+	e := f.Open(os.Getenv("datapath")+fileNameW1, fieldNames, fieldTypes, fieldWidths)
 	assert.Nil(t, e)
-	dfy, e1 := m.FileLoad(f)
+	df1, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)
 	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
+		cx, e2 := dfx.Column(cn)
+		assert.Nil(t, e2)
+		cy, e3 := df1.Column(cn)
+		assert.Nil(t, e3)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
 	// file has EOL characters
 	f = d.NewFiles()
 	f.Strict, f.Header = false, false
-	e = f.Open(fileNameW2, fieldNames, fieldTypes, fieldWidths)
-	assert.Nil(t, e)
-	dfy, e1 = m.FileLoad(f)
-	assert.Nil(t, e1)
+	e4 := f.Open(os.Getenv("datapath")+fileNameW2, fieldNames, fieldTypes, fieldWidths)
+	assert.Nil(t, e4)
+	df2, e5 := m.FileLoad(f)
+	assert.Nil(t, e5)
 	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
+		cx, e6 := dfx.Column(cn)
+		assert.Nil(t, e6)
+		cy, e7 := df2.Column(cn)
+		assert.Nil(t, e7)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
 	// file has EOL characters and a header, but still specify these
 	f = d.NewFiles()
 	f.Strict, f.Header = false, true
-	e = f.Open(fileNameW3, fieldNames, fieldTypes, fieldWidths)
-	assert.Nil(t, e)
-	dfy, e1 = m.FileLoad(f)
-	assert.Nil(t, e1)
+	e8 := f.Open(os.Getenv("datapath")+fileNameW3, fieldNames, fieldTypes, fieldWidths)
+	assert.Nil(t, e8)
+	df3, e9 := m.FileLoad(f)
+	assert.Nil(t, e9)
 	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
+		cx, e10 := dfx.Column(cn)
+		assert.Nil(t, e10)
+		cy, e11 := df3.Column(cn)
+		assert.Nil(t, e11)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
 	// file has EOL characters and a header, have it read fieldNames and infer types
 	f = d.NewFiles()
 	f.Strict, f.Header = false, true
-	e = f.Open(fileNameW3, nil, nil, fieldWidths)
-	assert.Nil(t, e)
-	dfy, e1 = m.FileLoad(f)
-	assert.Nil(t, e1)
+	e12 := f.Open(os.Getenv("datapath")+fileNameW3, nil, nil, fieldWidths)
+	assert.Nil(t, e12)
+	df4, e13 := m.FileLoad(f)
+	assert.Nil(t, e13)
 	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
+		cx, e14 := dfx.Column(cn)
+		assert.Nil(t, e14)
+		cy, e15 := df4.Column(cn)
+		assert.Nil(t, e15)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 }
 
-func TestFiles(t *testing.T) {
-	dfx := loadData("mem")
+func TestFilesSave(t *testing.T) {
+	dfx := loadData("men")
 	fs := d.NewFiles()
-	e0 := fs.Save(fileName, dfx)
+	e0 := fs.Save(os.Getenv("datapath")+fileName, dfx)
 	assert.Nil(t, e0)
 
 	f := d.NewFiles()
 	f.Strict = false
-	e := f.Open(fileName, nil, nil, nil)
+	e := f.Open(os.Getenv("datapath")+fileName, nil, nil, nil)
 	assert.Nil(t, e)
 	dfy, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)
