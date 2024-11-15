@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
-	u "github.com/invertedv/utilities"
 )
 
 // Can Save any DF to a table
@@ -264,7 +262,7 @@ func (d *Dialect) Exists(tableName string) bool {
 func (d *Dialect) Ifs(x, y, op string) (string, error) {
 	const ops = ">,>=,<,<=,==,!="
 	op = strings.ReplaceAll(op, " ", "")
-	if !u.Has(op, ",", ops) {
+	if !Has(op, ",", ops) {
 		return "", fmt.Errorf("unknown comparison: %s", op)
 	}
 
@@ -507,7 +505,7 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 
 func (d *Dialect) NewSignature() string {
 	const sigLen = 4
-	return u.RandomLetters(sigLen)
+	return RandomLetters(sigLen)
 }
 
 func (d *Dialect) Summary(qry, col string) ([]float64, error) {
@@ -628,10 +626,22 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 }
 
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {
-	pos := u.Position(dt.String(), "", d.dtTypes...)
+	pos := Position(dt.String(), "", d.dtTypes...)
 	if pos < 0 {
 		return "", fmt.Errorf("cannot find type %s to map to DB type", dt.String())
 	}
 
 	return d.dbTypes[pos], nil
+}
+
+// MaxInt returns the maximum of ints
+func MaxInt(ints ...int) int {
+	max := ints[0]
+	for _, i := range ints {
+		if i > max {
+			max = i
+		}
+	}
+
+	return max
 }

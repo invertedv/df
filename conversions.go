@@ -1,8 +1,11 @@
 package df
 
 import (
+	"bytes"
+	"crypto/rand"
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -497,4 +500,78 @@ func PrettyPrint(header []string, cols ...any) string {
 	}
 
 	return out
+}
+
+// *********** Other ***********
+
+// Has returns true if needle is in haystack
+func Has(needle, delim string, haystack ...string) bool {
+	return Position(needle, delim, haystack...) >= 0
+}
+
+// Slash adds a trailing slash if inStr doesn't end in a slash
+func Slash(inStr string) string {
+	if inStr[len(inStr)-1] == '/' {
+		return inStr
+	}
+
+	return inStr + "/"
+}
+
+func Position(needle, delim string, haystack ...string) int {
+	var haySlice []string
+	haySlice = haystack
+
+	if len(haystack) == 1 && delim != "" && strings.Contains(haystack[0], delim) {
+		haySlice = strings.Split(haystack[0], delim)
+	}
+
+	for ind, straw := range haySlice {
+		if straw == needle {
+			return ind
+		}
+	}
+
+	return -1
+}
+
+// RandomLetters generates a string of length "length" by randomly choosing from a-z
+func RandomLetters(length int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyz"
+
+	randN, err := RandUnifInt(len(letters), len(letters))
+	if err != nil {
+		panic(err)
+	}
+
+	name := ""
+	for ind := 0; ind < length; ind++ {
+		name += letters[randN[ind] : randN[ind]+1]
+	}
+
+	return name
+}
+
+// RandUnifInt generates a slice whose elements are random U[0,upper) int64's
+func RandUnifInt(n, upper int) ([]int64, error) {
+	const bytesPerInt = 8
+
+	// generate random bytes
+	b1 := make([]byte, bytesPerInt*n)
+	if _, e := rand.Read(b1); e != nil {
+		return nil, e
+	}
+
+	outInts := make([]int64, n)
+	rdr := bytes.NewReader(b1)
+
+	for ind := 0; ind < n; ind++ {
+		r, e := rand.Int(rdr, big.NewInt(int64(upper)))
+		if e != nil {
+			return nil, e
+		}
+		outInts[ind] = r.Int64()
+	}
+
+	return outInts, nil
 }

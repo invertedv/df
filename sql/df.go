@@ -9,8 +9,6 @@ import (
 
 	m "github.com/invertedv/df/mem"
 
-	u "github.com/invertedv/utilities"
-
 	d "github.com/invertedv/df"
 )
 
@@ -897,7 +895,7 @@ func (s *SQLcol) Version() int {
 
 func newSignature() string {
 	const sigLen = 4
-	return u.RandomLetters(sigLen)
+	return d.RandomLetters(sigLen)
 }
 
 func panicer(cols ...d.Column) {

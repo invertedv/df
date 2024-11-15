@@ -4,16 +4,11 @@ import (
 	_ "embed"
 	"fmt"
 	"strings"
-
-	u "github.com/invertedv/utilities"
 )
 
 // TODO: think about
-// eliminate reliance on utility import
 // consider how to handle passing a small column of parameters...
 // NewColSequence ?? ...
-// How to address elements (e.g. replace all values where x=4)
-// Add orderBy to DBsave
 
 type DF interface {
 	// generic from DFcore
@@ -400,7 +395,7 @@ func (df *DFcore) Fns() Fns {
 func (df *DFcore) HasColumns(cols ...string) bool {
 	dfCols := df.ColumnNames()
 	for _, c := range cols {
-		if !u.Has(c, "", dfCols...) {
+		if !Has(c, "", dfCols...) {
 			return false
 		}
 	}
@@ -524,7 +519,7 @@ func DTFromString(nm string) DataTypes {
 		nms = append(nms, fmt.Sprintf(skeleton, ind))
 	}
 
-	pos := u.Position(nm, "", nms...)
+	pos := Position(nm, "", nms...)
 	if pos < 0 {
 		return DTunknown
 	}

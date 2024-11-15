@@ -11,8 +11,6 @@ import (
 	"sort"
 	"time"
 
-	u "github.com/invertedv/utilities"
-
 	d "github.com/invertedv/df"
 
 	"gonum.org/v1/gonum/stat"
@@ -705,7 +703,7 @@ func (m *MemCol) Replace(indicator, replacement d.Column) (d.Column, error) {
 		return nil, fmt.Errorf("incompatible columns in Replace")
 	}
 
-	n := u.MaxInt(m.Len(), indicator.Len(), replacement.Len())
+	n := d.MaxInt(m.Len(), indicator.Len(), replacement.Len())
 	if (m.Len() > 1 && m.Len() != n) || (indicator.Len() > 1 && indicator.Len() != n) ||
 		(replacement.Len() > 1 && replacement.Len() != n) {
 		return nil, fmt.Errorf("columns not same length in Replacef")

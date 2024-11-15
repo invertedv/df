@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	grob "github.com/MetalBlueberry/go-plotly/graph_objects"
 	"github.com/MetalBlueberry/go-plotly/offline"
-	u "github.com/invertedv/utilities"
 )
 
 type Plot struct {
@@ -55,9 +55,24 @@ func WithTitle(title string) Opt {
 }
 
 // add to below x title
-//func WithSubtitle(subTitle string) Opt {
-//	return func(p *Plot) *Plot { p.SubTitle = subTitle; return p }
-//}
+func WithSubtitle(subTitle string) Opt {
+	return func(p *Plot) *Plot {
+		if p.Lay.Xaxis == nil {
+			p.Lay.Xaxis = &grob.LayoutXaxis{}
+		}
+		if p.Lay.Xaxis.Title == nil {
+			p.Lay.Xaxis.Title = &grob.LayoutXaxisTitle{}
+		}
+
+		xAxis := p.Lay.Xaxis
+		var xLabel string
+		if xLabel = xAxis.Title.Text.(string); xLabel != "" {
+			xLabel += "<br>"
+		}
+		xAxis.Title.Text = xLabel + subTitle
+		return p
+	}
+}
 
 func WithLegend(show bool) Opt {
 	return func(p *Plot) *Plot {
@@ -76,12 +91,21 @@ func WithXlabel(label string) Opt {
 		if p.Lay.Xaxis == nil {
 			p.Lay.Xaxis = &grob.LayoutXaxis{}
 		}
+
 		if p.Lay.Xaxis.Title == nil {
 			p.Lay.Xaxis.Title = &grob.LayoutXaxisTitle{}
+			p.Lay.Xaxis.Title.Text = ""
 		}
 
 		xAxis := p.Lay.Xaxis
-		xAxis.Title.Text = label
+
+		subTitle := ""
+		xLabel := xAxis.Title.Text.(string)
+		if ind := strings.Index(xLabel, "<br>"); ind > 0 {
+			subTitle = xLabel[ind:]
+		}
+
+		xAxis.Title.Text = label + subTitle
 		return p
 	}
 }
@@ -160,5 +184,5 @@ func (p *Plot) Save(fileName, format string) error {
 // tempFile produces a random temp file name in the system's tmp location.
 // The file has extension "ext". The file name begins with "tmp" has length 3 + length.
 func tempFile(ext string, length int) string {
-	return u.Slash(os.TempDir()) + "tmp" + u.RandomLetters(length) + "." + ext
+	return Slash(os.TempDir()) + "tmp" + RandomLetters(length) + "." + ext
 }

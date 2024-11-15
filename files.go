@@ -8,8 +8,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	u "github.com/invertedv/utilities"
 )
 
 // can Save any DF to file
@@ -529,7 +527,7 @@ type ctr struct {
 }
 
 func (c *ctr) max() DataTypes {
-	switch m := u.MaxInt(c.cInt, c.cFloat, c.cDate, c.cString); m {
+	switch m := MaxInt(c.cInt, c.cFloat, c.cDate, c.cString); m {
 	case c.cDate:
 		return DTdate
 	case c.cInt:
