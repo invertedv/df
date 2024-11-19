@@ -205,18 +205,6 @@ func TestSeq(t *testing.T) {
 	}
 }
 
-/*
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-		var df *d.DF
-		switch which {
-		case "mem":
-			df = m.NewDFseq(nil, nil, nil, 5)
-		default:
-			df = s.NewDFseq(nil, nil, dfx.Context(), 5)
-		}
-	}
-*/
 func TestSQLsave(t *testing.T) {
 	const coln = "x"
 
@@ -337,7 +325,6 @@ func TestWhere(t *testing.T) {
 
 func TestReplace(t *testing.T) {
 	for _, which := range pkgs() {
-		fmt.Println(which)
 		dfx := loadData(which)
 		indCol, e0 := dfx.Parse("y==-5")
 		assert.Nil(t, e0)
@@ -350,15 +337,12 @@ func TestReplace(t *testing.T) {
 		assert.NotNil(t, colyy)
 		colR, e3 := coly.Replace(indCol.AsColumn(), colyy)
 		assert.Nil(t, e3)
-		//		c := colR.(*s.Col).MakeQuery()
-		//		_ = c
-		// HERE
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", which, colR, -1))
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, colR.Data()) // checker(dfx, "rep", which, colR, -1))
 
 		// via Parse
 		out, e4 := dfx.Parse("if(y==-5,yy,y)")
 		assert.Nil(t, e4)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", which, out.AsColumn(), -1))
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.AsColumn().Data()) // checker(dfx, "rep", which, out.AsColumn(), -1))
 	}
 }
 
@@ -453,6 +437,7 @@ func TestParser(t *testing.T) {
 				r, e = m.NewDFcol(nil, nil, dfx.(*m.DF).Context(), xOut.AsColumn().(*m.Col))
 			}
 
+			fmt.Println(xOut.AsColumn().Dependencies())
 			assert.Nil(t, e)
 			result := checker(r, "test", which, nil, x[ind][1].(int))
 

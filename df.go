@@ -46,7 +46,7 @@ type DF interface {
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Table(sortByRows bool, cols ...string) (DF, error)
 	Iter(reset bool) (row []any, err error)
-	MakeQuery() string
+	MakeQuery(colNames ...string) string
 	String() string
 }
 
@@ -81,9 +81,11 @@ type Column interface {
 	Copy() Column
 	Data() any
 	DataType() DataTypes
+	Dependencies() []string
 	Len() int
 	Name(reNameTo string) string
 	Replace(ind, repl Column) (Column, error)
+	SetDependencies(d []string)
 	String() string
 }
 
@@ -470,9 +472,7 @@ func (df *DFcore) Parse(expr string) (*Parsed, error) {
 		return nil, ex
 	}
 
-	p := ot.Value()
-
-	return p, nil
+	return ot.Value(), nil
 }
 
 func (df *DFcore) Runner() RunFn {

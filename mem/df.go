@@ -33,6 +33,8 @@ type Col struct {
 	catMap    d.CategoryMap
 	catCounts d.CategoryMap
 	rawType   d.DataTypes
+
+	dependencies []string
 }
 
 // ***************** DF - Create *****************
@@ -402,7 +404,7 @@ func (m *DF) Less(i, j int) bool {
 	return true
 }
 
-func (m *DF) MakeQuery() string {
+func (m *DF) MakeQuery(colNames ...string) string {
 	return ""
 }
 
@@ -799,6 +801,14 @@ func (m *Col) String() string {
 	header := []string{"metric", "value"}
 
 	return t + d.PrettyPrint(header, cats, vals)
+}
+
+func (m *Col) Dependencies() []string {
+	return m.dependencies
+}
+
+func (m *Col) SetDependencies(d []string) {
+	m.dependencies = d
 }
 
 // ***************** Helpers *****************

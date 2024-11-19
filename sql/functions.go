@@ -82,7 +82,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 				sig := context.Self().(*DF).Signature()
 				ver := context.Self().(*DF).Version()
 				src := context.Self().(*DF).MakeQuery()
-				retCol := NewColSQL("", sig, src, ver, context.Dialect(), mCol.DataType(), sql)
+				retCol := NewColSQL("", sig, src, ver, context, mCol.DataType(), sql)
 				// Place the value of the output in .scalarValue in case that's needed later
 				retCol.scalarValue = mCol.Element(0)
 				return retCol, nil
@@ -317,7 +317,7 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 	version := context.Self().(*DF).Version()
 
 	//sql, _ = context.Dialect().CastField(sql, dtOut, dtOut)
-	outCol := NewColSQL("", tabl, source, version, context.Dialect(), dtOut, sql)
+	outCol := NewColSQL("", tabl, source, version, context, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -438,8 +438,7 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 	sig := context.Self().(*DF).Signature()
 	ver := context.Self().(*DF).Version()
 	source := context.Self().(*DF).MakeQuery()
-	dlct := context.Dialect()
-	outCol := NewColSQL("", sig, source, ver, dlct, out, sql)
+	outCol := NewColSQL("", sig, source, ver, context, out, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -531,7 +530,7 @@ func fnGen(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes, in
 
 	sqlOut := fmt.Sprintf(sql, sa...)
 
-	var outType d.DataTypes
+	outType := outp[0]
 	// output type
 	for ind := 0; ind < len(inp); ind++ {
 		ok := true
@@ -551,9 +550,8 @@ func fnGen(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes, in
 	sig := context.Self().(*DF).Signature() + suffix
 	ver := context.Self().(*DF).Version()
 	source := context.Self().(*DF).MakeQuery()
-	//	sqlOut, _ = context.Dialect().CastField(sqlOut, outType, outType)
 
-	outCol := NewColSQL("", sig, source, ver, context.Dialect(), outType, sqlOut)
+	outCol := NewColSQL("", sig, source, ver, context, outType, sqlOut)
 
 	return &d.FnReturn{Value: outCol}
 }

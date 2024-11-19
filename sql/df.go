@@ -61,7 +61,7 @@ type Col struct {
 	sql   string // SQL to generate this column
 
 	sourceSQL string // SQL that produces the result set that populates this column
-	dlct      *d.Dialect
+	ctx       *d.Context
 
 	signature string // unique 4-character signature to identify this data source
 	version   int    // version of the dataframe that existed when this column was added
@@ -71,6 +71,8 @@ type Col struct {
 	rawType   d.DataTypes
 
 	scalarValue any // This is for keeping the actual value of constants rather than SQL version
+
+	dependencies []string
 }
 
 // ***************** DF - Create *****************
@@ -87,12 +89,11 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 	mk := cols[0].SourceSQL()
 	sig := cols[0].Signature()
 	version := cols[0].Version()
-	dlct := context.Dialect()
 	for ind := 0; ind < len(cols); ind++ {
 		if cols[ind].Signature() != sig {
 			return nil, fmt.Errorf("incompatable columns to NewDFcol")
 		}
-		cols[ind].dlct = dlct
+		cols[ind].ctx = context
 		if v := cols[ind].Version(); v > version {
 			version = v
 			mk = cols[0].SourceSQL()
@@ -151,7 +152,7 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
 
 	sig := dlct.NewSignature()
-	col := NewColSQL("seq", sig, seqSQL, 0, dlct, d.DTint, "")
+	col := NewColSQL("seq", sig, seqSQL, 0, context, d.DTint, "")
 
 	var (
 		df *DF
@@ -192,7 +193,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 			name:      colNames[ind],
 			dType:     colTypes[ind],
 			signature: df.signature,
-			dlct:      dlct,
+			ctx:       context,
 			version:   0,
 			sql:       "",
 			catMap:    nil,
@@ -410,7 +411,7 @@ func (s *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, ex
 	}
 
-	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), s.Context().Dialect(), d.DTcategorical, sql1)
+	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), s.Context(), d.DTcategorical, sql1)
 	outCol.rawType = col.DataType()
 	outCol.catMap, outCol.catCounts = toMap, cnts
 
@@ -463,15 +464,17 @@ func (s *DF) Iter(reset bool) (row []any, err error) {
 	return s.row, nil
 }
 
-func (s *DF) MakeQuery() string {
+func (s *DF) MakeQuery(colNames ...string) string {
 	var fields []string
 
-	colNames := s.ColumnNames()
+	if colNames == nil {
+		colNames = s.ColumnNames()
+	}
 
 	for ind := 0; ind < len(colNames); ind++ {
 		var cx d.Column
 		if cx = s.Column(colNames[ind]); cx == nil {
-			panic(fmt.Errorf("missing name??"))
+			panic(fmt.Errorf("missing name %s", cx.Name("")))
 		}
 
 		var field string
@@ -587,10 +590,10 @@ func (s *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		return nil, ex
 	}
 
-	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), s.Context().Dialect(), d.DTint, cc)
+	count := NewColSQL("count", s.Signature(), s.MakeQuery(), s.Version(), s.Context(), d.DTint, cc)
 	cs = append(cs, count)
 	rateSQL := fmt.Sprintf(cf, s.MakeQuery())
-	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), s.Context().Dialect(), d.DTfloat, rateSQL)
+	rate := NewColSQL("rate", s.Signature(), s.MakeQuery(), s.Version(), s.Context(), d.DTfloat, rateSQL)
 	cs = append(cs, rate)
 
 	ctx := d.NewContext(s.Context().Dialect(), nil)
@@ -642,7 +645,7 @@ func (s *DF) Where(col d.Column) (d.DF, error) {
 
 // ***************** Col - Create *****************
 
-func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, dt d.DataTypes, sqlx string) *Col {
+func NewColSQL(name, signature, sourceSQL string, version int, context *d.Context, dt d.DataTypes, sqlx string) *Col {
 	col := &Col{
 		name:      name,
 		dType:     dt,
@@ -650,7 +653,7 @@ func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, 
 		sourceSQL: sourceSQL,
 		signature: signature,
 		version:   version,
-		dlct:      dlct,
+		ctx:       context,
 		catMap:    nil,
 	}
 
@@ -699,7 +702,7 @@ func (s *Col) AppendRows(col d.Column) (d.Column, error) {
 		source string
 		e      error
 	)
-	if source, e = s.Dialect().Union(q1, q2, s.Name("")); e != nil {
+	if source, e = s.Context().Dialect().Union(q1, q2, s.Name("")); e != nil {
 		return nil, e
 	}
 
@@ -708,7 +711,7 @@ func (s *Col) AppendRows(col d.Column) (d.Column, error) {
 		dType:     s.DataType(),
 		sql:       "",
 		sourceSQL: source,
-		dlct:      s.Dialect(),
+		ctx:       s.Context(),
 		signature: newSignature(),
 		version:   0,
 	}
@@ -725,7 +728,7 @@ func (s *Col) Copy() d.Column {
 		dType:     s.dType,
 		sql:       s.sql,
 		sourceSQL: s.sourceSQL,
-		dlct:      s.dlct,
+		ctx:       s.ctx,
 
 		signature:   s.signature,
 		version:     s.version,
@@ -749,7 +752,7 @@ func (s *Col) Data() any {
 		s.Name(d.RandomLetters(5))
 	}
 
-	if df, e = m.DBLoad(s.MakeQuery(), s.Dialect()); e != nil {
+	if df, e = m.DBLoad(s.MakeQuery(), s.Context().Dialect()); e != nil {
 		panic(e)
 	}
 
@@ -773,8 +776,8 @@ func (s *Col) DataType() d.DataTypes {
 	return s.dType
 }
 
-func (s *Col) Dialect() *d.Dialect {
-	return s.dlct
+func (s *Col) Context() *d.Context {
+	return s.ctx
 }
 
 func (s *Col) Len() int {
@@ -782,7 +785,7 @@ func (s *Col) Len() int {
 		n  int
 		ex error
 	)
-	if n, ex = s.Dialect().RowCount(s.MakeQuery()); ex != nil {
+	if n, ex = s.Context().Dialect().RowCount(s.MakeQuery()); ex != nil {
 		panic(ex)
 	}
 
@@ -791,7 +794,6 @@ func (s *Col) Len() int {
 
 func (s *Col) MakeQuery() string {
 	sig := newSignature()
-	// HERE
 
 	// give it a random name if it does not have one
 	if s.Name("") == "" {
@@ -805,7 +807,13 @@ func (s *Col) MakeQuery() string {
 		return fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", sig, s.sourceSQL, s.Name(""), sig)
 	}
 
-	return fmt.Sprintf("WITH %s AS (%s) SELECT\n%s AS %s FROM %s", sig, s.sourceSQL, s.SQL(), s.Name(""), sig)
+	field := s.Name("")
+	if fn := s.SQL().(string); fn != "" {
+		// Need to Cast to required type here o.w. DB may default to an unsupported type
+		field, _ = s.Context().Dialect().CastField(fn, s.DataType(), s.DataType())
+	}
+
+	return fmt.Sprintf("WITH %s AS (%s) SELECT\n%s AS %s FROM %s", sig, s.sourceSQL, field, s.Name(""), sig)
 }
 
 func (s *Col) Name(renameTo string) string {
@@ -835,6 +843,9 @@ func (s *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 		return nil, fmt.Errorf("columns not from same signature")
 	}
 
+	ctx := d.NewContext(s.Context().Dialect(), nil)
+	tmpDF, _ := NewDFcol(nil, nil, ctx, indicator.(*Col), replacement.(*Col), s)
+
 	if indicator.DataType() != d.DTint {
 		return nil, fmt.Errorf("indicator not type DTint in Replace")
 	}
@@ -842,14 +853,15 @@ func (s *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	whens := []string{fmt.Sprintf("%s > 0", indicator.Name("")),
 		fmt.Sprintf("%s <= 0", indicator.Name(""))}
 	equalTo := []string{replacement.Name(""), s.Name("")}
+
 	var (
 		sqlx string
 		e    error
 	)
-	if sqlx, e = s.Dialect().Case(whens, equalTo); e != nil {
+	if sqlx, e = s.Context().Dialect().Case(whens, equalTo); e != nil {
 		return nil, e
 	}
-	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), s.Dialect(), s.DataType(), sqlx)
+	outCol := NewColSQL("", s.Signature(), tmpDF.MakeQuery(), s.Version(), s.Context(), s.DataType(), sqlx)
 
 	return outCol, nil
 }
@@ -887,7 +899,7 @@ func (s *Col) String() string {
 	}
 
 	if s.DataType() != d.DTfloat {
-		ctx := d.NewContext(s.Dialect(), nil, nil)
+		ctx := d.NewContext(s.Context().Dialect(), nil, nil)
 		df, ex := NewDFcol(nil, nil, ctx, s)
 		_ = ex
 		tab, _ := df.Table(false, s.Name(""))
@@ -910,12 +922,20 @@ func (s *Col) String() string {
 	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 
 	header := []string{"metric", "value"}
-	vals, _ := s.Dialect().Summary(s.MakeQuery(), s.Name(""))
+	vals, _ := s.Context().Dialect().Summary(s.MakeQuery(), s.Name(""))
 	return t + d.PrettyPrint(header, cols, vals)
 }
 
 func (s *Col) Version() int {
 	return s.version
+}
+
+func (s *Col) Dependencies() []string {
+	return s.dependencies
+}
+
+func (s *Col) SetDependencies(dep []string) {
+	s.dependencies = dep
 }
 
 // ***************** Helpers *****************

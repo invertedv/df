@@ -22,6 +22,8 @@ type OpTree struct {
 	fnNames []string
 
 	ops operations
+
+	dependencies []string
 }
 
 type operations [][]string
@@ -34,8 +36,9 @@ type Parsed struct {
 	df     DF
 }
 
-func NewParsed(value any) *Parsed {
+func NewParsed(value any, dependencies ...string) *Parsed {
 	p := &Parsed{}
+
 	if _, ok := value.(DF); ok {
 		p.df = value.(DF)
 		p.which = "DF"
@@ -43,6 +46,7 @@ func NewParsed(value any) *Parsed {
 	}
 
 	if _, ok := value.(Column); ok {
+		value.(Column).SetDependencies(dependencies)
 		p.col = value.(Column)
 		p.which = "Column"
 		return p
@@ -219,7 +223,8 @@ func (ot *OpTree) Eval(df *DFcore) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
 		if c := df.Column(ot.expr); c != nil {
-			ot.value = NewParsed(c)
+			ot.dependencies = nodupAppend(ot.dependencies, c.Name(""))
+			ot.value = NewParsed(c, ot.dependencies...)
 			return nil
 		}
 
@@ -246,13 +251,14 @@ func (ot *OpTree) Eval(df *DFcore) error {
 		var inp []*Parsed
 		for ind := 0; ind < len(ot.inputs); ind++ {
 			inp = append(inp, ot.inputs[ind].Value())
+			ot.dependencies = nodupAppend(ot.dependencies, ot.inputs[ind].dependencies...)
 		}
 
 		if c, ex = df.DoOp(ot.fnName, inp...); ex != nil {
 			return ex
 		}
 
-		ot.value = NewParsed(c)
+		ot.value = NewParsed(c, ot.dependencies...)
 
 		return nil
 	}
@@ -272,18 +278,20 @@ func (ot *OpTree) Eval(df *DFcore) error {
 	var vl *Parsed
 	if ot.left != nil {
 		vl = ot.left.Value()
+		ot.dependencies = nodupAppend(ot.dependencies, ot.left.dependencies...)
 	}
 
 	var vr *Parsed
 	if ot.right != nil {
 		vr = ot.right.Value()
+		ot.dependencies = nodupAppend(ot.dependencies, ot.right.dependencies...)
 	}
 
 	if c, ex = df.DoOp(mapOp(ot.op), vl, vr); ex != nil {
 		return ex
 	}
 
-	ot.value = NewParsed(c)
+	ot.value = NewParsed(c, ot.dependencies...)
 
 	return nil
 }
@@ -419,6 +427,7 @@ func (ot *OpTree) args(xIn string) ([]string, error) {
 
 	if arg = xIn[start:]; arg == "" {
 		return nil, nil
+		// TODO: delete this
 		return nil, fmt.Errorf("bad arguments: %s", xIn)
 	}
 
@@ -598,4 +607,14 @@ func mapOp(op string) string {
 	default:
 		return op
 	}
+}
+
+func nodupAppend(x []string, xadd ...string) []string {
+	for _, xa := range xadd {
+		if !Has(xa, "", x...) {
+			x = append(x, xa)
+		}
+	}
+
+	return x
 }
