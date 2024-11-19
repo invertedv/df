@@ -13,7 +13,9 @@ import (
 type DF interface {
 	// generic from DFcore
 	AppendColumn(col Column, replace bool) error
-	Column(colName string) (col Column, err error)
+
+	//	Column(colName string) (col Column, err error)
+	Column(colName string) Column
 	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
@@ -200,8 +202,8 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 			col2, nc Column
 			e        error
 		)
-		if col2, e = df.Column(c.Name("")); e != nil {
-			return nil, e
+		if col2 = df.Column(c.Name("")); col2 == nil {
+			return nil, fmt.Errorf("column %s not found", c.Name(""))
 		}
 
 		if nc, e = c.AppendRows(col2); e != nil {
@@ -214,14 +216,15 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 	return NewDF(df.Runner(), df.Fns(), cols...)
 }
 
-func (df *DFcore) Column(colName string) (col Column, err error) {
+func (df *DFcore) Column(colName string) Column {
 	for h := df.head; h != nil; h = h.next {
 		if (h.col).Name("") == colName {
-			return h.col, nil
+			return h.col
 		}
 	}
 
-	return nil, fmt.Errorf("column %s not found", colName)
+	//, fmt.Errorf("column %s not found", colName)
+	return nil
 }
 
 func (df *DFcore) ColumnCount() int {
@@ -255,12 +258,9 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 	}
 
 	for ind := 0; ind < len(colNames); ind++ {
-		var (
-			c Column
-			e error
-		)
-		if c, e = df.Column(colNames[ind]); e != nil {
-			return nil, e
+		var c Column
+		if c = df.Column(colNames[ind]); c == nil {
+			return nil, fmt.Errorf("column %s not found", colNames[ind])
 		}
 
 		types = append(types, c.DataType())
@@ -407,13 +407,10 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	var subHead, tail *columnList
 
 	for ind := 0; ind < len(colNames); ind++ {
-		var (
-			col Column
-			err error
-		)
+		var col Column
 
-		if col, err = df.Column(colNames[ind]); err != nil {
-			return nil, err
+		if col = df.Column(colNames[ind]); col == nil {
+			return nil, fmt.Errorf("column %s not found", colNames[ind])
 		}
 
 		newNode := &columnList{
@@ -488,7 +485,7 @@ func (df *DFcore) SetContext(c *Context) {
 
 func (df *DFcore) ValidName(columnName string) bool {
 	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
-	if _, e := df.Column(columnName); e == nil {
+	if c := df.Column(columnName); c != nil {
 		return false
 	}
 
@@ -525,26 +522,6 @@ func DTFromString(nm string) DataTypes {
 	}
 
 	return DataTypes(uint8(pos))
-}
-
-func CompatibleXX(x, y DataTypes, strict bool) bool {
-	if x == DTany || y == DTany {
-		return true
-	}
-
-	if x == y {
-		return true
-	}
-
-	if strict {
-		return false
-	}
-
-	if (x == DTfloat || x == DTint) && (y == DTfloat || y == DTint) {
-		return true
-	}
-
-	return false
 }
 
 func (d DataTypes) IsNumeric() bool {

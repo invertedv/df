@@ -30,14 +30,14 @@ There's a new signature if:
 
 */
 
-// SQLdf is the implementation of DF for SQL.
+// DF is the implementation of DF for SQL.
 //
 // signature is the unique identifier of this dataframe.  It is reset if
 //   - a column is dropped
 //
 // version is the version number of this dataframe.  It is incremented if
 //   - a column is added
-type SQLdf struct {
+type DF struct {
 	//	rowCount int
 
 	sourceSQL string // source SQL used to query DB
@@ -55,7 +55,7 @@ type SQLdf struct {
 	row  []any
 }
 
-type SQLcol struct {
+type Col struct {
 	name  string
 	dType d.DataTypes
 	sql   string // SQL to generate this column
@@ -73,9 +73,9 @@ type SQLcol struct {
 	scalarValue any // This is for keeping the actual value of constants rather than SQL version
 }
 
-// ***************** SQLdf - Create *****************
+// ***************** DF - Create *****************
 
-func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (*SQLdf, error) {
+func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	if runDF == nil {
 		runDF = RunDFfn
 	}
@@ -100,7 +100,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 	}
 	// TODO: fix runs ??
 
-	df := &SQLdf{
+	df := &DF{
 		sourceSQL: mk,
 		signature: sig,
 		version:   version,
@@ -123,7 +123,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 	}
 
 	// TODO: think about: should SetContext copy context?
-	ctx := d.NewContext(context.Dialect(), df)
+	ctx := d.NewContext(context.Dialect(), df, context.Unassigned()...)
 	tmp.SetContext(ctx)
 
 	df.DFcore = tmp
@@ -131,14 +131,41 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*SQLcol) (
 	// populate sourceSQL for each column
 	qry := df.SourceSQL() // this will be the make query from the columns
 	for c := df.Next(true); c != nil; c = df.Next(false) {
-		c1 := c.(*SQLcol)
+		c1 := c.(*Col)
 		c1.sourceSQL = qry
 	}
 
 	return df, nil
 }
 
-func DBload(query string, context *d.Context) (*SQLdf, error) {
+func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
+	if runDF == nil {
+		runDF = RunDFfn
+	}
+
+	if funcs == nil {
+		funcs = StandardFunctions()
+	}
+
+	dlct := context.Dialect()
+	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
+
+	sig := dlct.NewSignature()
+	col := NewColSQL("seq", sig, seqSQL, 0, dlct, d.DTint, "")
+
+	var (
+		df *DF
+		e  error
+	)
+
+	if df, e = NewDFcol(runDF, funcs, context, col); e != nil {
+		panic(e)
+	}
+
+	return df
+}
+
+func DBload(query string, context *d.Context) (*DF, error) {
 	var (
 		e        error
 		colTypes []d.DataTypes
@@ -154,14 +181,14 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 		return nil, e
 	}
 
-	df := &SQLdf{
+	df := &DF{
 		sourceSQL: query,
 		signature: newSignature(),
 		version:   0,
 	}
 
 	for ind := 0; ind < len(colTypes); ind++ {
-		sqlCol := &SQLcol{
+		sqlCol := &Col{
 			name:      colNames[ind],
 			dType:     colTypes[ind],
 			signature: df.signature,
@@ -188,24 +215,24 @@ func DBload(query string, context *d.Context) (*SQLdf, error) {
 	// populate sourceSQL for each column
 	qry := df.SourceSQL()
 	for c := df.Next(true); c != nil; c = df.Next(false) {
-		c1 := c.(*SQLcol)
+		c1 := c.(*Col)
 		c1.sourceSQL = qry
 	}
 
 	return df, nil
 }
 
-// ***************** SQLdf - Methods *****************
+// ***************** DF - Methods *****************
 
-func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
+func (s *DF) AppendColumn(col d.Column, replace bool) error {
 	panicer(col)
 
 	var (
-		c  *SQLcol
+		c  *Col
 		ok bool
 	)
-	if c, ok = col.(*SQLcol); !ok {
-		return fmt.Errorf("AppendColumn requires *SQLcol")
+	if c, ok = col.(*Col); !ok {
+		return fmt.Errorf("AppendColumn requires *Col")
 	}
 
 	if s.Signature() != c.Signature() {
@@ -217,7 +244,7 @@ func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 
 	// increment version # if append is a new column or an existing column of the same type
 	exists, sameType := false, false
-	if cx, e := s.Column(col.Name("")); e == nil {
+	if cx := s.Column(col.Name("")); cx != nil {
 		exists = true
 		if cx.DataType() == col.DataType() {
 			sameType = true
@@ -241,7 +268,7 @@ func (s *SQLdf) AppendColumn(col d.Column, replace bool) error {
 	return s.Core().AppendColumn(col, replace)
 }
 
-func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
+func (s *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 	n1 := s.ColumnNames()
 
 	if len(n1) != len(dfNew.ColumnNames()) {
@@ -249,11 +276,8 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 	}
 
 	for c := s.Next(true); c != nil; c = s.Next(false) {
-		var (
-			cNew d.Column
-			e    error
-		)
-		if cNew, e = dfNew.Column(c.Name("")); e != nil {
+		var cNew d.Column
+		if cNew = dfNew.Column(c.Name("")); c == nil {
 			return nil, fmt.Errorf("missing column %s in AppendDF", c.Name(""))
 		}
 
@@ -266,12 +290,12 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 		sqlx string
 		e    error
 	)
-	if sqlx, e = s.Context().Dialect().Union(s.MakeQuery(), dfNew.(*SQLdf).MakeQuery(), n1...); e != nil {
+	if sqlx, e = s.Context().Dialect().Union(s.MakeQuery(), dfNew.(*DF).MakeQuery(), n1...); e != nil {
 		return nil, e
 	}
 
 	var (
-		dfOut *SQLdf
+		dfOut *DF
 		eOut  error
 	)
 	ctx := d.NewContext(s.Context().Dialect(), nil, nil)
@@ -285,13 +309,10 @@ func (s *SQLdf) AppendDF(dfNew d.DF) (d.DF, error) {
 	return dfOut, nil
 }
 
-func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
-	var (
-		col d.Column
-		e   error
-	)
-	if col, e = s.Column(colName); e != nil {
-		return nil, e
+func (s *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
+	var col d.Column
+	if col = s.Column(colName); col == nil {
+		return nil, fmt.Errorf("column %s not found", col)
 	}
 
 	nextInt := 0
@@ -321,31 +342,25 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 		return nil, e4
 	}
 
-	x := tabl.(*SQLdf).MakeQuery()
+	x := tabl.(*DF).MakeQuery()
 	var (
-		mDF *m.MemDF
+		mDF *m.DF
 		e1  error
 	)
 	if mDF, e1 = m.DBLoad(x, s.Context().Dialect()); e1 != nil {
-		return nil, e
+		return nil, e1
 	}
 
 	_ = mDF.Sort(true, cn)
 
-	var (
-		inCol d.Column
-		e2    error
-	)
-	if inCol, e2 = mDF.Column(cn); e2 != nil {
-		return nil, e2
+	var inCol d.Column
+	if inCol = mDF.Column(cn); inCol == nil {
+		return nil, fmt.Errorf("column %s not found", cn)
 	}
 
-	var (
-		counts d.Column
-		e3     error
-	)
-	if counts, e3 = mDF.Column("count"); e3 != nil {
-		return nil, e3
+	var counts d.Column
+	if counts = mDF.Column("count"); counts == nil {
+		return nil, fmt.Errorf("column count not found")
 	}
 
 	cnts := make(d.CategoryMap)
@@ -353,8 +368,8 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	var whens, equalTo []string
 	for ind := 0; ind < inCol.Len(); ind++ {
 		outVal := caseNo
-		val := inCol.(*m.MemCol).Element(ind)
-		ct := counts.(*m.MemCol).Element(ind).(int)
+		val := inCol.(*m.Col).Element(ind)
+		ct := counts.(*m.Col).Element(ind).(int)
 		catVal := val
 
 		if fuzz > 1 && ct < fuzz {
@@ -402,9 +417,9 @@ func (s *SQLdf) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	return outCol, nil
 }
 
-func (s *SQLdf) Copy() d.DF {
+func (s *DF) Copy() d.DF {
 	dfCore := s.Core().Copy()
-	dfNew := &SQLdf{
+	dfNew := &DF{
 		sourceSQL: s.sourceSQL,
 		signature: s.signature,
 		version:   s.version,
@@ -418,14 +433,14 @@ func (s *SQLdf) Copy() d.DF {
 	return dfNew
 }
 
-func (s *SQLdf) DropColumns(colNames ...string) error {
+func (s *DF) DropColumns(colNames ...string) error {
 	s.signature = newSignature()
 	s.version = 0
 
 	return s.Core().DropColumns(colNames...)
 }
 
-func (s *SQLdf) Iter(reset bool) (row []any, err error) {
+func (s *DF) Iter(reset bool) (row []any, err error) {
 	if reset {
 		qry := s.MakeQuery()
 		var e error
@@ -448,25 +463,20 @@ func (s *SQLdf) Iter(reset bool) (row []any, err error) {
 	return s.row, nil
 }
 
-func (s *SQLdf) MakeQuery() string {
+func (s *DF) MakeQuery() string {
 	var fields []string
 
 	colNames := s.ColumnNames()
 
 	for ind := 0; ind < len(colNames); ind++ {
-		//	for _, cn := range colNames {
-		var (
-			cx d.Column
-			e  error
-		)
-
-		if cx, e = s.Column(colNames[ind]); e != nil {
-			panic(e)
+		var cx d.Column
+		if cx = s.Column(colNames[ind]); cx == nil {
+			panic(fmt.Errorf("missing name??"))
 		}
 
 		var field string
 		field = cx.Name("")
-		if fn := cx.(*SQLcol).SQL().(string); fn != "" {
+		if fn := cx.(*Col).SQL().(string); fn != "" {
 			// Need to Cast to required type here o.w. DB may default to an unsupported type
 			fnc, _ := s.Context().Dialect().CastField(fn, cx.DataType(), cx.DataType())
 			field = fmt.Sprintf("%s AS %s", fnc, cx.Name(""))
@@ -492,7 +502,7 @@ func (s *SQLdf) MakeQuery() string {
 	return qry
 }
 
-func (s *SQLdf) RowCount() int {
+func (s *DF) RowCount() int {
 	var (
 		rowCount int
 		e        error
@@ -504,14 +514,14 @@ func (s *SQLdf) RowCount() int {
 	return rowCount
 }
 
-func (s *SQLdf) Signature() string {
+func (s *DF) Signature() string {
 	return s.signature
 }
 
-func (s *SQLdf) Sort(ascending bool, keys ...string) error {
+func (s *DF) Sort(ascending bool, keys ...string) error {
 	for _, k := range keys {
-		if _, e := s.Column(k); e != nil {
-			return e
+		if c := s.Column(k); c == nil {
+			return fmt.Errorf("missing column %s", k)
 		}
 	}
 
@@ -524,16 +534,17 @@ func (s *SQLdf) Sort(ascending bool, keys ...string) error {
 	s.orderBy = strings.Join(keys, ",")
 	src := s.MakeQuery()
 	for c := s.Next(true); c != nil; c = s.Next(false) {
-		c.(*SQLcol).sourceSQL = src
+		c.(*Col).sourceSQL = src
 	}
+
 	return nil
 }
 
-func (s *SQLdf) SourceSQL() string {
+func (s *DF) SourceSQL() string {
 	return s.sourceSQL
 }
 
-func (s *SQLdf) String() string {
+func (s *DF) String() string {
 	var sx string
 	for c := s.Next(true); c != nil; c = s.Next(false) {
 		sx += c.String() + "\n"
@@ -542,22 +553,19 @@ func (s *SQLdf) String() string {
 	return sx
 }
 
-func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
+func (s *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	var (
 		names []string
-		cs    []*SQLcol
+		cs    []*Col
 		e     error
 	)
 	for ind := 0; ind < len(cols); ind++ {
-		var (
-			c  d.Column
-			ex error
-		)
-		if c, ex = s.Column(cols[ind]); ex != nil {
-			return nil, ex
+		var c d.Column
+		if c = s.Column(cols[ind]); c == nil {
+			return nil, fmt.Errorf("missing column %s", cols[ind])
 		}
 
-		csql := c.(*SQLcol)
+		csql := c.(*Col)
 		cs = append(cs, csql)
 		dt := csql.DataType()
 		if dt != d.DTstring && dt != d.DTint && dt != d.DTdate && dt != d.DTcategorical {
@@ -586,7 +594,7 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	cs = append(cs, rate)
 
 	ctx := d.NewContext(s.Context().Dialect(), nil)
-	var outDF *SQLdf
+	var outDF *DF
 
 	if outDF, e = NewDFcol(s.Runner(), s.Fns(), ctx, cs...); e != nil {
 		return nil, e
@@ -601,17 +609,17 @@ func (s *SQLdf) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	return outDF, nil
 }
 
-func (s *SQLdf) Version() int {
+func (s *DF) Version() int {
 	return s.version
 }
 
-func (s *SQLdf) Where(col d.Column) (d.DF, error) {
+func (s *DF) Where(col d.Column) (d.DF, error) {
 	panicer(col)
 	if col == nil {
 		return nil, fmt.Errorf("where column is nil")
 	}
 
-	dfNew := s.Copy().(*SQLdf)
+	dfNew := s.Copy().(*DF)
 	dfNew.signature += "W"
 	dfNew.version = 0
 
@@ -619,18 +627,23 @@ func (s *SQLdf) Where(col d.Column) (d.DF, error) {
 		return nil, fmt.Errorf("where column must be type DTint")
 	}
 
-	dfNew.where = fmt.Sprintf("%s > 0", col.(*SQLcol).SQL().(string))
+	dfNew.where = fmt.Sprintf("%s > 0", col.(*Col).SQL().(string))
 	if dfNew.where != "" {
-		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*SQLcol).SQL().(string))
+		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*Col).SQL().(string))
+	}
+
+	src := dfNew.MakeQuery()
+	for c := dfNew.Next(true); c != nil; c = dfNew.Next(false) {
+		c.(*Col).sourceSQL = src
 	}
 
 	return dfNew, nil
 }
 
-// ***************** SQLcol - Create *****************
+// ***************** Col - Create *****************
 
-func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, dt d.DataTypes, sqlx string) *SQLcol {
-	col := &SQLcol{
+func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, dt d.DataTypes, sqlx string) *Col {
+	col := &Col{
 		name:      name,
 		dType:     dt,
 		sql:       sqlx,
@@ -644,7 +657,7 @@ func NewColSQL(name, signature, sourceSQL string, version int, dlct *d.Dialect, 
 	return col
 }
 
-func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
+func NewColScalar(name, sig string, version int, val any) (*Col, error) {
 	var dt d.DataTypes
 
 	if dt = d.WhatAmI(val); dt != d.DTint && dt != d.DTfloat && dt != d.DTdate && dt != d.DTstring {
@@ -659,7 +672,7 @@ func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
 		sqlx = fmt.Sprintf("%v", val)
 	}
 
-	col := &SQLcol{
+	col := &Col{
 		name:      name,
 		dType:     dt,
 		sql:       sqlx,
@@ -672,7 +685,7 @@ func NewColScalar(name, sig string, version int, val any) (*SQLcol, error) {
 
 // ***************** SQLCol - Methods *****************
 
-func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
+func (s *Col) AppendRows(col d.Column) (d.Column, error) {
 	panicer(col)
 	if s.DataType() != col.DataType() {
 		return nil, fmt.Errorf("incompatible columns in AppendRows")
@@ -690,7 +703,7 @@ func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
 		return nil, e
 	}
 
-	outCol := &SQLcol{
+	outCol := &Col{
 		name:      s.Name(""),
 		dType:     s.DataType(),
 		sql:       "",
@@ -702,12 +715,12 @@ func (s *SQLcol) AppendRows(col d.Column) (d.Column, error) {
 	return outCol, nil
 }
 
-func (s *SQLcol) CategoryMap() d.CategoryMap {
+func (s *Col) CategoryMap() d.CategoryMap {
 	return s.catMap
 }
 
-func (s *SQLcol) Copy() d.Column {
-	n := &SQLcol{
+func (s *Col) Copy() d.Column {
+	n := &Col{
 		name:      s.name,
 		dType:     s.dType,
 		sql:       s.sql,
@@ -725,27 +738,30 @@ func (s *SQLcol) Copy() d.Column {
 	return n
 }
 
-func (s *SQLcol) Data() any {
+func (s *Col) Data() any {
 	var (
-		df *m.MemDF
+		df *m.DF
 		e  error
 	)
+
+	// give it a random name if it does not have one
+	if s.Name("") == "" {
+		s.Name(d.RandomLetters(5))
+	}
+
 	if df, e = m.DBLoad(s.MakeQuery(), s.Dialect()); e != nil {
 		panic(e)
 	}
 
-	var (
-		col d.Column
-		e1  error
-	)
-	if col, e1 = df.Column(s.Name("")); e1 != nil {
-		panic(e1)
+	var col d.Column
+	if col = df.Column(s.Name("")); col == nil {
+		panic(fmt.Errorf("missing column?"))
 	}
 
-	return col.(*m.MemCol).Data()
+	return col.(*m.Col).Data()
 }
 
-func (s *SQLcol) SQL() any {
+func (s *Col) SQL() any {
 	if s.sql != "" {
 		return s.sql
 	}
@@ -753,15 +769,15 @@ func (s *SQLcol) SQL() any {
 	return s.name
 }
 
-func (s *SQLcol) DataType() d.DataTypes {
+func (s *Col) DataType() d.DataTypes {
 	return s.dType
 }
 
-func (s *SQLcol) Dialect() *d.Dialect {
+func (s *Col) Dialect() *d.Dialect {
 	return s.dlct
 }
 
-func (s *SQLcol) Len() int {
+func (s *Col) Len() int {
 	var (
 		n  int
 		ex error
@@ -773,14 +789,26 @@ func (s *SQLcol) Len() int {
 	return n
 }
 
-func (s *SQLcol) MakeQuery() string {
+func (s *Col) MakeQuery() string {
 	sig := newSignature()
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s AS %s FROM %s", sig, s.sourceSQL, s.SQL(), s.Name(""), sig)
+	// HERE
 
-	return qry
+	// give it a random name if it does not have one
+	if s.Name("") == "" {
+		s.Name(d.RandomLetters(5))
+	}
+
+	c1 := fmt.Sprintf("AS %s,", s.Name(""))
+	c2 := fmt.Sprintf("AS %s ", s.Name(""))
+	c3 := fmt.Sprintf("AS %s\n", s.Name(""))
+	if strings.Contains(s.sourceSQL, c1) || strings.Contains(s.sourceSQL, c2) || strings.Contains(s.sourceSQL, c3) {
+		return fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", sig, s.sourceSQL, s.Name(""), sig)
+	}
+
+	return fmt.Sprintf("WITH %s AS (%s) SELECT\n%s AS %s FROM %s", sig, s.sourceSQL, s.SQL(), s.Name(""), sig)
 }
 
-func (s *SQLcol) Name(renameTo string) string {
+func (s *Col) Name(renameTo string) string {
 	if renameTo != "" {
 		s.name = renameTo
 	}
@@ -788,14 +816,14 @@ func (s *SQLcol) Name(renameTo string) string {
 	return s.name
 }
 
-func (s *SQLcol) RawType() d.DataTypes {
+func (s *Col) RawType() d.DataTypes {
 	return s.rawType
 }
 
-func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
+func (s *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
 
-	if s.Signature() != indicator.(*SQLcol).Signature() {
+	if s.Signature() != indicator.(*Col).Signature() {
 		return nil, fmt.Errorf("not the same signature in Replace")
 	}
 
@@ -803,7 +831,7 @@ func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
 		return nil, fmt.Errorf("incompatible columns in Replace")
 	}
 
-	if s.Signature() != indicator.(*SQLcol).Signature() || s.Signature() != replacement.(*SQLcol).Signature() {
+	if s.Signature() != indicator.(*Col).Signature() || s.Signature() != replacement.(*Col).Signature() {
 		return nil, fmt.Errorf("columns not from same signature")
 	}
 
@@ -821,21 +849,20 @@ func (s *SQLcol) Replace(indicator, replacement d.Column) (d.Column, error) {
 	if sqlx, e = s.Dialect().Case(whens, equalTo); e != nil {
 		return nil, e
 	}
-
-	outCol := NewColSQL("", s.Signature(), s.SourceSQL(), s.Version(), s.Dialect(), s.DataType(), sqlx)
+	outCol := NewColSQL("", s.Signature(), s.MakeQuery(), s.Version(), s.Dialect(), s.DataType(), sqlx)
 
 	return outCol, nil
 }
 
-func (s *SQLcol) Signature() string {
+func (s *Col) Signature() string {
 	return s.signature
 }
 
-func (s *SQLcol) SourceSQL() string {
+func (s *Col) SourceSQL() string {
 	return s.sourceSQL
 }
 
-func (s *SQLcol) String() string {
+func (s *Col) String() string {
 	if s.Name("") == "" {
 		panic("column has no name")
 	}
@@ -866,18 +893,18 @@ func (s *SQLcol) String() string {
 		tab, _ := df.Table(false, s.Name(""))
 
 		var (
-			vals *m.MemDF
+			vals *m.DF
 			e    error
 		)
 		if vals, e = m.DBLoad(tab.MakeQuery(), tab.Context().Dialect()); e != nil {
 			panic(e)
 		}
 
-		l, _ := vals.Column(s.Name(""))
-		c, _ := vals.Column("count")
+		l := vals.Column(s.Name(""))
+		c := vals.Column("count")
 
 		header := []string{l.Name(""), c.Name("")}
-		return t + d.PrettyPrint(header, l.(*SQLcol).SQL(), c.(*SQLcol).SQL())
+		return t + d.PrettyPrint(header, l.(*Col).SQL(), c.(*Col).SQL())
 	}
 
 	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
@@ -887,7 +914,7 @@ func (s *SQLcol) String() string {
 	return t + d.PrettyPrint(header, cols, vals)
 }
 
-func (s *SQLcol) Version() int {
+func (s *Col) Version() int {
 	return s.version
 }
 
@@ -900,8 +927,8 @@ func newSignature() string {
 
 func panicer(cols ...d.Column) {
 	for _, c := range cols {
-		if _, ok := c.(*SQLcol); !ok {
-			panic("non-*SQLcol argument")
+		if _, ok := c.(*Col); !ok {
+			panic("non-*Col argument")
 		}
 	}
 }

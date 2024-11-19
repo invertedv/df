@@ -7,28 +7,31 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// NewDFseq - arrayJoin(range(1,n)) or cnt(1,n)
+// TODO: rowNumber func and a method in SQL (ch: RowNumberInBlock)
+
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 	info := fn(true, nil)
-	if !info.Varying && len(inputs) != len(info.Inputs[0]) {
+	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
-	if info.Varying && len(inputs) < len(info.Inputs[0]) {
+	if info.Inputs != nil && info.Varying && len(inputs) < len(info.Inputs[0]) {
 		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
 	var (
 		inps []any
-		cols []*MemCol
+		cols []*Col
 	)
 	for j := 0; j < len(inputs); j++ {
 		var (
 			ok  bool
-			col *MemCol
+			col *Col
 		)
-		if col, ok = inputs[j].(*MemCol); !ok {
+		if col, ok = inputs[j].(*Col); !ok {
 			var e error
-			if col, e = NewMemCol("", inputs[j]); e != nil {
+			if col, e = NewCol("", inputs[j]); e != nil {
 				return nil, e
 			}
 		}
@@ -52,7 +55,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, eq,
 		exp, ge, gt, ifs, le, lt, log, mean, multiply,
-		ne, not, or, sortDF, subtract, sum, table, toCat,
+		ne, not, or, rowNumber, sortDF, subtract, sum, table, toCat,
 		toDate, toFloat, toInt, toString,
 		where,
 	}
@@ -81,7 +84,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	ascending := true
-	if inputs[0].(*MemCol).Element(0).(string) == "desc" {
+	if inputs[0].(*Col).Element(0).(string) == "desc" {
 		ascending = false
 	}
 
@@ -156,6 +159,22 @@ func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	return realFn(math.Log, "log", info, context, inputs...)
 }
 
+// ***************** Functions that take no parameters *****************
+
+func rowNumber(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "rowNumber", Output: []d.DataTypes{d.DTint}}
+	}
+
+	n := context.Self().RowCount()
+	data := make([]int, n)
+	for ind := 0; ind < n; ind++ {
+		data[ind] = ind
+	}
+
+	return returnCol(data)
+}
+
 // ***************** type conversions *****************
 
 func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -191,7 +210,7 @@ func cast(name string, in [][]d.DataTypes, out []d.DataTypes, info bool, context
 		return &d.FnReturn{Name: name, Inputs: in, Output: out}
 	}
 
-	col := inputs[0].(*MemCol)
+	col := inputs[0].(*Col)
 	data := d.MakeSlice(out[0], 0, nil)
 	for ind := 0; ind < col.Len(); ind++ {
 		var (
@@ -216,7 +235,7 @@ func single(name string, fn func(any) any, in [][]d.DataTypes,
 	if info {
 		return &d.FnReturn{Name: name, Inputs: in, Output: out}
 	}
-	col := inputs[0].(*MemCol)
+	col := inputs[0].(*Col)
 
 	return returnCol(fn(col))
 }
@@ -229,7 +248,7 @@ func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 func meanC(xx any) any {
 	x := sumC(xx)
-	l := float64(xx.(*MemCol).Len())
+	l := float64(xx.(*Col).Len())
 
 	switch d.WhatAmI(x) {
 	case d.DTfloat:
@@ -248,7 +267,7 @@ func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 }
 
 func sumC(xx any) any {
-	switch x := xx.(*MemCol).Data().(type) {
+	switch x := xx.(*Col).Data().(type) {
 	case []float64:
 		s := 0.0
 		for _, xv := range x {
@@ -383,7 +402,7 @@ func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Name: "abs", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
 	}
 
-	col := inputs[0].(*MemCol)
+	col := inputs[0].(*Col)
 	data := d.MakeSlice(col.DataType(), col.Len(), nil)
 	for ind := 0; ind < col.Len(); ind++ {
 		switch col.DataType() {
@@ -551,7 +570,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Varying: true}
 	}
 
-	col := inputs[0].(*MemCol)
+	col := inputs[0].(*Col)
 	dt := col.DataType()
 	if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
 		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
@@ -559,7 +578,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	fuzz := 1
 	if len(inputs) > 1 {
-		c := inputs[1].(*MemCol)
+		c := inputs[1].(*Col)
 		if c.DataType() != d.DTint {
 			return &d.FnReturn{Err: fmt.Errorf("fuzz parameter to Cat must be type int")}
 		}
@@ -571,11 +590,11 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = context.Self().(*MemDF).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
-	outCol.(*MemCol).rawType = dt
+	outCol.(*Col).rawType = dt
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
@@ -593,9 +612,9 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Output: []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical}}
 	}
 
-	newData := inputs[0].(*MemCol)
-	oldData := inputs[1].(*MemCol)
-	newVal := inputs[2].(*MemCol)
+	newData := inputs[0].(*Col)
+	oldData := inputs[1].(*Col)
+	newVal := inputs[2].(*Col)
 
 	if newData.DataType() != oldData.rawType {
 		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
@@ -618,11 +637,11 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	var outCol d.Column
-	if outCol, e = context.Self().(*MemDF).Categorical(newData.Name(""), oldData.catMap, 0, defaultValue, levels); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(newData.Name(""), oldData.catMap, 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
-	outCol.(*MemCol).rawType = newData.DataType()
+	outCol.(*Col).rawType = newData.DataType()
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
@@ -630,10 +649,10 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 // ***************** Helpers *****************
 
-func parameters(inputs ...any) (cols []*MemCol, n int) {
+func parameters(inputs ...any) (cols []*Col, n int) {
 	n = 1
 	for j := 0; j < len(inputs); j++ {
-		cx := inputs[j].(*MemCol)
+		cx := inputs[j].(*Col)
 		cols = append(cols, cx)
 
 		if nn := cx.Len(); nn > n {
@@ -646,11 +665,11 @@ func parameters(inputs ...any) (cols []*MemCol, n int) {
 
 func returnCol(data any) *d.FnReturn {
 	var (
-		outCol *MemCol
+		outCol *Col
 		e      error
 	)
 
-	if outCol, e = NewMemCol("", data); e != nil {
+	if outCol, e = NewCol("", data); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -659,11 +678,15 @@ func returnCol(data any) *d.FnReturn {
 
 // TODO: change function inputs to Column from any
 // TODO: check same length?
-func okParams(cols []*MemCol, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok bool, outType d.DataTypes) {
+func okParams(cols []*Col, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok bool, outType d.DataTypes) {
+	if inputs == nil {
+		return true, outputs[0]
+	}
+
 	for j := 0; j < len(inputs); j++ {
 		ok = true
 		for k := 0; k < len(inputs[j]); k++ {
-			if cols[k].DataType() != inputs[j][k] {
+			if inputs[j][k] != d.DTany && cols[k].DataType() != inputs[j][k] {
 				ok = false
 				break
 			}

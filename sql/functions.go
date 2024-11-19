@@ -9,36 +9,36 @@ import (
 
 func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 	info := fn(true, nil)
-	if !info.Varying && len(inputs) != len(info.Inputs[0]) {
+	if inputs != nil && !info.Varying && len(inputs) != len(info.Inputs[0]) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
 	}
 
-	if info.Varying && len(inputs) < len(info.Inputs[0]) {
+	if inputs != nil && info.Varying && len(inputs) < len(info.Inputs[0]) {
 		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
 	var (
 		inps []any
-		cols []*SQLcol
+		cols []*Col
 	)
 
-	skip := false
+	skip := (inputs == nil) // false
 	for j := 0; j < len(inputs); j++ {
 		var (
 			ok  bool
-			col *SQLcol
+			col *Col
 		)
 
-		if col, ok = inputs[j].(*SQLcol); !ok {
+		if col, ok = inputs[j].(*Col); !ok {
 			var e error
-			sig := context.Self().(*SQLdf).Signature()
-			ver := context.Self().(*SQLdf).Version()
+			sig := context.Self().(*DF).Signature()
+			ver := context.Self().(*DF).Version()
 			if col, e = NewColScalar("", sig, ver, inputs[j]); e != nil {
 				return nil, e
 			}
 		}
 
-		// if this is an *SQLcol with no scalarValue, then it's a true column from the data frame and there's no point
+		// if this is an *Col with no scalarValue, then it's a true column from the data frame and there's no point
 		// to trying to evaluate it as a scalar
 		if ok && col.scalarValue == nil {
 			skip = true
@@ -57,31 +57,31 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 		// get the corresponding mem function
 		if fnMem := m.StandardFunctions().Get(info.Name); fnMem != nil {
 			var (
-				col   *m.MemCol
+				col   *m.Col
 				e     error
 				inpsx []any
 			)
 
-			// Create *MemCol version of the inputs
+			// Create *Col version of the inputs
 			for j := 0; j < len(inputs); j++ {
 				v := inputs[j]
 				if cols[j].scalarValue != nil {
 					v = cols[j].scalarValue
 				}
-				if col, e = m.NewMemCol("", v); e != nil {
+				if col, e = m.NewCol("", v); e != nil {
 					return nil, e
 				}
 				inpsx = append(inpsx, col)
 			}
 
-			// run the function, convert output to SQLcol
+			// run the function, convert output to Col
 			if val := fnMem(false, context, inpsx...); val.Err == nil {
-				mCol := val.Value.(*m.MemCol)
+				mCol := val.Value.(*m.Col)
 				dt := mCol.DataType()
 				sql, _ := context.Dialect().CastField(d.Any2String(mCol.Element(0)), dt, dt)
-				sig := context.Self().(*SQLdf).Signature()
-				ver := context.Self().(*SQLdf).Version()
-				src := context.Self().(*SQLdf).MakeQuery()
+				sig := context.Self().(*DF).Signature()
+				ver := context.Self().(*DF).Version()
+				src := context.Self().(*DF).MakeQuery()
 				retCol := NewColSQL("", sig, src, ver, context.Dialect(), mCol.DataType(), sql)
 				// Place the value of the output in .scalarValue in case that's needed later
 				retCol.scalarValue = mCol.Element(0)
@@ -102,7 +102,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
-		multiply, ne, not, or, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
+		multiply, ne, not, or, rowNumber, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
 }
 
 // ////////  Standard Fns
@@ -135,10 +135,10 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	var names []string
 	for ind := 0; ind < len(inputs); ind++ {
-		names = append(names, inputs[ind].(*SQLcol).Name(""))
+		names = append(names, inputs[ind].(*Col).Name(""))
 	}
 
-	if outDF, e = context.Self().(*SQLdf).Table(false, names...); e != nil {
+	if outDF, e = context.Self().(*DF).Table(false, names...); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -153,7 +153,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	ascending := true
 	// Any2String will strip out the single quotes
-	if d.Any2String(inputs[0].(*SQLcol).SQL()) == "desc" {
+	if d.Any2String(inputs[0].(*Col).SQL()) == "desc" {
 		ascending = false
 	}
 
@@ -178,7 +178,7 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	var colNames []string
 	for ind := startInd; ind < len(cols); ind++ {
 		var cn string
-		if cn = cols[ind].(*SQLcol).Name(""); cn == "" {
+		if cn = cols[ind].(*Col).Name(""); cn == "" {
 			return nil, fmt.Errorf("column with no name in table")
 		}
 
@@ -186,6 +186,17 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	}
 
 	return colNames, nil
+}
+
+// ***************** Functions that take no parameters *****************
+
+func rowNumber(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return fnGen("rowNumber", "", "", nil, []d.DataTypes{d.DTint}, info, context)
+	}
+	sqlx := context.Dialect().RowNumber()
+	//	return fnGen("gt", "(%s > %s)", "", inps, outp, info, context, inputs...)
+	return fnGen("rowNumber", sqlx, "", nil, []d.DataTypes{d.DTint}, info, context)
 }
 
 // ***************** categorical Operations *****************
@@ -197,7 +208,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Varying: true}
 	}
 
-	col := inputs[0].(*SQLcol)
+	col := inputs[0].(*Col)
 	dt := col.DataType()
 	if !(dt == d.DTint || dt == d.DTstring || dt == d.DTdate) {
 		return &d.FnReturn{Err: fmt.Errorf("cannot make %s into categorical", dt)}
@@ -205,7 +216,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	fuzz := 1
 	if len(inputs) > 1 {
-		f := inputs[1].(*SQLcol).SQL()
+		f := inputs[1].(*Col).SQL()
 
 		var (
 			ex error
@@ -226,7 +237,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = context.Self().(*SQLdf).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -240,9 +251,9 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Output: []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical}}
 	}
 
-	newData := inputs[0].(*SQLcol)
-	oldData := inputs[1].(*SQLcol)
-	newVal := inputs[2].(*SQLcol)
+	newData := inputs[0].(*Col)
+	oldData := inputs[1].(*Col)
+	newVal := inputs[2].(*Col)
 
 	if newData.DataType() != oldData.rawType {
 		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
@@ -267,11 +278,11 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	var outCol d.Column
-	if outCol, e = context.Self().(*SQLdf).Categorical(newData.Name(""), oldData.catMap, 0, defaultValue, levels); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(newData.Name(""), oldData.catMap, 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
-	outCol.(*SQLcol).rawType = newData.DataType()
+	outCol.(*Col).rawType = newData.DataType()
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
@@ -301,9 +312,9 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 		dtOut = d.DTfloat
 	}
 
-	tabl := context.Self().(*SQLdf).Signature()
-	source := context.Self().(*SQLdf).MakeQuery()
-	version := context.Self().(*SQLdf).Version()
+	tabl := context.Self().(*DF).Signature()
+	source := context.Self().(*DF).MakeQuery()
+	version := context.Self().(*DF).Version()
 
 	//sql, _ = context.Dialect().CastField(sql, dtOut, dtOut)
 	outCol := NewColSQL("", tabl, source, version, context.Dialect(), dtOut, sql)
@@ -412,8 +423,8 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 			Output: []d.DataTypes{out, out, out, out, out}}
 	}
 
-	inp := inputs[0].(*SQLcol).SQL().(string)
-	dt := inputs[0].(*SQLcol).DataType()
+	inp := inputs[0].(*Col).SQL().(string)
+	dt := inputs[0].(*Col).DataType()
 
 	var (
 		sql string
@@ -424,9 +435,9 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 		return &d.FnReturn{Err: e}
 	}
 
-	sig := context.Self().(*SQLdf).Signature()
-	ver := context.Self().(*SQLdf).Version()
-	source := context.Self().(*SQLdf).MakeQuery()
+	sig := context.Self().(*DF).Signature()
+	ver := context.Self().(*DF).Version()
+	source := context.Self().(*DF).MakeQuery()
 	dlct := context.Dialect()
 	outCol := NewColSQL("", sig, source, ver, dlct, out, sql)
 
@@ -468,7 +479,7 @@ func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 func getSQL(inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
-		sOut = append(sOut, inputs[ind].(*SQLcol).SQL().(string)) // HERE
+		sOut = append(sOut, inputs[ind].(*Col).SQL().(string)) // HERE
 	}
 
 	return sOut
@@ -477,17 +488,21 @@ func getSQL(inputs ...any) []string {
 func getDataTypes(inputs ...any) []d.DataTypes {
 	var sOut []d.DataTypes
 	for ind := 0; ind < len(inputs); ind++ {
-		sOut = append(sOut, inputs[ind].(*SQLcol).DataType())
+		sOut = append(sOut, inputs[ind].(*Col).DataType())
 	}
 
 	return sOut
 }
 
-func okParams(cols []*SQLcol, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok bool, outType d.DataTypes) {
+func okParams(cols []*Col, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok bool, outType d.DataTypes) {
+	if inputs == nil {
+		return true, outputs[0]
+	}
+
 	for j := 0; j < len(inputs); j++ {
 		ok = true
 		for k := 0; k < len(inputs[j]); k++ {
-			if cols[k].DataType() != inputs[j][k] {
+			if inputs[j][k] != d.DTany && cols[k].DataType() != inputs[j][k] {
 				ok = false
 				break
 			}
@@ -533,9 +548,9 @@ func fnGen(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes, in
 		}
 	}
 
-	sig := context.Self().(*SQLdf).Signature() + suffix
-	ver := context.Self().(*SQLdf).Version()
-	source := context.Self().(*SQLdf).MakeQuery()
+	sig := context.Self().(*DF).Signature() + suffix
+	ver := context.Self().(*DF).Version()
+	source := context.Self().(*DF).MakeQuery()
 	//	sqlOut, _ = context.Dialect().CastField(sqlOut, outType, outType)
 
 	outCol := NewColSQL("", sig, source, ver, context.Dialect(), outType, sqlOut)

@@ -16,16 +16,16 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
-type MemDF struct {
+type DF struct {
 	sourceQuery string
-	by          []*MemCol
+	by          []*Col
 	ascending   bool
 	row         int
 
 	*d.DFcore
 }
 
-type MemCol struct {
+type Col struct {
 	name  string
 	dType d.DataTypes
 	data  any
@@ -35,9 +35,9 @@ type MemCol struct {
 	rawType   d.DataTypes
 }
 
-// ***************** MemDF - Create *****************
+// ***************** DF - Create *****************
 
-func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*MemCol) (*MemDF, error) {
+func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	if runDF == nil {
 		runDF = RunDFfn
 	}
@@ -70,13 +70,39 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*MemCol) (
 		df.SetContext(context)
 	}
 
-	outDF := &MemDF{DFcore: df, row: -1}
+	outDF := &DF{DFcore: df, row: -1}
 	outDF.Context().SetSelf(outDF)
 
 	return outDF, nil
 }
 
-func DBLoad(qry string, dlct *d.Dialect) (*MemDF, error) {
+func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
+	if n <= 0 {
+		panic(fmt.Errorf("n must be positive in NewDFseq"))
+	}
+
+	if runDF == nil {
+		runDF = RunDFfn
+	}
+
+	if funcs == nil {
+		funcs = StandardFunctions()
+	}
+
+	data := make([]int, n)
+	for ind := 0; ind < n; ind++ {
+		data[ind] = ind
+	}
+
+	col, _ := NewCol("seq", data)
+
+	df, _ := NewDFcol(runDF, funcs, context, col)
+	df.Context().SetSelf(df)
+
+	return df
+}
+
+func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 	var (
 		columnNames []string
 		columnTypes []d.DataTypes
@@ -92,11 +118,11 @@ func DBLoad(qry string, dlct *d.Dialect) (*MemDF, error) {
 		return nil, e
 	}
 
-	var memDF *MemDF
+	var memDF *DF
 	for ind := 0; ind < len(columnTypes); ind++ {
-		var col *MemCol
+		var col *Col
 
-		if col, e = NewMemCol(columnNames[ind], memData[ind]); e != nil {
+		if col, e = NewCol(columnNames[ind], memData[ind]); e != nil {
 			return nil, e
 		}
 
@@ -120,7 +146,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*MemDF, error) {
 	return memDF, nil
 }
 
-func FileLoad(f *d.Files) (*MemDF, error) {
+func FileLoad(f *d.Files) (*DF, error) {
 	var (
 		memData []any
 		e       error
@@ -129,11 +155,11 @@ func FileLoad(f *d.Files) (*MemDF, error) {
 		return nil, e
 	}
 
-	var memDF *MemDF
+	var memDF *DF
 	for ind := 0; ind < len(f.FieldNames()); ind++ {
-		var col *MemCol
+		var col *Col
 
-		if col, e = NewMemCol(f.FieldNames()[ind], memData[ind]); e != nil {
+		if col, e = NewCol(f.FieldNames()[ind], memData[ind]); e != nil {
 			return nil, e
 		}
 
@@ -156,16 +182,16 @@ func FileLoad(f *d.Files) (*MemDF, error) {
 	return memDF, nil
 }
 
-// ***************** MemDF - Methods *****************
+// ***************** DF - Methods *****************
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
-func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
+func (m *DF) AppendColumn(col d.Column, replace bool) error {
 	panicer(col)
 	if m.RowCount() != col.Len() && col.Len() > 1 {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
 
-	colx := col.(*MemCol)
+	colx := col.(*Col)
 	if colx.Len() == 1 {
 		var e error
 		dt := col.DataType()
@@ -175,7 +201,7 @@ func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
 			xs = d.AppendSlice(xs, val, dt)
 		}
 
-		if colx, e = NewMemCol(col.Name(""), xs); e != nil {
+		if colx, e = NewCol(col.Name(""), xs); e != nil {
 			return e
 		}
 	}
@@ -187,9 +213,9 @@ func (m *MemDF) AppendColumn(col d.Column, replace bool) error {
 	return nil
 }
 
-func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
-	if _, ok := df.(*MemDF); !ok {
-		return nil, fmt.Errorf("must be *MemDF to append to *MemDF")
+func (m *DF) AppendDF(df d.DF) (d.DF, error) {
+	if _, ok := df.(*DF); !ok {
+		return nil, fmt.Errorf("must be *DF to append to *DF")
 	}
 
 	var (
@@ -201,7 +227,7 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 		return nil, e
 	}
 
-	ndf := &MemDF{
+	ndf := &DF{
 		sourceQuery: "",
 		by:          nil,
 		DFcore:      dfCore,
@@ -210,7 +236,7 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 	return ndf, nil
 }
 
-//func (m *MemDF) DBsave(tableName string, overwrite bool) error {
+//func (m *DF) DBsave(tableName string, overwrite bool) error {
 //	if m.Context().Dialect() == nil {
 //		return fmt.Errorf("no dialect")
 //	}
@@ -218,13 +244,10 @@ func (m *MemDF) AppendDF(df d.DF) (d.DF, error) {
 //	return m.Context().Dialect().Save(tableName, "", overwrite, m)
 //}
 
-func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
-	var (
-		col d.Column
-		e0  error
-	)
-	if col, e0 = m.Column(colName); e0 != nil {
-		return nil, e0
+func (m *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
+	var col d.Column
+	if col = m.Column(colName); col == nil {
+		return nil, fmt.Errorf("column %s not found", colName)
 	}
 
 	if col.DataType() == d.DTfloat {
@@ -262,11 +285,11 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	// cnts will count the frequencies of each level of toMap
 	cnts := make(d.CategoryMap)
 
-	lvls, _ := tab.Column(colName)
-	cs, _ := tab.Column("count")
+	lvls := tab.Column(colName)
+	cs := tab.Column("count")
 	for ind := 0; ind < tab.RowCount(); ind++ {
-		lvl := lvls.(*MemCol).Element(ind)
-		cnt := cs.(*MemCol).Element(ind).(int)
+		lvl := lvls.(*Col).Element(ind)
+		cnt := cs.(*Col).Element(ind).(int)
 		if levels != nil && !d.In(lvl, levels) {
 			lvl = defaultVal
 		}
@@ -284,7 +307,7 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 
 	data := d.MakeSlice(d.DTint, 0, nil)
 	for ind := 0; ind < col.Len(); ind++ {
-		inVal := col.(*MemCol).Element(ind)
+		inVal := col.(*Col).Element(ind)
 
 		var (
 			ok     bool
@@ -299,11 +322,11 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	}
 
 	var (
-		outCol *MemCol
+		outCol *Col
 		e      error
 	)
 
-	if outCol, e = NewMemCol("", data); e != nil {
+	if outCol, e = NewCol("", data); e != nil {
 		return nil, e
 	}
 
@@ -315,10 +338,10 @@ func (m *MemDF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defa
 	return outCol, nil
 }
 
-func (m *MemDF) Copy() d.DF {
+func (m *DF) Copy() d.DF {
 	dfC := m.DFcore.Copy()
 
-	mNew := &MemDF{
+	mNew := &DF{
 		sourceQuery: "",
 		by:          nil,
 		ascending:   false,
@@ -330,7 +353,7 @@ func (m *MemDF) Copy() d.DF {
 	return mNew
 }
 
-func (m *MemDF) Iter(reset bool) (row []any, err error) {
+func (m *DF) Iter(reset bool) (row []any, err error) {
 	if reset {
 		m.row = 0
 	}
@@ -340,7 +363,7 @@ func (m *MemDF) Iter(reset bool) (row []any, err error) {
 	}
 
 	for c := m.Next(true); c != nil; c = m.Next(false) {
-		row = append(row, c.(*MemCol).Element(m.row))
+		row = append(row, c.(*Col).Element(m.row))
 	}
 
 	m.row++
@@ -349,11 +372,11 @@ func (m *MemDF) Iter(reset bool) (row []any, err error) {
 }
 
 // Len is required for sort
-func (m *MemDF) Len() int {
+func (m *DF) Len() int {
 	return m.RowCount()
 }
 
-func (m *MemDF) Less(i, j int) bool {
+func (m *DF) Less(i, j int) bool {
 	for ind := 0; ind < len(m.by); ind++ {
 		var less bool
 		if m.ascending {
@@ -379,28 +402,24 @@ func (m *MemDF) Less(i, j int) bool {
 	return true
 }
 
-func (m *MemDF) MakeQuery() string {
+func (m *DF) MakeQuery() string {
 	return ""
 }
 
-func (m *MemDF) RowCount() int {
+func (m *DF) RowCount() int {
 	return m.Next(true).Len()
 }
 
-func (m *MemDF) Sort(ascending bool, cols ...string) error {
-	var by []*MemCol
+func (m *DF) Sort(ascending bool, cols ...string) error {
+	var by []*Col
 
 	for ind := 0; ind < len(cols); ind++ {
-		var (
-			x d.Column
-			e error
-		)
-
-		if x, e = m.Column(cols[ind]); e != nil {
-			return e
+		var x d.Column
+		if x = m.Column(cols[ind]); x == nil {
+			return fmt.Errorf("column %s not found", cols[ind])
 		}
 
-		by = append(by, x.(*MemCol))
+		by = append(by, x.(*Col))
 	}
 
 	m.by = by
@@ -410,11 +429,11 @@ func (m *MemDF) Sort(ascending bool, cols ...string) error {
 	return nil
 }
 
-func (m *MemDF) SourceQuery() string {
+func (m *DF) SourceQuery() string {
 	return m.sourceQuery
 }
 
-func (m *MemDF) String() string {
+func (m *DF) String() string {
 	var sx string
 	for c := m.Next(true); c != nil; c = m.Next(false) {
 		sx += c.String() + "\n"
@@ -423,9 +442,9 @@ func (m *MemDF) String() string {
 	return sx
 }
 
-func (m *MemDF) Swap(i, j int) {
+func (m *DF) Swap(i, j int) {
 	for h := m.Next(true); h != nil; h = m.Next(false) {
-		data := h.(*MemCol).data
+		data := h.(*Col).data
 		switch h.DataType() {
 		case d.DTfloat:
 			data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
@@ -441,23 +460,19 @@ func (m *MemDF) Swap(i, j int) {
 	}
 }
 
-func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
-	var mCols, outCols []*MemCol
+func (m *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
+	var mCols, outCols []*Col
 	for ind := 0; ind < len(cols); ind++ {
-		var (
-			c d.Column
-			e error
-		)
-
-		if c, e = m.Column(cols[ind]); e != nil {
-			return nil, e
+		var c d.Column
+		if c = m.Column(cols[ind]); c == nil {
+			return nil, fmt.Errorf("column %s not found", cols[ind])
 		}
 
 		if c.DataType() == d.DTfloat {
 			return nil, fmt.Errorf("cannot make table with type float")
 		}
 
-		mCols = append(mCols, c.(*MemCol))
+		mCols = append(mCols, c.(*Col))
 	}
 
 	outCols = makeTable(mCols...)
@@ -491,7 +506,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		ex   error
 	)
 
-	if ret, ex = d.ParseExpr(expr, outDF.(*MemDF).DFcore); ex != nil || ret.Which() != "Column" {
+	if ret, ex = d.ParseExpr(expr, outDF.(*DF).DFcore); ex != nil || ret.Which() != "Column" {
 		return nil, ex
 	}
 
@@ -505,7 +520,7 @@ func (m *MemDF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	return outDF, nil
 }
 
-func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
+func (m *DF) Where(indicator d.Column) (d.DF, error) {
 	panicer(indicator)
 	if indicator.Len() != m.RowCount() {
 		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), m.RowCount())
@@ -519,7 +534,7 @@ func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
 
 	var n int
 	for col := dfNew.Next(true); col != nil; col = dfNew.Next(false) {
-		cx := col.(*MemCol)
+		cx := col.(*Col)
 		n = 0
 		newData := d.MakeSlice(cx.DataType(), 0, nil)
 
@@ -540,12 +555,12 @@ func (m *MemDF) Where(indicator d.Column) (d.DF, error) {
 	return dfNew, nil
 }
 
-// ***************** MemCol - Create *****************
+// ***************** Col - Create *****************
 
-func NewMemCol(name string, data any) (*MemCol, error) {
+func NewCol(name string, data any) (*Col, error) {
 	var dt d.DataTypes
 	if dt = d.WhatAmI(data); dt == d.DTunknown {
-		return nil, fmt.Errorf("unsupported data type in NewMemCol")
+		return nil, fmt.Errorf("unsupported data type in NewCol")
 	}
 
 	var t any
@@ -562,7 +577,7 @@ func NewMemCol(name string, data any) (*MemCol, error) {
 		t = data
 	}
 
-	c := &MemCol{
+	c := &Col{
 		name:   name,
 		dType:  dt,
 		data:   t,
@@ -572,18 +587,18 @@ func NewMemCol(name string, data any) (*MemCol, error) {
 	return c, nil
 }
 
-// ***************** MemCol - Methods *****************
+// ***************** Col - Methods *****************
 
-func (m *MemCol) AppendRows(col2 d.Column) (d.Column, error) {
+func (m *Col) AppendRows(col2 d.Column) (d.Column, error) {
 	panicer(col2)
 	return AppendRows(m, col2, m.Name(""))
 }
 
-func (m *MemCol) CategoryMap() d.CategoryMap {
+func (m *Col) CategoryMap() d.CategoryMap {
 	return m.catMap
 }
 
-func (m *MemCol) Copy() d.Column {
+func (m *Col) Copy() d.Column {
 	var copiedData any
 	n := m.Len()
 	switch m.dType {
@@ -603,7 +618,7 @@ func (m *MemCol) Copy() d.Column {
 		panic(fmt.Errorf("unsupported data type in Copy"))
 	}
 
-	col := &MemCol{
+	col := &Col{
 		name:   m.name,
 		dType:  m.dType,
 		data:   copiedData,
@@ -613,15 +628,15 @@ func (m *MemCol) Copy() d.Column {
 	return col
 }
 
-func (m *MemCol) Data() any {
+func (m *Col) Data() any {
 	return m.data
 }
 
-func (m *MemCol) DataType() d.DataTypes {
+func (m *Col) DataType() d.DataTypes {
 	return m.dType
 }
 
-func (m *MemCol) Element(row int) any {
+func (m *Col) Element(row int) any {
 	if m.Len() == 1 {
 		row = 0
 	}
@@ -640,7 +655,7 @@ func (m *MemCol) Element(row int) any {
 	}
 }
 
-func (m *MemCol) Greater(i, j int) bool {
+func (m *Col) Greater(i, j int) bool {
 	switch m.dType {
 	case d.DTfloat:
 		return m.data.([]float64)[i] >= m.data.([]float64)[j]
@@ -655,7 +670,7 @@ func (m *MemCol) Greater(i, j int) bool {
 	}
 }
 
-func (m *MemCol) Len() int {
+func (m *Col) Len() int {
 	switch m.dType {
 	case d.DTfloat:
 		return len(m.Data().([]float64))
@@ -670,7 +685,7 @@ func (m *MemCol) Len() int {
 	}
 }
 
-func (m *MemCol) Less(i, j int) bool {
+func (m *Col) Less(i, j int) bool {
 	switch m.dType {
 	case d.DTfloat:
 		return m.data.([]float64)[i] <= m.data.([]float64)[j]
@@ -685,7 +700,7 @@ func (m *MemCol) Less(i, j int) bool {
 	}
 }
 
-func (m *MemCol) Name(renameTo string) string {
+func (m *Col) Name(renameTo string) string {
 	if renameTo != "" {
 		m.name = renameTo
 	}
@@ -693,11 +708,11 @@ func (m *MemCol) Name(renameTo string) string {
 	return m.name
 }
 
-func (m *MemCol) RawType() d.DataTypes {
+func (m *Col) RawType() d.DataTypes {
 	return m.rawType
 }
 
-func (m *MemCol) Replace(indicator, replacement d.Column) (d.Column, error) {
+func (m *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
 	if m.DataType() != replacement.DataType() {
 		return nil, fmt.Errorf("incompatible columns in Replace")
@@ -717,24 +732,24 @@ func (m *MemCol) Replace(indicator, replacement d.Column) (d.Column, error) {
 
 	for ind := 0; ind < n; ind++ {
 		x := m.Element(ind)
-		if indicator.(*MemCol).Element(ind).(int) > 0 {
-			x = replacement.(*MemCol).Element(ind)
+		if indicator.(*Col).Element(ind).(int) > 0 {
+			x = replacement.(*Col).Element(ind)
 		}
 
 		data = d.AppendSlice(data, x, m.DataType())
 	}
 	var (
-		outCol *MemCol
+		outCol *Col
 		e      error
 	)
-	if outCol, e = NewMemCol("", data); e != nil {
+	if outCol, e = NewCol("", data); e != nil {
 		return nil, e
 	}
 
 	return outCol, nil
 }
 
-func (m *MemCol) String() string {
+func (m *Col) String() string {
 	if m.Name("") == "" {
 		panic("column has no name")
 	}
@@ -761,8 +776,8 @@ func (m *MemCol) String() string {
 	if m.DataType() != d.DTfloat {
 		tab, _ := NewDFcol(nil, nil, nil, makeTable(m)...)
 		_ = tab.Sort(false, "count")
-		l, _ := tab.Column(m.Name(""))
-		c, _ := tab.Column("count")
+		l := tab.Column(m.Name(""))
+		c := tab.Column("count")
 
 		header := []string{l.Name(""), c.Name("")}
 
@@ -788,7 +803,7 @@ func (m *MemCol) String() string {
 
 // ***************** Helpers *****************
 
-func AppendRows(col1, col2 d.Column, name string) (*MemCol, error) {
+func AppendRows(col1, col2 d.Column, name string) (*Col, error) {
 	if col1.DataType() != col2.DataType() {
 		return nil, fmt.Errorf("append columns must have same type, got %s and %s for %s and %s",
 			col1.DataType(), col2.DataType(), col1.Name(""), col2.Name(""))
@@ -809,17 +824,17 @@ func AppendRows(col1, col2 d.Column, name string) (*MemCol, error) {
 	}
 
 	var (
-		col *MemCol
+		col *Col
 		e   error
 	)
-	if col, e = NewMemCol(name, data); e != nil {
+	if col, e = NewCol(name, data); e != nil {
 		return nil, e
 	}
 
 	return col, nil
 }
 
-func makeTable(cols ...*MemCol) []*MemCol {
+func makeTable(cols ...*Col) []*Col {
 	type oneD map[any]int64
 	type entry struct {
 		count int
@@ -904,20 +919,20 @@ func makeTable(cols ...*MemCol) []*MemCol {
 	}
 
 	// make into columns
-	var outCols []*MemCol
+	var outCols []*Col
 	var (
-		mCol *MemCol
+		mCol *Col
 		e    error
 	)
 	for c := 0; c < len(cols); c++ {
-		if mCol, e = NewMemCol(cols[c].Name(""), outData[c]); e != nil {
+		if mCol, e = NewCol(cols[c].Name(""), outData[c]); e != nil {
 			panic(e)
 		}
 
 		outCols = append(outCols, mCol)
 	}
 
-	if mCol, e = NewMemCol("count", outData[len(cols)]); e != nil {
+	if mCol, e = NewCol("count", outData[len(cols)]); e != nil {
 		panic(e)
 	}
 
@@ -931,7 +946,7 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	var colNames []string
 	for ind := startInd; ind < len(cols); ind++ {
 		var cn string
-		if cn = cols[ind].(*MemCol).Name(""); cn == "" {
+		if cn = cols[ind].(*Col).Name(""); cn == "" {
 			return nil, fmt.Errorf("column with no name in table")
 		}
 
@@ -943,8 +958,8 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 
 func panicer(cols ...d.Column) {
 	for _, c := range cols {
-		if _, ok := c.(*MemCol); !ok {
-			panic("non-*MemCol argument")
+		if _, ok := c.(*Col); !ok {
+			panic("non-*Col argument")
 		}
 	}
 }

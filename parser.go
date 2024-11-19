@@ -218,7 +218,7 @@ func (ot *OpTree) Build() error {
 func (ot *OpTree) Eval(df *DFcore) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
-		if c, e := df.Column(ot.expr); e == nil {
+		if c := df.Column(ot.expr); c != nil {
 			ot.value = NewParsed(c)
 			return nil
 		}
@@ -236,7 +236,7 @@ func (ot *OpTree) Eval(df *DFcore) error {
 	)
 
 	// handle function call
-	if ot.inputs != nil {
+	if ot.fnName != "" {
 		for ind := 0; ind < len(ot.inputs); ind++ {
 			if e := ot.inputs[ind].Eval(df); e != nil {
 				return e
@@ -269,7 +269,17 @@ func (ot *OpTree) Eval(df *DFcore) error {
 	}
 
 	// handle the usual ops
-	if c, ex = df.DoOp(mapOp(ot.op), ot.left.Value(), ot.right.Value()); ex != nil {
+	var vl *Parsed
+	if ot.left != nil {
+		vl = ot.left.Value()
+	}
+
+	var vr *Parsed
+	if ot.right != nil {
+		vr = ot.right.Value()
+	}
+
+	if c, ex = df.DoOp(mapOp(ot.op), vl, vr); ex != nil {
 		return ex
 	}
 
@@ -408,6 +418,7 @@ func (ot *OpTree) args(xIn string) ([]string, error) {
 	}
 
 	if arg = xIn[start:]; arg == "" {
+		return nil, nil
 		return nil, fmt.Errorf("bad arguments: %s", xIn)
 	}
 

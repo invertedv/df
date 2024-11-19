@@ -430,6 +430,11 @@ func (d *Dialect) Min(col string) string {
 	return sqlx
 }
 
+func (d *Dialect) NewSignature() string {
+	const sigLen = 4
+	return RandomLetters(sigLen)
+}
+
 func (d *Dialect) Quantile(col string, q float64) string {
 	var sqlx string
 	if d.DialectName() == ch {
@@ -461,6 +466,14 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 	}
 
 	return n, nil
+}
+
+func (d *Dialect) RowNumber() string {
+	if d.DialectName() == ch {
+		return "toInt32(rowNumberInBlock())"
+	}
+
+	panic(fmt.Errorf("unsupported dialect in RownNumber"))
 }
 
 func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
@@ -501,11 +514,6 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	}
 
 	return rows, addr, fieldNames, nil
-}
-
-func (d *Dialect) NewSignature() string {
-	const sigLen = 4
-	return RandomLetters(sigLen)
 }
 
 func (d *Dialect) Summary(qry, col string) ([]float64, error) {
@@ -552,6 +560,18 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {
 	}
 
 	return d.IterSave(tableName, df)
+}
+
+func (d *Dialect) Seq(n int) string {
+	if n <= 0 {
+		panic(fmt.Sprintf("n must be positive in Seq"))
+	}
+
+	if d.DialectName() == ch {
+		return fmt.Sprintf("toInt32(arrayJoin(range(0,%d)))", n)
+	}
+	panic(fmt.Errorf("unsupported dialect for Seq"))
+
 }
 
 func (d *Dialect) SetBufSize(mb int) {

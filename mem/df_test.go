@@ -14,17 +14,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func testDF() *MemDF {
-	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3.5})
-	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
-	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 15, 14})
-	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
+func testDF() *DF {
+	x, _ := NewCol("x", []float64{1, -2, 3, 0, 2, 3.5})
+	y, _ := NewCol("y", []int{1, -5, 6, 1, 4, 5})
+	yy, _ := NewCol("yy", []int{1, -15, 16, 1, 15, 14})
+	z, _ := NewCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
 	dfx, e := NewDFcol(RunDFfn, StandardFunctions(), nil, x, y, z, yy)
 	if e != nil {
 		panic(e)
 	}
 
-	xx, _ := NewMemCol("r", []int{1, 2, 3, 1, 2, 3})
+	xx, _ := NewCol("r", []int{1, 2, 3, 1, 2, 3})
 	if e := dfx.AppendColumn(xx, false); e != nil {
 		panic(e)
 	}
@@ -40,17 +40,25 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 		}
 	}
 
-	if colRet, e := df.Column(colName); e == nil {
+	if colRet := df.Column(colName); colRet != nil {
 		if indx < 0 {
 			return colRet.Data()
 		}
 
-		if x := colRet.(*MemCol).Element(indx); x != nil {
+		if x := colRet.(*Col).Element(indx); x != nil {
 			return x
 		}
 	}
 
 	panic(fmt.Errorf("error in checker"))
+}
+
+func TestRowNumber(t *testing.T) {
+	dfx := testDF()
+	out, e := dfx.Parse("rowNumber()")
+	assert.Nil(t, e)
+
+	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.AsColumn(), -1))
 }
 
 func TestParse_Sort(t *testing.T) {
@@ -66,7 +74,7 @@ func TestParse_Table(t *testing.T) {
 	df1, e := dfx.Parse("table(y,yy)")
 	assert.Nil(t, e)
 	fmt.Println(df1.AsDF().Column("count"))
-	col, _ := df1.AsDF().Column("count")
+	col := df1.AsDF().Column("count")
 	assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data())
 	e = df1.AsDF().Sort(true, "y", "yy")
 	assert.Nil(t, e)
@@ -168,9 +176,16 @@ func TestParser(t *testing.T) {
 	fmt.Println("# tests: ", cnt)
 }
 
+func TestNewDFseq(t *testing.T) {
+	df := NewDFseq(nil, nil, nil, 5)
+	col := df.Column("seq")
+	assert.NotNil(t, col)
+	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
+}
+
 func TestApplyCat(t *testing.T) {
-	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5})
-	//	yy, _ := NewMemCol("yy", []int{1, -15, 16, 1, 4, 5})
+	//	y, _ := NewCol("y", []int{1, -5, 6, 1, 4, 5})
+	//	yy, _ := NewCol("yy", []int{1, -15, 16, 1, 4, 5})
 	dfx := testDF()
 	expr := "cat(y)"
 	colx, ex := dfx.Parse(expr)
@@ -184,7 +199,7 @@ func TestApplyCat(t *testing.T) {
 	assert.Nil(t, ex)
 	fmt.Println(back.AsColumn())
 
-	v := col.(*MemCol).catMap[6]
+	v := col.(*Col).catMap[6]
 
 	// default is a known category level
 	expr = "applyCat(yy, c, 6)"
@@ -207,8 +222,8 @@ func TestApplyCat(t *testing.T) {
 }
 
 func TestToCat(t *testing.T) {
-	//	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 4, 5}) -5, 1, 1, 4, 5, 6
-	// z, _ := NewMemCol("z", []string{"20221231"/3, "20000101"/0, "20060102"/1, "20060102"/1, "20230915"/4, "20060310"/2})
+	//	y, _ := NewCol("y", []int{1, -5, 6, 1, 4, 5}) -5, 1, 1, 4, 5, 6
+	// z, _ := NewCol("z", []string{"20221231"/3, "20000101"/0, "20060102"/1, "20060102"/1, "20230915"/4, "20060310"/2})
 	dfx := testDF()
 	expr := "date(z)"
 	var (
@@ -384,8 +399,8 @@ func TestLoadSQL(t *testing.T) {
 	assert.Nil(t, e)
 	memDF, e1 := DBLoad("SELECT * FROM zip.zip3 LIMIT 10", dialect)
 	assert.Nil(t, e1)
-	col, e2 := memDF.Column("prop_zip3")
-	assert.Nil(t, e2)
+	col := memDF.Column("prop_zip3")
+	assert.NotNil(t, col)
 	fmt.Println(col.Data())
 
 	//	ed := memDF.CreateTable("tmp.aaa", "prop_zip3", true, "prop_zip3", "latitude")
@@ -405,13 +420,13 @@ func TestMemCol_Replace(t *testing.T) {
 	dfx := testDF()
 	indCol, e0 := dfx.Parse("y==-5")
 	assert.Nil(t, e0)
-	coly, e := dfx.Column("y")
-	assert.Nil(t, e)
-	colyy, e1 := dfx.Column("yy")
-	assert.Nil(t, e1)
-	colR, e2 := coly.(*MemCol).Replace(indCol.AsColumn(), colyy)
+	coly := dfx.Column("y")
+	assert.NotNil(t, coly)
+	colyy := dfx.Column("yy")
+	assert.NotNil(t, colyy)
+	colR, e2 := coly.(*Col).Replace(indCol.AsColumn(), colyy)
 	assert.Nil(t, e2)
-	assert.Equal(t, colR.(*MemCol).Data(), []int{1, -15, 6, 1, 4, 5})
+	assert.Equal(t, colR.(*Col).Data(), []int{1, -15, 6, 1, 4, 5})
 }
 
 func TestWhere(t *testing.T) {
@@ -431,16 +446,16 @@ func TestWhere(t *testing.T) {
 }
 
 func TestAppendRows(t *testing.T) {
-	x, _ := NewMemCol("x", []float64{1, -2, 3, 0, 2, 3})
-	y, _ := NewMemCol("x", []float64{1, 2, 3})
+	x, _ := NewCol("x", []float64{1, -2, 3, 0, 2, 3})
+	y, _ := NewCol("x", []float64{1, 2, 3})
 
 	z, e := AppendRows(x, y, "test")
 	assert.Nil(t, e)
 	assert.Equal(t, float64(-2), z.Element(1))
 	assert.Equal(t, float64(3), z.Element(8))
 
-	x, _ = NewMemCol("x", []string{"a", "b", "c"})
-	y, _ = NewMemCol("x", []string{"d", "e", "f"})
+	x, _ = NewCol("x", []string{"a", "b", "c"})
+	y, _ = NewCol("x", []string{"d", "e", "f"})
 
 	z, e = AppendRows(x, y, "test")
 	assert.Nil(t, e)
@@ -455,16 +470,16 @@ func TestMemDF_AppendDF(t *testing.T) {
 	dfz, e := dfx.AppendDF(dfy)
 	assert.Nil(t, e)
 	var col d.Column
-	col, e = dfz.Column("x")
-	assert.Nil(t, e)
-	assert.Equal(t, float64(1), col.(*MemCol).Element(0))
-	assert.Equal(t, float64(1), col.(*MemCol).Element(dfx.RowCount()))
+	col = dfz.Column("x")
+	assert.NotNil(t, col)
+	assert.Equal(t, float64(1), col.(*Col).Element(0))
+	assert.Equal(t, float64(1), col.(*Col).Element(dfx.RowCount()))
 }
 
 func TestMemDF_Table(t *testing.T) {
-	x, _ := NewMemCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
-	y, _ := NewMemCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
-	z, _ := NewMemCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
+	x, _ := NewCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
+	y, _ := NewCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
+	z, _ := NewCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
 	dfx, e := NewDFcol(RunDFfn, StandardFunctions(), nil, x, y, z)
 	assert.Nil(t, e)
 	dtx, ex := dfx.Parse("date(z)")
@@ -479,7 +494,7 @@ func TestMemDF_Table(t *testing.T) {
 	assert.Nil(t, e)
 	cNames := tab.ColumnNames()
 	for ind := 0; ind < len(cNames); ind++ {
-		col, _ := tab.Column(cNames[ind])
+		col := tab.Column(cNames[ind])
 		fmt.Println(cNames[ind])
 		fmt.Println(col.Data())
 	}

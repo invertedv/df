@@ -36,7 +36,7 @@ func newConnect(host, user, password string) (db *sql.DB, err error) {
 	return db, db.Ping()
 }
 
-func testDF() *SQLdf {
+func testDF() *DF {
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
@@ -59,7 +59,7 @@ func testDF() *SQLdf {
 	}
 
 	var (
-		df *SQLdf
+		df *DF
 		e2 error
 	)
 	if df, e2 = DBload("SELECT * FROM testing.d1", d.NewContext(dialect, nil, nil)); e2 != nil {
@@ -76,18 +76,18 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 			panic(e)
 		}
 	}
-	q := df.(*SQLdf).MakeQuery()
-	memDF, e1 := m.DBLoad(q, df.(*SQLdf).Context().Dialect())
+	q := df.(*DF).MakeQuery()
+	memDF, e1 := m.DBLoad(q, df.(*DF).Context().Dialect())
 	if e1 != nil {
 		panic(e1)
 	}
 
-	if colRet, e := memDF.Column(colName); e == nil {
+	if colRet := memDF.Column(colName); colRet != nil {
 		if indx < 0 {
 			return colRet.Data()
 		}
 
-		if x := colRet.(*m.MemCol).Element(indx); x != nil {
+		if x := colRet.(*m.Col).Element(indx); x != nil {
 			return x
 		}
 	}
@@ -95,11 +95,30 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	panic(fmt.Errorf("error in checker"))
 }
 
+func TestRowNumber(t *testing.T) {
+	dfx := testDF()
+	out, e := dfx.Parse("rowNumber()")
+	q := out.AsColumn().(*Col).MakeQuery()
+	fmt.Println(q)
+	assert.Nil(t, e)
+	out.AsColumn().Name("rn")
+	//	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.AsColumn(), -1))
+	fmt.Println(out.AsColumn().Data())
+}
+
+func TestNewDFseq(t *testing.T) {
+	dfx := testDF()
+	df := NewDFseq(nil, nil, dfx.Context(), 5)
+	col := df.Column("seq")
+	assert.NotNil(t, col)
+	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
+}
+
 func TestSQLcol_Data(t *testing.T) {
 	const coln = "x"
 	dfx := testDF()
-	c, e := dfx.Column(coln)
-	assert.Nil(t, e)
+	c := dfx.Column(coln)
+	assert.NotNil(t, c)
 	fmt.Println(c.Data())
 }
 
@@ -115,7 +134,7 @@ func TestWhere(t *testing.T) {
 	expr := "where(y == 1)"
 	out, e = dfx.Parse(expr)
 	assert.Nil(t, e)
-	outDF := out.AsDF().(*SQLdf)
+	outDF := out.AsDF().(*DF)
 	fmt.Println(outDF.MakeQuery())
 	e = outDF.Context().Dialect().Save("testing.where", "", true, outDF)
 	assert.Nil(t, e)
@@ -243,13 +262,13 @@ func TestParserS(t *testing.T) {
 		col := xOut.AsColumn()
 		col.Name("test")
 		var (
-			dfNew *SQLdf
+			dfNew *DF
 			e     error
 		)
 		ez := dfx.AppendColumn(col, true)
 		assert.NotNil(t, ez)
 
-		dfNew, e = NewDFcol(nil, nil, dfx.Context(), col.(*SQLcol))
+		dfNew, e = NewDFcol(nil, nil, dfx.Context(), col.(*Col))
 		assert.Nil(t, e)
 		indx := x[ind][1].(int)
 
@@ -307,7 +326,7 @@ func TestSQLdf_Version(t *testing.T) {
 	fmt.Println(data)
 
 	assert.Equal(t, dfx.Version(), 3)
-	assert.Equal(t, col1.(*SQLcol).Version(), 1)
+	assert.Equal(t, col1.(*Col).Version(), 1)
 
 	// add col1 to a newer version of dfx -- this is OK
 	e = dfx.AppendColumn(col1, false)
@@ -365,11 +384,11 @@ func TestMemCol_Replace(t *testing.T) {
 	indCol.AsColumn().Name("ind")
 	e3 := dfx.AppendColumn(indCol.AsColumn(), false)
 	assert.Nil(t, e3)
-	coly, e := dfx.Column("y")
-	assert.Nil(t, e)
-	colyy, e1 := dfx.Column("yy")
-	assert.Nil(t, e1)
-	colR, e2 := coly.(*SQLcol).Replace(indCol.AsColumn(), colyy)
+	coly := dfx.Column("y")
+	assert.NotNil(t, coly)
+	colyy := dfx.Column("yy")
+	assert.NotNil(t, colyy)
+	colR, e2 := coly.(*Col).Replace(indCol.AsColumn(), colyy)
 	assert.Nil(t, e2)
 	assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", colR, -1))
 }

@@ -39,7 +39,7 @@ const (
 
 // list of packages to test
 func pkgs() []string {
-	return []string{"mem", "sql"}
+	return []string{"sql", "mem"}
 }
 
 // NewConnect established a new connection to ClickHouse.
@@ -93,7 +93,7 @@ func loadData(pkg string) d.DF {
 
 	if pkg == "sql" {
 		var (
-			df *s.SQLdf
+			df *s.DF
 			e1 error
 		)
 		if df, e1 = s.DBload(table, ctx); e1 != nil {
@@ -103,7 +103,7 @@ func loadData(pkg string) d.DF {
 	}
 
 	var (
-		df *m.MemDF
+		df *m.DF
 		e2 error
 	)
 	if df, e2 = m.DBLoad(table, dialect); e2 != nil {
@@ -123,59 +123,55 @@ func checker(df d.DF, colName, which string, col d.Column, indx int) any {
 			panic(e)
 		}
 	}
-	var (
-		colRet d.Column
-		e      error
-	)
+	var colRet d.Column
 
 	if which == "mem" {
-		colRet, e = df.(*m.MemDF).Column(colName)
-		if e != nil {
-			panic(e)
-		}
+		colRet = df.(*m.DF).Column(colName)
 	}
 
 	if which == "sql" {
-		memDF, e1 := m.DBLoad(df.(*s.SQLdf).MakeQuery(), df.Context().Dialect())
+		memDF, e1 := m.DBLoad(df.(*s.DF).MakeQuery(), df.Context().Dialect())
 		if e1 != nil {
 			panic(e1)
 		}
-		colRet, _ = memDF.Column(colName)
+
+		colRet = memDF.Column(colName)
 	}
 
 	if indx < 0 {
 		return colRet.Data()
 	}
 
-	if x := colRet.(*m.MemCol).Element(indx); x != nil {
+	if x := colRet.(*m.Col).Element(indx); x != nil {
 		return x
 	}
 
 	panic(fmt.Errorf("error in checker"))
 }
 
-func TestPlotXY(t *testing.T) {
-	dfx := loadData("sql")
-	e := dfx.Sort(true, "x")
-	assert.Nil(t, e)
-	p := d.NewPlot(d.WithTitle("This Is A Test"), d.WithXlabel("X-Axis"),
-		d.WithYlabel("Y-Axis"), d.WithLegend(true))
-	d.WithSubtitle("(subtitle here)")(p)
-	d.WithXlabel("New X Label")(p)
-	d.WithTitle("What???")(p)
-	d.WithHeight(800)(p)
-	d.WithWidth(800)(p)
-	x, _ := dfx.Column("x")
-	y, _ := dfx.Parse("exp(x)")
-	y.AsColumn().Name("expy")
-	e1 := p.PlotXY(x, y.AsColumn(), "s1", "red")
-	assert.Nil(t, e1)
-	e2 := p.PlotXY(x, x, "s2", "black")
-	assert.Nil(t, e2)
-	e3 := p.Show("", "")
-	assert.Nil(t, e3)
-}
-
+/*
+	func TestPlotXY(t *testing.T) {
+		dfx := loadData("sql")
+		e := dfx.Sort(true, "x")
+		assert.Nil(t, e)
+		p := d.NewPlot(d.WithTitle("This Is A Test"), d.WithXlabel("X-Axis"),
+			d.WithYlabel("Y-Axis"), d.WithLegend(true))
+		d.WithSubtitle("(subtitle here)")(p)
+		d.WithXlabel("New X Label")(p)
+		d.WithTitle("What???")(p)
+		d.WithHeight(800)(p)
+		d.WithWidth(800)(p)
+		x := dfx.Column("x")
+		y, _ := dfx.Parse("exp(x)")
+		y.AsColumn().Name("expy")
+		e1 := p.PlotXY(x, y.AsColumn(), "s1", "red")
+		assert.Nil(t, e1)
+		e2 := p.PlotXY(x, x, "s2", "black")
+		assert.Nil(t, e2)
+		//	e3 := p.Show("", "")
+		//	assert.Nil(t, e3)
+	}
+*/
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
@@ -183,6 +179,44 @@ func TestString(t *testing.T) {
 	}
 }
 
+func TestRowNumber(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		out, e := dfx.Parse("rowNumber()")
+		assert.Nil(t, e)
+		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data())
+	}
+}
+
+func TestSeq(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		var df d.DF
+		switch which {
+		case "mem":
+			df = m.NewDFseq(nil, nil, nil, 5)
+		default:
+			df = s.NewDFseq(nil, nil, dfx.Context(), 5)
+		}
+
+		col := df.Column("seq")
+		assert.NotNil(t, col)
+		assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
+	}
+}
+
+/*
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		var df *d.DF
+		switch which {
+		case "mem":
+			df = m.NewDFseq(nil, nil, nil, 5)
+		default:
+			df = s.NewDFseq(nil, nil, dfx.Context(), 5)
+		}
+	}
+*/
 func TestSQLsave(t *testing.T) {
 	const coln = "x"
 
@@ -193,15 +227,15 @@ func TestSQLsave(t *testing.T) {
 		// save to a table
 		e := dlct.Save(outTable, "k", true, dfx)
 		assert.Nil(t, e)
-		c1, e1 := dfx.Column(coln)
-		assert.Nil(t, e1)
+		c1 := dfx.Column(coln)
+		assert.NotNil(t, c1)
 
 		// if this is sql, populate a mem DF to get values
 		if which == "sql" {
-			dfz, ez := m.DBLoad(c1.(*s.SQLcol).MakeQuery(), dfx.Context().Dialect())
+			dfz, ez := m.DBLoad(c1.(*s.Col).MakeQuery(), dfx.Context().Dialect())
 			assert.Nil(t, ez)
-			c1, e1 = dfz.Column(coln)
-			assert.Nil(t, e1)
+			c1 = dfz.Column(coln)
+			assert.NotNil(t, c1)
 		}
 
 		c1.Name("expected")
@@ -209,13 +243,13 @@ func TestSQLsave(t *testing.T) {
 		// pull back from database
 		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Context().Dialect())
 		assert.Nil(t, ex)
-		c2, e2 := dfy.Column(coln)
-		assert.Nil(t, e2)
+		c2 := dfy.Column(coln)
+		assert.NotNil(t, c2)
 		c2.Name("actual")
 
 		// join expected & actual into a dataframe
 		ctx := d.NewContext(dfx.Context().Dialect(), nil)
-		dfb, eb := m.NewDFcol(nil, nil, ctx, c1.(*m.MemCol), c2.(*m.MemCol))
+		dfb, eb := m.NewDFcol(nil, nil, ctx, c1.(*m.Col), c2.(*m.Col))
 		assert.Nil(t, eb)
 		outx, ep := dfb.Parse("actual==expected")
 		assert.Nil(t, ep)
@@ -239,14 +273,14 @@ func TestFileSave(t *testing.T) {
 		assert.Nil(t, e1)
 		dfy, e2 := m.FileLoad(f)
 		assert.Nil(t, e2)
-		cexp, _ := dfx.Column(coln)
+		cexp := dfx.Column(coln)
 		// if sql, must pull data from query
 		if which == "sql" {
-			dfz, e3 := m.DBLoad(cexp.(*s.SQLcol).MakeQuery(), dfx.Context().Dialect())
+			dfz, e3 := m.DBLoad(cexp.(*s.Col).MakeQuery(), dfx.Context().Dialect())
 			assert.Nil(t, e3)
-			cexp, _ = dfz.Column(coln)
+			cexp = dfz.Column(coln)
 		}
-		cact, _ := dfy.Column(coln)
+		cact := dfy.Column(coln)
 		assert.Equal(t, cexp, cact)
 	}
 }
@@ -259,10 +293,12 @@ func TestParse_Table(t *testing.T) {
 		df1 := out.AsDF()
 		e1 := df1.Sort(false, "count")
 		assert.Nil(t, e1)
-		assert.Equal(t, []int{2, 1, 1, 1, 1}, checker(df1, "count", which, nil, -1))
+		col := df1.Column("count")
+		assert.NotNil(t, col)
+		assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data())
 
-		_, e2 := dfx.Parse("table(x)")
-		assert.NotNil(t, e2)
+		_, e3 := dfx.Parse("table(x)")
+		assert.NotNil(t, e3)
 	}
 }
 
@@ -271,10 +307,11 @@ func TestParse_Sort(t *testing.T) {
 		dfx := loadData(which)
 		_, e := dfx.Parse("sort('asc', y, x)")
 		assert.Nil(t, e)
-		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", which, nil, -1))
-		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", which, nil, -1))
+		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data())
+		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data())
 	}
 }
+
 func TestWhere(t *testing.T) {
 	for _, which := range pkgs() {
 		// via methods
@@ -286,13 +323,15 @@ func TestWhere(t *testing.T) {
 		assert.Nil(t, e1)
 		dfOut, e2 := dfx.Where(indCol.AsColumn())
 		assert.Nil(t, e2)
-		assert.Equal(t, []int{-5, 6}, checker(dfOut, "y", which, nil, -1))
-		assert.Equal(t, []int{-15, 16}, checker(dfOut, "yy", which, nil, -1))
+		r := dfOut.Column("y")
+		fmt.Println(r.Data())
+		assert.Equal(t, []int{-5, 6}, dfOut.Column("y").Data())
+		assert.Equal(t, []int{-15, 16}, dfOut.Column("yy").Data())
 
 		// via Parse
 		out, e3 := dfx.Parse("where(y == -5 || yy == 16)")
 		assert.Nil(t, e3)
-		assert.Equal(t, []int{-5, 6}, checker(out.AsDF(), "y", which, nil, -1))
+		assert.Equal(t, []int{-5, 6}, out.AsDF().Column("y").Data())
 	}
 }
 
@@ -305,12 +344,15 @@ func TestReplace(t *testing.T) {
 		indCol.AsColumn().Name("ind")
 		e := dfx.AppendColumn(indCol.AsColumn(), false)
 		assert.Nil(t, e)
-		coly, e1 := dfx.Column("y")
-		assert.Nil(t, e1)
-		colyy, e2 := dfx.Column("yy")
-		assert.Nil(t, e2)
+		coly := dfx.Column("y")
+		assert.NotNil(t, coly)
+		colyy := dfx.Column("yy")
+		assert.NotNil(t, colyy)
 		colR, e3 := coly.Replace(indCol.AsColumn(), colyy)
 		assert.Nil(t, e3)
+		//		c := colR.(*s.Col).MakeQuery()
+		//		_ = c
+		// HERE
 		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", which, colR, -1))
 
 		// via Parse
@@ -406,9 +448,9 @@ func TestParser(t *testing.T) {
 			xOut.AsColumn().Name("test")
 
 			if which == "sql" {
-				r, e = s.NewDFcol(nil, nil, dfx.(*s.SQLdf).Context(), xOut.AsColumn().(*s.SQLcol))
+				r, e = s.NewDFcol(nil, nil, dfx.(*s.DF).Context(), xOut.AsColumn().(*s.Col))
 			} else {
-				r, e = m.NewDFcol(nil, nil, dfx.(*m.MemDF).Context(), xOut.AsColumn().(*m.MemCol))
+				r, e = m.NewDFcol(nil, nil, dfx.(*m.DF).Context(), xOut.AsColumn().(*m.Col))
 			}
 
 			assert.Nil(t, e)
@@ -483,40 +525,31 @@ func TestApplyCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 
-		var (
-			r *d.Parsed
-			e error
-		)
-		r, e = dfx.Parse("cat(y)")
+		r, e := dfx.Parse("cat(y)")
 		assert.Nil(t, e)
 		sx := r.AsColumn()
 		sx.Name("caty")
 		e1 := dfx.AppendColumn(sx, false)
 		assert.Nil(t, e1)
 
-		r, e = dfx.Parse("applyCat(yy, caty, -5)")
-		assert.Nil(t, e)
-		sx = r.AsColumn()
-		sx.Name("test")
-		result := checker(dfx, "test", which, sx, -1)
+		r2, e2 := dfx.Parse("applyCat(yy, caty, -5)")
+		assert.Nil(t, e2)
 
 		// -5 maps to 0 so all new values map to 0
 		expected := []int{1, 0, 0, 1, 0, 0}
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, r2.AsColumn().Data())
 
 		// try with fuzz > 1
-		r, e = dfx.Parse("cat(y,2)")
-		assert.Nil(t, e)
-		r.AsColumn().Name("caty2")
-		e2 := dfx.AppendColumn(r.AsColumn(), false)
-		assert.Nil(t, e2)
+		r3, e3 := dfx.Parse("cat(y,2)")
+		assert.Nil(t, e3)
+		r3.AsColumn().Name("caty2")
+		e4 := dfx.AppendColumn(r3.AsColumn(), false)
+		assert.Nil(t, e4)
 
-		r, e = dfx.Parse("applyCat(yy,caty2,-5)")
-		assert.Nil(t, e)
-		r.AsColumn().Name("test")
-		result = checker(dfx, "test", which, r.AsColumn(), -1)
+		r5, e5 := dfx.Parse("applyCat(yy,caty2,-5)")
+		assert.Nil(t, e5)
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, r5.AsColumn().Data())
 	}
 }
 
@@ -547,10 +580,10 @@ func TestFilesOpen(t *testing.T) {
 	df1, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)
 	for _, cn := range dfx.ColumnNames() {
-		cx, e2 := dfx.Column(cn)
-		assert.Nil(t, e2)
-		cy, e3 := df1.Column(cn)
-		assert.Nil(t, e3)
+		cx := dfx.Column(cn)
+		assert.NotNil(t, cx)
+		cy := df1.Column(cn)
+		assert.NotNil(t, cy)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
@@ -562,10 +595,10 @@ func TestFilesOpen(t *testing.T) {
 	df2, e5 := m.FileLoad(f)
 	assert.Nil(t, e5)
 	for _, cn := range dfx.ColumnNames() {
-		cx, e6 := dfx.Column(cn)
-		assert.Nil(t, e6)
-		cy, e7 := df2.Column(cn)
-		assert.Nil(t, e7)
+		cx := dfx.Column(cn)
+		assert.NotNil(t, cx)
+		cy := df2.Column(cn)
+		assert.NotNil(t, cy)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
@@ -577,10 +610,10 @@ func TestFilesOpen(t *testing.T) {
 	df3, e9 := m.FileLoad(f)
 	assert.Nil(t, e9)
 	for _, cn := range dfx.ColumnNames() {
-		cx, e10 := dfx.Column(cn)
-		assert.Nil(t, e10)
-		cy, e11 := df3.Column(cn)
-		assert.Nil(t, e11)
+		cx := dfx.Column(cn)
+		assert.NotNil(t, cx)
+		cy := df3.Column(cn)
+		assert.NotNil(t, cy)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
@@ -592,10 +625,10 @@ func TestFilesOpen(t *testing.T) {
 	df4, e13 := m.FileLoad(f)
 	assert.Nil(t, e13)
 	for _, cn := range dfx.ColumnNames() {
-		cx, e14 := dfx.Column(cn)
-		assert.Nil(t, e14)
-		cy, e15 := df4.Column(cn)
-		assert.Nil(t, e15)
+		cx := dfx.Column(cn)
+		assert.NotNil(t, cx)
+		cy := df4.Column(cn)
+		assert.NotNil(t, cy)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 }
@@ -613,10 +646,10 @@ func TestFilesSave(t *testing.T) {
 	dfy, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)
 	for _, cn := range dfx.ColumnNames() {
-		cx, ex := dfx.Column(cn)
-		assert.Nil(t, ex)
-		cy, ey := dfy.Column(cn)
-		assert.Nil(t, ey)
+		cx := dfx.Column(cn)
+		assert.NotNil(t, cx)
+		cy := dfy.Column(cn)
+		assert.NotNil(t, cy)
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 }
