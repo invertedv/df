@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-// TODO: think about
+// TODO: remove rename from Name and create a Rename
+// TODO: change receiver names in mem and sql
+
 // consider how to handle passing a small column of parameters...
 // NewColSequence ?? ...
 
@@ -34,9 +36,14 @@ type DF interface {
 
 	// specific to underlying data source
 	AppendDF(df DF) (DF, error)
+	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Copy() DF
+	Iter(reset bool) (row []any, err error)
+	MakeQuery(colNames ...string) string
 	RowCount() int
 	Sort(ascending bool, keys ...string) error
+	String() string
+	Table(sortByRows bool, cols ...string) (DF, error)
 	Where(indicator Column) (DF, error)
 	// Categorical takes an input column of type DTint, DTdate or DTstring and creates a categorical column
 	// - colName : name of column to work on
@@ -44,14 +51,7 @@ type DF interface {
 	// - fuzz : # of counts below which to map to the defaultVal category
 	// - defaultVal : level of feature to use as the "other" value. This can be an existing level of the Column or a new one.
 	// - levels : array of acceptable levels.  Any level not found in this slice is mapped to the defaultVal
-	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
-	Table(sortByRows bool, cols ...string) (DF, error)
-	Iter(reset bool) (row []any, err error)
-	MakeQuery(colNames ...string) string
-	String() string
 }
-
-//
 
 type Ereturn func() error
 
@@ -85,8 +85,9 @@ type Column interface {
 	DataType() DataTypes
 	Dependencies() []string
 	Len() int
-	Name(reNameTo string) string
+	Name() string
 	Replace(ind, repl Column) (Column, error)
+	Rename(newName string)
 	SetContext(ctx *Context)
 	SetDependencies(d []string)
 	String() string
@@ -168,11 +169,11 @@ func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	if replace {
-		_ = df.DropColumns(col.Name(""))
+		_ = df.DropColumns(col.Name())
 	}
 
-	if !df.ValidName(col.Name("")) {
-		return fmt.Errorf("invalid column name: %s", col.Name(""))
+	if !df.ValidName(col.Name()) {
+		return fmt.Errorf("invalid column name: %s", col.Name())
 	}
 
 	// find last column
@@ -207,8 +208,8 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 			col2, nc Column
 			e        error
 		)
-		if col2 = df.Column(c.Name("")); col2 == nil {
-			return nil, fmt.Errorf("column %s not found", c.Name(""))
+		if col2 = df.Column(c.Name()); col2 == nil {
+			return nil, fmt.Errorf("column %s not found", c.Name())
 		}
 
 		if nc, e = c.AppendRows(col2); e != nil {
@@ -223,7 +224,7 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 
 func (df *DFcore) Column(colName string) Column {
 	for h := df.head; h != nil; h = h.next {
-		if (h.col).Name("") == colName {
+		if (h.col).Name() == colName {
 			return h.col
 		}
 	}
@@ -245,7 +246,7 @@ func (df *DFcore) ColumnNames() []string {
 	var names []string
 
 	for h := df.head; h != nil; h = h.next {
-		names = append(names, h.col.Name(""))
+		names = append(names, h.col.Name())
 	}
 
 	return names
@@ -500,7 +501,7 @@ func (df *DFcore) ValidName(columnName string) bool {
 
 func (df *DFcore) node(colName string) (node *columnList, err error) {
 	for h := df.head; h != nil; h = h.next {
-		if h.col.Name("") == colName {
+		if h.col.Name() == colName {
 			return h, nil
 		}
 	}

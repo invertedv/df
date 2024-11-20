@@ -203,7 +203,7 @@ func (m *DF) AppendColumn(col d.Column, replace bool) error {
 			xs = d.AppendSlice(xs, val, dt)
 		}
 
-		if colx, e = NewCol(col.Name(""), xs); e != nil {
+		if colx, e = NewCol(col.Name(), xs); e != nil {
 			return e
 		}
 	}
@@ -514,7 +514,7 @@ func (m *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	}
 
 	rate = ret.Value().(d.Column)
-	rate.Name("rate")
+	rate.Rename("rate")
 
 	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
 		return nil, ex1
@@ -594,7 +594,7 @@ func NewCol(name string, data any) (*Col, error) {
 
 func (m *Col) AppendRows(col2 d.Column) (d.Column, error) {
 	panicer(col2)
-	return AppendRows(m, col2, m.Name(""))
+	return AppendRows(m, col2, m.Name())
 }
 
 func (m *Col) CategoryMap() d.CategoryMap {
@@ -708,16 +708,18 @@ func (m *Col) Less(i, j int) bool {
 	}
 }
 
-func (m *Col) Name(renameTo string) string {
-	if renameTo != "" {
-		m.name = renameTo
-	}
+func (m *Col) Name() string {
 
 	return m.name
 }
 
 func (m *Col) RawType() d.DataTypes {
 	return m.rawType
+}
+
+func (m *Col) Rename(newName string) {
+	// TODO check Valid Name
+	m.name = newName
 }
 
 func (m *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
@@ -762,11 +764,11 @@ func (m *Col) SetContext(ctx *d.Context) {
 }
 
 func (m *Col) String() string {
-	if m.Name("") == "" {
+	if m.Name() == "" {
 		panic("column has no name")
 	}
 
-	t := fmt.Sprintf("column: %s\ntype: %s\n", m.Name(""), m.DataType())
+	t := fmt.Sprintf("column: %s\ntype: %s\n", m.Name(), m.DataType())
 
 	if m.CategoryMap() != nil {
 		var keys []string
@@ -788,10 +790,10 @@ func (m *Col) String() string {
 	if m.DataType() != d.DTfloat {
 		tab, _ := NewDFcol(nil, nil, nil, makeTable(m)...)
 		_ = tab.Sort(false, "count")
-		l := tab.Column(m.Name(""))
+		l := tab.Column(m.Name())
 		c := tab.Column("count")
 
-		header := []string{l.Name(""), c.Name("")}
+		header := []string{l.Name(), c.Name()}
 
 		return t + d.PrettyPrint(header, l.Data(), c.Data())
 	}
@@ -826,7 +828,7 @@ func (m *Col) SetDependencies(d []string) {
 func AppendRows(col1, col2 d.Column, name string) (*Col, error) {
 	if col1.DataType() != col2.DataType() {
 		return nil, fmt.Errorf("append columns must have same type, got %s and %s for %s and %s",
-			col1.DataType(), col2.DataType(), col1.Name(""), col2.Name(""))
+			col1.DataType(), col2.DataType(), col1.Name(), col2.Name())
 	}
 
 	var data any
@@ -945,7 +947,7 @@ func makeTable(cols ...*Col) []*Col {
 		e    error
 	)
 	for c := 0; c < len(cols); c++ {
-		if mCol, e = NewCol(cols[c].Name(""), outData[c]); e != nil {
+		if mCol, e = NewCol(cols[c].Name(), outData[c]); e != nil {
 			panic(e)
 		}
 
@@ -966,7 +968,7 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	var colNames []string
 	for ind := startInd; ind < len(cols); ind++ {
 		var cn string
-		if cn = cols[ind].(*Col).Name(""); cn == "" {
+		if cn = cols[ind].(*Col).Name(); cn == "" {
 			return nil, fmt.Errorf("column with no name in table")
 		}
 

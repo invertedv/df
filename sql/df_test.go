@@ -71,7 +71,7 @@ func testDF() *DF {
 
 func checker(df d.DF, colName string, col d.Column, indx int) any {
 	if col != nil {
-		col.Name(colName)
+		col.Rename(colName)
 		if e := df.AppendColumn(col, true); e != nil {
 			panic(e)
 		}
@@ -101,7 +101,7 @@ func TestRowNumber(t *testing.T) {
 	q := out.AsColumn().(*Col).MakeQuery()
 	fmt.Println(q)
 	assert.Nil(t, e)
-	out.AsColumn().Name("rn")
+	out.AsColumn().Rename("rn")
 	//	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.AsColumn(), -1))
 	fmt.Println(out.AsColumn().Data())
 }
@@ -260,7 +260,7 @@ func TestParserS(t *testing.T) {
 		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
 		col := xOut.AsColumn()
-		col.Name("test")
+		col.Rename("test")
 		var (
 			dfNew *DF
 			e     error
@@ -298,7 +298,7 @@ func TestSQLdf_Version(t *testing.T) {
 	result, e := dfx.Parse("2.0*x")
 	assert.Nil(t, e)
 	col := result.AsColumn()
-	col.Name("x2")
+	col.Rename("x2")
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
 	assert.Equal(t, 1, dfx.Version())
@@ -306,12 +306,12 @@ func TestSQLdf_Version(t *testing.T) {
 	result, e = dfx.Parse("abs(x2)")
 	assert.Nil(t, e)
 	col = result.AsColumn()
-	col.Name("absx2")
+	col.Rename("absx2")
 
 	result, e = dfx.Parse("2*y")
 	assert.Nil(t, e)
 	col1 := result.AsColumn()
-	col1.Name("y2")
+	col1.Rename("y2")
 
 	// add absx2 to an older version of dfx -- this is not OK
 	e = dfOld.AppendColumn(col, false)
@@ -370,7 +370,7 @@ func TestSQLdf_AppendDF(t *testing.T) {
 	c, e = dfx.Parse("exp(x)")
 	assert.Nil(t, e)
 	col := c.AsColumn()
-	col.Name("newCol")
+	col.Rename("newCol")
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
 	_, e = dfx.AppendDF(dfy)
@@ -381,7 +381,7 @@ func TestMemCol_Replace(t *testing.T) {
 	dfx := testDF()
 	indCol, e0 := dfx.Parse("y==-5")
 	assert.Nil(t, e0)
-	indCol.AsColumn().Name("ind")
+	indCol.AsColumn().Rename("ind")
 	e3 := dfx.AppendColumn(indCol.AsColumn(), false)
 	assert.Nil(t, e3)
 	coly := dfx.Column("y")
@@ -400,14 +400,14 @@ func TestCat(t *testing.T) {
 	r, e := dfx.Parse("cat(y, 1)")
 	assert.Nil(t, e)
 	s := r.AsColumn()
-	s.Name("caty")
+	s.Rename("caty")
 	fmt.Println(s)
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 	//	fmt.Println(s)
 	r, e = dfx.Parse("int(caty)")
 	assert.Nil(t, e)
-	r.AsColumn().Name("test")
+	r.AsColumn().Rename("test")
 	fmt.Println(r.AsColumn())
 	//	fmt.Println(dfx)
 
@@ -441,14 +441,14 @@ func TestApplyCat(t *testing.T) {
 	r, e := dfx.Parse("cat(y)")
 	assert.Nil(t, e)
 	s := r.AsColumn()
-	s.Name("caty")
+	s.Rename("caty")
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 
 	r, e = dfx.Parse("applyCat(yy, caty, int(abs(-5.0)))")
 	assert.Nil(t, e)
 	s = r.AsColumn()
-	s.Name("catyy")
+	s.Rename("catyy")
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 

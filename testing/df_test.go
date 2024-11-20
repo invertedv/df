@@ -118,7 +118,7 @@ func loadData(pkg string) d.DF {
 
 func checker(df d.DF, colName, which string, col d.Column, indx int) any {
 	if col != nil {
-		col.Name(colName)
+		col.Rename(colName)
 		if e := df.AppendColumn(col, true); e != nil {
 			panic(e)
 		}
@@ -213,7 +213,7 @@ func TestCheck(t *testing.T) {
 	dfy := loadData("sql")
 	out, e := dfx.Parse("float(x)")
 	assert.Nil(t, e)
-	out.AsColumn().Name("xx")
+	out.AsColumn().Rename("xx")
 	e1 := dfx.AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e1)
 	e2 := dfy.AppendColumn(out.AsColumn(), false)
@@ -274,14 +274,14 @@ func TestSQLsave(t *testing.T) {
 			assert.NotNil(t, c1)
 		}
 
-		c1.Name("expected")
+		c1.Rename("expected")
 
 		// pull back from database
 		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Context().Dialect())
 		assert.Nil(t, ex)
 		c2 := dfy.Column(coln)
 		assert.NotNil(t, c2)
-		c2.Name("actual")
+		c2.Rename("actual")
 
 		// join expected & actual into a dataframe
 		ctx := d.NewContext(dfx.Context().Dialect(), nil)
@@ -354,7 +354,7 @@ func TestWhere(t *testing.T) {
 		dfx := loadData(which)
 		indCol, e := dfx.Parse("y==-5 || yy == 16")
 		assert.Nil(t, e)
-		indCol.AsColumn().Name("ind")
+		indCol.AsColumn().Rename("ind")
 		e1 := dfx.AppendColumn(indCol.AsColumn(), false)
 		assert.Nil(t, e1)
 		dfOut, e2 := dfx.Where(indCol.AsColumn())
@@ -376,7 +376,7 @@ func TestReplace(t *testing.T) {
 		dfx := loadData(which)
 		indCol, e0 := dfx.Parse("y==-5")
 		assert.Nil(t, e0)
-		indCol.AsColumn().Name("ind")
+		indCol.AsColumn().Rename("ind")
 		e := dfx.AppendColumn(indCol.AsColumn(), false)
 		assert.Nil(t, e)
 		coly := dfx.Column("y")
@@ -478,7 +478,7 @@ func TestParser(t *testing.T) {
 			eqn := x[ind][0].(string)
 			xOut, e := dfx.Parse(eqn)
 			assert.Nil(t, e)
-			xOut.AsColumn().Name("test")
+			xOut.AsColumn().Rename("test")
 
 			if which == "sql" {
 				r, e = s.NewDFcol(nil, nil, dfx.(*s.DF).Context(), xOut.AsColumn().(*s.Col))
@@ -514,14 +514,14 @@ func TestToCat(t *testing.T) {
 		colx, e := dfx.Parse("date(z)")
 		assert.Nil(t, e)
 		col := colx.AsColumn()
-		col.Name("dt1")
+		col.Rename("dt1")
 		e = dfx.AppendColumn(col, false)
 		assert.Nil(t, e)
 
 		// try with DTint
 		colx, e = dfx.Parse("cat(y)")
 		assert.Nil(t, e)
-		colx.AsColumn().Name("test")
+		colx.AsColumn().Rename("test")
 		result := checker(dfx, "test", which, colx.AsColumn(), -1)
 		expected := []int{1, 0, 4, 1, 2, 3}
 		assert.Equal(t, expected, result)
@@ -536,7 +536,7 @@ func TestToCat(t *testing.T) {
 		// try with DTdate
 		colx, e = dfx.Parse("cat(dt1)")
 		assert.Nil(t, e)
-		colx.AsColumn().Name("test")
+		colx.AsColumn().Rename("test")
 		result = checker(dfx, "test", which, colx.AsColumn(), -1)
 		expected = []int{3, 0, 1, 1, 4, 2}
 		assert.Equal(t, expected, result)
@@ -561,7 +561,7 @@ func TestApplyCat(t *testing.T) {
 		r, e := dfx.Parse("cat(y)")
 		assert.Nil(t, e)
 		sx := r.AsColumn()
-		sx.Name("caty")
+		sx.Rename("caty")
 		e1 := dfx.AppendColumn(sx, false)
 		assert.Nil(t, e1)
 
@@ -575,7 +575,7 @@ func TestApplyCat(t *testing.T) {
 		// try with fuzz > 1
 		r3, e3 := dfx.Parse("cat(y,2)")
 		assert.Nil(t, e3)
-		r3.AsColumn().Name("caty2")
+		r3.AsColumn().Rename("caty2")
 		e4 := dfx.AppendColumn(r3.AsColumn(), false)
 		assert.Nil(t, e4)
 

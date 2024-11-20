@@ -131,7 +131,7 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	var names []string
 	for ind := 0; ind < len(inputs); ind++ {
-		names = append(names, inputs[ind].(*Col).Name(""))
+		names = append(names, inputs[ind].(*Col).Name())
 	}
 
 	if outDF, e = context.Self().(*DF).Table(false, names...); e != nil {
@@ -174,7 +174,7 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	var colNames []string
 	for ind := startInd; ind < len(cols); ind++ {
 		var cn string
-		if cn = cols[ind].(*Col).Name(""); cn == "" {
+		if cn = cols[ind].(*Col).Name(); cn == "" {
 			return nil, fmt.Errorf("column with no name in table")
 		}
 
@@ -233,7 +233,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = context.Self().(*DF).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(col.Name(), nil, fuzz, nil, nil); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -274,7 +274,7 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	var outCol d.Column
-	if outCol, e = context.Self().(*DF).Categorical(newData.Name(""), oldData.catMap, 0, defaultValue, levels); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(newData.Name(), oldData.catMap, 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 

@@ -590,7 +590,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = context.Self().(*DF).Categorical(col.Name(""), nil, fuzz, nil, nil); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(col.Name(), nil, fuzz, nil, nil); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -637,7 +637,7 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	var outCol d.Column
-	if outCol, e = context.Self().(*DF).Categorical(newData.Name(""), oldData.catMap, 0, defaultValue, levels); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(newData.Name(), oldData.catMap, 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 

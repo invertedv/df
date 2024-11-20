@@ -1,5 +1,7 @@
 package sql
 
+// TODO: change SQL() to return string
+
 import (
 	"database/sql"
 	"fmt"
@@ -215,12 +217,12 @@ func (s *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 
 	for c := s.Next(true); c != nil; c = s.Next(false) {
 		var cNew d.Column
-		if cNew = dfNew.Column(c.Name("")); c == nil {
-			return nil, fmt.Errorf("missing column %s in AppendDF", c.Name(""))
+		if cNew = dfNew.Column(c.Name()); c == nil {
+			return nil, fmt.Errorf("missing column %s in AppendDF", c.Name())
 		}
 
 		if c.DataType() != cNew.DataType() {
-			return nil, fmt.Errorf("column %s has differing data types in AppendDF", c.Name(""))
+			return nil, fmt.Errorf("column %s has differing data types in AppendDF", c.Name())
 		}
 	}
 
@@ -271,7 +273,7 @@ func (s *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		toMap[defaultVal] = -1
 	}
 
-	cn := col.Name("")
+	cn := col.Name()
 	var (
 		tabl d.DF
 		e4   error
@@ -347,9 +349,6 @@ func (s *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	if sql1, ex = s.Context().Dialect().Case(whens, equalTo); ex != nil {
 		return nil, ex
 	}
-	//	if sql1, ex = s.Context().Dialect().CastField(sql1, d.DTint, d.DTint); ex != nil {
-	//		return nil, ex
-	//	}
 
 	outCol := NewColSQL("", s.Context(), d.DTcategorical, sql1)
 	outCol.rawType = col.DataType()
@@ -368,7 +367,6 @@ func (s *DF) Copy() d.DF {
 		DFcore:    dfCore,
 	}
 
-	//dfNew.Context().SetSelf(dfNew)
 	ctx := d.NewContext(s.Context().Dialect(), dfNew)
 	dfNew.SetContext(ctx)
 	return dfNew
@@ -412,16 +410,13 @@ func (s *DF) MakeQuery(colNames ...string) string {
 	for ind := 0; ind < len(colNames); ind++ {
 		var cx d.Column
 		if cx = s.Column(colNames[ind]); cx == nil {
-			panic(fmt.Errorf("missing name %s", cx.Name("")))
+			panic(fmt.Errorf("missing name %s", cx.Name()))
 		}
 
 		var field string
-		field = cx.Name("")
+		field = cx.Name()
 		if fn := cx.(*Col).SQL().(string); fn != "" {
-			// Need to Cast to required type here o.w. DB may default to an unsupported type
-			//			fnc, _ := s.Context().Dialect().CastField(fn, cx.DataType(), cx.DataType())
-			fnc := fn
-			field = fmt.Sprintf("%s AS %s", fnc, cx.Name(""))
+			field = fmt.Sprintf("%s AS %s", fn, cx.Name())
 		}
 
 		fields = append(fields, field)
@@ -505,17 +500,16 @@ func (s *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 			return nil, fmt.Errorf("cannot make table with type float")
 		}
 
-		names = append(names, csql.Name(""))
+		names = append(names, csql.Name())
 	}
 
+	cc := "count(*)"
+
+	// this requires a cast o.w. it's nullable
 	var (
-		cc, cf string
-		ex     error
+		cf string
+		ex error
 	)
-	if cc, ex = s.Context().Dialect().CastField("count(*)", d.DTint, d.DTint); ex != nil {
-		return nil, ex
-	}
-
 	if cf, ex = s.Context().Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
 		return nil, ex
 	}
@@ -582,8 +576,6 @@ func (s *DF) Where(col d.Column) (d.DF, error) {
 		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*Col).SQL().(string))
 	}
 
-	//dfNew.SetContext(d.NewContext(s.Context().Dialect(), dfNew))
-
 	return dfNew, nil
 }
 
@@ -634,20 +626,20 @@ func (s *Col) AppendRows(col d.Column) (d.Column, error) {
 	}
 	q1 := s.MakeQuery()
 	c := col.Copy()
-	c.Name(s.Name(""))
+	c.Rename(s.Name())
 	q2 := s.MakeQuery()
 
 	var (
 		source string
 		e      error
 	)
-	if source, e = s.Context().Dialect().Union(q1, q2, s.Name("")); e != nil {
+	if source, e = s.Context().Dialect().Union(q1, q2, s.Name()); e != nil {
 		return nil, e
 	}
 	_ = source
 	// TODO: this work?
 	outCol := &Col{
-		name:  s.Name(""),
+		name:  s.Name(),
 		dType: s.DataType(),
 		sql:   "",
 		ctx:   s.Context(),
@@ -682,8 +674,8 @@ func (s *Col) Data() any {
 	)
 
 	// give it a random name if it does not have one
-	if s.Name("") == "" {
-		s.Name(d.RandomLetters(5))
+	if s.Name() == "" {
+		s.Rename(d.RandomLetters(5))
 	}
 
 	if df, e = m.DBLoad(s.MakeQuery(), s.Context().Dialect()); e != nil {
@@ -691,7 +683,7 @@ func (s *Col) Data() any {
 	}
 
 	var col d.Column
-	if col = df.Column(s.Name("")); col == nil {
+	if col = df.Column(s.Name()); col == nil {
 		panic(fmt.Errorf("missing column?"))
 	}
 
@@ -733,34 +725,23 @@ func (s *Col) MakeQuery() string {
 
 	df := s.Context().Self().(*DF)
 
-	field := s.Name("")
-	// give it a random name if it does not have one
+	field := s.Name()
 	if field == "" || (field != "" && !d.Has(field, "", df.ColumnNames()...)) {
 		field = s.SQL().(string)
 	}
 
-	//	field, _ = s.Context().Dialect().CastField(field, s.DataType(), s.DataType())
 	deps := s.Dependencies()
 
-	//	field := s.Name("")
-	//	if fn := s.SQL().(string); fn != "abcd" {
-	// Need to Cast to required type here o.w. DB may default to an unsupported type
-	//		field, _ = s.Context().Dialect().CastField(fn, s.DataType(), s.DataType())
-	//	}
-	// TODO: fix
 	w := d.RandomLetters(4)
 	t := df.MakeQuery(deps...)
 	_ = t
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s AS %s FROM %s", w, df.MakeQuery(deps...), field, s.Name(""), w)
+	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s AS %s FROM %s", w, df.MakeQuery(deps...), field, s.Name(), w)
 
 	return qry
 
 }
 
-func (s *Col) Name(renameTo string) string {
-	if renameTo != "" {
-		s.name = renameTo
-	}
+func (s *Col) Name() string {
 
 	return s.name
 }
@@ -780,16 +761,13 @@ func (s *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 		return nil, fmt.Errorf("incompatible columns in Replace")
 	}
 
-	// TODO: why unused?
-	//tmpDF, _ := NewDFcol(nil, nil, s.ctx, indicator.(*Col), replacement.(*Col), s)
-
 	if indicator.DataType() != d.DTint {
 		return nil, fmt.Errorf("indicator not type DTint in Replace")
 	}
 
-	whens := []string{fmt.Sprintf("%s > 0", indicator.Name("")),
+	whens := []string{fmt.Sprintf("%s > 0", indicator.Name()),
 		fmt.Sprintf("ELSE")}
-	equalTo := []string{replacement.Name(""), s.Name("")}
+	equalTo := []string{replacement.Name(), s.Name()}
 
 	var (
 		sqlx string
@@ -803,16 +781,21 @@ func (s *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	return outCol, nil
 }
 
+func (s *Col) Rename(newName string) {
+	// TODO check Valid Name
+	s.name = newName
+}
+
 func (s *Col) SetContext(ctx *d.Context) {
 	s.ctx = ctx
 }
 
 func (s *Col) String() string {
-	if s.Name("") == "" {
+	if s.Name() == "" {
 		panic("column has no name")
 	}
 
-	t := fmt.Sprintf("column: %s\ntype: %s\n", s.Name(""), s.DataType())
+	t := fmt.Sprintf("column: %s\ntype: %s\n", s.Name(), s.DataType())
 
 	if s.CategoryMap() != nil {
 		var keys []string
@@ -836,7 +819,7 @@ func (s *Col) String() string {
 		_ = ctx
 		df, ex := NewDFcol(nil, nil, s.ctx, s)
 		_ = ex
-		tab, _ := df.Table(false, s.Name(""))
+		tab, _ := df.Table(false, s.Name())
 
 		var (
 			vals *m.DF
@@ -846,17 +829,17 @@ func (s *Col) String() string {
 			panic(e)
 		}
 
-		l := vals.Column(s.Name(""))
+		l := vals.Column(s.Name())
 		c := vals.Column("count")
 
-		header := []string{l.Name(""), c.Name("")}
+		header := []string{l.Name(), c.Name()}
 		return t + d.PrettyPrint(header, l.(*m.Col).Data(), c.(*m.Col).Data())
 	}
 
 	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 
 	header := []string{"metric", "value"}
-	vals, _ := s.Context().Dialect().Summary(s.MakeQuery(), s.Name(""))
+	vals, _ := s.Context().Dialect().Summary(s.MakeQuery(), s.Name())
 	return t + d.PrettyPrint(header, cols, vals)
 }
 

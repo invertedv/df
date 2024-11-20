@@ -87,7 +87,7 @@ func TestParser(t *testing.T) {
 	colx, e := d.ParseExpr(eqn, dfx.DFcore)
 	assert.Nil(t, e)
 	col := colx.AsColumn()
-	col.Name("dt")
+	col.Rename("dt")
 	e = dfx.AppendColumn(col, true)
 	assert.Nil(t, e)
 
@@ -191,11 +191,11 @@ func TestApplyCat(t *testing.T) {
 	colx, ex := dfx.Parse(expr)
 	assert.Nil(t, ex)
 	col := colx.AsColumn()
-	col.Name("c")
+	col.Rename("c")
 	_ = dfx.AppendColumn(col, false)
 	fmt.Println(col)
 	back, ex := dfx.Parse("int(c)")
-	back.AsColumn().Name("test")
+	back.AsColumn().Rename("test")
 	assert.Nil(t, ex)
 	fmt.Println(back.AsColumn())
 
@@ -233,7 +233,7 @@ func TestToCat(t *testing.T) {
 	colx, ex = dfx.Parse(expr)
 	assert.Nil(t, ex)
 	col := colx.AsColumn()
-	col.Name("dt")
+	col.Rename("dt")
 	ex = dfx.AppendColumn(col, false)
 	assert.Nil(t, ex)
 
@@ -485,7 +485,7 @@ func TestMemDF_Table(t *testing.T) {
 	dtx, ex := dfx.Parse("date(z)")
 	assert.Nil(t, ex)
 	dt := dtx.AsColumn()
-	dt.Name("dt")
+	dt.Rename("dt")
 	e = dfx.AppendColumn(dt, false)
 	assert.Nil(t, e)
 

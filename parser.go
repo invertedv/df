@@ -223,7 +223,7 @@ func (ot *OpTree) Eval(df *DFcore) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
 		if c := df.Column(ot.expr); c != nil {
-			ot.dependencies = nodupAppend(ot.dependencies, c.Name(""))
+			ot.dependencies = nodupAppend(ot.dependencies, c.Name())
 			ot.value = NewParsed(c, ot.dependencies...)
 			return nil
 		}
@@ -426,9 +426,8 @@ func (ot *OpTree) args(xIn string) ([]string, error) {
 	}
 
 	if arg = xIn[start:]; arg == "" {
+		// fn takes no args
 		return nil, nil
-		// TODO: delete this
-		return nil, fmt.Errorf("bad arguments: %s", xIn)
 	}
 
 	xOut = append(xOut, arg)
