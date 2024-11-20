@@ -352,6 +352,67 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 	return nil
 }
 
+func (d *Dialect) Load1(qry string) ([]any, error) {
+	var (
+		e     error
+		names []string
+		types []DataTypes
+	)
+
+	if names, types, e = d.Types(qry); e != nil {
+		return nil, e
+	}
+
+	var rows *sql.Rows
+
+	if rows, e = d.db.Query(qry); e != nil {
+		return nil, e
+	}
+
+	r := make([]any, len(names))
+	for ind := range r {
+		var x any
+		r[ind] = &x
+	}
+
+	var n int
+	if n, e = d.RowCount(qry); e != nil {
+		return nil, e
+	}
+
+	var memData []any
+	for ind := 0; ind < len(types); ind++ {
+		memData = append(memData, MakeSlice(types[ind], n, nil))
+	}
+
+	xind := 0
+	for rows.Next() {
+		var rx []any
+		for ind := 0; ind < len(types); ind++ {
+			rx = append(rx, Address(memData[ind], types[ind], xind))
+		}
+
+		xind++
+		if ex := rows.Scan(rx...); ex != nil {
+			return nil, ex
+		}
+	}
+
+	// change any dates to midnight UTC o.w. comparisons may not work
+	for c := 0; c < len(types); c++ {
+		if types[c] != DTdate {
+			continue
+		}
+
+		col := memData[c].([]time.Time)
+		for rx := 0; rx < n; rx++ {
+			col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
+		}
+	}
+
+	return memData, nil
+}
+
 func (d *Dialect) Load(qry string) ([]any, error) {
 	var (
 		e     error
@@ -430,9 +491,9 @@ func (d *Dialect) Min(col string) string {
 	return sqlx
 }
 
-func (d *Dialect) NewSignature() string {
-	const sigLen = 4
-	return RandomLetters(sigLen)
+func (d *Dialect) WithName() string {
+	const wLen = 4
+	return RandomLetters(wLen)
 }
 
 func (d *Dialect) Quantile(col string, q float64) string {
@@ -458,7 +519,7 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 	const skeleton = "WITH %s AS (%s) SELECT count(*) AS n FROM %s"
 	var n int
 
-	sig := d.NewSignature()
+	sig := d.WithName()
 	q := fmt.Sprintf(skeleton, sig, qry, sig)
 	row := d.db.QueryRow(q)
 	if e := row.Scan(&n); e != nil {
@@ -529,7 +590,7 @@ func (d *Dialect) Summary(qry, col string) ([]float64, error) {
 	n += " AS n"
 	flds := strings.Join([]string{minX, q25, q50, mn, q75, maxX, n}, ",")
 
-	sig := d.NewSignature()
+	sig := d.WithName()
 	q := fmt.Sprintf(skeleton, sig, qry, flds, sig)
 	row := d.db.QueryRow(q)
 	var vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN float64
@@ -594,7 +655,7 @@ func (d *Dialect) ToString(val any) string {
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
 	const skeleton = "WITH %s AS (%s) SELECT * FROM %s LIMIT 1"
 
-	sig := d.NewSignature()
+	sig := d.WithName()
 	q := fmt.Sprintf(skeleton, sig, qry, sig)
 
 	var rows *sql.Rows

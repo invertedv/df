@@ -13,23 +13,24 @@ import (
 type DF interface {
 	// generic from DFcore
 	AppendColumn(col Column, replace bool) error
+	AppendDFcore(df2 DF) (*DFcore, error)
 
 	//	Column(colName string) (col Column, err error)
 	Column(colName string) Column
 	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
+	Context() *Context
+	Core() *DFcore
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	DoOp(opName string, inputs ...*Parsed) (any, error)
 	DropColumns(colNames ...string) error
 	Fn(fn Ereturn) error
+	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
-	Fns() Fns
-	AppendDFcore(df2 DF) (*DFcore, error)
 	Parse(expr string) (*Parsed, error)
-	Context() *Context
-	Core() *DFcore
+	SetContext(ctx *Context)
 
 	// specific to underlying data source
 	AppendDF(df DF) (DF, error)
@@ -291,10 +292,6 @@ func (df *DFcore) Copy() *DFcore {
 	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
 		panic(e)
 	}
-	//	context := NewContext(df.Context().Dialect(), nil)
-	//	outDF.SetContext(context)
-
-	// don't copy context
 
 	return outDF
 }
@@ -481,10 +478,10 @@ func (df *DFcore) Runner() RunFn {
 	return df.runFn
 }
 
-func (df *DFcore) SetContext(c *Context) {
-	df.ctx = c
+func (df *DFcore) SetContext(ctx *Context) {
+	df.ctx = ctx
 	for cx := df.Next(true); cx != nil; cx = df.Next(false) {
-		cx.SetContext(c)
+		cx.SetContext(ctx)
 	}
 }
 

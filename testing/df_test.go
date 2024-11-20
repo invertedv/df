@@ -183,7 +183,7 @@ func TestCheck(t *testing.T) {
 	e1 := dfx.AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e1)
 	e2 := dfy.AppendColumn(out.AsColumn(), false)
-	assert.NotNil(t, e2)
+	assert.Nil(t, e2)
 }
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {

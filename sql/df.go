@@ -199,15 +199,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 func (s *DF) AppendColumn(col d.Column, replace bool) error {
 	panicer(col)
 
-	var (
-		c  *Col
-		ok bool
-	)
-	if c, ok = col.(*Col); !ok {
-		return fmt.Errorf("AppendColumn requires *Col")
-	}
-
-	if s.Context().Self() != c.Context().Self() {
+	if !sameSource(s, col) {
 		return fmt.Errorf("added column not from same source")
 	}
 
@@ -431,8 +423,8 @@ func (s *DF) MakeQuery(colNames ...string) string {
 		fields = append(fields, field)
 	}
 
-	sig := newSignature()
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", sig, s.sourceSQL, strings.Join(fields, ",\n"), sig)
+	with := d.RandomLetters(4)
+	qry := fmt.Sprintf("WITH %s AS (%s) SELECT\n%s FROM %s", with, s.sourceSQL, strings.Join(fields, ",\n"), with)
 	if s.where != "" {
 		qry = fmt.Sprintf("%s WHERE %s\n", qry, s.where)
 	}
@@ -775,7 +767,7 @@ func (s *Col) RawType() d.DataTypes {
 func (s *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
 
-	if s.Context().Self() != indicator.Context().Self() || s.Context().Self() != replacement.Context().Self() {
+	if !sameSource(s, indicator) || !sameSource(s, replacement) {
 		return nil, fmt.Errorf("columns not from same DF in Replace")
 	}
 
@@ -873,15 +865,31 @@ func (s *Col) SetDependencies(dep []string) {
 
 // ***************** Helpers *****************
 
-func newSignature() string {
-	const sigLen = 4
-	return d.RandomLetters(sigLen)
-}
-
 func panicer(cols ...d.Column) {
 	for _, c := range cols {
 		if _, ok := c.(*Col); !ok {
-			panic("non-*Col argument")
+			panic("non sql.*Col argument")
 		}
 	}
+}
+
+func sameSource(s1, s2 any) bool {
+	sql1, sql2 := "No", "Match"
+	if df1, ok := s1.(*DF); ok {
+		sql1 = df1.SourceSQL()
+	}
+
+	if c1, ok := s1.(*Col); ok {
+		sql1 = c1.Context().Self().(*DF).SourceSQL()
+	}
+
+	if df2, ok := s2.(*DF); ok {
+		sql2 = df2.SourceSQL()
+	}
+
+	if c2, ok := s2.(*Col); ok {
+		sql2 = c2.Context().Self().(*DF).SourceSQL()
+	}
+
+	return sql1 == sql2
 }
