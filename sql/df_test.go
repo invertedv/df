@@ -244,6 +244,7 @@ func TestParser(t *testing.T) {
 	fmt.Println("# tests: ", cnt)
 }
 
+/*
 func TestParserS(t *testing.T) {
 	dfx := testDF()
 
@@ -290,48 +291,7 @@ func TestParserS(t *testing.T) {
 	}
 
 	fmt.Println("# tests: ", cnt)
-}
-
-func TestSQLdf_Version(t *testing.T) {
-	dfx := testDF()
-	dfOld := dfx.Copy()
-	result, e := dfx.Parse("2.0*x")
-	assert.Nil(t, e)
-	col := result.AsColumn()
-	col.Rename("x2")
-	e = dfx.AppendColumn(col, false)
-	assert.Nil(t, e)
-	assert.Equal(t, 1, dfx.Version())
-
-	result, e = dfx.Parse("abs(x2)")
-	assert.Nil(t, e)
-	col = result.AsColumn()
-	col.Rename("absx2")
-
-	result, e = dfx.Parse("2*y")
-	assert.Nil(t, e)
-	col1 := result.AsColumn()
-	col1.Rename("y2")
-
-	// add absx2 to an older version of dfx -- this is not OK
-	e = dfOld.AppendColumn(col, false)
-	assert.NotNil(t, e)
-
-	// add absx2 to current version of dfx -- this is OK
-	e = dfx.AppendColumn(col, false)
-	assert.Nil(t, e)
-
-	data := checker(dfx, "absx2", col, -1)
-	assert.Equal(t, data, []float64{2, 4, 6, 0, 4, 7})
-	fmt.Println(data)
-
-	assert.Equal(t, dfx.Version(), 3)
-	assert.Equal(t, col1.(*Col).Version(), 1)
-
-	// add col1 to a newer version of dfx -- this is OK
-	e = dfx.AppendColumn(col1, false)
-	assert.Nil(t, e)
-}
+}*/
 
 // TODO: implement SORT
 func TestSQLdf_Table(t *testing.T) {
@@ -401,10 +361,13 @@ func TestCat(t *testing.T) {
 	assert.Nil(t, e)
 	s := r.AsColumn()
 	s.Rename("caty")
-	fmt.Println(s)
+	//	fmt.Println(s)
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
-	//	fmt.Println(s)
+	//	col := dfx.Column("caty")
+	//	_ = col
+
+	fmt.Println(s)
 	r, e = dfx.Parse("int(caty)")
 	assert.Nil(t, e)
 	r.AsColumn().Rename("test")

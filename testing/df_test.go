@@ -399,9 +399,9 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
-			{"dt != date(20221231)", 0, 0},
 			{"sum(y)", 0, 12},
 			{"sum(x)", 0, 7.5},
+			{"dt != date(20221231)", 0, 0},
 			{"dt != date(20221231)", 0, 0},
 			{"dt != date(20221231)", 1, 1},
 			{"dt == date(20221231)", 0, 1},

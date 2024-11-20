@@ -187,9 +187,9 @@ func FileLoad(f *d.Files) (*DF, error) {
 // ***************** DF - Methods *****************
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
-func (m *DF) AppendColumn(col d.Column, replace bool) error {
+func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	panicer(col)
-	if m.RowCount() != col.Len() && col.Len() > 1 {
+	if f.RowCount() != col.Len() && col.Len() > 1 {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
 
@@ -197,9 +197,10 @@ func (m *DF) AppendColumn(col d.Column, replace bool) error {
 	if colx.Len() == 1 {
 		var e error
 		dt := col.DataType()
+
 		xs := d.MakeSlice(col.DataType(), 0, nil)
 		val := colx.Element(0)
-		for ind := 0; ind < m.RowCount(); ind++ {
+		for ind := 0; ind < f.RowCount(); ind++ {
 			xs = d.AppendSlice(xs, val, dt)
 		}
 
@@ -208,14 +209,14 @@ func (m *DF) AppendColumn(col d.Column, replace bool) error {
 		}
 	}
 
-	if ex := m.DFcore.AppendColumn(colx, replace); ex != nil {
+	if ex := f.DFcore.AppendColumn(colx, replace); ex != nil {
 		return ex
 	}
 
 	return nil
 }
 
-func (m *DF) AppendDF(df d.DF) (d.DF, error) {
+func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 	if _, ok := df.(*DF); !ok {
 		return nil, fmt.Errorf("must be *DF to append to *DF")
 	}
@@ -225,7 +226,7 @@ func (m *DF) AppendDF(df d.DF) (d.DF, error) {
 		e      error
 	)
 
-	if dfCore, e = m.AppendDFcore(df); e != nil {
+	if dfCore, e = f.AppendDFcore(df); e != nil {
 		return nil, e
 	}
 
@@ -238,17 +239,9 @@ func (m *DF) AppendDF(df d.DF) (d.DF, error) {
 	return ndf, nil
 }
 
-//func (m *DF) DBsave(tableName string, overwrite bool) error {
-//	if m.Context().Dialect() == nil {
-//		return fmt.Errorf("no dialect")
-//	}
-//
-//	return m.Context().Dialect().Save(tableName, "", overwrite, m)
-//}
-
-func (m *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
+func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
 	var col d.Column
-	if col = m.Column(colName); col == nil {
+	if col = f.Column(colName); col == nil {
 		return nil, fmt.Errorf("column %s not found", colName)
 	}
 
@@ -260,7 +253,7 @@ func (m *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		tab d.DF
 		e2  error
 	)
-	if tab, e2 = m.Table(true, colName); e2 != nil {
+	if tab, e2 = f.Table(true, colName); e2 != nil {
 		return nil, e2
 	}
 
@@ -340,8 +333,8 @@ func (m *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	return outCol, nil
 }
 
-func (m *DF) Copy() d.DF {
-	dfC := m.DFcore.Copy()
+func (f *DF) Copy() d.DF {
+	dfC := f.DFcore.Copy()
 
 	mNew := &DF{
 		sourceQuery: "",
@@ -350,43 +343,43 @@ func (m *DF) Copy() d.DF {
 		DFcore:      dfC,
 	}
 
-	ctx := d.NewContext(m.Context().Dialect(), mNew)
+	ctx := d.NewContext(f.Context().Dialect(), mNew)
 	mNew.SetContext(ctx)
 
 	return mNew
 }
 
-func (m *DF) Iter(reset bool) (row []any, err error) {
+func (f *DF) Iter(reset bool) (row []any, err error) {
 	if reset {
-		m.row = 0
+		f.row = 0
 	}
 
-	if m.row+1 > m.RowCount() {
+	if f.row+1 > f.RowCount() {
 		return nil, io.EOF
 	}
 
-	for c := m.Next(true); c != nil; c = m.Next(false) {
-		row = append(row, c.(*Col).Element(m.row))
+	for c := f.Next(true); c != nil; c = f.Next(false) {
+		row = append(row, c.(*Col).Element(f.row))
 	}
 
-	m.row++
+	f.row++
 
 	return row, nil
 }
 
 // Len is required for sort
-func (m *DF) Len() int {
-	return m.RowCount()
+func (f *DF) Len() int {
+	return f.RowCount()
 }
 
-func (m *DF) Less(i, j int) bool {
-	for ind := 0; ind < len(m.by); ind++ {
+func (f *DF) Less(i, j int) bool {
+	for ind := 0; ind < len(f.by); ind++ {
 		var less bool
-		if m.ascending {
-			less = m.by[ind].Less(i, j)
+		if f.ascending {
+			less = f.by[ind].Less(i, j)
 
 		} else {
-			less = m.by[ind].Greater(i, j)
+			less = f.by[ind].Greater(i, j)
 		}
 
 		// if greater, it's false
@@ -395,7 +388,7 @@ func (m *DF) Less(i, j int) bool {
 		}
 
 		// if < (rather than <=) it's true
-		if m.by[ind].Less(i, j) && !m.by[ind].Less(j, i) {
+		if f.by[ind].Less(i, j) && !f.by[ind].Less(j, i) {
 			return true
 		}
 
@@ -405,48 +398,48 @@ func (m *DF) Less(i, j int) bool {
 	return true
 }
 
-func (m *DF) MakeQuery(colNames ...string) string {
+func (f *DF) MakeQuery(colNames ...string) string {
 	return ""
 }
 
-func (m *DF) RowCount() int {
-	return m.Next(true).Len()
+func (f *DF) RowCount() int {
+	return f.Next(true).Len()
 }
 
-func (m *DF) Sort(ascending bool, cols ...string) error {
+func (f *DF) Sort(ascending bool, cols ...string) error {
 	var by []*Col
 
 	for ind := 0; ind < len(cols); ind++ {
 		var x d.Column
-		if x = m.Column(cols[ind]); x == nil {
+		if x = f.Column(cols[ind]); x == nil {
 			return fmt.Errorf("column %s not found", cols[ind])
 		}
 
 		by = append(by, x.(*Col))
 	}
 
-	m.by = by
-	m.ascending = ascending
-	sort.Sort(m)
+	f.by = by
+	f.ascending = ascending
+	sort.Sort(f)
 
 	return nil
 }
 
-func (m *DF) SourceQuery() string {
-	return m.sourceQuery
+func (f *DF) SourceQuery() string {
+	return f.sourceQuery
 }
 
-func (m *DF) String() string {
+func (f *DF) String() string {
 	var sx string
-	for c := m.Next(true); c != nil; c = m.Next(false) {
+	for c := f.Next(true); c != nil; c = f.Next(false) {
 		sx += c.String() + "\n"
 	}
 
 	return sx
 }
 
-func (m *DF) Swap(i, j int) {
-	for h := m.Next(true); h != nil; h = m.Next(false) {
+func (f *DF) Swap(i, j int) {
+	for h := f.Next(true); h != nil; h = f.Next(false) {
 		data := h.(*Col).data
 		switch h.DataType() {
 		case d.DTfloat:
@@ -463,11 +456,11 @@ func (m *DF) Swap(i, j int) {
 	}
 }
 
-func (m *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
+func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	var mCols, outCols []*Col
 	for ind := 0; ind < len(cols); ind++ {
 		var c d.Column
-		if c = m.Column(cols[ind]); c == nil {
+		if c = f.Column(cols[ind]); c == nil {
 			return nil, fmt.Errorf("column %s not found", cols[ind])
 		}
 
@@ -485,8 +478,8 @@ func (m *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		e     error
 	)
 
-	ctx := d.NewContext(m.Context().Dialect(), nil, nil)
-	if outDF, e = NewDFcol(m.Runner(), m.Fns(), ctx, outCols...); e != nil {
+	ctx := d.NewContext(f.Context().Dialect(), nil, nil)
+	if outDF, e = NewDFcol(f.Runner(), f.Fns(), ctx, outCols...); e != nil {
 		return nil, e
 	}
 
@@ -523,17 +516,17 @@ func (m *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	return outDF, nil
 }
 
-func (m *DF) Where(indicator d.Column) (d.DF, error) {
+func (f *DF) Where(indicator d.Column) (d.DF, error) {
 	panicer(indicator)
-	if indicator.Len() != m.RowCount() {
-		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), m.RowCount())
+	if indicator.Len() != f.RowCount() {
+		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), f.RowCount())
 	}
 
 	if indicator.DataType() != d.DTint {
 		return nil, fmt.Errorf("argument to Where must be int")
 	}
 
-	dfNew := m.Copy()
+	dfNew := f.Copy()
 
 	var n int
 	for col := dfNew.Next(true); col != nil; col = dfNew.Next(false) {
@@ -592,144 +585,147 @@ func NewCol(name string, data any) (*Col, error) {
 
 // ***************** Col - Methods *****************
 
-func (m *Col) AppendRows(col2 d.Column) (d.Column, error) {
+func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
 	panicer(col2)
-	return AppendRows(m, col2, m.Name())
+	return AppendRows(c, col2, c.Name())
 }
 
-func (m *Col) CategoryMap() d.CategoryMap {
-	return m.catMap
+func (c *Col) CategoryMap() d.CategoryMap {
+	return c.catMap
 }
 
 // TODO: populate
-func (m *Col) Context() *d.Context {
+func (c *Col) Context() *d.Context {
 	return nil
 }
 
-func (m *Col) Copy() d.Column {
+func (c *Col) Copy() d.Column {
 	var copiedData any
-	n := m.Len()
-	switch m.dType {
+	n := c.Len()
+	switch c.dType {
 	case d.DTfloat:
 		copiedData = make([]float64, n)
-		copy(copiedData.([]float64), m.data.([]float64))
+		copy(copiedData.([]float64), c.data.([]float64))
 	case d.DTint:
 		copiedData = make([]int, n)
-		copy(copiedData.([]int), m.data.([]int))
+		copy(copiedData.([]int), c.data.([]int))
 	case d.DTstring:
 		copiedData = make([]string, n)
-		copy(copiedData.([]string), m.data.([]string))
+		copy(copiedData.([]string), c.data.([]string))
 	case d.DTdate:
 		copiedData = make([]time.Time, n)
-		copy(copiedData.([]time.Time), m.data.([]time.Time))
+		copy(copiedData.([]time.Time), c.data.([]time.Time))
 	default:
 		panic(fmt.Errorf("unsupported data type in Copy"))
 	}
 
 	col := &Col{
-		name:   m.name,
-		dType:  m.dType,
+		name:   c.name,
+		dType:  c.dType,
 		data:   copiedData,
-		catMap: m.catMap,
+		catMap: c.catMap,
 	}
 
 	return col
 }
 
-func (m *Col) Data() any {
-	return m.data
+func (c *Col) Data() any {
+	return c.data
 }
 
-func (m *Col) DataType() d.DataTypes {
-	return m.dType
+func (c *Col) DataType() d.DataTypes {
+	return c.dType
 }
 
-func (m *Col) Element(row int) any {
-	if m.Len() == 1 {
+func (c *Col) Element(row int) any {
+	if c.Len() == 1 {
 		row = 0
 	}
 
-	switch m.dType {
+	switch c.dType {
 	case d.DTfloat:
-		return m.Data().([]float64)[row]
+		return c.Data().([]float64)[row]
 	case d.DTint, d.DTcategorical:
-		return m.Data().([]int)[row]
+		return c.Data().([]int)[row]
 	case d.DTstring:
-		return m.Data().([]string)[row]
+		return c.Data().([]string)[row]
 	case d.DTdate:
-		return m.Data().([]time.Time)[row]
+		return c.Data().([]time.Time)[row]
 	default:
 		panic(fmt.Errorf("unsupported data type in Element"))
 	}
 }
 
-func (m *Col) Greater(i, j int) bool {
-	switch m.dType {
+func (c *Col) Greater(i, j int) bool {
+	switch c.dType {
 	case d.DTfloat:
-		return m.data.([]float64)[i] >= m.data.([]float64)[j]
+		return c.data.([]float64)[i] >= c.data.([]float64)[j]
 	case d.DTint:
-		return m.data.([]int)[i] >= m.data.([]int)[j]
+		return c.data.([]int)[i] >= c.data.([]int)[j]
 	case d.DTstring:
-		return m.data.([]string)[i] >= m.data.([]string)[j]
+		return c.data.([]string)[i] >= c.data.([]string)[j]
 	case d.DTdate:
-		return !m.data.([]time.Time)[i].Before(m.data.([]time.Time)[j])
+		return !c.data.([]time.Time)[i].Before(c.data.([]time.Time)[j])
 	default:
 		panic(fmt.Errorf("unsupported data type in Less"))
 	}
 }
 
-func (m *Col) Len() int {
-	switch m.dType {
+func (c *Col) Len() int {
+	switch c.dType {
 	case d.DTfloat:
-		return len(m.Data().([]float64))
+		return len(c.Data().([]float64))
 	case d.DTint, d.DTcategorical:
-		return len(m.Data().([]int))
+		return len(c.Data().([]int))
 	case d.DTstring:
-		return len(m.Data().([]string))
+		return len(c.Data().([]string))
 	case d.DTdate:
-		return len(m.Data().([]time.Time))
+		return len(c.Data().([]time.Time))
 	default:
 		return -1
 	}
 }
 
-func (m *Col) Less(i, j int) bool {
-	switch m.dType {
+func (c *Col) Less(i, j int) bool {
+	switch c.dType {
 	case d.DTfloat:
-		return m.data.([]float64)[i] <= m.data.([]float64)[j]
+		return c.data.([]float64)[i] <= c.data.([]float64)[j]
 	case d.DTint:
-		return m.data.([]int)[i] <= m.data.([]int)[j]
+		return c.data.([]int)[i] <= c.data.([]int)[j]
 	case d.DTstring:
-		return m.data.([]string)[i] <= m.data.([]string)[j]
+		return c.data.([]string)[i] <= c.data.([]string)[j]
 	case d.DTdate:
-		return !m.data.([]time.Time)[i].After(m.data.([]time.Time)[j])
+		return !c.data.([]time.Time)[i].After(c.data.([]time.Time)[j])
 	default:
 		panic(fmt.Errorf("unsupported data type in Less"))
 	}
 }
 
-func (m *Col) Name() string {
+func (c *Col) Name() string {
 
-	return m.name
+	return c.name
 }
 
-func (m *Col) RawType() d.DataTypes {
-	return m.rawType
+func (c *Col) RawType() d.DataTypes {
+	return c.rawType
 }
 
-func (m *Col) Rename(newName string) {
-	// TODO check Valid Name
-	m.name = newName
+func (c *Col) Rename(newName string) {
+	if !d.ValidName(c.Name()) {
+		panic(fmt.Errorf("illegal name: %s", c.Name()))
+	}
+
+	c.name = newName
 }
 
-func (m *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
+func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
-	if m.DataType() != replacement.DataType() {
+	if c.DataType() != replacement.DataType() {
 		return nil, fmt.Errorf("incompatible columns in Replace")
 	}
 
-	n := d.MaxInt(m.Len(), indicator.Len(), replacement.Len())
-	if (m.Len() > 1 && m.Len() != n) || (indicator.Len() > 1 && indicator.Len() != n) ||
+	n := d.MaxInt(c.Len(), indicator.Len(), replacement.Len())
+	if (c.Len() > 1 && c.Len() != n) || (indicator.Len() > 1 && indicator.Len() != n) ||
 		(replacement.Len() > 1 && replacement.Len() != n) {
 		return nil, fmt.Errorf("columns not same length in Replacef")
 	}
@@ -738,15 +734,15 @@ func (m *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 		return nil, fmt.Errorf("indicator not type DTint in Replace")
 	}
 
-	data := d.MakeSlice(m.DataType(), 0, nil)
+	data := d.MakeSlice(c.DataType(), 0, nil)
 
 	for ind := 0; ind < n; ind++ {
-		x := m.Element(ind)
+		x := c.Element(ind)
 		if indicator.(*Col).Element(ind).(int) > 0 {
 			x = replacement.(*Col).Element(ind)
 		}
 
-		data = d.AppendSlice(data, x, m.DataType())
+		data = d.AppendSlice(data, x, c.DataType())
 	}
 	var (
 		outCol *Col
@@ -759,21 +755,21 @@ func (m *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	return outCol, nil
 }
 
-func (m *Col) SetContext(ctx *d.Context) {
+func (c *Col) SetContext(ctx *d.Context) {
 
 }
 
-func (m *Col) String() string {
-	if m.Name() == "" {
+func (c *Col) String() string {
+	if c.Name() == "" {
 		panic("column has no name")
 	}
 
-	t := fmt.Sprintf("column: %s\ntype: %s\n", m.Name(), m.DataType())
+	t := fmt.Sprintf("column: %s\ntype: %s\n", c.Name(), c.DataType())
 
-	if m.CategoryMap() != nil {
+	if c.CategoryMap() != nil {
 		var keys []string
 		var vals []int
-		for k, v := range m.CategoryMap() {
+		for k, v := range c.CategoryMap() {
 			if k == nil {
 				k = "Other"
 			}
@@ -787,10 +783,10 @@ func (m *Col) String() string {
 		t = t + d.PrettyPrint(header, keys, vals) + "\n"
 	}
 
-	if m.DataType() != d.DTfloat {
-		tab, _ := NewDFcol(nil, nil, nil, makeTable(m)...)
+	if c.DataType() != d.DTfloat {
+		tab, _ := NewDFcol(nil, nil, nil, makeTable(c)...)
 		_ = tab.Sort(false, "count")
-		l := tab.Column(m.Name())
+		l := tab.Column(c.Name())
 		c := tab.Column("count")
 
 		header := []string{l.Name(), c.Name()}
@@ -798,8 +794,8 @@ func (m *Col) String() string {
 		return t + d.PrettyPrint(header, l.Data(), c.Data())
 	}
 
-	x := make([]float64, m.Len())
-	copy(x, m.Data().([]float64))
+	x := make([]float64, c.Len())
+	copy(x, c.Data().([]float64))
 	sort.Float64s(x)
 	minx := x[0]
 	maxx := x[len(x)-1]
@@ -807,7 +803,7 @@ func (m *Col) String() string {
 	q50 := stat.Quantile(0.5, 4, x, nil)
 	q75 := stat.Quantile(0.75, 4, x, nil)
 	xbar := stat.Mean(x, nil)
-	n := float64(m.Len())
+	n := float64(c.Len())
 	cats := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 	vals := []float64{minx, q25, q50, xbar, q75, maxx, n}
 	header := []string{"metric", "value"}
@@ -815,12 +811,12 @@ func (m *Col) String() string {
 	return t + d.PrettyPrint(header, cats, vals)
 }
 
-func (m *Col) Dependencies() []string {
-	return m.dependencies
+func (c *Col) Dependencies() []string {
+	return c.dependencies
 }
 
-func (m *Col) SetDependencies(d []string) {
-	m.dependencies = d
+func (c *Col) SetDependencies(d []string) {
+	c.dependencies = d
 }
 
 // ***************** Helpers *****************

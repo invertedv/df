@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// TODO: remove rename from Name and create a Rename
-// TODO: change receiver names in mem and sql
+// TODO: think about panic vs error
+// TODO: panic needs error or just string?
 
 // consider how to handle passing a small column of parameters...
 // NewColSequence ?? ...
@@ -168,11 +168,15 @@ func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 // *********** DFcore methods ***********
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
-	if replace {
-		_ = df.DropColumns(col.Name())
+	if df.Column(col.Name()) != nil {
+		if replace {
+			_ = df.DropColumns(col.Name())
+		} else {
+			return fmt.Errorf("column %s already exists", col.Name())
+		}
 	}
 
-	if !df.ValidName(col.Name()) {
+	if !ValidName(col.Name()) {
 		return fmt.Errorf("invalid column name: %s", col.Name())
 	}
 
@@ -486,19 +490,6 @@ func (df *DFcore) SetContext(ctx *Context) {
 	}
 }
 
-func (df *DFcore) ValidName(columnName string) bool {
-	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
-	if c := df.Column(columnName); c != nil {
-		return false
-	}
-
-	if strings.ContainsAny(columnName, illegal) {
-		return false
-	}
-
-	return true
-}
-
 func (df *DFcore) node(colName string) (node *columnList, err error) {
 	for h := df.head; h != nil; h = h.next {
 		if h.col.Name() == colName {
@@ -576,4 +567,14 @@ func (cm CategoryMap) Min() int {
 	}
 
 	return *minVal
+}
+
+func ValidName(columnName string) bool {
+	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
+
+	if strings.ContainsAny(columnName, illegal) {
+		return false
+	}
+
+	return true
 }

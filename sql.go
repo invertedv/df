@@ -685,6 +685,9 @@ func buildRow(k []reflect.Kind) []any {
 		case reflect.Float64:
 			var x float64
 			ry = append(ry, &x)
+		case reflect.Float32:
+			var x float32
+			ry = append(ry, &x)
 		case reflect.String:
 			var x string
 			ry = append(ry, &x)
