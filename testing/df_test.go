@@ -173,6 +173,40 @@ func checker(df d.DF, colName, which string, col d.Column, indx int) any {
 	}
 */
 
+func TestTypes(t *testing.T) {
+	table := "SELECT * EXCEPT(fhfa_msad, delta) FROM fhfa.msad LIMIT 10"
+	var db *sql.DB
+
+	user := os.Getenv("user")
+	host := os.Getenv("host")
+	password := os.Getenv("password")
+
+	switch dbSource {
+	case ch:
+		db = newConnectCH(host, user, password)
+	default:
+		panic("unsupported database")
+	}
+
+	var (
+		dialect *d.Dialect
+		e       error
+	)
+	if dialect, e = d.NewDialect("clickhouse", db); e != nil {
+		panic(e)
+	}
+	ctx := d.NewContext(dialect, nil, nil)
+
+	var (
+		df *s.DF
+		e1 error
+	)
+	if df, e1 = s.DBload(table, ctx); e1 != nil {
+		panic(e1)
+	}
+	fmt.Println(df.Column("yr").Data())
+}
+
 // TODO: if just return "x" in parse, it returns a pointer to the original not a copy
 func TestCheck(t *testing.T) {
 	dfx := loadData("sql")
@@ -365,6 +399,7 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
+			{"dt != date(20221231)", 0, 0},
 			{"sum(y)", 0, 12},
 			{"sum(x)", 0, 7.5},
 			{"dt != date(20221231)", 0, 0},

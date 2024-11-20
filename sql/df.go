@@ -162,7 +162,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 	if dlct == nil {
 		return nil, fmt.Errorf("no DB defined in Context for NewSQLdf")
 	}
-	if colNames, colTypes, e = context.Dialect().Types(query); e != nil {
+	if colNames, colTypes, _, e = context.Dialect().Types(query); e != nil {
 		return nil, e
 	}
 
@@ -337,6 +337,9 @@ func (s *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		}
 	}
 
+	// o.w. the result is nullable
+	whens[len(whens)-1] = "ELSE"
+
 	var (
 		sql1 string
 		ex   error
@@ -344,9 +347,9 @@ func (s *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	if sql1, ex = s.Context().Dialect().Case(whens, equalTo); ex != nil {
 		return nil, ex
 	}
-	if sql1, ex = s.Context().Dialect().CastField(sql1, d.DTint, d.DTint); ex != nil {
-		return nil, ex
-	}
+	//	if sql1, ex = s.Context().Dialect().CastField(sql1, d.DTint, d.DTint); ex != nil {
+	//		return nil, ex
+	//	}
 
 	outCol := NewColSQL("", s.Context(), d.DTcategorical, sql1)
 	outCol.rawType = col.DataType()
@@ -416,7 +419,8 @@ func (s *DF) MakeQuery(colNames ...string) string {
 		field = cx.Name("")
 		if fn := cx.(*Col).SQL().(string); fn != "" {
 			// Need to Cast to required type here o.w. DB may default to an unsupported type
-			fnc, _ := s.Context().Dialect().CastField(fn, cx.DataType(), cx.DataType())
+			//			fnc, _ := s.Context().Dialect().CastField(fn, cx.DataType(), cx.DataType())
+			fnc := fn
 			field = fmt.Sprintf("%s AS %s", fnc, cx.Name(""))
 		}
 
@@ -735,7 +739,7 @@ func (s *Col) MakeQuery() string {
 		field = s.SQL().(string)
 	}
 
-	field, _ = s.Context().Dialect().CastField(field, s.DataType(), s.DataType())
+	//	field, _ = s.Context().Dialect().CastField(field, s.DataType(), s.DataType())
 	deps := s.Dependencies()
 
 	//	field := s.Name("")
@@ -743,6 +747,7 @@ func (s *Col) MakeQuery() string {
 	// Need to Cast to required type here o.w. DB may default to an unsupported type
 	//		field, _ = s.Context().Dialect().CastField(fn, s.DataType(), s.DataType())
 	//	}
+	// TODO: fix
 	w := d.RandomLetters(4)
 	t := df.MakeQuery(deps...)
 	_ = t
@@ -783,7 +788,7 @@ func (s *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	}
 
 	whens := []string{fmt.Sprintf("%s > 0", indicator.Name("")),
-		fmt.Sprintf("%s <= 0", indicator.Name(""))}
+		fmt.Sprintf("ELSE")}
 	equalTo := []string{replacement.Name(""), s.Name("")}
 
 	var (

@@ -111,7 +111,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 		e           error
 	)
 
-	if columnNames, columnTypes, e = dlct.Types(qry); e != nil {
+	if columnNames, columnTypes, _, e = dlct.Types(qry); e != nil {
 		return nil, e
 	}
 

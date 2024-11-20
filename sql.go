@@ -113,7 +113,11 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 		e = nil
 		s = "CASE\n"
 		for ind := 0; ind < len(whens); ind++ {
-			s += fmt.Sprintf("WHEN %s THEN %s\n", whens[ind], vals[ind])
+			when := fmt.Sprintf("WHEN %s THEN %s\n", whens[ind], vals[ind])
+			if strings.ToUpper(whens[ind]) == "ELSE" {
+				when = fmt.Sprintf("ELSE %s\n", vals[ind])
+			}
+			s += when
 		}
 		s += "END"
 	}
@@ -352,78 +356,80 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 	return nil
 }
 
-func (d *Dialect) Load1(qry string) ([]any, error) {
-	var (
-		e     error
-		names []string
-		types []DataTypes
-	)
+/*
+	func (d *Dialect) Load1(qry string) ([]any, error) {
+		var (
+			e     error
+			names []string
+			types []DataTypes
+		)
 
-	if names, types, e = d.Types(qry); e != nil {
-		return nil, e
-	}
+		if names, types, e = d.Types(qry); e != nil {
+			return nil, e
+		}
 
-	var rows *sql.Rows
+		var rows *sql.Rows
 
-	if rows, e = d.db.Query(qry); e != nil {
-		return nil, e
-	}
+		if rows, e = d.db.Query(qry); e != nil {
+			return nil, e
+		}
 
-	r := make([]any, len(names))
-	for ind := range r {
-		var x any
-		r[ind] = &x
-	}
+		r := make([]any, len(names))
+		for ind := range r {
+			var x any
+			r[ind] = &x
+		}
 
-	var n int
-	if n, e = d.RowCount(qry); e != nil {
-		return nil, e
-	}
+		var n int
+		if n, e = d.RowCount(qry); e != nil {
+			return nil, e
+		}
 
-	var memData []any
-	for ind := 0; ind < len(types); ind++ {
-		memData = append(memData, MakeSlice(types[ind], n, nil))
-	}
-
-	xind := 0
-	for rows.Next() {
-		var rx []any
+		var memData []any
 		for ind := 0; ind < len(types); ind++ {
-			rx = append(rx, Address(memData[ind], types[ind], xind))
+			memData = append(memData, MakeSlice(types[ind], n, nil))
 		}
 
-		xind++
-		if ex := rows.Scan(rx...); ex != nil {
-			return nil, ex
+		xind := 0
+		for rows.Next() {
+			var rx []any
+			for ind := 0; ind < len(types); ind++ {
+				rx = append(rx, Address(memData[ind], types[ind], xind))
+			}
+
+			xind++
+			if ex := rows.Scan(rx...); ex != nil {
+				return nil, ex
+			}
 		}
+
+		// change any dates to midnight UTC o.w. comparisons may not work
+		for c := 0; c < len(types); c++ {
+			if types[c] != DTdate {
+				continue
+			}
+
+			col := memData[c].([]time.Time)
+			for rx := 0; rx < n; rx++ {
+				col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
+			}
+		}
+
+		return memData, nil
 	}
-
-	// change any dates to midnight UTC o.w. comparisons may not work
-	for c := 0; c < len(types); c++ {
-		if types[c] != DTdate {
-			continue
-		}
-
-		col := memData[c].([]time.Time)
-		for rx := 0; rx < n; rx++ {
-			col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
-		}
-	}
-
-	return memData, nil
-}
-
+*/
 func (d *Dialect) Load(qry string) ([]any, error) {
 	var (
 		e     error
 		names []string
 		types []DataTypes
+		kinds []reflect.Kind
 	)
 
-	if names, types, e = d.Types(qry); e != nil {
+	if names, types, kinds, e = d.Types(qry); e != nil {
 		return nil, e
 	}
-
+	_ = kinds
 	var rows *sql.Rows
 
 	if rows, e = d.db.Query(qry); e != nil {
@@ -447,16 +453,88 @@ func (d *Dialect) Load(qry string) ([]any, error) {
 	}
 
 	xind := 0
+	var ry []any
+	for ind := 0; ind < len(types); ind++ {
+		switch kinds[ind] {
+		case reflect.Int:
+			var x int
+			ry = append(ry, &x)
+		case reflect.Int8:
+			var x int8
+			ry = append(ry, &x)
+		case reflect.Int16:
+			var x int16
+			ry = append(ry, &x)
+		case reflect.Int32:
+			var x int32
+			ry = append(ry, &x)
+		case reflect.Int64:
+			var x int64
+			ry = append(ry, &x)
+		case reflect.Uint8:
+			var x uint8
+			ry = append(ry, &x)
+		case reflect.Uint16:
+			var x uint16
+			ry = append(ry, &x)
+		case reflect.Uint32:
+			var x uint32
+			ry = append(ry, &x)
+		case reflect.Uint64:
+			var x uint64
+			ry = append(ry, &x)
+		case reflect.Float64:
+			var x float64
+			ry = append(ry, &x)
+		case reflect.String:
+			var x string
+			ry = append(ry, &x)
+		case reflect.Struct:
+			var x time.Time
+			ry = append(ry, &x)
+		default:
+			panic("oh oh")
+		}
+	}
 	for rows.Next() {
-		var rx []any
+		if ex := rows.Scan(ry...); ex != nil {
+			return nil, ex
+		}
+
 		for ind := 0; ind < len(types); ind++ {
-			rx = append(rx, Address(memData[ind], types[ind], xind))
+			switch kinds[ind] {
+			case reflect.Int:
+				memData[ind].([]int)[xind] = *(ry[ind].(*int))
+			case reflect.Int32:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*int32)))
+			case reflect.Int64:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*int64)))
+			case reflect.Int8:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*int8)))
+			case reflect.Int16:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*int16)))
+			case reflect.Uint8:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*uint8)))
+			case reflect.Uint16:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*uint16)))
+			case reflect.Uint32:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*uint32)))
+			case reflect.Uint64:
+				memData[ind].([]int)[xind] = int(*(ry[ind].(*uint64)))
+			case reflect.Float64:
+				memData[ind].([]float64)[xind] = *(ry[ind]).(*float64)
+			case reflect.Float32:
+				memData[ind].([]float64)[xind] = float64(*(ry[ind]).(*float32))
+			case reflect.String:
+				memData[ind].([]string)[xind] = *(ry[ind]).(*string)
+			case reflect.Struct:
+				memData[ind].([]time.Time)[xind] = *(ry[ind]).(*time.Time)
+			default:
+				panic("bad type in load")
+			}
 		}
 
 		xind++
-		if ex := rows.Scan(rx...); ex != nil {
-			return nil, ex
-		}
 	}
 
 	// change any dates to midnight UTC o.w. comparisons may not work
@@ -540,13 +618,14 @@ func (d *Dialect) RowNumber() string {
 func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
 	var (
 		fieldTypes []DataTypes
+		kinds      []reflect.Kind
 		e          error
 	)
 
-	if fieldNames, fieldTypes, e = d.Types(qry); e != nil {
+	if fieldNames, fieldTypes, kinds, e = d.Types(qry); e != nil {
 		return nil, nil, nil, e
 	}
-
+	_ = kinds
 	if rows, e = d.db.Query(qry); e != nil {
 		return nil, nil, nil, e
 	}
@@ -652,7 +731,7 @@ func (d *Dialect) ToString(val any) string {
 	panic(fmt.Errorf("unsupported db dialect"))
 }
 
-func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
+func (d *Dialect) Types1(qry string) (fieldNames []string, fieldTypes []DataTypes, err error) {
 	const skeleton = "WITH %s AS (%s) SELECT * FROM %s LIMIT 1"
 
 	sig := d.WithName()
@@ -691,6 +770,52 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	}
 
 	return fieldNames, fieldTypes, nil
+}
+
+func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, kinds []reflect.Kind, err error) {
+	const skeleton = "WITH %s AS (%s) SELECT * FROM %s LIMIT 1"
+
+	sig := d.WithName()
+	q := fmt.Sprintf(skeleton, sig, qry, sig)
+
+	var rows *sql.Rows
+	rows, err = d.db.Query(q)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var types []*sql.ColumnType
+	if types, err = rows.ColumnTypes(); err != nil {
+		return nil, nil, nil, err
+	}
+
+	for ind := 0; ind < len(types); ind++ {
+		fieldNames = append(fieldNames, types[ind].Name())
+
+		var dt DataTypes
+		kinds = append(kinds, types[ind].ScanType().Kind())
+		switch t := types[ind].ScanType().Kind(); t {
+		case reflect.Float64, reflect.Float32:
+			dt = DTfloat
+		case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
+			dt = DTint
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			dt = DTint
+		case reflect.String:
+			dt = DTstring
+		case reflect.Struct:
+			dt = DTdate
+		case reflect.Ptr:
+			return nil, nil, nil, fmt.Errorf("field %s is nullable - not supported", types[ind].Name())
+		default:
+			return nil, nil, nil, fmt.Errorf("unsupported db field type: %v", t)
+		}
+
+		fieldTypes = append(fieldTypes, dt)
+	}
+
+	return fieldNames, fieldTypes, kinds, nil
 }
 
 func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, error) {

@@ -77,6 +77,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 				mCol := val.Value.(*m.Col)
 				dt := mCol.DataType()
 				sql, _ := context.Dialect().CastField(d.Any2String(mCol.Element(0)), dt, dt)
+				//				sql = d.Any2String(mCol.Element(0))
 				retCol := NewColSQL("", context, mCol.DataType(), sql)
 				// Place the value of the output in .scalarValue in case that's needed later
 				retCol.scalarValue = mCol.Element(0)
