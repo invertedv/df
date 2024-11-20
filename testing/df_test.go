@@ -172,10 +172,24 @@ func checker(df d.DF, colName, which string, col d.Column, indx int) any {
 		//	assert.Nil(t, e3)
 	}
 */
+
+// TODO: if just return "x" in parse, it returns a pointer to the original not a copy
+func TestCheck(t *testing.T) {
+	dfx := loadData("sql")
+	dfy := loadData("sql")
+	out, e := dfx.Parse("float(x)")
+	assert.Nil(t, e)
+	out.AsColumn().Name("xx")
+	e1 := dfx.AppendColumn(out.AsColumn(), false)
+	assert.Nil(t, e1)
+	e2 := dfy.AppendColumn(out.AsColumn(), false)
+	assert.NotNil(t, e2)
+}
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		fmt.Println(dfx)
+		break
 	}
 }
 
@@ -437,7 +451,6 @@ func TestParser(t *testing.T) {
 				r, e = m.NewDFcol(nil, nil, dfx.(*m.DF).Context(), xOut.AsColumn().(*m.Col))
 			}
 
-			fmt.Println(xOut.AsColumn().Dependencies())
 			assert.Nil(t, e)
 			result := checker(r, "test", which, nil, x[ind][1].(int))
 

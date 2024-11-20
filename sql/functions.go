@@ -31,9 +31,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 
 		if col, ok = inputs[j].(*Col); !ok {
 			var e error
-			sig := context.Self().(*DF).Signature()
-			ver := context.Self().(*DF).Version()
-			if col, e = NewColScalar("", sig, ver, inputs[j]); e != nil {
+			if col, e = NewColScalar("", inputs[j]); e != nil {
 				return nil, e
 			}
 		}
@@ -79,10 +77,7 @@ func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
 				mCol := val.Value.(*m.Col)
 				dt := mCol.DataType()
 				sql, _ := context.Dialect().CastField(d.Any2String(mCol.Element(0)), dt, dt)
-				sig := context.Self().(*DF).Signature()
-				ver := context.Self().(*DF).Version()
-				src := context.Self().(*DF).MakeQuery()
-				retCol := NewColSQL("", sig, src, ver, context, mCol.DataType(), sql)
+				retCol := NewColSQL("", context, mCol.DataType(), sql)
 				// Place the value of the output in .scalarValue in case that's needed later
 				retCol.scalarValue = mCol.Element(0)
 				return retCol, nil
@@ -312,12 +307,8 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 		dtOut = d.DTfloat
 	}
 
-	tabl := context.Self().(*DF).Signature()
-	source := context.Self().(*DF).MakeQuery()
-	version := context.Self().(*DF).Version()
-
 	//sql, _ = context.Dialect().CastField(sql, dtOut, dtOut)
-	outCol := NewColSQL("", tabl, source, version, context, dtOut, sql)
+	outCol := NewColSQL("", context, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -435,10 +426,7 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 		return &d.FnReturn{Err: e}
 	}
 
-	sig := context.Self().(*DF).Signature()
-	ver := context.Self().(*DF).Version()
-	source := context.Self().(*DF).MakeQuery()
-	outCol := NewColSQL("", sig, source, ver, context, out, sql)
+	outCol := NewColSQL("", context, out, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -547,11 +535,7 @@ func fnGen(name, sql, suffix string, inp [][]d.DataTypes, outp []d.DataTypes, in
 		}
 	}
 
-	sig := context.Self().(*DF).Signature() + suffix
-	ver := context.Self().(*DF).Version()
-	source := context.Self().(*DF).MakeQuery()
-
-	outCol := NewColSQL("", sig, source, ver, context, outType, sqlOut)
+	outCol := NewColSQL("", context, outType, sqlOut)
 
 	return &d.FnReturn{Value: outCol}
 }

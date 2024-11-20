@@ -350,7 +350,8 @@ func (m *DF) Copy() d.DF {
 		DFcore:      dfC,
 	}
 
-	mNew.Context().SetSelf(mNew)
+	ctx := d.NewContext(m.Context().Dialect(), mNew)
+	mNew.SetContext(ctx)
 
 	return mNew
 }
@@ -600,6 +601,11 @@ func (m *Col) CategoryMap() d.CategoryMap {
 	return m.catMap
 }
 
+// TODO: populate
+func (m *Col) Context() *d.Context {
+	return nil
+}
+
 func (m *Col) Copy() d.Column {
 	var copiedData any
 	n := m.Len()
@@ -749,6 +755,10 @@ func (m *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	}
 
 	return outCol, nil
+}
+
+func (m *Col) SetContext(ctx *d.Context) {
+
 }
 
 func (m *Col) String() string {

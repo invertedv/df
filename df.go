@@ -79,12 +79,14 @@ type columnList struct {
 type Column interface {
 	AppendRows(col Column) (Column, error)
 	Copy() Column
+	Context() *Context
 	Data() any
 	DataType() DataTypes
 	Dependencies() []string
 	Len() int
 	Name(reNameTo string) string
 	Replace(ind, repl Column) (Column, error)
+	SetContext(ctx *Context)
 	SetDependencies(d []string)
 	String() string
 }
@@ -289,8 +291,8 @@ func (df *DFcore) Copy() *DFcore {
 	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
 		panic(e)
 	}
-	context := NewContext(df.Context().Dialect(), nil)
-	outDF.SetContext(context)
+	//	context := NewContext(df.Context().Dialect(), nil)
+	//	outDF.SetContext(context)
 
 	// don't copy context
 
@@ -481,6 +483,9 @@ func (df *DFcore) Runner() RunFn {
 
 func (df *DFcore) SetContext(c *Context) {
 	df.ctx = c
+	for cx := df.Next(true); cx != nil; cx = df.Next(false) {
+		cx.SetContext(c)
+	}
 }
 
 func (df *DFcore) ValidName(columnName string) bool {
