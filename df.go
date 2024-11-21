@@ -91,6 +91,99 @@ type Column interface {
 	SetContext(ctx *Context)
 	SetDependencies(d []string)
 	String() string
+	//	setTest() string
+}
+
+type ColCore struct {
+	name string
+	dt   DataTypes
+	ctx  *Context
+
+	catMap    CategoryMap
+	catCounts CategoryMap
+	rawType   DataTypes
+
+	dep []string
+}
+
+type cOpt func(c *ColCore)
+
+func NewColCore(dt DataTypes, ops ...cOpt) *ColCore {
+	c := &ColCore{dt: dt}
+
+	for _, op := range ops {
+		op(c)
+	}
+
+	return c
+}
+
+func ColSetDependencies(dep []string) cOpt {
+	return func(c *ColCore) {
+		c.dep = dep
+	}
+}
+
+func (c *ColCore) Dependencies() []string {
+	return c.dep
+}
+
+func ColCatMap(cm CategoryMap) cOpt {
+	return func(c *ColCore) {
+		c.catMap = cm
+	}
+}
+
+func ColCatCounts(ct CategoryMap) cOpt {
+	return func(c *ColCore) {
+		c.catCounts = ct
+	}
+}
+
+func ColRawType(rt DataTypes) cOpt {
+	return func(c *ColCore) {
+		c.rawType = rt
+	}
+}
+
+func (c *ColCore) CategoryMap() CategoryMap {
+	return c.catMap
+}
+
+func (c ColCore) CategoryCounts() CategoryMap {
+	return c.catCounts
+}
+
+func (c ColCore) RawType() DataTypes {
+	return c.rawType
+}
+
+func ColRename(name string) cOpt {
+	if !ValidName(name) {
+		panic("invalid name")
+	}
+
+	return func(c *ColCore) {
+		c.name = name
+	}
+}
+
+func ColContext(ctx *Context) cOpt {
+	return func(c *ColCore) {
+		c.ctx = ctx
+	}
+}
+
+func (c *ColCore) Name() string {
+	return c.name
+}
+
+func (c *ColCore) DataType() DataTypes {
+	return c.dt
+}
+
+func (c *ColCore) Context() *Context {
+	return c.ctx
 }
 
 // DataTypes are the types of data that the package supports

@@ -251,7 +251,7 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	oldData := inputs[1].(*Col)
 	newVal := inputs[2].(*Col)
 
-	if newData.DataType() != oldData.rawType {
+	if newData.DataType() != oldData.RawType() {
 		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
 	}
 
@@ -269,16 +269,16 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	var levels []any
-	for k := range oldData.catMap {
+	for k := range oldData.CategoryMap() {
 		levels = append(levels, k)
 	}
 
 	var outCol d.Column
-	if outCol, e = context.Self().(*DF).Categorical(newData.Name(), oldData.catMap, 0, defaultValue, levels); e != nil {
+	if outCol, e = context.Self().(*DF).Categorical(newData.Name(), oldData.CategoryMap(), 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
-	outCol.(*Col).rawType = newData.DataType()
+	d.ColRawType(newData.DataType())(outCol.(*Col).ColCore)
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn

@@ -42,22 +42,18 @@ type DF struct {
 }
 
 type Col struct {
-	name  string
-	dType d.DataTypes
-	sql   string // SQL to generate this column
-
-	ctx *d.Context
+	sql string // SQL to generate this column
 
 	//	signature string // unique 4-character signature to identify this data source
 	//	version   int    // version of the dataframe that existed when this column was added
 
-	catMap    d.CategoryMap
-	catCounts d.CategoryMap
-	rawType   d.DataTypes
+	//	catMap    d.CategoryMap
+	//	catCounts d.CategoryMap
+	//	rawType   d.DataTypes
 
 	scalarValue any // This is for keeping the actual value of constants rather than SQL version
 
-	dependencies []string
+	*d.ColCore
 }
 
 // ***************** DF - Create *****************
@@ -82,7 +78,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 	}
 
 	for ind := 0; ind < len(cols); ind++ {
-		cols[ind].ctx = context
+		d.ColContext(context)(cols[ind].ColCore)
 	}
 	// TODO: fix runs ??
 
@@ -130,15 +126,9 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
 
 	col := &Col{
-		name:         "seq",
-		dType:        d.DTint,
-		sql:          "",
-		ctx:          nil,
-		catMap:       nil,
-		catCounts:    nil,
-		rawType:      0,
-		scalarValue:  nil,
-		dependencies: nil,
+		sql:         "",
+		scalarValue: nil,
+		ColCore:     d.NewColCore(d.DTint, d.ColRename("seq")),
 	}
 
 	dfc, ex := d.NewDF(runDF, funcs, col)
@@ -184,11 +174,8 @@ func DBload(query string, context *d.Context) (*DF, error) {
 
 	for ind := 0; ind < len(colTypes); ind++ {
 		sqlCol := &Col{
-			name:   colNames[ind],
-			dType:  colTypes[ind],
-			ctx:    context,
-			sql:    "",
-			catMap: nil,
+			sql:     "",
+			ColCore: d.NewColCore(colTypes[ind], d.ColRename(colNames[ind]), d.ColContext(context)),
 		}
 
 		cols = append(cols, sqlCol)
@@ -361,8 +348,9 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	}
 
 	outCol := NewColSQL("", f.Context(), d.DTcategorical, sql1)
-	outCol.rawType = col.DataType()
-	outCol.catMap, outCol.catCounts = toMap, cnts
+	d.ColRawType(col.DataType())(outCol.ColCore)
+	d.ColCatCounts(cnts)(outCol.ColCore)
+	d.ColCatMap(toMap)(outCol.ColCore)
 
 	return outCol, nil
 }
@@ -586,11 +574,8 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 
 func NewColSQL(name string, context *d.Context, dt d.DataTypes, sqlx string) *Col {
 	col := &Col{
-		name:   name,
-		dType:  dt,
-		sql:    sqlx,
-		ctx:    context,
-		catMap: nil,
+		sql:     sqlx,
+		ColCore: d.NewColCore(dt, d.ColRename(name), d.ColContext(context)),
 	}
 
 	return col
@@ -612,9 +597,8 @@ func NewColScalar(name string, val any) (*Col, error) {
 	}
 
 	col := &Col{
-		name:  name,
-		dType: dt,
-		sql:   sqlx,
+		sql:     sqlx,
+		ColCore: d.NewColCore(dt, d.ColRename(name)),
 	}
 
 	return col, nil
@@ -642,30 +626,22 @@ func (c *Col) AppendRows(col d.Column) (d.Column, error) {
 	}
 	_ = source
 	outCol := &Col{
-		name:  c.Name(),
-		dType: c.DataType(),
-		sql:   "",
-		ctx:   c.Context(),
+		sql:     "",
+		ColCore: d.NewColCore(c.DataType(), d.ColRename(c.Name()), d.ColContext(c.Context())),
 	}
 
 	return outCol, nil
 }
 
-func (c *Col) CategoryMap() d.CategoryMap {
-	return c.catMap
-}
+//func (c *Col) CategoryMap() d.CategoryMap {
+//	return c.catMap
+//}
 
 func (c *Col) Copy() d.Column {
 	n := &Col{
-		name:  c.name,
-		dType: c.dType,
-		sql:   c.sql,
-		ctx:   c.ctx,
-
-		catMap:      c.catMap,
-		catCounts:   c.catCounts,
-		rawType:     c.rawType,
+		sql:         c.sql,
 		scalarValue: c.scalarValue,
+		ColCore:     c.ColCore,
 	}
 
 	return n
@@ -680,6 +656,7 @@ func (c *Col) Data() any {
 	// give it a random name if it does not have one
 	if c.Name() == "" {
 		c.Rename(d.RandomLetters(5))
+		d.ColRename(d.RandomLetters(5))(c.ColCore)
 	}
 
 	if df, e = m.DBLoad(c.MakeQuery(), c.Context().Dialect()); e != nil {
@@ -699,15 +676,7 @@ func (c *Col) SQL() any {
 		return c.sql
 	}
 
-	return c.name
-}
-
-func (c *Col) DataType() d.DataTypes {
-	return c.dType
-}
-
-func (c *Col) Context() *d.Context {
-	return c.ctx
+	return c.Name()
 }
 
 func (c *Col) Len() int {
@@ -742,14 +711,14 @@ func (c *Col) MakeQuery() string {
 	return qry
 }
 
-func (c *Col) Name() string {
+//func (c *Col) Name() string {
+//
+//	return c.name
+//}
 
-	return c.name
-}
-
-func (c *Col) RawType() d.DataTypes {
-	return c.rawType
-}
+//func (c *Col) RawType() d.DataTypes {
+//	return c.rawType
+//}
 
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
@@ -786,11 +755,12 @@ func (c *Col) Rename(newName string) {
 		panic(fmt.Errorf("illegal name: %s", c.Name()))
 	}
 
-	c.name = newName
+	d.ColRename(newName)(c.ColCore)
 }
 
+// TODO: delete this
 func (c *Col) SetContext(ctx *d.Context) {
-	c.ctx = ctx
+	d.ColContext(ctx)(c.ColCore)
 }
 
 func (c *Col) String() string {
@@ -818,9 +788,7 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		ctx := d.NewContext(c.Context().Dialect(), nil, nil)
-		_ = ctx
-		df, ex := NewDFcol(nil, nil, c.ctx, c)
+		df, ex := NewDFcol(nil, nil, c.Context(), c)
 		_ = ex
 		tab, _ := df.Table(false, c.Name())
 
@@ -846,12 +814,8 @@ func (c *Col) String() string {
 	return t + d.PrettyPrint(header, cols, vals)
 }
 
-func (c *Col) Dependencies() []string {
-	return c.dependencies
-}
-
 func (c *Col) SetDependencies(dep []string) {
-	c.dependencies = dep
+	d.ColSetDependencies(dep)(c.ColCore)
 }
 
 // ***************** Helpers *****************

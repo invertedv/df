@@ -35,6 +35,8 @@ type Col struct {
 	rawType   d.DataTypes
 
 	dependencies []string
+
+	*d.ColCore
 }
 
 // ***************** DF - Create *****************
