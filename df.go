@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// TODO: rethink copy column in light of ColCore
+// TODO: think about adding ColCore method...
 // TODO: think about panic vs error
 // TODO: panic needs error or just string?
 
@@ -54,8 +56,7 @@ type Ereturn func() error
 type DFcore struct {
 	head *columnList
 
-	// TODO: refactor name
-	rowFuncs Fns
+	appFuncs Fns
 	runFn    RunFn
 
 	current *columnList
@@ -107,6 +108,12 @@ func (c *ColCore) Rename(name string) {
 	}
 
 	c.name = name
+}
+
+func ColDataType(dt DataTypes) COpt {
+	return func(c *ColCore) {
+		c.dt = dt
+	}
 }
 
 func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
@@ -256,7 +263,7 @@ func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 		}
 	}
 
-	return &DFcore{head: head, rowFuncs: funcs, runFn: runner}, nil
+	return &DFcore{head: head, appFuncs: funcs, runFn: runner}, nil
 }
 
 // *********** DFcore methods ***********
@@ -426,7 +433,7 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 	var fn Fn
 
-	if fn = df.rowFuncs.Get(opName); fn == nil {
+	if fn = df.appFuncs.Get(opName); fn == nil {
 		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
 	}
 
@@ -488,7 +495,7 @@ func (df *DFcore) Fn(fn Ereturn) error {
 }
 
 func (df *DFcore) Fns() Fns {
-	return df.rowFuncs
+	return df.appFuncs
 }
 
 func (df *DFcore) HasColumns(cols ...string) bool {
@@ -530,7 +537,7 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 
 	subsetDF := &DFcore{
 		head:     subHead,
-		rowFuncs: df.rowFuncs,
+		appFuncs: df.appFuncs,
 		ctx:      df.Context(),
 	}
 

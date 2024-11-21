@@ -199,7 +199,7 @@ func TestApplyCat(t *testing.T) {
 	assert.Nil(t, ex)
 	fmt.Println(back.AsColumn())
 
-	v := col.(*Col).catMap[6]
+	v := col.(*Col).CategoryMap()[6]
 
 	// default is a known category level
 	expr = "applyCat(yy, c, 6)"

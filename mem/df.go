@@ -26,15 +26,7 @@ type DF struct {
 }
 
 type Col struct {
-	name  string
-	dType d.DataTypes
-	data  any
-
-	catMap    d.CategoryMap
-	catCounts d.CategoryMap
-	rawType   d.DataTypes
-
-	dependencies []string
+	data any
 
 	*d.ColCore
 }
@@ -327,10 +319,9 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, e
 	}
 
-	outCol.dType = d.DTcategorical
-
-	outCol.catMap = toMap
-	outCol.catCounts = cnts
+	d.ColDataType(d.DTcategorical)(outCol.ColCore)
+	d.ColCatMap(toMap)(outCol.ColCore)
+	d.ColCatCounts(cnts)(outCol.ColCore)
 
 	return outCol, nil
 }
@@ -576,10 +567,8 @@ func NewCol(name string, data any) (*Col, error) {
 	}
 
 	c := &Col{
-		name:   name,
-		dType:  dt,
-		data:   t,
-		catMap: nil,
+		data:    t,
+		ColCore: d.NewColCore(dt, d.ColName(name)),
 	}
 
 	return c, nil
@@ -592,9 +581,9 @@ func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
 	return AppendRows(c, col2, c.Name())
 }
 
-func (c *Col) CategoryMap() d.CategoryMap {
-	return c.catMap
-}
+//func (c *Col) CategoryMap() d.CategoryMap {
+//	return c.catMap
+//}
 
 // TODO: populate
 func (c *Col) Context() *d.Context {
@@ -604,7 +593,7 @@ func (c *Col) Context() *d.Context {
 func (c *Col) Copy() d.Column {
 	var copiedData any
 	n := c.Len()
-	switch c.dType {
+	switch c.DataType() {
 	case d.DTfloat:
 		copiedData = make([]float64, n)
 		copy(copiedData.([]float64), c.data.([]float64))
@@ -622,10 +611,8 @@ func (c *Col) Copy() d.Column {
 	}
 
 	col := &Col{
-		name:   c.name,
-		dType:  c.dType,
-		data:   copiedData,
-		catMap: c.catMap,
+		data:    copiedData,
+		ColCore: d.NewColCore(c.DataType(), d.ColName(c.Name()), d.ColCatMap(c.CategoryMap())),
 	}
 
 	return col
@@ -635,16 +622,12 @@ func (c *Col) Data() any {
 	return c.data
 }
 
-func (c *Col) DataType() d.DataTypes {
-	return c.dType
-}
-
 func (c *Col) Element(row int) any {
 	if c.Len() == 1 {
 		row = 0
 	}
 
-	switch c.dType {
+	switch c.DataType() {
 	case d.DTfloat:
 		return c.Data().([]float64)[row]
 	case d.DTint, d.DTcategorical:
@@ -659,7 +642,7 @@ func (c *Col) Element(row int) any {
 }
 
 func (c *Col) Greater(i, j int) bool {
-	switch c.dType {
+	switch c.DataType() {
 	case d.DTfloat:
 		return c.data.([]float64)[i] >= c.data.([]float64)[j]
 	case d.DTint:
@@ -674,7 +657,7 @@ func (c *Col) Greater(i, j int) bool {
 }
 
 func (c *Col) Len() int {
-	switch c.dType {
+	switch c.DataType() {
 	case d.DTfloat:
 		return len(c.Data().([]float64))
 	case d.DTint, d.DTcategorical:
@@ -689,7 +672,7 @@ func (c *Col) Len() int {
 }
 
 func (c *Col) Less(i, j int) bool {
-	switch c.dType {
+	switch c.DataType() {
 	case d.DTfloat:
 		return c.data.([]float64)[i] <= c.data.([]float64)[j]
 	case d.DTint:
@@ -703,21 +686,13 @@ func (c *Col) Less(i, j int) bool {
 	}
 }
 
-func (c *Col) Name() string {
-
-	return c.name
-}
-
-func (c *Col) RawType() d.DataTypes {
-	return c.rawType
-}
-
 func (c *Col) Rename(newName string) {
 	if !d.ValidName(c.Name()) {
 		panic(fmt.Errorf("illegal name: %s", c.Name()))
 	}
 
-	c.name = newName
+	d.ColName(newName)(c.ColCore)
+	//	c.name = newName
 }
 
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
@@ -813,12 +788,9 @@ func (c *Col) String() string {
 	return t + d.PrettyPrint(header, cats, vals)
 }
 
-func (c *Col) Dependencies() []string {
-	return c.dependencies
-}
+func (c *Col) SetDependencies(dep []string) {
+	d.ColSetDependencies(dep)(c.ColCore)
 
-func (c *Col) SetDependencies(d []string) {
-	c.dependencies = d
 }
 
 // ***************** Helpers *****************
