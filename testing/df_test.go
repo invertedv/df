@@ -39,7 +39,7 @@ const (
 
 // list of packages to test
 func pkgs() []string {
-	return []string{"sql"} //, "mem"}
+	return []string{"sql", "mem"}
 }
 
 // NewConnect established a new connection to ClickHouse.

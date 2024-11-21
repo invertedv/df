@@ -45,12 +45,6 @@ type DF interface {
 	String() string
 	Table(sortByRows bool, cols ...string) (DF, error)
 	Where(indicator Column) (DF, error)
-	// Categorical takes an input column of type DTint, DTdate or DTstring and creates a categorical column
-	// - colName : name of column to work on
-	// - catMap : existing categorical map to apply.  Use nil if there is not one.
-	// - fuzz : # of counts below which to map to the defaultVal category
-	// - defaultVal : level of feature to use as the "other" value. This can be an existing level of the Column or a new one.
-	// - levels : array of acceptable levels.  Any level not found in this slice is mapped to the defaultVal
 }
 
 type Ereturn func() error
@@ -60,9 +54,9 @@ type Ereturn func() error
 type DFcore struct {
 	head *columnList
 
+	// TODO: refactor name
 	rowFuncs Fns
-	//	runRowFunc RunFn
-	runFn RunFn
+	runFn    RunFn
 
 	current *columnList
 
@@ -91,7 +85,6 @@ type Column interface {
 	SetContext(ctx *Context)
 	SetDependencies(d []string)
 	String() string
-	//	setTest() string
 }
 
 type ColCore struct {
@@ -106,9 +99,17 @@ type ColCore struct {
 	dep []string
 }
 
-type cOpt func(c *ColCore)
+type COpt func(c *ColCore)
 
-func NewColCore(dt DataTypes, ops ...cOpt) *ColCore {
+func (c *ColCore) Rename(name string) {
+	if !ValidName(name) {
+		panic("invalid name")
+	}
+
+	c.name = name
+}
+
+func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
 	c := &ColCore{dt: dt}
 
 	for _, op := range ops {
@@ -118,47 +119,7 @@ func NewColCore(dt DataTypes, ops ...cOpt) *ColCore {
 	return c
 }
 
-func ColSetDependencies(dep []string) cOpt {
-	return func(c *ColCore) {
-		c.dep = dep
-	}
-}
-
-func (c *ColCore) Dependencies() []string {
-	return c.dep
-}
-
-func ColCatMap(cm CategoryMap) cOpt {
-	return func(c *ColCore) {
-		c.catMap = cm
-	}
-}
-
-func ColCatCounts(ct CategoryMap) cOpt {
-	return func(c *ColCore) {
-		c.catCounts = ct
-	}
-}
-
-func ColRawType(rt DataTypes) cOpt {
-	return func(c *ColCore) {
-		c.rawType = rt
-	}
-}
-
-func (c *ColCore) CategoryMap() CategoryMap {
-	return c.catMap
-}
-
-func (c ColCore) CategoryCounts() CategoryMap {
-	return c.catCounts
-}
-
-func (c ColCore) RawType() DataTypes {
-	return c.rawType
-}
-
-func ColRename(name string) cOpt {
+func ColName(name string) COpt {
 	if !ValidName(name) {
 		panic("invalid name")
 	}
@@ -168,10 +129,50 @@ func ColRename(name string) cOpt {
 	}
 }
 
-func ColContext(ctx *Context) cOpt {
+func ColContext(ctx *Context) COpt {
 	return func(c *ColCore) {
 		c.ctx = ctx
 	}
+}
+
+func ColSetDependencies(dep []string) COpt {
+	return func(c *ColCore) {
+		c.dep = dep
+	}
+}
+
+func (c *ColCore) Dependencies() []string {
+	return c.dep
+}
+
+func ColCatMap(cm CategoryMap) COpt {
+	return func(c *ColCore) {
+		c.catMap = cm
+	}
+}
+
+func ColCatCounts(ct CategoryMap) COpt {
+	return func(c *ColCore) {
+		c.catCounts = ct
+	}
+}
+
+func ColRawType(rt DataTypes) COpt {
+	return func(c *ColCore) {
+		c.rawType = rt
+	}
+}
+
+func (c *ColCore) CategoryMap() CategoryMap {
+	return c.catMap
+}
+
+func (c *ColCore) CategoryCounts() CategoryMap {
+	return c.catCounts
+}
+
+func (c *ColCore) RawType() DataTypes {
+	return c.rawType
 }
 
 func (c *ColCore) Name() string {
@@ -326,7 +327,6 @@ func (df *DFcore) Column(colName string) Column {
 		}
 	}
 
-	//, fmt.Errorf("column %s not found", colName)
 	return nil
 }
 

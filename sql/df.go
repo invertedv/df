@@ -44,13 +44,6 @@ type DF struct {
 type Col struct {
 	sql string // SQL to generate this column
 
-	//	signature string // unique 4-character signature to identify this data source
-	//	version   int    // version of the dataframe that existed when this column was added
-
-	//	catMap    d.CategoryMap
-	//	catCounts d.CategoryMap
-	//	rawType   d.DataTypes
-
 	scalarValue any // This is for keeping the actual value of constants rather than SQL version
 
 	*d.ColCore
@@ -128,7 +121,7 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 	col := &Col{
 		sql:         "",
 		scalarValue: nil,
-		ColCore:     d.NewColCore(d.DTint, d.ColRename("seq")),
+		ColCore:     d.NewColCore(d.DTint, d.ColName("seq")),
 	}
 
 	dfc, ex := d.NewDF(runDF, funcs, col)
@@ -175,7 +168,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 	for ind := 0; ind < len(colTypes); ind++ {
 		sqlCol := &Col{
 			sql:     "",
-			ColCore: d.NewColCore(colTypes[ind], d.ColRename(colNames[ind]), d.ColContext(context)),
+			ColCore: d.NewColCore(colTypes[ind], d.ColName(colNames[ind]), d.ColContext(context)),
 		}
 
 		cols = append(cols, sqlCol)
@@ -575,7 +568,7 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 func NewColSQL(name string, context *d.Context, dt d.DataTypes, sqlx string) *Col {
 	col := &Col{
 		sql:     sqlx,
-		ColCore: d.NewColCore(dt, d.ColRename(name), d.ColContext(context)),
+		ColCore: d.NewColCore(dt, d.ColName(name), d.ColContext(context)),
 	}
 
 	return col
@@ -598,7 +591,7 @@ func NewColScalar(name string, val any) (*Col, error) {
 
 	col := &Col{
 		sql:     sqlx,
-		ColCore: d.NewColCore(dt, d.ColRename(name)),
+		ColCore: d.NewColCore(dt, d.ColName(name)),
 	}
 
 	return col, nil
@@ -627,7 +620,7 @@ func (c *Col) AppendRows(col d.Column) (d.Column, error) {
 	_ = source
 	outCol := &Col{
 		sql:     "",
-		ColCore: d.NewColCore(c.DataType(), d.ColRename(c.Name()), d.ColContext(c.Context())),
+		ColCore: d.NewColCore(c.DataType(), d.ColName(c.Name()), d.ColContext(c.Context())),
 	}
 
 	return outCol, nil
@@ -656,7 +649,7 @@ func (c *Col) Data() any {
 	// give it a random name if it does not have one
 	if c.Name() == "" {
 		c.Rename(d.RandomLetters(5))
-		d.ColRename(d.RandomLetters(5))(c.ColCore)
+		d.ColName(d.RandomLetters(5))(c.ColCore)
 	}
 
 	if df, e = m.DBLoad(c.MakeQuery(), c.Context().Dialect()); e != nil {
@@ -711,15 +704,6 @@ func (c *Col) MakeQuery() string {
 	return qry
 }
 
-//func (c *Col) Name() string {
-//
-//	return c.name
-//}
-
-//func (c *Col) RawType() d.DataTypes {
-//	return c.rawType
-//}
-
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
 
@@ -755,7 +739,7 @@ func (c *Col) Rename(newName string) {
 		panic(fmt.Errorf("illegal name: %s", c.Name()))
 	}
 
-	d.ColRename(newName)(c.ColCore)
+	d.ColName(newName)(c.ColCore)
 }
 
 // TODO: delete this
