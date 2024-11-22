@@ -24,12 +24,7 @@ import (
 // version is the version number of this dataframe.  It is incremented if
 //   - a column is added
 type DF struct {
-	//	rowCount int
-
 	sourceSQL string // source SQL used to query DB
-
-	//	signature string // unique 4-character signature to identify this data source
-	//	version   int    // version of this dataframe.  The version is incremented when columns are added.
 
 	orderBy string
 	where   string
@@ -71,7 +66,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 	}
 
 	for ind := 0; ind < len(cols); ind++ {
-		d.ColContext(context)(cols[ind].ColCore)
+		d.ColContext(context)(cols[ind].Core())
 	}
 	// TODO: fix runs ??
 
@@ -341,9 +336,9 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	}
 
 	outCol := NewColSQL("", f.Context(), d.DTcategorical, sql1)
-	d.ColRawType(col.DataType())(outCol.ColCore)
-	d.ColCatCounts(cnts)(outCol.ColCore)
-	d.ColCatMap(toMap)(outCol.ColCore)
+	d.ColRawType(col.DataType())(outCol.Core())
+	d.ColCatCounts(cnts)(outCol.Core())
+	d.ColCatMap(toMap)(outCol.Core())
 
 	return outCol, nil
 }
@@ -640,6 +635,10 @@ func (c *Col) Copy() d.Column {
 	return n
 }
 
+func (c *Col) Core() *d.ColCore {
+	return c.ColCore
+}
+
 func (c *Col) Data() any {
 	var (
 		df *m.DF
@@ -649,7 +648,7 @@ func (c *Col) Data() any {
 	// give it a random name if it does not have one
 	if c.Name() == "" {
 		c.Rename(d.RandomLetters(5))
-		d.ColName(d.RandomLetters(5))(c.ColCore)
+		d.ColName(d.RandomLetters(5))(c.Core())
 	}
 
 	if df, e = m.DBLoad(c.MakeQuery(), c.Context().Dialect()); e != nil {
@@ -735,16 +734,12 @@ func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 }
 
 func (c *Col) Rename(newName string) {
-	if !d.ValidName(c.Name()) {
-		panic(fmt.Errorf("illegal name: %s", c.Name()))
-	}
-
-	d.ColName(newName)(c.ColCore)
+	d.ColName(newName)(c.Core())
 }
 
 // TODO: delete this
 func (c *Col) SetContext(ctx *d.Context) {
-	d.ColContext(ctx)(c.ColCore)
+	d.ColContext(ctx)(c.Core())
 }
 
 func (c *Col) String() string {
@@ -799,7 +794,7 @@ func (c *Col) String() string {
 }
 
 func (c *Col) SetDependencies(dep []string) {
-	d.ColSetDependencies(dep)(c.ColCore)
+	d.ColSetDependencies(dep)(c.Core())
 }
 
 // ***************** Helpers *****************

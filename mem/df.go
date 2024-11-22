@@ -126,6 +126,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 			if memDF, e = NewDFcol(RunDFfn, StandardFunctions(), nil, col); e != nil {
 				return nil, e
 			}
+
 			continue
 		}
 
@@ -163,6 +164,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 			if memDF, e = NewDFcol(RunDFfn, StandardFunctions(), nil, col); e != nil {
 				return nil, e
 			}
+
 			continue
 		}
 
@@ -319,9 +321,9 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, e
 	}
 
-	d.ColDataType(d.DTcategorical)(outCol.ColCore)
-	d.ColCatMap(toMap)(outCol.ColCore)
-	d.ColCatCounts(cnts)(outCol.ColCore)
+	d.ColDataType(d.DTcategorical)(outCol.Core())
+	d.ColCatMap(toMap)(outCol.Core())
+	d.ColCatCounts(cnts)(outCol.Core())
 
 	return outCol, nil
 }
@@ -618,6 +620,10 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
+func (c *Col) Core() *d.ColCore {
+	return c.ColCore
+}
+
 func (c *Col) Data() any {
 	return c.data
 }
@@ -687,12 +693,7 @@ func (c *Col) Less(i, j int) bool {
 }
 
 func (c *Col) Rename(newName string) {
-	if !d.ValidName(c.Name()) {
-		panic(fmt.Errorf("illegal name: %s", c.Name()))
-	}
-
-	d.ColName(newName)(c.ColCore)
-	//	c.name = newName
+	d.ColName(newName)(c.Core())
 }
 
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
@@ -789,7 +790,7 @@ func (c *Col) String() string {
 }
 
 func (c *Col) SetDependencies(dep []string) {
-	d.ColSetDependencies(dep)(c.ColCore)
+	d.ColSetDependencies(dep)(c.Core())
 
 }
 

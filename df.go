@@ -7,12 +7,12 @@ import (
 )
 
 // TODO: rethink copy column in light of ColCore
-// TODO: think about adding ColCore method...
+// TODO: look for "_ =" occurences
+
 // TODO: think about panic vs error
 // TODO: panic needs error or just string?
 
-// consider how to handle passing a small column of parameters...
-// NewColSequence ?? ...
+// TODO: consider how to handle passing a small column of parameters...
 
 type DF interface {
 	// generic from DFcore
@@ -29,7 +29,6 @@ type DF interface {
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	DoOp(opName string, inputs ...*Parsed) (any, error)
 	DropColumns(colNames ...string) error
-	Fn(fn Ereturn) error
 	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
@@ -37,6 +36,7 @@ type DF interface {
 	SetContext(ctx *Context)
 
 	// specific to underlying data source
+
 	AppendDF(df DF) (DF, error)
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Copy() DF
@@ -49,32 +49,12 @@ type DF interface {
 	Where(indicator Column) (DF, error)
 }
 
-type Ereturn func() error
-
-// DFcore is the data plus functions to operate on it -- it is the core structure of DF that is embedded
-// in specific implementations
-type DFcore struct {
-	head *columnList
-
-	appFuncs Fns
-	runFn    RunFn
-
-	current *columnList
-
-	ctx *Context
-}
-
-type columnList struct {
-	col Column
-
-	prior *columnList
-	next  *columnList
-}
-
 // Column interface defines the methods the columns of DFcore that must be supported
 type Column interface {
 	AppendRows(col Column) (Column, error)
+	CategoryMap() CategoryMap
 	Copy() Column
+	Core() *ColCore
 	Context() *Context
 	Data() any
 	DataType() DataTypes
@@ -88,6 +68,118 @@ type Column interface {
 	String() string
 }
 
+//  *********** DataTypes ***********
+
+// DataTypes are the types of data that the package supports
+type DataTypes uint8
+
+// values of DataTypes
+const (
+	DTunknown DataTypes = 0 + iota
+	DTstring
+	DTfloat
+	DTint
+	DTcategorical
+	DTdate
+	DTnone
+	DTdf
+	DTconstant
+	DTany // keep as last entry
+)
+
+//go:generate stringer -type=DataTypes
+
+// MaxDT is max value of DataTypes type
+const MaxDT = DTany
+
+func DTFromString(nm string) DataTypes {
+	const skeleton = "%v"
+
+	var nms []string
+	for ind := DataTypes(0); ind <= MaxDT; ind++ {
+		nms = append(nms, fmt.Sprintf(skeleton, ind))
+	}
+
+	pos := Position(nm, "", nms...)
+	if pos < 0 {
+		return DTunknown
+	}
+
+	return DataTypes(uint8(pos))
+}
+
+func (d DataTypes) IsNumeric() bool {
+	return d == DTfloat || d == DTint || d == DTcategorical
+}
+
+// *********** Function types ***********
+
+type Fn func(info bool, context *Context, inputs ...any) *FnReturn
+
+type Fns []Fn
+
+func (fs Fns) Get(fnName string) Fn {
+	for _, f := range fs {
+		if f(true, nil).Name == fnName {
+			return f
+		}
+	}
+
+	return nil
+}
+
+type FnReturn struct {
+	Value any
+
+	Name   string
+	Output []DataTypes
+	Inputs [][]DataTypes
+
+	Varying bool
+
+	Err error
+}
+
+type RunFn func(fn Fn, context *Context, inputs []any) (any, error)
+
+// *********** Category Map ***********
+
+type CategoryMap map[any]int
+
+func (cm CategoryMap) Max() int {
+	var maxVal *int
+	for k, v := range cm {
+		if maxVal == nil {
+			maxVal = new(int)
+			*maxVal = v
+		}
+		if k != nil && v > *maxVal {
+			*maxVal = v
+		}
+	}
+
+	return *maxVal
+}
+
+func (cm CategoryMap) Min() int {
+	var minVal *int
+	for k, v := range cm {
+		if minVal == nil {
+			minVal = new(int)
+			*minVal = v
+		}
+
+		if k != nil && v < *minVal {
+			*minVal = v
+		}
+	}
+
+	return *minVal
+}
+
+// *********** ColCore ***********
+
+// ColCore implements the nucleus of the Column interface.
 type ColCore struct {
 	name string
 	dt   DataTypes
@@ -101,14 +193,6 @@ type ColCore struct {
 }
 
 type COpt func(c *ColCore)
-
-func (c *ColCore) Rename(name string) {
-	if !ValidName(name) {
-		panic("invalid name")
-	}
-
-	c.name = name
-}
 
 func ColDataType(dt DataTypes) COpt {
 	return func(c *ColCore) {
@@ -127,7 +211,9 @@ func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
 }
 
 func ColName(name string) COpt {
-	if !ValidName(name) {
+	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
+
+	if strings.Contains(name, illegal) {
 		panic("invalid name")
 	}
 
@@ -194,49 +280,26 @@ func (c *ColCore) Context() *Context {
 	return c.ctx
 }
 
-// DataTypes are the types of data that the package supports
-type DataTypes uint8
+// *********** DFcore ***********
 
-// values of DataTypes
-const (
-	DTunknown DataTypes = 0 + iota
-	DTstring
-	DTfloat
-	DTint
-	DTcategorical
-	DTdate
-	DTnone
-	DTdf
-	DTconstant
-	DTany // keep as last entry
-)
+// DFcore is the nucleus implementation of the DataFrame.  It does not implement all the required methods.
+type DFcore struct {
+	head *columnList
 
-//go:generate stringer -type=DataTypes
+	appFuncs Fns
+	runFn    RunFn
 
-// MaxDT is max value of DataTypes type
-const MaxDT = DTany
+	current *columnList
 
-// *********** Function types ***********
-
-type Fns []Fn
-
-type Fn func(info bool, context *Context, inputs ...any) *FnReturn
-
-type FnReturn struct {
-	Value any
-
-	Name   string
-	Output []DataTypes
-	Inputs [][]DataTypes
-
-	Varying bool
-
-	Err error
+	ctx *Context
 }
 
-type RunFn func(fn Fn, context *Context, inputs []any) (any, error)
+type columnList struct {
+	col Column
 
-// *********** DFcore ***********
+	prior *columnList
+	next  *columnList
+}
 
 func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
@@ -275,10 +338,6 @@ func (df *DFcore) AppendColumn(col Column, replace bool) error {
 		} else {
 			return fmt.Errorf("column %s already exists", col.Name())
 		}
-	}
-
-	if !ValidName(col.Name()) {
-		return fmt.Errorf("invalid column name: %s", col.Name())
 	}
 
 	// find last column
@@ -490,10 +549,6 @@ func (df *DFcore) DropColumns(colNames ...string) error {
 	return nil
 }
 
-func (df *DFcore) Fn(fn Ereturn) error {
-	return fn()
-}
-
 func (df *DFcore) Fns() Fns {
 	return df.appFuncs
 }
@@ -598,83 +653,4 @@ func (df *DFcore) node(colName string) (node *columnList, err error) {
 	}
 
 	return nil, fmt.Errorf("column %s not found", colName)
-}
-
-//  *********** DataTypes functions ***********
-
-func DTFromString(nm string) DataTypes {
-	const skeleton = "%v"
-
-	var nms []string
-	for ind := DataTypes(0); ind <= MaxDT; ind++ {
-		nms = append(nms, fmt.Sprintf(skeleton, ind))
-	}
-
-	pos := Position(nm, "", nms...)
-	if pos < 0 {
-		return DTunknown
-	}
-
-	return DataTypes(uint8(pos))
-}
-
-func (d DataTypes) IsNumeric() bool {
-	return d == DTfloat || d == DTint || d == DTcategorical
-}
-
-// *********** Fns Methods ***********
-
-func (fs Fns) Get(fnName string) Fn {
-	for _, f := range fs {
-		if f(true, nil).Name == fnName {
-			return f
-		}
-	}
-
-	return nil
-}
-
-// *********** Category Map methods ***********
-
-type CategoryMap map[any]int
-
-func (cm CategoryMap) Max() int {
-	var maxVal *int
-	for k, v := range cm {
-		if maxVal == nil {
-			maxVal = new(int)
-			*maxVal = v
-		}
-		if k != nil && v > *maxVal {
-			*maxVal = v
-		}
-	}
-
-	return *maxVal
-}
-
-func (cm CategoryMap) Min() int {
-	var minVal *int
-	for k, v := range cm {
-		if minVal == nil {
-			minVal = new(int)
-			*minVal = v
-		}
-
-		if k != nil && v < *minVal {
-			*minVal = v
-		}
-	}
-
-	return *minVal
-}
-
-func ValidName(columnName string) bool {
-	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
-
-	if strings.ContainsAny(columnName, illegal) {
-		return false
-	}
-
-	return true
 }
