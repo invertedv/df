@@ -10,52 +10,10 @@ import (
 // NewDFseq - arrayJoin(range(1,n)) or cnt(1,n)
 // TODO: rowNumber func and a method in SQL (ch: RowNumberInBlock)
 
-func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
-	info := fn(true, nil)
-	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {
-		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
-	}
-
-	if info.Inputs != nil && info.Varying && len(inputs) < len(info.Inputs[0]) {
-		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
-	}
-
-	var (
-		inps []any
-		cols []*Col
-	)
-	for j := 0; j < len(inputs); j++ {
-		var (
-			ok  bool
-			col *Col
-		)
-		if col, ok = inputs[j].(*Col); !ok {
-			var e error
-			if col, e = NewCol("", inputs[j]); e != nil {
-				return nil, e
-			}
-		}
-
-		inps = append(inps, col)
-		cols = append(cols, col)
-	}
-
-	if ok, _ := okParams(cols, info.Inputs, info.Output); !ok {
-		return nil, fmt.Errorf("bad parameters to %s", info.Name)
-	}
-
-	var fnR *d.FnReturn
-	if fnR = fn(false, context, inps...); fnR.Err != nil {
-		return nil, fnR.Err
-	}
-
-	return fnR.Value, nil
-}
-
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, eq,
 		exp, ge, gt, ifs, le, lt, log, mean, multiply,
-		ne, not, or, rowNumber, sortDF, subtract, sum, table, toCat,
+		ne, neg, not, or, rowNumber, sortDF, subtract, sum, table, toCat,
 		toDate, toFloat, toInt, toString,
 		where,
 	}
@@ -402,7 +360,7 @@ func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Name: "abs", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
 	}
 
-	col := inputs[0].(*Col)
+	col := toCol(inputs[0])
 	data := d.MakeSlice(col.DataType(), col.Len(), nil)
 	for ind := 0; ind < col.Len(); ind++ {
 		switch col.DataType() {
@@ -417,6 +375,26 @@ func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			data.([]int)[ind] = x
 		default:
 			panic(fmt.Errorf("crazy error in abs"))
+		}
+	}
+
+	return returnCol(data)
+}
+
+func neg(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "neg", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
+	}
+
+	col := toCol(inputs[0])
+	data := d.MakeSlice(col.DataType(), col.Len(), nil)
+	for ind := 0; ind < col.Len(); ind++ {
+		switch col.DataType() {
+		case d.DTfloat:
+			data.([]float64)[ind] = -col.Element(ind).(float64)
+		case d.DTint:
+			data.([]int)[ind] = -col.Element(ind).(int)
+
 		}
 	}
 
@@ -578,7 +556,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	fuzz := 1
 	if len(inputs) > 1 {
-		c := inputs[1].(*Col)
+		c := toCol(inputs[1])
 		if c.DataType() != d.DTint {
 			return &d.FnReturn{Err: fmt.Errorf("fuzz parameter to Cat must be type int")}
 		}
@@ -696,28 +674,4 @@ func returnCol(data any) *d.FnReturn {
 	}
 
 	return &d.FnReturn{Value: outCol}
-}
-
-// TODO: change function inputs to Column from any
-// TODO: check same length?
-func okParams(cols []*Col, inputs [][]d.DataTypes, outputs []d.DataTypes) (ok bool, outType d.DataTypes) {
-	if inputs == nil {
-		return true, outputs[0]
-	}
-
-	for j := 0; j < len(inputs); j++ {
-		ok = true
-		for k := 0; k < len(inputs[j]); k++ {
-			if inputs[j][k] != d.DTany && cols[k].DataType() != inputs[j][k] {
-				ok = false
-				break
-			}
-		}
-
-		if ok {
-			return true, outputs[j]
-		}
-	}
-
-	return false, d.DTunknown
 }

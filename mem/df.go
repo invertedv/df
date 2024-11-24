@@ -35,7 +35,7 @@ type Col struct {
 
 func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	if runDF == nil {
-		runDF = RunDFfn
+		runDF = d.RunDFfn
 	}
 
 	if funcs == nil {
@@ -78,7 +78,7 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 	}
 
 	if runDF == nil {
-		runDF = RunDFfn
+		runDF = d.RunDFfn
 	}
 
 	if funcs == nil {
@@ -123,7 +123,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(RunDFfn, StandardFunctions(), nil, col); e != nil {
+			if memDF, e = NewDFcol(d.RunDFfn, StandardFunctions(), nil, col); e != nil {
 				return nil, e
 			}
 
@@ -161,7 +161,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(RunDFfn, StandardFunctions(), nil, col); e != nil {
+			if memDF, e = NewDFcol(d.RunDFfn, StandardFunctions(), nil, col); e != nil {
 				return nil, e
 			}
 

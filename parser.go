@@ -374,14 +374,13 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 
 	// if the operation is the first character, it can be: +, - or !
 	if leadingOp {
-		// 'zero' is a special signal to say this is both int(0) and float(0) - the subtract and add methods must
-		// look for this
-		fn := mapOp(op)
 		switch op {
-		case "+", "-":
-			ot.expr = fmt.Sprintf("%s('zero',%s)", fn, right)
+		case "+":
+			ot.expr = fmt.Sprintf("%s", right)
+		case "-":
+			ot.expr = fmt.Sprintf("neg(%s)", right)
 		case "!":
-			ot.expr = fmt.Sprintf("%s(%s)", fn, right)
+			ot.expr = fmt.Sprintf("not(%s)", right)
 		default:
 			return "", "", "", fmt.Errorf("invalid leading operation: %s", op)
 		}

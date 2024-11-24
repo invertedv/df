@@ -352,6 +352,7 @@ func TestParse_Sort(t *testing.T) {
 func TestWhere(t *testing.T) {
 	for _, which := range pkgs() {
 		// via methods
+		fmt.Println(which)
 		dfx := loadData(which)
 		indCol, e := dfx.Parse("y==-5 || yy == 16")
 		assert.Nil(t, e)
@@ -400,6 +401,7 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
+			{"x--3.0", 0, 4.0},
 			{"sum(y)", 0, 12},
 			{"sum(x)", 0, 7.5},
 			{"dt != date(20221231)", 0, 0},
@@ -477,6 +479,7 @@ func TestParser(t *testing.T) {
 			var r d.DF
 			cnt++
 			eqn := x[ind][0].(string)
+			fmt.Println(eqn)
 			xOut, e := dfx.Parse(eqn)
 			assert.Nil(t, e)
 			xOut.AsColumn().Rename("test")

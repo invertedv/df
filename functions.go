@@ -29,6 +29,7 @@ func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
 		cols = append(cols, col)
 	}
 
+	// TODO: change this to take inps as arg
 	if ok, _ := okParams(cols, info.Inputs, info.Output); !ok {
 		return nil, fmt.Errorf("bad parameters to %s", info.Name)
 	}
