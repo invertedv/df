@@ -64,6 +64,7 @@ type Column interface {
 	Replace(ind, repl Column) (Column, error)
 	Rename(newName string)
 	SetContext(ctx *Context)
+	// TODO: do I need this?
 	SetDependencies(d []string)
 	String() string
 }

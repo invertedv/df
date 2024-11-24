@@ -4,98 +4,98 @@ import (
 	"fmt"
 
 	d "github.com/invertedv/df"
-	m "github.com/invertedv/df/mem"
 )
 
-func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
-	info := fn(true, nil)
-	if inputs != nil && !info.Varying && len(inputs) != len(info.Inputs[0]) {
-		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
-	}
+/*
+	func RunDFfn(fn d.Fn, context *d.Context, inputs []any) (any, error) {
+		info := fn(true, nil)
+		if inputs != nil && !info.Varying && len(inputs) != len(info.Inputs[0]) {
+			return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
+		}
 
-	if inputs != nil && info.Varying && len(inputs) < len(info.Inputs[0]) {
-		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
-	}
+		if inputs != nil && info.Varying && len(inputs) < len(info.Inputs[0]) {
+			return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
+		}
 
-	var (
-		inps []any
-		cols []*Col
-	)
-
-	skip := (inputs == nil) // false
-	for j := 0; j < len(inputs); j++ {
 		var (
-			ok  bool
-			col *Col
+			inps []any
+			cols []*Col
 		)
 
-		if col, ok = inputs[j].(*Col); !ok {
-			var e error
-			if col, e = NewColScalar("", inputs[j]); e != nil {
-				return nil, e
-			}
-		}
-
-		// if this is an *Col with no scalarValue, then it's a true column from the data frame and there's no point
-		// to trying to evaluate it as a scalar
-		if ok && col.scalarValue == nil {
-			skip = true
-		}
-
-		inps = append(inps, col)
-		cols = append(cols, col)
-	}
-
-	if okx, _ := okParams(cols, info.Inputs, info.Output); !okx {
-		return nil, fmt.Errorf("bad parameters to %s", info.Name)
-	}
-
-	// if scalars are available for all the inputs, then process them as a scalar formula
-	if !skip {
-		// get the corresponding mem function
-		if fnMem := m.StandardFunctions().Get(info.Name); fnMem != nil {
+		skip := (inputs == nil) // false
+		for j := 0; j < len(inputs); j++ {
 			var (
-				col   *m.Col
-				e     error
-				inpsx []any
+				ok  bool
+				col *Col
 			)
 
-			// Create *Col version of the inputs
-			for j := 0; j < len(inputs); j++ {
-				v := inputs[j]
-				if cols[j].scalarValue != nil {
-					v = cols[j].scalarValue
-				}
-				if col, e = m.NewCol("", v); e != nil {
+			if col, ok = inputs[j].(*Col); !ok {
+				var e error
+				if col, e = NewColScalar("", inputs[j]); e != nil {
 					return nil, e
 				}
-				inpsx = append(inpsx, col)
 			}
 
-			// run the function, convert output to Col
-			if val := fnMem(false, context, inpsx...); val.Err == nil {
-				mCol := val.Value.(*m.Col)
-				dt := mCol.DataType()
-				sql, _ := context.Dialect().CastField(d.Any2String(mCol.Element(0)), dt, dt)
-				//				sql = d.Any2String(mCol.Element(0))
-				retCol := NewColSQL("", context, mCol.DataType(), sql)
-				// Place the value of the output in .scalarValue in case that's needed later
-				retCol.scalarValue = mCol.Element(0)
-				return retCol, nil
+			// if this is an *Col with no scalarValue, then it's a true column from the data frame and there's no point
+			// to trying to evaluate it as a scalar
+			if ok && col.scalarValue == nil {
+				skip = true
+			}
+
+			inps = append(inps, col)
+			cols = append(cols, col)
+		}
+
+		if okx, _ := okParams(cols, info.Inputs, info.Output); !okx {
+			return nil, fmt.Errorf("bad parameters to %s", info.Name)
+		}
+
+		// if scalars are available for all the inputs, then process them as a scalar formula
+		if !skip {
+			// get the corresponding mem function
+			if fnMem := m.StandardFunctions().Get(info.Name); fnMem != nil {
+				var (
+					col   *m.Col
+					e     error
+					inpsx []any
+				)
+
+				// Create *Col version of the inputs
+				for j := 0; j < len(inputs); j++ {
+					v := inputs[j]
+					if cols[j].scalarValue != nil {
+						v = cols[j].scalarValue
+					}
+					if col, e = m.NewCol("", v); e != nil {
+						return nil, e
+					}
+					inpsx = append(inpsx, col)
+				}
+
+				// run the function, convert output to Col
+				if val := fnMem(false, context, inpsx...); val.Err == nil {
+					mCol := val.Value.(*m.Col)
+					dt := mCol.DataType()
+					sql, _ := context.Dialect().CastField(d.Any2String(mCol.Element(0)), dt, dt)
+					//				sql = d.Any2String(mCol.Element(0))
+					retCol := NewColSQL("", context, mCol.DataType(), sql)
+					// Place the value of the output in .scalarValue in case that's needed later
+					retCol.scalarValue = mCol.Element(0)
+					return retCol, nil
+				}
 			}
 		}
+
+		var fnR *d.FnReturn
+		if fnR = fn(false, context, inps...); fnR.Err != nil {
+			return nil, fnR.Err
+		}
+
+		//TODO: check return type
+
+		return fnR.Value, nil
 	}
-
-	var fnR *d.FnReturn
-	if fnR = fn(false, context, inps...); fnR.Err != nil {
-		return nil, fnR.Err
-	}
-
-	//TODO: check return type
-
-	return fnR.Value, nil
-}
-
+*/
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
 		multiply, ne, not, or, rowNumber, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
@@ -149,7 +149,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	ascending := true
 	// Any2String will strip out the single quotes
-	if d.Any2String(inputs[0].(*Col).SQL()) == "desc" {
+	if d.Any2String(toCol(inputs[0]).SQL()) == "desc" {
 		ascending = false
 	}
 
@@ -212,7 +212,7 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	fuzz := 1
 	if len(inputs) > 1 {
-		f := inputs[1].(*Col).SQL()
+		f := toCol(inputs[1]).SQL()
 
 		var (
 			ex error
@@ -264,7 +264,7 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
 	}
 
-	if defaultValue, e = d.ToDataType(newVal.scalarValue, newVal.DataType(), true); e != nil {
+	if defaultValue, e = d.ToDataType(newVal.SQL(), newVal.DataType(), true); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -414,9 +414,9 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTdate}, {d.DTstring}, {d.DTcategorical}},
 			Output: []d.DataTypes{out, out, out, out, out}}
 	}
-
-	inp := inputs[0].(*Col).SQL().(string)
-	dt := inputs[0].(*Col).DataType()
+	// TODO: make a col var
+	inp := toCol(inputs[0]).SQL().(string)
+	dt := toCol(inputs[0]).DataType()
 
 	var (
 		sql string
@@ -464,10 +464,43 @@ func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 // ***************** Helpers *****************
 
+func toCol(x any) *Col {
+	if c, ok := x.(*Col); ok {
+		return c
+	}
+
+	if s, ok := x.(*d.Scalar); ok {
+		var (
+			c *Col
+			//			e    error
+			//			sqlx string
+		)
+
+		//		if s.DataType() == d.DTstring && s.Data().(string) == "zero" {
+		//			return NewColSQL(s.Name(), s.Context(), d.DTfloat, "0")
+		//		}
+
+		fld := d.Any2String(s.Data())
+		if s.DataType() == d.DTstring {
+			fld = s.Context().Dialect().ToString(fld)
+		}
+
+		//		if sqlx, e = s.Context().Dialect().CastField(fld, s.DataType(), s.DataType()); e != nil {
+		//			panic(e)
+		//		}
+
+		c = NewColSQL(s.Name(), s.Context(), s.DataType(), fld)
+
+		return c
+	}
+
+	panic("can't make column")
+}
+
 func getSQL(inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
-		sOut = append(sOut, inputs[ind].(*Col).SQL().(string)) // HERE
+		sOut = append(sOut, toCol(inputs[ind]).SQL().(string)) // HERE
 	}
 
 	return sOut
@@ -476,7 +509,7 @@ func getSQL(inputs ...any) []string {
 func getDataTypes(inputs ...any) []d.DataTypes {
 	var sOut []d.DataTypes
 	for ind := 0; ind < len(inputs); ind++ {
-		sOut = append(sOut, inputs[ind].(*Col).DataType())
+		sOut = append(sOut, toCol(inputs[ind]).DataType())
 	}
 
 	return sOut

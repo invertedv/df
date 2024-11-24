@@ -84,7 +84,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	ascending := true
-	if inputs[0].(*Col).Element(0).(string) == "desc" {
+	if toCol(inputs[0]).Element(0).(string) == "desc" {
 		ascending = false
 	}
 
@@ -210,7 +210,7 @@ func cast(name string, in [][]d.DataTypes, out []d.DataTypes, info bool, context
 		return &d.FnReturn{Name: name, Inputs: in, Output: out}
 	}
 
-	col := inputs[0].(*Col)
+	col := toCol(inputs[0])
 	data := d.MakeSlice(out[0], 0, nil)
 	for ind := 0; ind < col.Len(); ind++ {
 		var (
@@ -613,9 +613,9 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 			Output: []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical}}
 	}
 
-	newData := inputs[0].(*Col)
-	oldData := inputs[1].(*Col)
-	newVal := inputs[2].(*Col)
+	newData := toCol(inputs[0])
+	oldData := toCol(inputs[1])
+	newVal := toCol(inputs[2])
 
 	if newData.DataType() != oldData.RawType() {
 		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
@@ -651,10 +651,30 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 // ***************** Helpers *****************
 
+func toCol(x any) *Col {
+	if c, ok := x.(*Col); ok {
+		return c
+	}
+
+	if s, ok := x.(*d.Scalar); ok {
+		var (
+			c *Col
+			e error
+		)
+		if c, e = NewCol(s.Name(), s.Data()); e != nil {
+			panic(e)
+		}
+
+		return c
+	}
+
+	panic("can't make column")
+}
+
 func parameters(inputs ...any) (cols []*Col, n int) {
 	n = 1
 	for j := 0; j < len(inputs); j++ {
-		cx := inputs[j].(*Col)
+		cx := toCol(inputs[j])
 		cols = append(cols, cx)
 
 		if nn := cx.Len(); nn > n {

@@ -39,7 +39,7 @@ type DF struct {
 type Col struct {
 	sql string // SQL to generate this column
 
-	scalarValue any // This is for keeping the actual value of constants rather than SQL version
+	//	scalarValue any // This is for keeping the actual value of constants rather than SQL version
 
 	*d.ColCore
 }
@@ -58,7 +58,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 	}
 
 	if runDF == nil {
-		runDF = RunDFfn
+		runDF = d.RunDFfn
 	}
 
 	if funcs == nil {
@@ -103,7 +103,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 
 func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 	if runDF == nil {
-		runDF = RunDFfn
+		runDF = d.RunDFfn
 	}
 
 	if funcs == nil {
@@ -114,9 +114,9 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
 
 	col := &Col{
-		sql:         "",
-		scalarValue: nil,
-		ColCore:     d.NewColCore(d.DTint, d.ColName("seq")),
+		sql: "",
+		//		scalarValue: nil,
+		ColCore: d.NewColCore(d.DTint, d.ColName("seq")),
 	}
 
 	dfc, ex := d.NewDF(runDF, funcs, col)
@@ -140,6 +140,7 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 	return df
 }
 
+// TODO: needs runDF, fns as parameters...
 func DBload(query string, context *d.Context) (*DF, error) {
 	var (
 		e        error
@@ -171,7 +172,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 
 	var tmp *d.DFcore
 	// TODO: fix runs
-	if tmp, e = d.NewDF(RunDFfn, StandardFunctions(), cols...); e != nil {
+	if tmp, e = d.NewDF(d.RunDFfn, StandardFunctions(), cols...); e != nil {
 		return nil, e
 	}
 	// TODO: think about: should SetContext copy context?
@@ -627,9 +628,9 @@ func (c *Col) AppendRows(col d.Column) (d.Column, error) {
 
 func (c *Col) Copy() d.Column {
 	n := &Col{
-		sql:         c.sql,
-		scalarValue: c.scalarValue,
-		ColCore:     c.ColCore,
+		sql: c.sql,
+		//		scalarValue: c.scalarValue,
+		ColCore: c.ColCore,
 	}
 
 	return n
