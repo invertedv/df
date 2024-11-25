@@ -547,6 +547,7 @@ func (f *DF) Where(indicator d.Column) (d.DF, error) {
 }
 
 // ***************** Col - Create *****************
+// TODO: add ColCore options...?
 
 func NewCol(name string, data any) (*Col, error) {
 	var dt d.DataTypes

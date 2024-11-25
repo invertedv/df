@@ -376,7 +376,7 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 	if leadingOp {
 		switch op {
 		case "+":
-			ot.expr = fmt.Sprintf("%s", right)
+			ot.expr = right
 		case "-":
 			ot.expr = fmt.Sprintf("neg(%s)", right)
 		case "!":

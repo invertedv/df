@@ -411,7 +411,7 @@ func TestApplyCat(t *testing.T) {
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 
-	r, e = dfx.Parse("applyCat(yy, caty, int(abs(-5.0)))")
+	r, e = dfx.Parse("applyCat(yy, caty, -5)")
 	assert.Nil(t, e)
 	s = r.AsColumn()
 	s.Rename("catyy")

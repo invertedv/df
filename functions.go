@@ -70,7 +70,7 @@ type Scalar struct {
 }
 
 func (s *Scalar) AppendRows(col Column) (Column, error) {
-	panic("no can do")
+	return nil, fmt.Errorf("cannot append to scalar")
 }
 
 func (s *Scalar) CategoryMap() CategoryMap {
@@ -78,7 +78,7 @@ func (s *Scalar) CategoryMap() CategoryMap {
 }
 
 func (s *Scalar) Copy() Column {
-	return nil
+	return NewScalar(s.Data(), ColContext(s.Context()))
 }
 
 func (s *Scalar) Core() *ColCore {
@@ -98,7 +98,7 @@ func (s *Scalar) DataType() DataTypes {
 }
 
 func (s *Scalar) Dependencies() []string {
-	return nil
+	return s.Dependencies()
 }
 
 func (s *Scalar) Len() int {

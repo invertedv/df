@@ -2,7 +2,6 @@ package sql
 
 import (
 	"fmt"
-
 	d "github.com/invertedv/df"
 )
 
@@ -207,10 +206,6 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 
 	// The parentheses are required based on how the parser works.
 	sql := fmt.Sprintf("(%s %s %s)", sqls[0], op, sqls[1])
-	// handles cases like x--3
-	if sqls[0] == "'zero'" {
-		sql = "-" + sqls[1]
-	}
 	var dtOut d.DataTypes
 	dtOut = d.DTint
 

@@ -560,6 +560,7 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 }
 
 // ***************** Col - Create *****************
+// TODO: add ColCore options...?
 
 func NewColSQL(name string, context *d.Context, dt d.DataTypes, sqlx string) *Col {
 	col := &Col{

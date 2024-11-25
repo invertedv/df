@@ -291,13 +291,7 @@ func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnRe
 		}
 
 		for ind := 0; ind < n; ind++ {
-			var x float64
-			switch xx := cols[0].Element(ind).(type) {
-			case float64:
-				x = xx
-			default:
-				x = 0
-			}
+			x := cols[0].Element(ind).(float64)
 			data[ind] = fn(x, cols[1].Element(ind).(float64))
 		}
 
@@ -319,14 +313,7 @@ func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnRe
 		}
 
 		for ind := 0; ind < n; ind++ {
-			var x int
-			switch xx := cols[0].Element(ind).(type) {
-			case int:
-				x = xx
-			default:
-				x = 0
-
-			}
+			x := cols[0].Element(ind).(int)
 			data[ind] = fn(x, cols[1].Element(ind).(int))
 		}
 

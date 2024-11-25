@@ -6,8 +6,14 @@ import (
 	"strings"
 )
 
+// CHANGE Parsed scalar to Scalar ... and look at effect on RunDFfn
+// TODO: make it so RunDF isn't a parameter anywhere
+
 // TODO: rethink copy column in light of ColCore
 // TODO: look for "_ =" occurences
+// TODO: make new file "column"
+// TODO: interaction between columns & scalars
+// TODO: make summary functions return a scalar rather than a DF
 
 // TODO: think about panic vs error
 // TODO: panic needs error or just string?
