@@ -2,6 +2,34 @@ package df
 
 import "fmt"
 
+// *********** Function types ***********
+
+type Fn func(info bool, context *Context, inputs ...any) *FnReturn
+
+type Fns []Fn
+
+func (fs Fns) Get(fnName string) Fn {
+	for _, f := range fs {
+		if f(true, nil).Name == fnName {
+			return f
+		}
+	}
+
+	return nil
+}
+
+type FnReturn struct {
+	Value any
+
+	Name   string
+	Output []DataTypes
+	Inputs [][]DataTypes
+
+	Varying bool
+
+	Err error
+}
+
 func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
 	info := fn(true, nil)
 	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {
@@ -23,7 +51,7 @@ func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
 			return nil, fmt.Errorf("inputs include a non-column")
 		}
 
-		col.SetContext(context)
+		ColContext(context)(col.Core())
 		inps = append(inps, col)
 	}
 
@@ -59,83 +87,4 @@ func okParams(cols []any, inputs [][]DataTypes, outputs []DataTypes) (ok bool, o
 	}
 
 	return false, DTunknown
-}
-
-type Scalar struct {
-	value any
-	*ColCore
-}
-
-func (s *Scalar) AppendRows(col Column) (Column, error) {
-	return nil, fmt.Errorf("cannot append to scalar")
-}
-
-func (s *Scalar) CategoryMap() CategoryMap {
-	return nil
-}
-
-func (s *Scalar) Copy() Column {
-	return NewScalar(s.Data(), ColContext(s.Context()))
-}
-
-func (s *Scalar) Core() *ColCore {
-	return s.ColCore
-}
-
-func (s *Scalar) Context() *Context {
-	return s.ctx
-}
-
-func (s *Scalar) Data() any {
-	return s.value
-}
-
-func (s *Scalar) DataType() DataTypes {
-	return s.dt
-}
-
-func (s *Scalar) Dependencies() []string {
-	return s.Dependencies()
-}
-
-func (s *Scalar) Len() int {
-	return 1
-}
-
-func (s *Scalar) Name() string {
-	return s.name
-}
-
-func (s *Scalar) Replace(ind, repl Column) (Column, error) {
-	return nil, fmt.Errorf("no replace in scalar")
-}
-
-func (s *Scalar) Rename(newName string) {
-	//TODO: add valid check
-	s.name = newName
-}
-
-func (s *Scalar) SetContext(ctx *Context) {
-	s.ctx = ctx
-}
-
-func (s *Scalar) SetDependencies(d []string) {
-
-}
-
-func (s *Scalar) String() string {
-	return fmt.Sprintf("%v", s.value)
-}
-
-func NewScalar(val any, opts ...COpt) *Scalar {
-	dt := WhatAmI(val)
-	if dt == DTunknown {
-		panic("unknown data type")
-	}
-
-	cc := NewColCore(dt, opts...)
-	return &Scalar{
-		value:   val,
-		ColCore: cc,
-	}
 }

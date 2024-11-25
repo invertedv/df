@@ -43,13 +43,9 @@ func NewParsed(value any, dependencies ...string) *Parsed {
 		return p
 	}
 
-	if _, ok := value.(Column); ok {
-		value.(Column).SetDependencies(dependencies)
-		p.col = value.(Column)
-		p.which = "Column"
-		return p
-	}
-
+	value.(Column).Core().dep = dependencies
+	p.col = value.(Column)
+	p.which = "Column"
 	return p
 }
 

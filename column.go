@@ -1,0 +1,227 @@
+package df
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Column interface defines the methods the columns of DFcore that must be supported
+type Column interface {
+	CategoryMap() CategoryMap
+
+	Context() *Context
+	DataType() DataTypes
+	Dependencies() []string
+	Name() string
+	Rename(newName string)
+
+	AppendRows(col Column) (Column, error)
+	Copy() Column
+	Core() *ColCore
+	Data() any
+	Len() int
+	Replace(ind, repl Column) (Column, error)
+	String() string
+}
+
+// *********** ColCore ***********
+
+// ColCore implements the nucleus of the Column interface.
+type ColCore struct {
+	name string
+	dt   DataTypes
+	ctx  *Context
+
+	catMap    CategoryMap
+	catCounts CategoryMap
+	rawType   DataTypes
+
+	dep []string
+}
+
+type COpt func(c *ColCore)
+
+func ColDataType(dt DataTypes) COpt {
+	return func(c *ColCore) {
+		c.dt = dt
+	}
+}
+
+func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
+	c := &ColCore{dt: dt}
+
+	for _, op := range ops {
+		op(c)
+	}
+
+	return c
+}
+
+// *********** Setters ***********
+func ColName(name string) COpt {
+	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
+
+	if strings.Contains(name, illegal) {
+		panic("invalid name")
+	}
+
+	return func(c *ColCore) {
+		c.name = name
+	}
+}
+
+func ColContext(ctx *Context) COpt {
+	return func(c *ColCore) {
+		c.ctx = ctx
+	}
+}
+
+func colDependencies(dep []string) COpt {
+	return func(c *ColCore) {
+		c.dep = dep
+	}
+}
+
+func (c *ColCore) Dependencies() []string {
+	return c.dep
+}
+
+func ColCatMap(cm CategoryMap) COpt {
+	return func(c *ColCore) {
+		c.catMap = cm
+	}
+}
+
+func ColCatCounts(ct CategoryMap) COpt {
+	return func(c *ColCore) {
+		c.catCounts = ct
+	}
+}
+
+func ColRawType(rt DataTypes) COpt {
+	return func(c *ColCore) {
+		c.rawType = rt
+	}
+}
+
+// *********** Methods ***********
+func (c *ColCore) CategoryMap() CategoryMap {
+	return c.catMap
+}
+
+func (c *ColCore) CategoryCounts() CategoryMap {
+	return c.catCounts
+}
+
+func (c *ColCore) Context() *Context {
+	return c.ctx
+}
+
+func (c *ColCore) RawType() DataTypes {
+	return c.rawType
+}
+
+func (c *ColCore) Name() string {
+	return c.name
+}
+
+func (c *ColCore) DataType() DataTypes {
+	return c.dt
+}
+
+func (c *ColCore) Copy() *ColCore {
+	return NewColCore(c.DataType(),
+		ColName(c.Name()),
+		ColContext(c.Context()),
+		colDependencies(c.Dependencies()),
+		ColRawType(c.RawType()),
+		ColCatMap(c.CategoryMap()),
+		ColCatCounts(c.CategoryCounts()))
+}
+
+func (c *ColCore) Rename(newName string) {
+	ColName(newName)(c)
+}
+
+func (c *ColCore) SetContext(ctx *Context) {
+	ColContext(ctx)(c)
+}
+
+// *********** Category Map ***********
+
+type CategoryMap map[any]int
+
+func (cm CategoryMap) Max() int {
+	var maxVal *int
+	for k, v := range cm {
+		if maxVal == nil {
+			maxVal = new(int)
+			*maxVal = v
+		}
+		if k != nil && v > *maxVal {
+			*maxVal = v
+		}
+	}
+
+	return *maxVal
+}
+
+func (cm CategoryMap) Min() int {
+	var minVal *int
+	for k, v := range cm {
+		if minVal == nil {
+			minVal = new(int)
+			*minVal = v
+		}
+
+		if k != nil && v < *minVal {
+			*minVal = v
+		}
+	}
+
+	return *minVal
+}
+
+//  *********** DataTypes ***********
+
+// DataTypes are the types of data that the package supports
+type DataTypes uint8
+
+// values of DataTypes
+const (
+	DTunknown DataTypes = 0 + iota
+	DTstring
+	DTfloat
+	DTint
+	DTcategorical
+	DTdate
+	DTnone
+	DTdf
+	DTconstant
+	DTany // keep as last entry
+)
+
+//go:generate stringer -type=DataTypes
+
+// MaxDT is max value of DataTypes type
+const MaxDT = DTany
+
+func DTFromString(nm string) DataTypes {
+	const skeleton = "%v"
+
+	var nms []string
+	for ind := DataTypes(0); ind <= MaxDT; ind++ {
+		nms = append(nms, fmt.Sprintf(skeleton, ind))
+	}
+
+	pos := Position(nm, "", nms...)
+	if pos < 0 {
+		return DTunknown
+	}
+
+	return DataTypes(uint8(pos))
+}
+
+func (d DataTypes) IsNumeric() bool {
+	return d == DTfloat || d == DTint || d == DTcategorical
+}

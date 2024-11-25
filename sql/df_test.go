@@ -108,7 +108,7 @@ func TestRowNumber(t *testing.T) {
 
 func TestNewDFseq(t *testing.T) {
 	dfx := testDF()
-	df := NewDFseq(nil, nil, dfx.Context(), 5)
+	df := NewDFseq(nil, dfx.Context(), 5)
 	col := df.Column("seq")
 	assert.NotNil(t, col)
 	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())

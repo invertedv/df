@@ -61,9 +61,10 @@ func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 		funcs = StandardFunctions()
 	}
 
-	for ind := 0; ind < len(cols); ind++ {
-		d.ColContext(context)(cols[ind].Core())
-	}
+	// HERE
+	//	for ind := 0; ind < len(cols); ind++ {
+	//		d.ColContext(context)(cols[ind].Core())
+	//	}
 	// TODO: fix runs ??
 
 	r := cols[0].Context().Self()
@@ -97,11 +98,7 @@ func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	return df, nil
 }
 
-func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
-	if runDF == nil {
-		runDF = d.RunDFfn
-	}
-
+func NewDFseq(funcs d.Fns, context *d.Context, n int) *DF {
 	if funcs == nil {
 		funcs = StandardFunctions()
 	}
@@ -160,7 +157,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 	for ind := 0; ind < len(colTypes); ind++ {
 		sqlCol := &Col{
 			sql:     "",
-			ColCore: d.NewColCore(colTypes[ind], d.ColName(colNames[ind]), d.ColContext(context)),
+			ColCore: d.NewColCore(colTypes[ind], d.ColName(colNames[ind])),
 		}
 
 		cols = append(cols, sqlCol)
@@ -722,15 +719,6 @@ func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	return outCol, nil
 }
 
-func (c *Col) Rename(newName string) {
-	d.ColName(newName)(c.Core())
-}
-
-// TODO: delete this
-func (c *Col) SetContext(ctx *d.Context) {
-	d.ColContext(ctx)(c.Core())
-}
-
 func (c *Col) String() string {
 	if c.Name() == "" {
 		panic("column has no name")
@@ -779,10 +767,6 @@ func (c *Col) String() string {
 	header := []string{"metric", "value"}
 	vals, _ := c.Context().Dialect().Summary(c.MakeQuery(), c.Name())
 	return t + d.PrettyPrint(header, cols, vals)
-}
-
-func (c *Col) SetDependencies(dep []string) {
-	d.SetDependencies(dep)(c.Core())
 }
 
 // ***************** Helpers *****************

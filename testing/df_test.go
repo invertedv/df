@@ -243,9 +243,9 @@ func TestSeq(t *testing.T) {
 		var df d.DF
 		switch which {
 		case "mem":
-			df = m.NewDFseq(nil, nil, nil, 5)
+			df = m.NewDFseq(nil, nil, 5)
 		default:
-			df = s.NewDFseq(nil, nil, dfx.Context(), 5)
+			df = s.NewDFseq(nil, dfx.Context(), 5)
 		}
 
 		col := df.Column("seq")
@@ -318,7 +318,7 @@ func TestFileSave(t *testing.T) {
 			cexp = dfz.Column(coln)
 		}
 		cact := dfy.Column(coln)
-		assert.Equal(t, cexp, cact)
+		assert.Equal(t, cexp.Data(), cact.Data())
 	}
 }
 

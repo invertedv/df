@@ -68,13 +68,9 @@ func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	return outDF, nil
 }
 
-func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
+func NewDFseq(funcs d.Fns, context *d.Context, n int) *DF {
 	if n <= 0 {
 		panic(fmt.Errorf("n must be positive in NewDFseq"))
-	}
-
-	if runDF == nil {
-		runDF = d.RunDFfn
 	}
 
 	if funcs == nil {
@@ -580,15 +576,6 @@ func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
 	return AppendRows(c, col2, c.Name())
 }
 
-//func (c *Col) CategoryMap() d.CategoryMap {
-//	return c.catMap
-//}
-
-// TODO: populate
-func (c *Col) Context() *d.Context {
-	return nil
-}
-
 func (c *Col) Copy() d.Column {
 	var copiedData any
 	n := c.Len()
@@ -689,10 +676,6 @@ func (c *Col) Less(i, j int) bool {
 	}
 }
 
-func (c *Col) Rename(newName string) {
-	d.ColName(newName)(c.Core())
-}
-
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
 	if c.DataType() != replacement.DataType() {
@@ -728,10 +711,6 @@ func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	}
 
 	return outCol, nil
-}
-
-func (c *Col) SetContext(ctx *d.Context) {
-
 }
 
 func (c *Col) String() string {
@@ -786,10 +765,9 @@ func (c *Col) String() string {
 	return t + d.PrettyPrint(header, cats, vals)
 }
 
-func (c *Col) SetDependencies(dep []string) {
-	d.SetDependencies(dep)(c.Core())
-
-}
+//func (c *Col) SetDependencies(dep []string) {
+//	d.ColDependencies(dep)(c.Core())
+//}
 
 // ***************** Helpers *****************
 
