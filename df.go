@@ -6,8 +6,7 @@ import (
 	"strings"
 )
 
-// CHANGE Parsed scalar to Scalar ... and look at effect on RunDFfn
-// TODO: make it so RunDF isn't a parameter anywhere
+// TODO: make it so RunDF isn't a parameter anywhere -- DROP it from DFcore
 
 // TODO: rethink copy column in light of ColCore
 // TODO: look for "_ =" occurences
@@ -510,8 +509,6 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 			return nil, fmt.Errorf("cannot take DF as function input")
 		case "Column":
 			vals = append(vals, inputs[ind].AsColumn())
-		default:
-			vals = append(vals, inputs[ind].AsScalar())
 		}
 	}
 

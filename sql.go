@@ -367,7 +367,6 @@ func (d *Dialect) Load(qry string) ([]any, error) {
 	if names, types, kinds, e = d.Types(qry); e != nil {
 		return nil, e
 	}
-	_ = kinds
 	var rows *sql.Rows
 
 	if rows, e = d.db.Query(qry); e != nil {

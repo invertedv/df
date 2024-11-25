@@ -3,7 +3,6 @@ package df
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 type OpTree struct {
@@ -31,9 +30,8 @@ type operations [][]string
 type Parsed struct {
 	which string
 
-	scalar any
-	col    Column
-	df     DF
+	col Column
+	df  DF
 }
 
 func NewParsed(value any, dependencies ...string) *Parsed {
@@ -52,31 +50,6 @@ func NewParsed(value any, dependencies ...string) *Parsed {
 		return p
 	}
 
-	p.which = "Scalar"
-	// if this comes in as float or date, keep that.
-	// if it's int -- could interpret as a date
-	switch x := value.(type) {
-	case float64:
-		p.scalar = x
-	case time.Time:
-		p.scalar = x
-	case string:
-		p.scalar = x
-	case int:
-		p.scalar = x
-	default:
-		var (
-			xx any
-			dt DataTypes
-			e  error
-		)
-		if xx, dt, e = BestType(value); e != nil || dt == DTunknown {
-			return nil
-		}
-
-		p.scalar = xx
-	}
-
 	return p
 }
 
@@ -89,10 +62,6 @@ func (p *Parsed) Value() any {
 		return p.col
 	}
 
-	if p.scalar != nil {
-		return p.scalar
-	}
-
 	return nil
 }
 
@@ -102,10 +71,6 @@ func (p *Parsed) AsDF() DF {
 
 func (p *Parsed) AsColumn() Column {
 	return p.col
-}
-
-func (p *Parsed) AsScalar() any {
-	return p.scalar
 }
 
 func (p *Parsed) Which() string {
@@ -312,7 +277,9 @@ func (ot *OpTree) constant(xIn string) (*Parsed, error) {
 
 	if len(xIn) >= 2 && xIn[0:1] == "'" && xIn[len(xIn)-1:] == "'" {
 		xIn = strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'")
-		return NewParsed(xIn), nil
+		c := NewScalar(xIn)
+		return NewParsed(c), nil
+		//		return NewParsed(xIn), nil
 	}
 
 	var (
@@ -324,7 +291,9 @@ func (ot *OpTree) constant(xIn string) (*Parsed, error) {
 		return nil, fmt.Errorf("cannot interpret %v as a constant", xIn)
 	}
 
-	return NewParsed(v), nil
+	c := NewScalar(v)
+	return NewParsed(c), nil
+	//	return NewParsed(v), nil
 }
 
 // outerParen strips away parentheses that surround the entire expression.

@@ -213,7 +213,6 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 		dtOut = d.DTfloat
 	}
 
-	//sql, _ = context.Dialect().CastField(sql, dtOut, dtOut)
 	outCol := NewColSQL("", context, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}

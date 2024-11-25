@@ -12,25 +12,22 @@ func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
 		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
-	var (
-		inps []any
-		cols []Column
-	)
+	var inps []any
+
 	for j := 0; j < len(inputs); j++ {
 		var (
 			ok  bool
 			col Column
 		)
 		if col, ok = inputs[j].(Column); !ok {
-			col = NewScalar(inputs[j], ColContext(context))
+			return nil, fmt.Errorf("inputs include a non-column")
 		}
 
+		col.SetContext(context)
 		inps = append(inps, col)
-		cols = append(cols, col)
 	}
 
-	// TODO: change this to take inps as arg
-	if ok, _ := okParams(cols, info.Inputs, info.Output); !ok {
+	if ok, _ := okParams(inps, info.Inputs, info.Output); !ok {
 		return nil, fmt.Errorf("bad parameters to %s", info.Name)
 	}
 
@@ -42,7 +39,7 @@ func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
 	return fnR.Value, nil
 }
 
-func okParams(cols []Column, inputs [][]DataTypes, outputs []DataTypes) (ok bool, outType DataTypes) {
+func okParams(cols []any, inputs [][]DataTypes, outputs []DataTypes) (ok bool, outType DataTypes) {
 	if inputs == nil {
 		return true, outputs[0]
 	}
@@ -50,7 +47,7 @@ func okParams(cols []Column, inputs [][]DataTypes, outputs []DataTypes) (ok bool
 	for j := 0; j < len(inputs); j++ {
 		ok = true
 		for k := 0; k < len(inputs[j]); k++ {
-			if inputs[j][k] != DTany && cols[k].DataType() != inputs[j][k] {
+			if inputs[j][k] != DTany && cols[k].(Column).DataType() != inputs[j][k] {
 				ok = false
 				break
 			}

@@ -607,14 +607,9 @@ func (c *Col) AppendRows(col d.Column) (d.Column, error) {
 	cx.Rename(c.Name())
 	q2 := c.MakeQuery()
 
-	var (
-		source string
-		e      error
-	)
-	if source, e = c.Context().Dialect().Union(q1, q2, cx.Name()); e != nil {
+	if _, e := c.Context().Dialect().Union(q1, q2, cx.Name()); e != nil {
 		return nil, e
 	}
-	_ = source
 	outCol := &Col{
 		sql:     "",
 		ColCore: d.NewColCore(c.DataType(), d.ColName(c.Name()), d.ColContext(c.Context())),
@@ -769,8 +764,7 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		df, ex := NewDFcol(nil, nil, c.Context(), c)
-		_ = ex
+		df, _ := NewDFcol(nil, nil, c.Context(), c)
 		tab, _ := df.Table(false, c.Name())
 
 		var (
