@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-// TODO: make it so RunDF isn't a parameter anywhere -- DROP it from DFcore
-
-// TODO: rethink copy column in light of ColCore
-// TODO: look for "_ =" occurences
 // TODO: make new file "column"
 // TODO: interaction between columns & scalars
 // TODO: make summary functions return a scalar rather than a DF
@@ -234,7 +230,7 @@ func ColContext(ctx *Context) COpt {
 	}
 }
 
-func ColSetDependencies(dep []string) COpt {
+func SetDependencies(dep []string) COpt {
 	return func(c *ColCore) {
 		c.dep = dep
 	}
@@ -286,6 +282,16 @@ func (c *ColCore) Context() *Context {
 	return c.ctx
 }
 
+func (c *ColCore) Copy() *ColCore {
+	return NewColCore(c.DataType(),
+		ColName(c.Name()),
+		ColContext(c.Context()),
+		SetDependencies(c.Dependencies()),
+		ColRawType(c.RawType()),
+		ColCatMap(c.CategoryMap()),
+		ColCatCounts(c.CategoryCounts()))
+}
+
 // *********** DFcore ***********
 
 // DFcore is the nucleus implementation of the DataFrame.  It does not implement all the required methods.
@@ -293,7 +299,6 @@ type DFcore struct {
 	head *columnList
 
 	appFuncs Fns
-	runFn    RunFn
 
 	current *columnList
 
@@ -307,7 +312,7 @@ type columnList struct {
 	next  *columnList
 }
 
-func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
+func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -332,7 +337,7 @@ func NewDF(runner RunFn, funcs Fns, cols ...Column) (df *DFcore, err error) {
 		}
 	}
 
-	return &DFcore{head: head, appFuncs: funcs, runFn: runner}, nil
+	return &DFcore{head: head, appFuncs: funcs}, nil
 }
 
 // *********** DFcore methods ***********
@@ -389,7 +394,7 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 		cols = append(cols, nc)
 	}
 
-	return NewDF(df.Runner(), df.Fns(), cols...)
+	return NewDF(df.Fns(), cols...)
 }
 
 func (df *DFcore) Column(colName string) Column {
@@ -459,7 +464,7 @@ func (df *DFcore) Copy() *DFcore {
 		e     error
 	)
 
-	if outDF, e = NewDF(df.Runner(), df.Fns(), cols...); e != nil {
+	if outDF, e = NewDF(df.Fns(), cols...); e != nil {
 		panic(e)
 	}
 
@@ -516,7 +521,7 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 		col any
 		e   error
 	)
-	if col, e = df.runFn(fn, df.Context(), vals); e != nil {
+	if col, e = RunDFfn(fn, df.Context(), vals); e != nil {
 		return nil, e
 	}
 
@@ -636,10 +641,6 @@ func (df *DFcore) Parse(expr string) (*Parsed, error) {
 	}
 
 	return ot.Value(), nil
-}
-
-func (df *DFcore) Runner() RunFn {
-	return df.runFn
 }
 
 func (df *DFcore) SetContext(ctx *Context) {

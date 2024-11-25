@@ -286,7 +286,7 @@ func TestSQLsave(t *testing.T) {
 
 		// join expected & actual into a dataframe
 		ctx := d.NewContext(dfx.Context().Dialect(), nil)
-		dfb, eb := m.NewDFcol(nil, nil, ctx, c1.(*m.Col), c2.(*m.Col))
+		dfb, eb := m.NewDFcol(nil, ctx, c1.(*m.Col), c2.(*m.Col))
 		assert.Nil(t, eb)
 		outx, ep := dfb.Parse("actual==expected")
 		assert.Nil(t, ep)
@@ -485,9 +485,9 @@ func TestParser(t *testing.T) {
 			xOut.AsColumn().Rename("test")
 
 			if which == "sql" {
-				r, e = s.NewDFcol(nil, nil, dfx.(*s.DF).Context(), xOut.AsColumn().(*s.Col))
+				r, e = s.NewDFcol(nil, dfx.(*s.DF).Context(), xOut.AsColumn().(*s.Col))
 			} else {
-				r, e = m.NewDFcol(nil, nil, dfx.(*m.DF).Context(), xOut.AsColumn().(*m.Col))
+				r, e = m.NewDFcol(nil, dfx.(*m.DF).Context(), xOut.AsColumn().(*m.Col))
 			}
 
 			assert.Nil(t, e)

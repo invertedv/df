@@ -33,11 +33,7 @@ type Col struct {
 
 // ***************** DF - Create *****************
 
-func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
-	if runDF == nil {
-		runDF = d.RunDFfn
-	}
-
+func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	if funcs == nil {
 		funcs = StandardFunctions()
 	}
@@ -57,7 +53,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 		e  error
 	)
 
-	if df, e = d.NewDF(runDF, funcs, cc...); e != nil {
+	if df, e = d.NewDF(funcs, cc...); e != nil {
 		return nil, e
 	}
 
@@ -92,7 +88,7 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 
 	col, _ := NewCol("seq", data)
 
-	df, _ := NewDFcol(runDF, funcs, context, col)
+	df, _ := NewDFcol(funcs, context, col)
 	df.Context().SetSelf(df)
 
 	return df
@@ -123,7 +119,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(d.RunDFfn, StandardFunctions(), nil, col); e != nil {
+			if memDF, e = NewDFcol(StandardFunctions(), nil, col); e != nil {
 				return nil, e
 			}
 
@@ -161,7 +157,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(d.RunDFfn, StandardFunctions(), nil, col); e != nil {
+			if memDF, e = NewDFcol(StandardFunctions(), nil, col); e != nil {
 				return nil, e
 			}
 
@@ -474,7 +470,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	)
 
 	ctx := d.NewContext(f.Context().Dialect(), nil, nil)
-	if outDF, e = NewDFcol(f.Runner(), f.Fns(), ctx, outCols...); e != nil {
+	if outDF, e = NewDFcol(f.Fns(), ctx, outCols...); e != nil {
 		return nil, e
 	}
 
@@ -615,7 +611,7 @@ func (c *Col) Copy() d.Column {
 
 	col := &Col{
 		data:    copiedData,
-		ColCore: d.NewColCore(c.DataType(), d.ColName(c.Name()), d.ColCatMap(c.CategoryMap())),
+		ColCore: c.Core().Copy(),
 	}
 
 	return col
@@ -763,7 +759,7 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		tab, _ := NewDFcol(nil, nil, nil, makeTable(c)...)
+		tab, _ := NewDFcol(nil, nil, makeTable(c)...)
 		_ = tab.Sort(false, "count")
 		l := tab.Column(c.Name())
 		c := tab.Column("count")
@@ -791,7 +787,7 @@ func (c *Col) String() string {
 }
 
 func (c *Col) SetDependencies(dep []string) {
-	d.ColSetDependencies(dep)(c.Core())
+	d.SetDependencies(dep)(c.Core())
 
 }
 

@@ -46,7 +46,7 @@ type Col struct {
 
 // ***************** DF - Create *****************
 
-func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
+func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	for ind := 1; ind < len(cols); ind++ {
 		if !sameSource(cols[ind-1], cols[ind]) {
 			return nil, fmt.Errorf("incompatible columns in NewDFcol %s %s", cols[ind-1].Name(), cols[ind].Name())
@@ -55,10 +55,6 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDFcol")
-	}
-
-	if runDF == nil {
-		runDF = d.RunDFfn
 	}
 
 	if funcs == nil {
@@ -88,7 +84,7 @@ func NewDFcol(runDF d.RunFn, funcs d.Fns, context *d.Context, cols ...*Col) (*DF
 		tmp *d.DFcore
 		e   error
 	)
-	if tmp, e = d.NewDF(runDF, funcs, cstd...); e != nil {
+	if tmp, e = d.NewDF(funcs, cstd...); e != nil {
 		return nil, e
 	}
 
@@ -119,7 +115,7 @@ func NewDFseq(runDF d.RunFn, funcs d.Fns, context *d.Context, n int) *DF {
 		ColCore: d.NewColCore(d.DTint, d.ColName("seq")),
 	}
 
-	dfc, ex := d.NewDF(runDF, funcs, col)
+	dfc, ex := d.NewDF(funcs, col)
 	if ex != nil {
 		panic(ex)
 	}
@@ -172,7 +168,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 
 	var tmp *d.DFcore
 	// TODO: fix runs
-	if tmp, e = d.NewDF(d.RunDFfn, StandardFunctions(), cols...); e != nil {
+	if tmp, e = d.NewDF(StandardFunctions(), cols...); e != nil {
 		return nil, e
 	}
 	// TODO: think about: should SetContext copy context?
@@ -618,15 +614,11 @@ func (c *Col) AppendRows(col d.Column) (d.Column, error) {
 	return outCol, nil
 }
 
-//func (c *Col) CategoryMap() d.CategoryMap {
-//	return c.catMap
-//}
-
 func (c *Col) Copy() d.Column {
 	n := &Col{
 		sql: c.sql,
 		//		scalarValue: c.scalarValue,
-		ColCore: c.ColCore,
+		ColCore: c.Core().Copy(),
 	}
 
 	return n
@@ -764,7 +756,7 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		df, _ := NewDFcol(nil, nil, c.Context(), c)
+		df, _ := NewDFcol(nil, c.Context(), c)
 		tab, _ := df.Table(false, c.Name())
 
 		var (
@@ -790,7 +782,7 @@ func (c *Col) String() string {
 }
 
 func (c *Col) SetDependencies(dep []string) {
-	d.ColSetDependencies(dep)(c.Core())
+	d.SetDependencies(dep)(c.Core())
 }
 
 // ***************** Helpers *****************
