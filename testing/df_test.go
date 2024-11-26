@@ -3,12 +3,8 @@ package testing
 import (
 	"database/sql"
 	"fmt"
-	"math"
 	"os"
 	"testing"
-	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2"
 
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
@@ -17,141 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// THINK about...how self interacts in context...
-// CONSIDER making .Data fetch the data for sql....
-const (
-	dbSource   = "clickhouse"
-	fileName   = "test.csv"
-	fileNameW1 = "testFW.txt"
-	fileNameW2 = "testFW1.txt"
-	fileNameW3 = "testFW2.txt"
-	inTable    = "testing.d1"
-	outTable   = "testing.test"
-
-	ch = "clickhouse"
-)
-
-// environment variables:
-//   - host ClickHouse IP address
-//   - user ClickHouse user
-//   - password: ClickHouse password
-//   - datapath: path to data directory in this project
-
-// list of packages to test
-func pkgs() []string {
-	return []string{"sql", "mem"}
-}
-
-// NewConnect established a new connection to ClickHouse.
-// host is IP address (assumes port 9000), memory is max_memory_usage
-func newConnectCH(host, user, password string) *sql.DB {
-	db := clickhouse.OpenDB(
-		&clickhouse.Options{
-			Addr: []string{host + ":9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: user,
-				Password: password,
-			},
-			DialTimeout: 300 * time.Second,
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-				Level:  0,
-			},
-		})
-
-	if e := db.Ping(); e != nil {
-		panic(e)
-	}
-	return db
-}
-
-func loadData(pkg string) d.DF {
-	const table = "SELECT * FROM " + inTable
-	var db *sql.DB
-
-	user := os.Getenv("user")
-	host := os.Getenv("host")
-	password := os.Getenv("password")
-
-	switch dbSource {
-	case ch:
-		db = newConnectCH(host, user, password)
-	default:
-		panic("unsupported database")
-	}
-
-	var (
-		dialect *d.Dialect
-		e       error
-	)
-	if dialect, e = d.NewDialect("clickhouse", db); e != nil {
-		panic(e)
-	}
-
-	ctx := d.NewContext(dialect, nil, nil)
-
-	if pkg == "sql" {
-		var (
-			df *s.DF
-			e1 error
-		)
-		if df, e1 = s.DBload(table, ctx); e1 != nil {
-			panic(e1)
-		}
-		return df
-	}
-
-	var (
-		df *m.DF
-		e2 error
-	)
-	if df, e2 = m.DBLoad(table, dialect); e2 != nil {
-		panic(e2)
-	}
-
-	df.SetContext(ctx)
-	df.Context().SetSelf(df)
-
-	return df
-}
-
-func checker(df d.DF, colName, which string, col d.Column, indx int) any {
-	if col != nil {
-		col.Rename(colName)
-		if e := df.AppendColumn(col, true); e != nil {
-			panic(e)
-		}
-	}
-	var colRet d.Column
-
-	if which == "mem" {
-		colRet = df.(*m.DF).Column(colName)
-	}
-
-	if which == "sql" {
-		memDF, e1 := m.DBLoad(df.(*s.DF).MakeQuery(), df.Context().Dialect())
-		if e1 != nil {
-			panic(e1)
-		}
-
-		colRet = memDF.Column(colName)
-	}
-
-	if indx < 0 {
-		return colRet.Data()
-	}
-
-	if x := colRet.(*m.Col).Element(indx); x != nil {
-		return x
-	}
-
-	panic(fmt.Errorf("error in checker"))
-}
-
 /*
 	func TestPlotXY(t *testing.T) {
-		dfx := loadData("sql")
+		dfx := loadData("ch")
 		e := dfx.Sort(true, "x")
 		assert.Nil(t, e)
 		p := d.NewPlot(d.WithTitle("This Is A Test"), d.WithXlabel("X-Axis"),
@@ -180,13 +44,7 @@ func TestTypes(t *testing.T) {
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
-
-	switch dbSource {
-	case ch:
-		db = newConnectCH(host, user, password)
-	default:
-		panic("unsupported database")
-	}
+	db = newConnectCH(host, user, password)
 
 	var (
 		dialect *d.Dialect
@@ -210,8 +68,8 @@ func TestTypes(t *testing.T) {
 
 // TODO: if just return "x" in parse, it returns a pointer to the original not a copy
 func TestCheck(t *testing.T) {
-	dfx := loadData("sql")
-	dfy := loadData("sql")
+	dfx := loadData(ch)
+	dfy := loadData(ch)
 	out, e := dfx.Parse("float(x)")
 	assert.Nil(t, e)
 	_ = out.AsColumn().Rename("xx")
@@ -221,33 +79,10 @@ func TestCheck(t *testing.T) {
 	assert.Nil(t, e2)
 }
 
-func TestRename(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-		x1 := dfx.Column("x").Data()
-		e1 := dfx.Column("x").Rename("xa")
-		assert.Nil(t, e1)
-		e2 := dfx.Column("xa").Rename("xb")
-		assert.Nil(t, e2)
-		assert.Equal(t, x1, dfx.Column("xb").Data())
-		e3 := dfx.Column("xb").Rename("x!")
-		assert.NotNil(t, e3)
-	}
-}
-
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		fmt.Println(dfx)
-	}
-}
-
-func TestRowNumber(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-		out, e := dfx.Parse("rowNumber()")
-		assert.Nil(t, e)
-		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data())
 	}
 }
 
@@ -256,7 +91,7 @@ func TestSeq(t *testing.T) {
 		dfx := loadData(which)
 		var df d.DF
 		switch which {
-		case "mem":
+		case mem:
 			df = m.NewDFseq(nil, nil, 5)
 		default:
 			df = s.NewDFseq(nil, dfx.Context(), 5)
@@ -282,21 +117,21 @@ func TestSQLsave(t *testing.T) {
 		assert.NotNil(t, c1)
 
 		// if this is sql, populate a mem DF to get values
-		if which == "sql" {
+		if which != mem {
 			dfz, ez := m.DBLoad(c1.(*s.Col).MakeQuery(), dfx.Context().Dialect())
 			assert.Nil(t, ez)
 			c1 = dfz.Column(coln)
 			assert.NotNil(t, c1)
 		}
 
-		c1.Rename("expected")
+		_ = c1.Rename("expected")
 
 		// pull back from database
 		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Context().Dialect())
 		assert.Nil(t, ex)
 		c2 := dfy.Column(coln)
 		assert.NotNil(t, c2)
-		c2.Rename("actual")
+		_ = c2.Rename("actual")
 
 		// join expected & actual into a dataframe
 		ctx := d.NewContext(dfx.Context().Dialect(), nil)
@@ -326,7 +161,7 @@ func TestFileSave(t *testing.T) {
 		assert.Nil(t, e2)
 		cexp := dfx.Column(coln)
 		// if sql, must pull data from query
-		if which == "sql" {
+		if which != mem {
 			dfz, e3 := m.DBLoad(cexp.(*s.Col).MakeQuery(), dfx.Context().Dialect())
 			assert.Nil(t, e3)
 			cexp = dfz.Column(coln)
@@ -387,223 +222,6 @@ func TestWhere(t *testing.T) {
 	}
 }
 
-func TestReplace(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-		indCol, e0 := dfx.Parse("y==-5")
-		assert.Nil(t, e0)
-		indCol.AsColumn().Rename("ind")
-		e := dfx.AppendColumn(indCol.AsColumn(), false)
-		assert.Nil(t, e)
-		coly := dfx.Column("y")
-		assert.NotNil(t, coly)
-		colyy := dfx.Column("yy")
-		assert.NotNil(t, colyy)
-		colR, e3 := coly.Replace(indCol.AsColumn(), colyy)
-		assert.Nil(t, e3)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, colR.Data()) // checker(dfx, "rep", which, colR, -1))
-
-		// via Parse
-		out, e4 := dfx.Parse("if(y==-5,yy,y)")
-		assert.Nil(t, e4)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.AsColumn().Data()) // checker(dfx, "rep", which, out.AsColumn(), -1))
-	}
-}
-
-func TestParser(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-
-		x := [][]any{
-			{"x--3.0", 0, 4.0},
-			{"sum(y)", 0, 12},
-			{"sum(x)", 0, 7.5},
-			{"dt != date(20221231)", 0, 0},
-			{"dt != date(20221231)", 0, 0},
-			{"dt != date(20221231)", 1, 1},
-			{"dt == date(20221231)", 0, 1},
-			{"dt == date(20221231)", 1, 0},
-			{"4+1--1", 0, 6},
-			{"if(y == 1, 2.0, (x))", 0, 2.0},
-			{"if(y == 1, 2.0, (x))", 1, -2.0},
-			{"!(y>=1) && y>=1", 0, 0},
-			{"exp(x-1.0)", 0, 1.0},
-			{"abs(x)", 0, 1.0},
-			{"abs(y)", 1, 5},
-			{"(x/0.1)*float(y+100)", 0, 1010.0},
-			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-			{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-			{"dt != date(20221231)", 0, 0},
-			{"dt != date(20221231)", 1, 1},
-			{"dt == date(20221231)", 0, 1},
-			{"dt == date(20221231)", 1, 0},
-			//			{"string(float(1)+.234)", 0, "1.234"},
-			{"float('1.1')", 0, 1.1},
-			{"int(2.9)", 0, 2},
-			{"float(1)", 0, 1.0},
-			{"string(dt)", 0, "2022-12-31"},
-			{"z!='20060102'", 0, 1},
-			{"x--1.0", 0, 2.0},
-			{"x*10.0", 0, 10.0},
-			{"int(x)", 5, 3},
-			{"(float(4+2) * abs(-3.0/2.0))", 0, 9.0},
-			{"y != 1", 0, 0},
-			{"y>=1 && y>=1 && dt >= date(20221231)", 0, 1},
-			{"y>=1 && y>=1 && dt > date(20221231)", 0, 0},
-			{"y>=1 && y>=1", 0, 1},
-			{"!(y>=1) && y>=1", 0, 0},
-			{"!1 && 1 || 1", 0, 1},
-			{"!1 && 1 || 0", 0, 0},
-			{"!0 && 1 || 0", 0, 1},
-			{"!1 && 1", 0, 0},
-			{"1 || 0 && 1", 0, 1},
-			{"0 || 0 && 1", 0, 0},
-			{"0 || 1 && 1", 0, 1},
-			{"0 || 1 && 1 && 0", 0, 0},
-			{"(0 || 1 && 1) && 0", 0, 0},
-			{"y < 2", 0, 1},
-			{"y < 1", 0, 0},
-			{"y <= 1", 0, 1},
-			{"y > 1", 0, 0},
-			{"y >= 1", 0, 1},
-			{"y == 1", 0, 1},
-			{"y == 1", 1, 0},
-			{"y && 1", 0, 1},
-			{"0 && 1", 0, 0},
-			{"0 || 0", 0, 0},
-			{"0 || 1", 0, 1},
-			{"4+3", 0, 7},
-			{"4-1-1-1-1", 0, 0},
-			{"4+1-1", 0, 4},
-			{"float(4)+1.0--1.0", 0, 6.0},
-			{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
-			{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-			{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-			{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
-			{"-x +2.0", 0, 1.0},
-			{"-x +4.0", 1, 6.0},
-			{"x/0.0", 0, math.Inf(1)},
-			{"float((3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0)))", 0, 42.0},
-			{"(1 + 2) - -(-1 - 2)", 0, 0},
-			{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, 2.0},
-		}
-
-		cnt := 0
-		for ind := 0; ind < len(x); ind++ {
-			var r d.DF
-			cnt++
-			eqn := x[ind][0].(string)
-			fmt.Println(eqn)
-			xOut, e := dfx.Parse(eqn)
-			assert.Nil(t, e)
-			xOut.AsColumn().Rename("test")
-
-			if which == "sql" {
-				r, e = s.NewDFcol(nil, dfx.(*s.DF).Context(), xOut.AsColumn().(*s.Col))
-			} else {
-				r, e = m.NewDFcol(nil, dfx.(*m.DF).Context(), xOut.AsColumn().(*m.Col))
-			}
-
-			assert.Nil(t, e)
-			result := checker(r, "test", which, nil, x[ind][1].(int))
-
-			if d.WhatAmI(result) == d.DTfloat {
-				assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
-				continue
-			}
-
-			if d.WhatAmI(result) == d.DTdate {
-				assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
-				assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
-				assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
-				continue
-			}
-
-			assert.Equal(t, x[ind][2], result)
-		}
-	}
-}
-
-// TODO: consider dropping cat counts
-func TestToCat(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-
-		colx, e := dfx.Parse("date(z)")
-		assert.Nil(t, e)
-		col := colx.AsColumn()
-		col.Rename("dt1")
-		e = dfx.AppendColumn(col, false)
-		assert.Nil(t, e)
-
-		// try with DTint
-		colx, e = dfx.Parse("cat(y)")
-		assert.Nil(t, e)
-		colx.AsColumn().Rename("test")
-		result := checker(dfx, "test", which, colx.AsColumn(), -1)
-		expected := []int{1, 0, 4, 1, 2, 3}
-		assert.Equal(t, expected, result)
-
-		// try with DTstring
-		colx, e = dfx.Parse("cat(z)")
-		assert.Nil(t, e)
-		result = checker(dfx, "test", which, colx.AsColumn(), -1)
-		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result)
-
-		// try with DTdate
-		colx, e = dfx.Parse("cat(dt1)")
-		assert.Nil(t, e)
-		colx.AsColumn().Rename("test")
-		result = checker(dfx, "test", which, colx.AsColumn(), -1)
-		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result)
-
-		// try with fuzz > 1
-		colx, e = dfx.Parse("cat(y, 2)")
-		assert.Nil(t, e)
-		result = checker(dfx, "test", which, colx.AsColumn(), -1)
-		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, result)
-
-		// try with DTfloat
-		_, e = dfx.Parse("cat(x)")
-		assert.NotNil(t, e)
-	}
-}
-
-func TestApplyCat(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-
-		r, e := dfx.Parse("cat(y)")
-		assert.Nil(t, e)
-		sx := r.AsColumn()
-		sx.Rename("caty")
-		e1 := dfx.AppendColumn(sx, false)
-		assert.Nil(t, e1)
-
-		r2, e2 := dfx.Parse("applyCat(yy, caty, -5)")
-		assert.Nil(t, e2)
-
-		// -5 maps to 0 so all new values map to 0
-		expected := []int{1, 0, 0, 1, 0, 0}
-		assert.Equal(t, expected, r2.AsColumn().Data())
-
-		// try with fuzz > 1
-		r3, e3 := dfx.Parse("cat(y,2)")
-		assert.Nil(t, e3)
-		r3.AsColumn().Rename("caty2")
-		e4 := dfx.AppendColumn(r3.AsColumn(), false)
-		assert.Nil(t, e4)
-
-		r5, e5 := dfx.Parse("applyCat(yy,caty2,-5)")
-		assert.Nil(t, e5)
-		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, r5.AsColumn().Data())
-	}
-}
-
 func TestAppendDF(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
@@ -616,7 +234,7 @@ func TestAppendDF(t *testing.T) {
 }
 
 func TestFilesOpen(t *testing.T) {
-	dfx := loadData("mem")
+	dfx := loadData(mem)
 
 	// specify both fieldNames and fieldTypes
 	// file has no EOL characters
@@ -685,7 +303,7 @@ func TestFilesOpen(t *testing.T) {
 }
 
 func TestFilesSave(t *testing.T) {
-	dfx := loadData("men")
+	dfx := loadData(mem)
 	fs := d.NewFiles()
 	e0 := fs.Save(d.Slash(os.Getenv("datapath"))+fileName, dfx)
 	assert.Nil(t, e0)
