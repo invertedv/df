@@ -214,17 +214,31 @@ func TestCheck(t *testing.T) {
 	dfy := loadData("sql")
 	out, e := dfx.Parse("float(x)")
 	assert.Nil(t, e)
-	out.AsColumn().Rename("xx")
+	_ = out.AsColumn().Rename("xx")
 	e1 := dfx.AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e1)
 	e2 := dfy.AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e2)
 }
+
+func TestRename(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		x1 := dfx.Column("x").Data()
+		e1 := dfx.Column("x").Rename("xa")
+		assert.Nil(t, e1)
+		e2 := dfx.Column("xa").Rename("xb")
+		assert.Nil(t, e2)
+		assert.Equal(t, x1, dfx.Column("xb").Data())
+		e3 := dfx.Column("xb").Rename("x!")
+		assert.NotNil(t, e3)
+	}
+}
+
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		fmt.Println(dfx)
-		break
 	}
 }
 

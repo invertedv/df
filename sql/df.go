@@ -329,7 +329,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, ex
 	}
 
-	outCol := NewColSQL("", f.Context(), d.DTcategorical, sql1)
+	outCol, _ := NewColSQL("", f.Context(), d.DTcategorical, sql1)
 	d.ColRawType(col.DataType())(outCol.Core())
 	d.ColCatCounts(cnts)(outCol.Core())
 	d.ColCatMap(toMap)(outCol.Core())
@@ -488,10 +488,10 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		return nil, ex
 	}
 
-	count := NewColSQL("count", f.Context(), d.DTint, "count(*)")
+	count, _ := NewColSQL("count", f.Context(), d.DTint, "count(*)")
 
 	rateSQL := fmt.Sprintf(cf, f.MakeQuery())
-	rate := NewColSQL("rate", f.Context(), d.DTfloat, rateSQL)
+	rate, _ := NewColSQL("rate", f.Context(), d.DTfloat, rateSQL)
 
 	var (
 		dfc *d.DFcore
@@ -555,33 +555,14 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 // ***************** Col - Create *****************
 // TODO: add ColCore options...?
 
-func NewColSQL(name string, context *d.Context, dt d.DataTypes, sqlx string) *Col {
+func NewColSQL(name string, context *d.Context, dt d.DataTypes, sqlx string) (*Col, error) {
+	if e := d.ValidName(name); e != nil {
+		return nil, e
+	}
+
 	col := &Col{
 		sql:     sqlx,
 		ColCore: d.NewColCore(dt, d.ColName(name), d.ColContext(context)),
-	}
-
-	return col
-}
-
-func NewColScalar(name string, val any) (*Col, error) {
-	var dt d.DataTypes
-
-	if dt = d.WhatAmI(val); dt != d.DTint && dt != d.DTfloat && dt != d.DTdate && dt != d.DTstring {
-		return nil, fmt.Errorf("illegal input: %s", dt)
-	}
-
-	var sqlx string
-	switch dt {
-	case d.DTstring:
-		sqlx = "'" + val.(string) + "'"
-	default:
-		sqlx = fmt.Sprintf("%v", val)
-	}
-
-	col := &Col{
-		sql:     sqlx,
-		ColCore: d.NewColCore(dt, d.ColName(name)),
 	}
 
 	return col, nil
@@ -633,8 +614,7 @@ func (c *Col) Data() any {
 
 	// give it a random name if it does not have one
 	if c.Name() == "" {
-		c.Rename(d.RandomLetters(5))
-		d.ColName(d.RandomLetters(5))(c.Core())
+		_ = c.Rename(d.RandomLetters(5))
 	}
 
 	if df, e = m.DBLoad(c.MakeQuery(), c.Context().Dialect()); e != nil {
@@ -671,7 +651,7 @@ func (c *Col) Len() int {
 
 func (c *Col) MakeQuery() string {
 	if c.Context().Self() == nil {
-		panic("oh no")
+		panic("nil Context")
 	}
 
 	df := c.Context().Self().(*DF)
@@ -687,6 +667,20 @@ func (c *Col) MakeQuery() string {
 	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s AS %s FROM %s", w, df.MakeQuery(deps...), field, c.Name(), w)
 
 	return qry
+}
+
+func (c *Col) Rename(newName string) error {
+	oldName := c.Name()
+	if e := c.Core().Rename(newName); e != nil {
+		return e
+	}
+
+	// if this is just a column pull, need to keep the source name for "AS"
+	if c.sql == "" {
+		c.sql = oldName
+	}
+
+	return nil
 }
 
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
@@ -714,7 +708,7 @@ func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	if sqlx, e = c.Context().Dialect().Case(whens, equalTo); e != nil {
 		return nil, e
 	}
-	outCol := NewColSQL("", c.Context(), c.DataType(), sqlx)
+	outCol, _ := NewColSQL("", c.Context(), c.DataType(), sqlx)
 
 	return outCol, nil
 }

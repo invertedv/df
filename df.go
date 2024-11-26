@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-// TODO: make summary functions return a scalar rather than a DF
+// TODO: make summary functions return a scalar rather than a DF?
+// TODO: separate mem/df.go into df.go and column.go, also for sql
 
 // TODO: think about panic vs error
 // TODO: panic needs error or just string?
@@ -213,14 +214,9 @@ func (df *DFcore) Copy() *DFcore {
 		cols = append(cols, c.Copy())
 	}
 
-	var (
-		outDF *DFcore
-		e     error
-	)
+	var outDF *DFcore
 
-	if outDF, e = NewDF(df.Fns(), cols...); e != nil {
-		panic(e)
-	}
+	outDF, _ = NewDF(df.Fns(), cols...)
 
 	return outDF
 }

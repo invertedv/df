@@ -361,7 +361,7 @@ func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 			data.([]int)[ind] = x
 		default:
-			panic(fmt.Errorf("crazy error in abs"))
+			panic(fmt.Errorf("unexpected error in abs"))
 		}
 	}
 

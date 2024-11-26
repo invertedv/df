@@ -213,7 +213,7 @@ func arithmetic(op, name string, info bool, context *d.Context, inputs ...any) *
 		dtOut = d.DTfloat
 	}
 
-	outCol := NewColSQL("", context, dtOut, sql)
+	outCol, _ := NewColSQL("", context, dtOut, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -335,7 +335,7 @@ func cast(name string, out d.DataTypes, info bool, context *d.Context, inputs ..
 		return &d.FnReturn{Err: e}
 	}
 
-	outCol := NewColSQL("", context, out, sql)
+	outCol, _ := NewColSQL("", context, out, sql)
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -385,7 +385,7 @@ func toCol(x any) *Col {
 			fld = s.Context().Dialect().ToString(fld)
 		}
 
-		c = NewColSQL(s.Name(), s.Context(), s.DataType(), fld)
+		c, _ = NewColSQL(s.Name(), s.Context(), s.DataType(), fld)
 
 		return c
 	}
@@ -443,7 +443,7 @@ func fnGen(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, info bool,
 		}
 	}
 
-	outCol := NewColSQL("", context, outType, sqlOut)
+	outCol, _ := NewColSQL("", context, outType, sqlOut)
 
 	return &d.FnReturn{Value: outCol}
 }

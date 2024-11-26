@@ -542,6 +542,10 @@ func (f *DF) Where(indicator d.Column) (d.DF, error) {
 // TODO: add ColCore options...?
 
 func NewCol(name string, data any) (*Col, error) {
+	if e := d.ValidName(name); e != nil {
+		return nil, e
+	}
+
 	var dt d.DataTypes
 	if dt = d.WhatAmI(data); dt == d.DTunknown {
 		return nil, fmt.Errorf("unsupported data type in NewCol")

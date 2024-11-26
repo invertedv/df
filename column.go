@@ -2,7 +2,6 @@ package df
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Column interface defines the methods the columns of DFcore that must be supported
@@ -13,7 +12,7 @@ type Column interface {
 	DataType() DataTypes
 	Dependencies() []string
 	Name() string
-	Rename(newName string)
+	Rename(newName string) error
 
 	AppendRows(col Column) (Column, error)
 	Copy() Column
@@ -59,10 +58,8 @@ func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
 
 // *********** Setters ***********
 func ColName(name string) COpt {
-	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~" + `"`
-
-	if strings.Contains(name, illegal) {
-		panic("invalid name")
+	if e := ValidName(name); e != nil {
+		panic(e)
 	}
 
 	return func(c *ColCore) {
@@ -139,8 +136,14 @@ func (c *ColCore) Copy() *ColCore {
 		ColCatCounts(c.CategoryCounts()))
 }
 
-func (c *ColCore) Rename(newName string) {
+func (c *ColCore) Rename(newName string) error {
+	if e := ValidName(newName); e != nil {
+		return e
+	}
+
 	ColName(newName)(c)
+
+	return nil
 }
 
 func (c *ColCore) SetContext(ctx *Context) {

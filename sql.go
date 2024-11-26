@@ -243,10 +243,14 @@ func (d *Dialect) Exists(tableName string) bool {
 	if d.DialectName() == ch {
 		qry := fmt.Sprintf("EXISTS TABLE %s", tableName)
 
-		res, e := d.DB().Query(qry)
-		if e != nil {
+		var (
+			res *sql.Rows
+			e   error
+		)
+		if res, e = d.DB().Query(qry); e != nil {
 			panic(e)
 		}
+
 		defer func() { _ = res.Close() }()
 
 		var exist uint8
@@ -694,7 +698,7 @@ func buildRow(k []reflect.Kind) []any {
 			var x time.Time
 			ry = append(ry, &x)
 		default:
-			panic("oh oh")
+			panic(fmt.Errorf("unsupported data type: %v", k[ind]))
 		}
 	}
 

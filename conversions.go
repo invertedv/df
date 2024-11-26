@@ -290,21 +290,6 @@ func AppendSlice(x, xadd any, dt DataTypes) any {
 	return x
 }
 
-func Address(data any, dt DataTypes, indx int) any {
-	switch dt {
-	case DTfloat:
-		return &data.([]float64)[indx]
-	case DTint:
-		return &data.([]int)[indx]
-	case DTstring:
-		return &data.([]string)[indx]
-	case DTdate:
-		return &data.([]time.Time)[indx]
-	default:
-		return nil
-	}
-}
-
 func GT(x, y any) (bool, error) {
 	var (
 		yy any
@@ -574,4 +559,14 @@ func RandUnifInt(n, upper int) ([]int64, error) {
 	}
 
 	return outInts, nil
+}
+
+func ValidName(name string) error {
+	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~ " + `"`
+
+	if strings.ContainsAny(name, illegal) {
+		return fmt.Errorf("invalid name: %s", name)
+	}
+
+	return nil
 }
