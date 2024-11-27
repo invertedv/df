@@ -13,14 +13,23 @@ import (
 // NewDFseq - arrayJoin(range(1,n)) or cnt(1,n)
 
 func StandardFunctions() d.Fns {
+	// output slice types
+	i1, f1 := []d.DataTypes{d.DTint}, []d.DataTypes{d.DTfloat}
+	fi1 := []d.DataTypes{d.DTfloat, d.DTint}
+	ff1, ii1 := []d.DataTypes{d.DTfloat, d.DTfloat}, []d.DataTypes{d.DTint, d.DTint}
+	// inputs - 1 input
+	i2, f2 := [][]d.DataTypes{i1}, [][]d.DataTypes{f1}
+	fi2 := [][]d.DataTypes{f1, i1}
+	// inputs - 2 inputs
+	ffii2 := [][]d.DataTypes{ff1, ii1}
+	_ = i2
+
 	return d.Fns{and, applyCat, divide, dot, eq,
-		vector("add", [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint},
-			addFloat, addInt),
-		vector("exp", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, func(x ...any) float64 { return math.Exp(x[0].(float64)) }),
-		vector("log", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, func(x ...any) float64 { return math.Log(x[0].(float64)) }),
-		vector("sqrt", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, func(x ...any) float64 { return math.Sqrt(x[0].(float64)) }),
-		vector("abs", [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint},
-			func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt),
+		vector("add", ffii2, fi1, addFloat, addInt),
+		vector("exp", f2, f1, func(x ...any) float64 { return math.Exp(x[0].(float64)) }),
+		vector("log", f2, f1, func(x ...any) float64 { return math.Log(x[0].(float64)) }),
+		vector("sqrt", f2, f1, func(x ...any) float64 { return math.Sqrt(x[0].(float64)) }),
+		vector("abs", fi2, fi1, func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt),
 		ge, gt, ifs, le, lt, mean, multiply,
 		ne, neg, not, or, rowNumber, sortDF, subtract, sum, table, toCat,
 		toDate, toFloat, toInt, toString,
