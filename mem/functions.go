@@ -25,19 +25,24 @@ func StandardFunctions() d.Fns {
 	_ = i2
 
 	return d.Fns{and, applyCat, divide, dot, eq,
+		vector("rowNumber", nil, i1, rn),
 		vector("add", ffii2, fi1, addFloat, addInt),
 		vector("exp", f2, f1, func(x ...any) float64 { return math.Exp(x[0].(float64)) }),
 		vector("log", f2, f1, func(x ...any) float64 { return math.Log(x[0].(float64)) }),
 		vector("sqrt", f2, f1, func(x ...any) float64 { return math.Sqrt(x[0].(float64)) }),
 		vector("abs", fi2, fi1, func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt),
 		ge, gt, ifs, le, lt, mean, multiply,
-		ne, neg, not, or, rowNumber, sortDF, subtract, sum, table, toCat,
+		ne, neg, not, or, sortDF, subtract, sum, table, toCat,
 		toDate, toFloat, toInt, toString,
 		where,
 	}
 }
 
 // ***************** Vector-Valued Functions that return take a single int/float *****************
+
+func rn(row ...any) int {
+	return row[0].(int)
+}
 
 func absInt(x ...any) int {
 	xx := x[0].(int)
@@ -130,12 +135,34 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 // ***************** Functions that return a Column *****************
 
 func row(ind int, cols ...*Col) []any {
+	if cols == nil {
+		return []any{ind}
+	}
+
 	outRow := make([]any, len(cols))
 	for j := 0; j < len(cols); j++ {
 		outRow[j] = cols[j].Element(ind)
 	}
 
 	return outRow
+}
+
+func signature(target [][]d.DataTypes, cols ...*Col) int {
+	for j := 0; j < len(target); j++ {
+		ind := j
+		for k := 0; k < len(target[j]); k++ {
+			if target[j][k] != cols[k].DataType() {
+				ind = -1
+				break
+			}
+		}
+
+		if ind >= 0 {
+			return ind
+		}
+	}
+
+	return -1
 }
 
 // ***************** Functions that take 1 float and return a float *****************
@@ -145,19 +172,21 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 		}
 
-		col, n := parameters(inputs...)
-		dtIn := col[0].DataType()
-		dtOut := d.DTunknown
-		var fnUse any
-		for ind, d := range inp {
-			if d[0] == dtIn {
-				dtOut = outp[ind]
-				fnUse = fnx[ind]
-				break
+		fnUse := fnx[0]
+		n := context.Self().RowCount()
+		dtOut := outp[0]
+		var col []*Col
+		if inp != nil {
+			col, n = parameters(inputs...)
+			ind := signature(inp, col...)
+			if ind < 0 {
+				panic("no signature")
 			}
+			fnUse = fnx[ind]
+			dtOut = outp[ind]
 		}
 
-		data := d.MakeSlice(col[0].DataType(), n, nil)
+		data := d.MakeSlice(dtOut, n, nil)
 		switch {
 		case dtOut == d.DTfloat:
 			fny := fnUse.(func(...any) float64)
@@ -188,20 +217,6 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 }
 
 // ***************** Functions that take no parameters *****************
-
-func rowNumber(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "rowNumber", Output: []d.DataTypes{d.DTint}}
-	}
-
-	n := context.Self().RowCount()
-	data := make([]int, n)
-	for ind := 0; ind < n; ind++ {
-		data[ind] = ind
-	}
-
-	return returnCol(data)
-}
 
 // ***************** type conversions *****************
 
