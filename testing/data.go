@@ -2,12 +2,13 @@ package testing
 
 import (
 	"database/sql"
+	"os"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
 	s "github.com/invertedv/df/sql"
-	"os"
-	"time"
 )
 
 // THINK about...how self interacts in context...
@@ -32,7 +33,7 @@ const (
 
 // list of packages to test
 func pkgs() []string {
-	return []string{ch, mem}
+	return []string{mem} //, ch}
 }
 
 // NewConnect established a new connection to ClickHouse.

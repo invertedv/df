@@ -6,7 +6,7 @@ import (
 )
 
 func StandardFunctions() d.Fns {
-	return d.Fns{abs, add, and, applyCat, divide, eq, exp, ge, gt, ifs, le, log, lt, mean,
+	return d.Fns{abs, add, and, applyCat, divide, dot, eq, exp, ge, gt, ifs, le, log, lt, mean,
 		multiply, ne, neg, not, or, rowNumber, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
 }
 
@@ -368,6 +368,12 @@ func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	inp := [][]d.DataTypes{{d.DTint}, {d.DTfloat}}
 	outp := []d.DataTypes{d.DTfloat, d.DTfloat}
 	return fnGen("mean", "avg(%s)", inp, outp, info, context, inputs...)
+}
+
+func dot(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	inp := [][]d.DataTypes{{d.DTfloat, d.DTfloat}}
+	outp := []d.DataTypes{d.DTfloat}
+	return fnGen("dot", "sum(%s*%s)", inp, outp, info, context, inputs...)
 }
 
 // ***************** Helpers *****************

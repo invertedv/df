@@ -3,20 +3,48 @@ package df
 import (
 	"fmt"
 	"math"
+	"time"
+
+	"gonum.org/v1/gonum/stat"
 
 	d "github.com/invertedv/df"
 )
 
 // NewDFseq - arrayJoin(range(1,n)) or cnt(1,n)
-// TODO: rowNumber func and a method in SQL (ch: RowNumberInBlock)
 
 func StandardFunctions() d.Fns {
-	return d.Fns{abs, add, and, applyCat, divide, eq,
-		exp, ge, gt, ifs, le, lt, log, mean, multiply,
+	return d.Fns{and, applyCat, divide, dot, eq,
+		vector("add", [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint},
+			addFloat, addInt),
+		vector("exp", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, func(x ...any) float64 { return math.Exp(x[0].(float64)) }),
+		vector("log", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, func(x ...any) float64 { return math.Log(x[0].(float64)) }),
+		vector("sqrt", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, func(x ...any) float64 { return math.Sqrt(x[0].(float64)) }),
+		vector("abs", [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint},
+			func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt),
+		ge, gt, ifs, le, lt, mean, multiply,
 		ne, neg, not, or, rowNumber, sortDF, subtract, sum, table, toCat,
 		toDate, toFloat, toInt, toString,
 		where,
 	}
+}
+
+// ***************** Vector-Valued Functions that return take a single int/float *****************
+
+func absInt(x ...any) int {
+	xx := x[0].(int)
+	if xx >= 0 {
+		return xx
+	}
+
+	return -xx
+}
+
+func addFloat(x ...any) float64 {
+	return x[0].(float64) + x[1].(float64)
+}
+
+func addInt(x ...any) int {
+	return x[0].(int) + x[1].(int)
 }
 
 // ***************** Functions that return a data frame *****************
@@ -92,29 +120,62 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 // ***************** Functions that return a Column *****************
 
+func row(ind int, cols ...*Col) []any {
+	outRow := make([]any, len(cols))
+	for j := 0; j < len(cols); j++ {
+		outRow[j] = cols[j].Element(ind)
+	}
+
+	return outRow
+}
+
 // ***************** Functions that take 1 float and return a float *****************
+func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
+	fn := func(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
+		}
 
-// realFn applies a func(float)float to the input column
-func realFn(fn func(x float64) float64, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}}, Output: []d.DataTypes{d.DTfloat}}
+		col, n := parameters(inputs...)
+		dtIn := col[0].DataType()
+		dtOut := d.DTunknown
+		var fnUse any
+		for ind, d := range inp {
+			if d[0] == dtIn {
+				dtOut = outp[ind]
+				fnUse = fnx[ind]
+				break
+			}
+		}
+
+		data := d.MakeSlice(col[0].DataType(), n, nil)
+		switch {
+		case dtOut == d.DTfloat:
+			fny := fnUse.(func(...any) float64)
+			for ind := 0; ind < n; ind++ {
+				data.([]float64)[ind] = fny(row(ind, col...)...)
+			}
+		case dtOut == d.DTint:
+			fny := fnUse.(func(...any) int)
+			for ind := 0; ind < n; ind++ {
+				data.([]int)[ind] = fny(row(ind, col...)...)
+			}
+		case dtOut == d.DTstring:
+			fny := fnUse.(func(...any) string)
+			for ind := 0; ind < n; ind++ {
+				data.([]string)[ind] = fny(row(ind, col...)...)
+			}
+		case dtOut == d.DTdate:
+			fny := fnUse.(func(...any) time.Time)
+			for ind := 0; ind < n; ind++ {
+				data.([]time.Time)[ind] = fny(row(ind, col...)...)
+			}
+		}
+
+		return returnCol(data)
 	}
 
-	col, n := parameters(inputs...)
-	data := d.MakeSlice(d.DTfloat, n, nil)
-	for ind := 0; ind < n; ind++ {
-		data.([]float64)[ind] = fn(col[0].Element(ind).(float64))
-	}
-
-	return returnCol(data)
-}
-
-func exp(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return realFn(math.Exp, "exp", info, context, inputs...)
-}
-
-func log(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return realFn(math.Log, "log", info, context, inputs...)
+	return fn
 }
 
 // ***************** Functions that take no parameters *****************
@@ -185,74 +246,65 @@ func cast(name string, in [][]d.DataTypes, out []d.DataTypes, info bool, context
 	return returnCol(data)
 }
 
+type fun func(x ...any) any
+
 // ***************** Functions that return a scalar *****************
 
 // ***************** Functions that take a single column and return a scalar *****************
-func single(name string, fn func(any) any, in [][]d.DataTypes,
+func apply(name string, fn fun, in [][]d.DataTypes,
 	out []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: name, Inputs: in, Output: out}
 	}
-	col := inputs[0].(*Col)
+	var xs []any
 
-	return returnCol(fn(col))
+	for ind := 0; ind < len(inputs); ind++ {
+		xs = append(xs, inputs[ind].(*Col).Data())
+	}
+
+	return returnCol(fn(xs...))
+}
+
+func dot(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	in := [][]d.DataTypes{{d.DTfloat, d.DTfloat}}
+	out := []d.DataTypes{d.DTfloat}
+	fn := func(x ...any) any {
+		return dotP(x[0].([]float64), x[1].([]float64))
+	}
+
+	return apply("dot", fn, in, out, info, context, inputs...)
 }
 
 func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	in := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
 	out := []d.DataTypes{d.DTfloat, d.DTfloat}
-	return single("mean", meanC, in, out, info, context, inputs...)
-}
+	mn := func(x ...any) any {
+		if xx, ok := x[0].([]float64); ok {
+			return stat.Mean(xx, nil)
+		}
 
-func meanC(xx any) any {
-	x := sumC(xx)
-	l := float64(xx.(*Col).Len())
-
-	switch d.WhatAmI(x) {
-	case d.DTfloat:
-		return x.(float64) / l
-	case d.DTint:
-		return float64(x.(int)) / l
-	default:
-		panic("cannot find mean")
+		return MeanInt(x[0].([]int))
 	}
+
+	return apply("mean", mn, in, out, info, context, inputs...)
 }
 
 func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	in := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
 	out := []d.DataTypes{d.DTfloat, d.DTint}
-	return single("sum", sumC, in, out, info, context, inputs...)
-}
-
-func sumC(xx any) any {
-	switch x := xx.(*Col).Data().(type) {
-	case []float64:
-		s := 0.0
-		for _, xv := range x {
-			s += xv
-		}
-
-		return s
-	case []int:
-		s := 0
-		for _, xv := range x {
-			s += xv
-		}
-
-		return s
-	default:
-		panic("cannot find sum")
-
+	s := func(x ...any) any {
+		return sumC(x[0])
 	}
 
-	return nil
+	return apply("sum", s, in, out, info, context, inputs...)
 }
 
 // ***************** Basic arithmetic functions *****************
 
 func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTfloat}, {d.DTstring, d.DTint}},
+		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat},
+			{d.DTint, d.DTint}, {d.DTstring, d.DTfloat}, {d.DTstring, d.DTint}},
 			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTfloat, d.DTint}}
 	}
 
@@ -676,4 +728,49 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	}
 
 	return colNames, nil
+}
+
+func sumFloat(xx []float64) float64 {
+	s := 0.0
+	for _, x := range xx {
+		s += x
+	}
+
+	return s
+}
+
+func sumInt(xx []int) int {
+	s := 0
+	for _, x := range xx {
+		s += x
+	}
+
+	return s
+}
+
+func MeanInt(xx []int) float64 {
+	return float64(sumInt(xx)) / float64(len(xx))
+}
+
+func sumC(xx any) any {
+	switch x := xx.(type) {
+	case []float64:
+		return sumFloat(x)
+	case []int:
+		return sumInt(x)
+	default:
+		panic("cannot find sum")
+
+	}
+
+	return nil
+}
+
+func dotP(x, y []float64) float64 {
+	p := 0.0
+	for ind := 0; ind < len(x); ind++ {
+		p += x[ind] * y[ind]
+	}
+
+	return p
 }
