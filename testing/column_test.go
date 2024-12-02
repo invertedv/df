@@ -61,6 +61,8 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
+			{"y > 2", 5, 1},
+			{"y > 2", 0, 0},
 			{"y+y", 1, -10},
 			{"rowNumber()", 1, 1},
 			{"abs(yy)", 1, 15},

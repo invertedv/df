@@ -13,52 +13,179 @@ import (
 // NewDFseq - arrayJoin(range(1,n)) or cnt(1,n)
 
 func StandardFunctions() d.Fns {
-	// output slice types
-	i1, f1 := []d.DataTypes{d.DTint}, []d.DataTypes{d.DTfloat}
-	fi1 := []d.DataTypes{d.DTfloat, d.DTint}
-	ff1, ii1 := []d.DataTypes{d.DTfloat, d.DTfloat}, []d.DataTypes{d.DTint, d.DTint}
-	// inputs - 1 input
-	i2, f2 := [][]d.DataTypes{i1}, [][]d.DataTypes{f1}
-	fi2 := [][]d.DataTypes{f1, i1}
-	// inputs - 2 inputs
-	ffii2 := [][]d.DataTypes{ff1, ii1}
-	_ = i2
-
-	return d.Fns{and, applyCat, divide, dot, eq,
-		vector("rowNumber", nil, i1, rn),
-		vector("add", ffii2, fi1, addFloat, addInt),
-		vector("exp", f2, f1, func(x ...any) float64 { return math.Exp(x[0].(float64)) }),
-		vector("log", f2, f1, func(x ...any) float64 { return math.Log(x[0].(float64)) }),
-		vector("sqrt", f2, f1, func(x ...any) float64 { return math.Sqrt(x[0].(float64)) }),
-		vector("abs", fi2, fi1, func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt),
-		ge, gt, ifs, le, lt, mean, multiply,
-		ne, neg, not, or, sortDF, subtract, sum, table, toCat,
+	fns := d.Fns{applyCat, dot,
+		mean,
+		sortDF, sum, table, toCat,
 		toDate, toFloat, toInt, toString,
 		where,
 	}
+	fns = append(fns, comparisons()...)
+	fns = append(fns, mathOps()...)
+	fns = append(fns, logicalOps()...)
+	fns = append(fns, mathFuncs()...)
+	fns = append(fns, OtherVectors()...)
+
+	return fns
 }
 
 // ***************** Vector-Valued Functions that return take a single int/float *****************
 
-func rn(row ...any) int {
-	return row[0].(int)
-}
+func mathFuncs() d.Fns {
+	inType1 := [][]d.DataTypes{{d.DTfloat}}
+	inType2 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
+	outType1 := []d.DataTypes{d.DTfloat}
+	outType2 := []d.DataTypes{d.DTfloat, d.DTint}
 
-func absInt(x ...any) int {
-	xx := x[0].(int)
-	if xx >= 0 {
-		return xx
+	absInt := func(x ...any) int {
+		xx := x[0].(int)
+		if xx >= 0 {
+			return xx
+		}
+
+		return -xx
 	}
 
-	return -xx
+	out := d.Fns{
+		vector("exp", inType1, outType1, func(x ...any) float64 { return math.Exp(x[0].(float64)) }),
+		vector("log", inType1, outType1, func(x ...any) float64 { return math.Log(x[0].(float64)) }),
+		vector("sqrt", inType1, outType1, func(x ...any) float64 { return math.Sqrt(x[0].(float64)) }),
+		vector("abs", inType2, outType2, func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt)}
+
+	return out
 }
 
-func addFloat(x ...any) float64 {
-	return x[0].(float64) + x[1].(float64)
+func logicalOps() d.Fns {
+	inType2 := [][]d.DataTypes{{d.DTint, d.DTint}}
+	inType1 := [][]d.DataTypes{{d.DTint}}
+	outType := []d.DataTypes{d.DTint}
+	out := d.Fns{
+		vector("and", inType2, outType, func(x ...any) int { return bint(x[0].(int) > 0 && x[1].(int) > 0) }),
+		vector("or", inType2, outType, func(x ...any) int { return bint(x[0].(int) > 0 || x[1].(int) > 0) }),
+		vector("not", inType1, outType, func(x ...any) int { return 1 - bint(x[0].(int) > 0) })}
+
+	return out
 }
 
-func addInt(x ...any) int {
-	return x[0].(int) + x[1].(int)
+func comparisons() d.Fns {
+	inType := [][]d.DataTypes{
+		{d.DTfloat, d.DTfloat},
+		{d.DTint, d.DTint},
+		{d.DTstring, d.DTstring},
+		{d.DTdate, d.DTdate},
+	}
+
+	outType := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
+	out := d.Fns{
+		vector("gt", inType, outType,
+			func(x ...any) int { return bint(x[0].(float64) > x[1].(float64)) },
+			func(x ...any) int { return bint(x[0].(int) > x[1].(int)) },
+			func(x ...any) int { return bint(x[0].(string) > x[1].(string)) },
+			func(x ...any) int { return bint(x[0].(time.Time).Sub(x[1].(time.Time)).Minutes() > 0) }),
+		vector("lt", inType, outType,
+			func(x ...any) int { return bint(x[0].(float64) < x[1].(float64)) },
+			func(x ...any) int { return bint(x[0].(int) < x[1].(int)) },
+			func(x ...any) int { return bint(x[0].(string) < x[1].(string)) },
+			func(x ...any) int { return bint(x[0].(time.Time).Sub(x[1].(time.Time)).Minutes() < 0) }),
+		vector("ge", inType, outType,
+			func(x ...any) int { return bint(x[0].(float64) >= x[1].(float64)) },
+			func(x ...any) int { return bint(x[0].(int) >= x[1].(int)) },
+			func(x ...any) int { return bint(x[0].(string) >= x[1].(string)) },
+			func(x ...any) int { return bint(x[0].(time.Time).Sub(x[1].(time.Time)).Minutes() >= 0) }),
+		vector("le", inType, outType,
+			func(x ...any) int { return bint(x[0].(float64) <= x[1].(float64)) },
+			func(x ...any) int { return bint(x[0].(int) <= x[1].(int)) },
+			func(x ...any) int { return bint(x[0].(string) <= x[1].(string)) },
+			func(x ...any) int { return bint(x[0].(time.Time).Sub(x[1].(time.Time)).Minutes() <= 0) }),
+		vector("eq", inType, outType,
+			func(x ...any) int { return bint(x[0].(float64) == x[1].(float64)) },
+			func(x ...any) int { return bint(x[0].(int) == x[1].(int)) },
+			func(x ...any) int { return bint(x[0].(string) == x[1].(string)) },
+			func(x ...any) int { return bint(x[0].(time.Time).Sub(x[1].(time.Time)).Minutes() == 0) }),
+		vector("ne", inType, outType,
+			func(x ...any) int { return bint(x[0].(float64) != x[1].(float64)) },
+			func(x ...any) int { return bint(x[0].(int) != x[1].(int)) },
+			func(x ...any) int { return bint(x[0].(string) != x[1].(string)) },
+			func(x ...any) int { return bint(x[0].(time.Time).Sub(x[1].(time.Time)).Minutes() != 0) })}
+
+	return out
+}
+
+func mathOps() d.Fns {
+	inType2 := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}}
+	inType1 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
+	outType := []d.DataTypes{d.DTfloat, d.DTint}
+
+	addFloat := func(x ...any) float64 {
+		return x[0].(float64) + x[1].(float64)
+	}
+	addInt := func(x ...any) int {
+		return x[0].(int) + x[1].(int)
+	}
+	subFloat := func(x ...any) float64 { return x[0].(float64) - x[1].(float64) }
+	subInt := func(x ...any) int { return x[0].(int) - x[1].(int) }
+	multFloat := func(x ...any) float64 { return x[0].(float64) * x[1].(float64) }
+	multInt := func(x ...any) int { return x[0].(int) * x[1].(int) }
+	divFloat := func(x ...any) float64 { return x[0].(float64) / x[1].(float64) }
+	divInt := func(x ...any) int { return x[0].(int) / x[1].(int) }
+	negFloat := func(x ...any) float64 { return -x[0].(float64) }
+	negInt := func(x ...any) int { return -x[0].(int) }
+
+	out := d.Fns{
+		vector("add", inType2, outType, addFloat, addInt),
+		vector("divide", inType2, outType, divFloat, divInt),
+		vector("multiply", inType2, outType, multFloat, multInt),
+		vector("subtract", inType2, outType, subFloat, subInt),
+		vector("neg", inType1, outType, negFloat, negInt)}
+
+	return out
+}
+
+func OtherVectors() d.Fns {
+	outType := []d.DataTypes{d.DTint}
+
+	out := d.Fns{
+		vector("rowNumber", nil, outType, func(x ...any) int { return x[0].(int) }),
+		ifOp()}
+
+	return out
+}
+
+// ifOp implements the if statement
+func ifOp() d.Fn {
+	inType := [][]d.DataTypes{
+		{d.DTint, d.DTfloat, d.DTfloat},
+		{d.DTint, d.DTint, d.DTint},
+		{d.DTint, d.DTstring, d.DTstring},
+		{d.DTint, d.DTdate, d.DTdate},
+	}
+	outType := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate}
+
+	iFloat64 := func(x ...any) float64 {
+		if x[0].(int) > 0 {
+			return x[1].(float64)
+		}
+		return x[2].(float64)
+	}
+	iInt := func(x ...any) int {
+		if x[0].(int) > 0 {
+			return x[1].(int)
+		}
+		return x[2].(int)
+	}
+	iString := func(x ...any) string {
+		if x[0].(int) > 0 {
+			return x[1].(string)
+		}
+		return x[2].(string)
+	}
+	iDate := func(x ...any) time.Time {
+		if x[0].(int) > 0 {
+			return x[1].(time.Time)
+		}
+		return x[2].(time.Time)
+	}
+
+	return vector("if", inType, outType, iFloat64, iInt, iString, iDate)
 }
 
 // ***************** Functions that return a data frame *****************
@@ -216,8 +343,6 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 	return fn
 }
 
-// ***************** Functions that take no parameters *****************
-
 // ***************** type conversions *****************
 
 func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
@@ -321,285 +446,6 @@ func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	}
 
 	return apply("sum", s, in, out, info, context, inputs...)
-}
-
-// ***************** Basic arithmetic functions *****************
-
-func arithmetic(op string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat},
-			{d.DTint, d.DTint}, {d.DTstring, d.DTfloat}, {d.DTstring, d.DTint}},
-			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTfloat, d.DTint}}
-	}
-
-	cols, n := parameters(inputs...)
-
-	type floatFn func(a, b float64) float64
-	type intFn func(a, b int) int
-
-	floats := []floatFn{
-		func(a, b float64) float64 { return a + b },
-		func(a, b float64) float64 { return a - b },
-		func(a, b float64) float64 { return a * b },
-		func(a, b float64) float64 { return a / b },
-	}
-
-	ints := []intFn{
-		func(a, b int) int { return a + b },
-		func(a, b int) int { return a - b },
-		func(a, b int) int { return a * b },
-		func(a, b int) int { return a / b },
-	}
-
-	var dataOut any
-	if cols[1].DataType() == d.DTfloat {
-		data := make([]float64, n)
-		var fn func(a, b float64) float64
-		switch op {
-		case "add":
-			fn = floats[0]
-		case "subtract":
-			fn = floats[1]
-		case "multiply":
-			fn = floats[2]
-		case "divide":
-			fn = floats[3]
-		}
-
-		for ind := 0; ind < n; ind++ {
-			x := cols[0].Element(ind).(float64)
-			data[ind] = fn(x, cols[1].Element(ind).(float64))
-		}
-
-		dataOut = data
-	}
-
-	if cols[1].DataType() == d.DTint {
-		data := make([]int, n)
-		var fn func(a, b int) int
-		switch op {
-		case "add":
-			fn = ints[0]
-		case "subtract":
-			fn = ints[1]
-		case "multiply":
-			fn = ints[2]
-		case "divide":
-			fn = ints[3]
-		}
-
-		for ind := 0; ind < n; ind++ {
-			x := cols[0].Element(ind).(int)
-			data[ind] = fn(x, cols[1].Element(ind).(int))
-		}
-
-		dataOut = data
-	}
-
-	return returnCol(dataOut)
-
-}
-
-func add(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return arithmetic("add", info, context, inputs...)
-}
-
-func subtract(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return arithmetic("subtract", info, context, inputs...)
-}
-
-func multiply(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return arithmetic("multiply", info, context, inputs...)
-}
-
-func divide(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return arithmetic("divide", info, context, inputs...)
-}
-
-// ***************** Other functions *****************
-
-func abs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "abs", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
-	}
-
-	col := toCol(inputs[0])
-	data := d.MakeSlice(col.DataType(), col.Len(), nil)
-	for ind := 0; ind < col.Len(); ind++ {
-		switch col.DataType() {
-		case d.DTfloat:
-			data.([]float64)[ind] = math.Abs(col.Element(ind).(float64))
-		case d.DTint:
-			x := col.Element(ind).(int)
-			if x < 0 {
-				x = -x
-			}
-
-			data.([]int)[ind] = x
-		default:
-			panic(fmt.Errorf("unexpected error in abs"))
-		}
-	}
-
-	return returnCol(data)
-}
-
-func neg(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "neg", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, Output: []d.DataTypes{d.DTfloat, d.DTint}}
-	}
-
-	col := toCol(inputs[0])
-	data := d.MakeSlice(col.DataType(), col.Len(), nil)
-	for ind := 0; ind < col.Len(); ind++ {
-		switch col.DataType() {
-		case d.DTfloat:
-			data.([]float64)[ind] = -col.Element(ind).(float64)
-		case d.DTint:
-			data.([]int)[ind] = -col.Element(ind).(int)
-
-		}
-	}
-
-	return returnCol(data)
-}
-
-////////////// logical functions
-
-func logic(a, b int, condition string) int {
-	var val int
-	switch condition {
-	case "and":
-		val = 0
-		if a > 0 && b > 0 {
-			val = 1
-		}
-	case "or":
-		val = 0
-		if a > 0 || b > 0 {
-			val = 1
-		}
-	case "not":
-		val = 1
-		if b >= 1 {
-			val = 0
-		}
-	}
-
-	return val
-}
-
-func logical(op string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: op, Inputs: [][]d.DataTypes{{d.DTint, d.DTint}}, Output: []d.DataTypes{d.DTint}}
-	}
-
-	cols, n := parameters(inputs...)
-	data := d.MakeSlice(d.DTint, n, nil)
-	for ind := 0; ind < n; ind++ {
-		data.([]int)[ind] = logic(cols[0].Element(ind).(int), cols[1].Element(ind).(int), op)
-	}
-
-	return returnCol(data)
-}
-
-func and(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return logical("and", info, context, inputs...)
-}
-
-func or(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return logical("or", info, context, inputs...)
-}
-
-func not(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "not", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTint}}
-	}
-
-	cols, n := parameters(inputs...)
-	data := d.MakeSlice(d.DTint, n, nil)
-	for ind := 0; ind < n; ind++ {
-		data.([]int)[ind] = logic(0, cols[0].Element(ind).(int), "not")
-	}
-
-	return returnCol(data)
-}
-
-func ifs(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "if", Inputs: [][]d.DataTypes{{d.DTint, d.DTfloat, d.DTfloat},
-			{d.DTint, d.DTint, d.DTint}, {d.DTint, d.DTdate, d.DTdate}, {d.DTint, d.DTstring, d.DTstring}},
-			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTdate, d.DTstring}}
-	}
-
-	cols, _ := parameters(inputs...)
-
-	var (
-		outCol d.Column
-		e      error
-	)
-	if outCol, e = cols[2].Replace(cols[0], cols[1]); e != nil {
-		return &d.FnReturn{Err: e}
-	}
-
-	return &d.FnReturn{Value: outCol}
-}
-
-// ***************** Functions that compare two columns element-wise *****************
-
-func compare(op, name string, info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint},
-			{d.DTdate, d.DTdate}, {d.DTstring, d.DTstring}}, Output: []d.DataTypes{d.DTfloat, d.DTint,
-			d.DTdate, d.DTstring}}
-	}
-
-	cols, n := parameters(inputs...)
-	data := d.MakeSlice(d.DTint, n, nil)
-
-	for ind := 0; ind < n; ind++ {
-		truth := 0
-
-		var (
-			val bool
-			e   error
-		)
-		if val, e = d.Comparator(cols[0].Element(ind), cols[1].Element(ind), op); e != nil {
-			return &d.FnReturn{Err: e}
-		}
-
-		if val {
-			truth = 1
-		}
-
-		data.([]int)[ind] = truth
-	}
-
-	return returnCol(data)
-}
-
-func eq(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return compare("==", "eq", info, context, inputs...)
-}
-
-func ge(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return compare(">=", "ge", info, context, inputs...)
-}
-
-func gt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return compare(">", "gt", info, context, inputs...)
-}
-
-func le(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return compare("<=", "le", info, context, inputs...)
-}
-
-func lt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return compare("<", "lt", info, context, inputs...)
-}
-
-func ne(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	return compare("!=", "ne", info, context, inputs...)
 }
 
 // ***************** Categorical Operations *****************
@@ -797,4 +643,11 @@ func dotP(x, y []float64) float64 {
 	}
 
 	return p
+}
+
+func bint(x bool) int {
+	if x {
+		return 1
+	}
+	return 0
 }
