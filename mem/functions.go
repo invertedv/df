@@ -3,6 +3,9 @@ package df
 import (
 	"fmt"
 	"math"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"gonum.org/v1/gonum/stat"
@@ -13,22 +16,82 @@ import (
 // NewDFseq - arrayJoin(range(1,n)) or cnt(1,n)
 
 func StandardFunctions() d.Fns {
-	fns := d.Fns{applyCat, dot,
-		mean,
-		sortDF, sum, table, toCat,
-		toDate, toFloat, toInt, toString,
+	fns := d.Fns{applyCat,
+		sortDF, table, toCat,
 		where,
 	}
 	fns = append(fns, comparisons()...)
 	fns = append(fns, mathOps()...)
 	fns = append(fns, logicalOps()...)
 	fns = append(fns, mathFuncs()...)
-	fns = append(fns, OtherVectors()...)
+	fns = append(fns, otherVectors()...)
+	fns = append(fns, castOps()...)
+	fns = append(fns, summaries()...)
 
 	return fns
 }
 
 // ***************** Vector-Valued Functions that return take a single int/float *****************
+
+func castOps() d.Fns {
+	const (
+		bitSizeF = 64
+		bitSizeI = 64
+		base     = 10
+		dtFmt    = "2006-01-02"
+	)
+
+	inType1 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}}
+	inType2 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}}
+	inType3 := [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}}
+	fltOutType := []d.DataTypes{d.DTfloat, d.DTfloat, d.DTfloat}
+	intOutType := []d.DataTypes{d.DTint, d.DTint, d.DTint}
+	strOutType := []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring}
+	dtOutType := []d.DataTypes{d.DTdate, d.DTdate, d.DTdate}
+
+	asDate := func(x string) time.Time {
+		formats := []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006", "Jan 2 2006", "January 2 2006", "2006-01-02"}
+		for _, fmtx := range formats {
+			dt, e := time.Parse(fmtx, strings.ReplaceAll(x, "'", ""))
+			if e == nil {
+				return dt
+			}
+		}
+
+		panic("cannot convert to date")
+	}
+
+	out := d.Fns{
+		vector("float", inType1, fltOutType,
+			func(x ...any) float64 { return x[0].(float64) },
+			func(x ...any) float64 { return float64(x[0].(int)) },
+			func(x ...any) float64 {
+				if xf, e := strconv.ParseFloat(x[0].(string), bitSizeF); e == nil {
+					return xf
+				}
+				panic("cannot convert string to float")
+			}),
+		vector("int", inType1, intOutType,
+			func(x ...any) int { return int(x[0].(float64)) },
+			func(x ...any) int { return x[0].(int) },
+			func(x ...any) int {
+				if xi, e := strconv.ParseInt(x[0].(string), base, bitSizeI); e == nil {
+					return int(xi)
+				}
+				panic("cannot convert string to int")
+			}),
+		vector("string", inType2, strOutType,
+			func(x ...any) string { v := x[0].(float64); return fmt.Sprintf(d.SelectFormat([]float64{v}), v) },
+			func(x ...any) string { return fmt.Sprintf("%d", x[0].(int)) },
+			func(x ...any) string { return x[0].(string) },
+			func(x ...any) string { return x[0].(time.Time).Format(dtFmt) }),
+		vector("date", inType3, dtOutType,
+			func(x ...any) time.Time { return asDate(fmt.Sprintf("%d", x[0].(int))) },
+			func(x ...any) time.Time { return asDate(x[0].(string)) },
+			func(x ...any) time.Time { return x[0].(time.Time) })}
+
+	return out
+}
 
 func mathFuncs() d.Fns {
 	inType1 := [][]d.DataTypes{{d.DTfloat}}
@@ -49,7 +112,8 @@ func mathFuncs() d.Fns {
 		vector("exp", inType1, outType1, func(x ...any) float64 { return math.Exp(x[0].(float64)) }),
 		vector("log", inType1, outType1, func(x ...any) float64 { return math.Log(x[0].(float64)) }),
 		vector("sqrt", inType1, outType1, func(x ...any) float64 { return math.Sqrt(x[0].(float64)) }),
-		vector("abs", inType2, outType2, func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt)}
+		vector("abs", inType2, outType2, func(x ...any) float64 { return math.Abs(x[0].(float64)) }, absInt),
+	}
 
 	return out
 }
@@ -140,7 +204,7 @@ func mathOps() d.Fns {
 	return out
 }
 
-func OtherVectors() d.Fns {
+func otherVectors() d.Fns {
 	outType := []d.DataTypes{d.DTint}
 
 	out := d.Fns{
@@ -261,38 +325,7 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 // ***************** Functions that return a Column *****************
 
-func row(ind int, cols ...*Col) []any {
-	if cols == nil {
-		return []any{ind}
-	}
-
-	outRow := make([]any, len(cols))
-	for j := 0; j < len(cols); j++ {
-		outRow[j] = cols[j].Element(ind)
-	}
-
-	return outRow
-}
-
-func signature(target [][]d.DataTypes, cols ...*Col) int {
-	for j := 0; j < len(target); j++ {
-		ind := j
-		for k := 0; k < len(target[j]); k++ {
-			if target[j][k] != cols[k].DataType() {
-				ind = -1
-				break
-			}
-		}
-
-		if ind >= 0 {
-			return ind
-		}
-	}
-
-	return -1
-}
-
-// ***************** Functions that take 1 float and return a float *****************
+// ***************** handler for functions that return a vector *****************
 func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
 	fn := func(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		if info {
@@ -309,6 +342,7 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 			if ind < 0 {
 				panic("no signature")
 			}
+
 			fnUse = fnx[ind]
 			dtOut = outp[ind]
 		}
@@ -343,110 +377,270 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 	return fn
 }
 
-// ***************** type conversions *****************
-
-func toFloat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTint}, {d.DTfloat}, {d.DTstring}}
-	out := []d.DataTypes{d.DTfloat, d.DTfloat, d.DTfloat}
-
-	return cast("float", in, out, info, context, inputs...)
-}
-
-func toInt(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTint}, {d.DTfloat}, {d.DTstring}, {d.DTcategorical}}
-	out := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-
-	return cast("int", in, out, info, context, inputs...)
-}
-
-func toDate(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTdate}, {d.DTstring}, {d.DTint}}
-	out := []d.DataTypes{d.DTdate, d.DTdate, d.DTdate}
-
-	return cast("date", in, out, info, context, inputs...)
-}
-
-func toString(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTdate}, {d.DTstring}}
-	out := []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring}
-
-	return cast("string", in, out, info, context, inputs...)
-}
-
-func cast(name string, in [][]d.DataTypes, out []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: in, Output: out}
+func row(ind int, cols ...*Col) []any {
+	if cols == nil {
+		return []any{ind}
 	}
 
-	col := toCol(inputs[0])
-	data := d.MakeSlice(out[0], 0, nil)
-	for ind := 0; ind < col.Len(); ind++ {
-		var (
-			x any
-			e error
-		)
-		if x, e = d.ToDataType(col.Element(ind), out[0], true); e != nil {
-			return &d.FnReturn{Err: e}
+	outRow := make([]any, len(cols))
+	for j := 0; j < len(cols); j++ {
+		outRow[j] = cols[j].Element(ind)
+	}
+
+	return outRow
+}
+
+func signature(target [][]d.DataTypes, cols ...*Col) int {
+	for j := 0; j < len(target); j++ {
+		ind := j
+		for k := 0; k < len(target[j]); k++ {
+			if target[j][k] != cols[k].DataType() {
+				ind = -1
+				break
+			}
 		}
 
-		data = d.AppendSlice(data, x, out[0])
+		if ind >= 0 {
+			return ind
+		}
 	}
 
-	return returnCol(data)
+	return -1
+}
+
+// ***************** Functions that take a single column and return a scalar *****************
+
+func scalar(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
+	fn := func(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
+		}
+
+		fnUse := fnx[0]
+		dtOut := outp[0]
+		var col []*Col
+		if inp != nil {
+			col, _ = parameters(inputs...) // this should return inData + vector of row # if no parameters
+			ind := signature(inp, col...)
+			if ind < 0 {
+				panic("no signature")
+			}
+
+			fnUse = fnx[ind]
+			dtOut = outp[ind]
+		}
+
+		data := d.MakeSlice(dtOut, 1, nil)
+
+		var inData []any
+		for ind := 0; ind < len(col); ind++ {
+			inData = append(inData, col[ind].Data())
+		}
+
+		switch {
+		case dtOut == d.DTfloat:
+			fny := fnUse.(func(...any) float64)
+			data.([]float64)[0] = fny(inData...)
+
+		case dtOut == d.DTint:
+			fny := fnUse.(func(...any) int)
+			data.([]int)[0] = fny(inData...)
+		case dtOut == d.DTstring:
+			fny := fnUse.(func(...any) string)
+			data.([]string)[0] = fny(inData...)
+		case dtOut == d.DTdate:
+			fny := fnUse.(func(...any) time.Time)
+			data.([]time.Time)[0] = fny(inData...)
+		}
+
+		return returnCol(data)
+	}
+
+	return fn
+}
+
+func summaries() d.Fns {
+	inType1 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
+	inType2 := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTfloat, d.DTint}}
+	inType3 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}}
+	inType4 := [][]d.DataTypes{{d.DTfloat, d.DTfloat}}
+
+	outType1 := []d.DataTypes{d.DTfloat, d.DTint}
+	outType2 := []d.DataTypes{d.DTfloat, d.DTfloat}
+	outType3 := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate}
+	outType4 := []d.DataTypes{d.DTfloat}
+
+	out := d.Fns{
+		scalar("sum", inType1, outType1,
+			func(x ...any) float64 {
+				s := 0.0
+				for _, xx := range x[0].([]float64) {
+					s += xx
+				}
+				return s
+			},
+			func(x ...any) int {
+				s := 0
+				for _, xx := range x[0].([]int) {
+					s += xx
+				}
+				return s
+			}),
+		scalar("mean", inType1, outType2, meanFlt, meanInt),
+		scalar("var", inType1, outType2, varFlt, varInt),
+		scalar("sdev", inType1, outType2,
+			func(x ...any) float64 { return math.Sqrt(varFlt(x...)) },
+			func(x ...any) float64 { return math.Sqrt(varInt(x...)) }),
+		scalar("median", inType1, outType1,
+			func(x ...any) float64 { return qFlt(0.5, x[0].([]float64)) },
+			func(x ...any) int { return qInt(0.5, x[0].([]int)) }),
+		scalar("quantile", inType2, outType1,
+			func(x ...any) float64 { return qFlt(x[0].([]float64)[0], x[1].([]float64)) },
+			func(x ...any) int { return qInt(x[0].([]float64)[0], x[1].([]int)) }),
+		scalar("min", inType3, outType3,
+			func(x ...any) float64 { return minMaxFlt(x[0].([]float64))[0] },
+			func(x ...any) int { return minMaxInt(x[0].([]int))[0] },
+			func(x ...any) string { return minMaxStr(x[0].([]string))[0] },
+			func(x ...any) time.Time { return minMaxDt(x[0].([]time.Time))[0] },
+		),
+		scalar("max", inType3, outType3,
+			func(x ...any) float64 { return minMaxFlt(x[0].([]float64))[1] },
+			func(x ...any) int { return minMaxInt(x[0].([]int))[1] },
+			func(x ...any) string { return minMaxStr(x[0].([]string))[1] },
+			func(x ...any) time.Time { return minMaxDt(x[0].([]time.Time))[1] },
+		),
+		scalar("dot", inType4, outType4, func(x ...any) float64 { return dotP(x[0].([]float64), x[1].([]float64)) }),
+	}
+
+	return out
+}
+
+// mean
+
+func meanFlt(x ...any) float64 {
+	s, v := 0.0, x[0].([]float64)
+	for _, xx := range v {
+		s += xx
+	}
+	return s / float64(len(v))
+}
+func meanInt(x ...any) float64 {
+	s, v := 0.0, x[0].([]int)
+	for _, xx := range v {
+		s += float64(xx)
+	}
+	return s / float64(len(v))
+}
+
+// variance
+
+func varFlt(x ...any) float64 {
+	mn := meanFlt(x[0])
+	varx, v := 0.0, x[0].([]float64)
+	for _, xx := range v {
+		varx += (xx - mn) * (xx - mn)
+	}
+
+	return varx / float64(len(v)-1)
+}
+func varInt(x ...any) float64 {
+	mn := meanInt(x[0])
+	varx, v := 0.0, x[0].([]int)
+	for _, xx := range v {
+		xxf := float64(xx)
+		varx += (xxf - mn) * (xxf - mn)
+	}
+
+	return varx / float64(len(v)-1)
+}
+
+// quantiles
+
+func qFlt(p float64, x []float64) float64 {
+	if sort.Float64sAreSorted(x) {
+		return stat.Quantile(p, stat.LinInterp, x, nil)
+	}
+
+	vSort := make([]float64, len(x))
+	copy(vSort, x)
+	sort.Float64s(vSort)
+	return stat.Quantile(p, stat.LinInterp, vSort, nil)
+}
+func qInt(p float64, x []int) int {
+	vFlt := make([]float64, len(x))
+	for ind, xx := range x {
+		vFlt[ind] = float64(xx)
+	}
+
+	return int(qFlt(p, vFlt))
+}
+
+// min/max
+
+func minMaxFlt(x []float64) []float64 {
+	minx, maxx := x[0], x[0]
+	for _, xx := range x {
+		if xx > maxx {
+			maxx = xx
+		}
+		if xx < minx {
+			minx = xx
+		}
+	}
+
+	return []float64{minx, maxx}
+}
+func minMaxInt(x []int) []int {
+	minx, maxx := x[0], x[0]
+	for _, xx := range x {
+		if xx > maxx {
+			maxx = xx
+		}
+		if xx < minx {
+			minx = xx
+		}
+	}
+
+	return []int{minx, maxx}
+}
+func minMaxStr(x []string) []string {
+	minx, maxx := x[0], x[0]
+	for _, xx := range x {
+		if xx > maxx {
+			maxx = xx
+		}
+		if xx < minx {
+			minx = xx
+		}
+	}
+
+	return []string{minx, maxx}
+}
+func minMaxDt(x []time.Time) []time.Time {
+	minx, maxx := x[0], x[0]
+	for _, xx := range x {
+		if maxx.Sub(xx).Minutes() < 0 {
+			maxx = xx
+		}
+		if minx.Sub(xx).Minutes() > 0 {
+			minx = xx
+		}
+	}
+
+	return []time.Time{minx, maxx}
+}
+
+// dot product
+func dotP(x, y []float64) float64 {
+	p := 0.0
+	for ind := 0; ind < len(x); ind++ {
+		p += x[ind] * y[ind]
+	}
+
+	return p
 }
 
 type fun func(x ...any) any
-
-// ***************** Functions that return a scalar *****************
-
-// ***************** Functions that take a single column and return a scalar *****************
-func apply(name string, fn fun, in [][]d.DataTypes,
-	out []d.DataTypes, info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: in, Output: out}
-	}
-	var xs []any
-
-	for ind := 0; ind < len(inputs); ind++ {
-		xs = append(xs, inputs[ind].(*Col).Data())
-	}
-
-	return returnCol(fn(xs...))
-}
-
-func dot(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTfloat, d.DTfloat}}
-	out := []d.DataTypes{d.DTfloat}
-	fn := func(x ...any) any {
-		return dotP(x[0].([]float64), x[1].([]float64))
-	}
-
-	return apply("dot", fn, in, out, info, context, inputs...)
-}
-
-func mean(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
-	out := []d.DataTypes{d.DTfloat, d.DTfloat}
-	mn := func(x ...any) any {
-		if xx, ok := x[0].([]float64); ok {
-			return stat.Mean(xx, nil)
-		}
-
-		return MeanInt(x[0].([]int))
-	}
-
-	return apply("mean", mn, in, out, info, context, inputs...)
-}
-
-func sum(info bool, context *d.Context, inputs ...any) *d.FnReturn {
-	in := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
-	out := []d.DataTypes{d.DTfloat, d.DTint}
-	s := func(x ...any) any {
-		return sumC(x[0])
-	}
-
-	return apply("sum", s, in, out, info, context, inputs...)
-}
 
 // ***************** Categorical Operations *****************
 
@@ -598,51 +792,6 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 	}
 
 	return colNames, nil
-}
-
-func sumFloat(xx []float64) float64 {
-	s := 0.0
-	for _, x := range xx {
-		s += x
-	}
-
-	return s
-}
-
-func sumInt(xx []int) int {
-	s := 0
-	for _, x := range xx {
-		s += x
-	}
-
-	return s
-}
-
-func MeanInt(xx []int) float64 {
-	return float64(sumInt(xx)) / float64(len(xx))
-}
-
-func sumC(xx any) any {
-	switch x := xx.(type) {
-	case []float64:
-		return sumFloat(x)
-	case []int:
-		return sumInt(x)
-	default:
-		panic("cannot find sum")
-
-	}
-
-	return nil
-}
-
-func dotP(x, y []float64) float64 {
-	p := 0.0
-	for ind := 0; ind < len(x); ind++ {
-		p += x[ind] * y[ind]
-	}
-
-	return p
 }
 
 func bint(x bool) int {
