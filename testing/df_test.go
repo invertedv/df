@@ -193,8 +193,8 @@ func TestParse_Sort(t *testing.T) {
 		dfx := loadData(which)
 		_, e := dfx.Parse("sort('asc', y, x)")
 		assert.Nil(t, e)
-		//		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data())
-		//	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data())
+		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data())
+		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data())
 	}
 }
 

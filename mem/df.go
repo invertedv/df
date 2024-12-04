@@ -29,6 +29,22 @@ type Col struct {
 	*d.ColCore
 }
 
+func StandardFunctions() d.Fns {
+	fns := d.Fns{applyCat,
+		sortDF, table, toCat,
+		where,
+	}
+	fns = append(fns, comparisons()...)
+	fns = append(fns, mathOps()...)
+	fns = append(fns, logicalOps()...)
+	fns = append(fns, mathFuncs()...)
+	fns = append(fns, otherVectors()...)
+	fns = append(fns, castOps()...)
+	fns = append(fns, summaries()...)
+
+	return fns
+}
+
 // ***************** DF - Create *****************
 
 func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
