@@ -30,16 +30,19 @@ type Col struct {
 }
 
 func StandardFunctions() d.Fns {
-	fns := d.Fns{applyCat,
-		sortDF, table, toCat,
-		where,
-	}
+	// DF returns
+	fns := d.Fns{sortDF, table, where}
+
+	// vector returns
 	fns = append(fns, comparisons()...)
 	fns = append(fns, mathOps()...)
 	fns = append(fns, logicalOps()...)
 	fns = append(fns, mathFuncs()...)
 	fns = append(fns, otherVectors()...)
 	fns = append(fns, castOps()...)
+	fns = append(fns, toCat, applyCat)
+
+	// scalar returns
 	fns = append(fns, summaries()...)
 
 	return fns
