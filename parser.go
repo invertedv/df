@@ -28,7 +28,7 @@ type OpTree struct {
 type operations [][]string
 
 type Parsed struct {
-	which string
+	//	which string
 
 	col Column
 	df  DF
@@ -37,15 +37,17 @@ type Parsed struct {
 func NewParsed(value any, dependencies ...string) *Parsed {
 	p := &Parsed{}
 
+	if value == nil {
+		return p
+	}
+
 	if _, ok := value.(DF); ok {
 		p.df = value.(DF)
-		p.which = "DF"
 		return p
 	}
 
 	value.(Column).Core().dep = dependencies
 	p.col = value.(Column)
-	p.which = "Column"
 	return p
 }
 
@@ -70,7 +72,15 @@ func (p *Parsed) AsColumn() Column {
 }
 
 func (p *Parsed) Which() string {
-	return p.which
+	if p.df != nil {
+		return "DF"
+	}
+
+	if p.col != nil {
+		return "Column"
+	}
+
+	return "nil"
 }
 
 func ParseExpr(expr string, df *DFcore) (*Parsed, error) {

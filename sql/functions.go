@@ -54,7 +54,7 @@ func table(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
-			Output: []d.DataTypes{d.DTdf}, Varying: true}
+			Output: []d.DataTypes{d.DTnil}, Varying: true}
 	}
 
 	ascending := true
@@ -72,11 +72,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Err: e}
 	}
 
-	if ex := context.Self().Sort(ascending, colNames...); ex != nil {
-		return &d.FnReturn{Err: ex}
-	}
-
-	return &d.FnReturn{Value: context.Self()}
+	return &d.FnReturn{Err: context.Self().Sort(ascending, colNames...)}
 }
 
 // getNames returns the names of the input Columns starting with startInd element

@@ -14,15 +14,15 @@ func _() {
 	_ = x[DTint-3]
 	_ = x[DTcategorical-4]
 	_ = x[DTdate-5]
-	_ = x[DTnone-6]
+	_ = x[DTnil-6]
 	_ = x[DTdf-7]
 	_ = x[DTconstant-8]
 	_ = x[DTany-9]
 }
 
-const _DataTypes_name = "DTunknownDTstringDTfloatDTintDTcategoricalDTdateDTnoneDTdfDTconstantDTany"
+const _DataTypes_name = "DTunknownDTstringDTfloatDTintDTcategoricalDTdateDTnilDTdfDTconstantDTany"
 
-var _DataTypes_index = [...]uint8{0, 9, 17, 24, 29, 42, 48, 54, 58, 68, 73}
+var _DataTypes_index = [...]uint8{0, 9, 17, 24, 29, 42, 48, 53, 57, 67, 72}
 
 func (i DataTypes) String() string {
 	if i >= DataTypes(len(_DataTypes_index)-1) {

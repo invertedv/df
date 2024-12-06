@@ -2,7 +2,7 @@ package df
 
 import (
 	"bytes"
-	_ "embed"
+	//	_ "embed"
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"

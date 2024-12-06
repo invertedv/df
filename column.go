@@ -198,7 +198,7 @@ const (
 	DTint
 	DTcategorical
 	DTdate
-	DTnone
+	DTnil
 	DTdf
 	DTconstant
 	DTany // keep as last entry
