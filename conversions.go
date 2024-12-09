@@ -12,9 +12,17 @@ import (
 )
 
 // Any2Float64 attempts to convert inVal to float64.  Returns nil if this fails.
-func Any2Float64(inVal any) (*float64, error) {
-	var outVal float64
+func Any2Float64(inVal any, cast bool) *float64 {
 
+	if v, ok := inVal.(float64); ok {
+		return &v
+	}
+
+	if !cast {
+		return nil
+	}
+
+	var outVal float64
 	switch x := inVal.(type) {
 	case int:
 		outVal = float64(x)
@@ -24,187 +32,276 @@ func Any2Float64(inVal any) (*float64, error) {
 		outVal = float64(x)
 	case float32:
 		outVal = float64(x)
-	case float64:
-		outVal = x
 	case string:
 		xx, e := strconv.ParseFloat(x, 64)
 		if e != nil {
-			return nil, e
+			return nil
 		}
 		outVal = xx
 	default:
-		return nil, fmt.Errorf("cannot convert %v to float64: Any2Float64", inVal)
+		return nil
 	}
 
-	return &outVal, nil
-}
-
-func ToFloat(xIn any, cast bool) (xOut any, err error) {
-	if x, ok := xIn.(float64); ok {
-		return x, nil
-	}
-
-	if !cast {
-		return nil, fmt.Errorf("conversion not allowed")
-	}
-
-	if xOut, err = Any2Float64(xIn); err != nil {
-		return nil, err
-	}
-
-	return *xOut.(*float64), nil
+	return &outVal
 }
 
 // Any2Int attempts to convert inVal to int.  Returns nil if this fails.
-func Any2Int(inVal any) (*int, error) {
+func Any2Int(inVal any, cast bool) *int {
+	if v, ok := inVal.(int); ok {
+		return &v
+	}
+
+	if !cast {
+		return nil
+	}
+
 	var outVal int
 	switch x := inVal.(type) {
 	case int:
 		outVal = x
+	case int8:
+		outVal = int(x)
+	case int16:
+		outVal = int(x)
 	case int32:
 		outVal = int(x)
 	case int64:
 		if x > math.MaxInt || x < math.MinInt {
-			return nil, fmt.Errorf("int64 out of range: Any2Int")
+			return nil
 		}
 
 		outVal = int(x)
 	case float32:
 		if x > math.MaxInt || x < math.MinInt {
-			return nil, fmt.Errorf("float32 out of range: Any2Int")
+			return nil
 		}
 
 		outVal = int(x)
 	case float64:
 		if x > math.MaxInt || x < math.MinInt {
-			return nil, fmt.Errorf("float64 out of range: Any2Int")
+			return nil
 		}
 
 		outVal = int(x)
 	case string:
 		xx, e := strconv.ParseInt(x, 10, 32)
 		if e != nil {
-			return nil, fmt.Errorf("cannot convert %v to int: Any2Int", inVal)
+			return nil
 		}
 		outVal = int(xx)
 	default:
-		return nil, fmt.Errorf("cannot convert %v to int: Any2Int", inVal)
+		return nil
 	}
 
-	return &outVal, nil
-}
-
-func ToInt(xIn any, cast bool) (xOut any, err error) {
-	if x, ok := xIn.(int); ok {
-		return x, nil
-	}
-
-	if !cast {
-		return nil, fmt.Errorf("conversion not allowed")
-	}
-
-	if xOut, err = Any2Int(xIn); err != nil {
-		return nil, err
-	}
-	return *xOut.(*int), nil
+	return &outVal
 }
 
 // Any2Date attempts to convert inVal to a date (time.Time). Returns nil if this fails.
-func Any2Date(inVal any) (*time.Time, error) {
+func Any2Date(inVal any, cast bool) *time.Time {
+	if v, ok := inVal.(time.Time); ok {
+		return &v
+	}
+
+	if !cast {
+		return nil
+	}
+
 	switch x := inVal.(type) {
 	case string:
 		formats := []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006", "Jan 2 2006", "January 2 2006", "2006-01-02"}
 		for _, fmtx := range formats {
 			dt, e := time.Parse(fmtx, strings.ReplaceAll(x, "'", ""))
 			if e == nil {
-				return &dt, nil
+				return &dt
 			}
 		}
-	case time.Time:
-		return &x, nil
 	case int, int32, int64:
-		return Any2Date(fmt.Sprintf("%d", x))
+		return Any2Date(fmt.Sprintf("%d", x), true)
 	}
 
-	return nil, fmt.Errorf("cannot convert %v to date: Any2Date", inVal)
+	return nil
 }
 
-func ToDate(xIn any, cast bool) (xOut any, err error) {
-	if xx, ok := xIn.(time.Time); ok {
-		return xx, nil
+func Any2String(inVal any, cast bool) *string {
+	if v, ok := inVal.(string); ok {
+		return &v
 	}
 
-	if !cast {
-		return nil, fmt.Errorf("conversion not allowed")
-	}
-
-	if xOut, err = Any2Date(xIn); err != nil {
-		return nil, err
-	}
-	return *xOut.(*time.Time), nil
-}
-
-func Any2String(inVal any) string {
+	var outVal string
 	switch x := inVal.(type) {
-	case string:
-		return strings.Trim(x, "'") // for sql
 	case time.Time:
-		return x.Format("2006-01-02")
+		outVal = x.Format("2006-01-02")
 	case float32, float64:
-		return fmt.Sprintf("%v", x)
+		outVal = fmt.Sprintf("%v", x)
 	default:
-		return fmt.Sprintf("%v", x)
+		outVal = fmt.Sprintf("%v", x)
 	}
+
+	return &outVal
 }
 
-func ToString(xIn any, cast bool) (xOut any, err error) {
-	if x, ok := xIn.(string); ok {
-		return x, nil
+func ToStringSlc(xIn any, n int) []string {
+	var xOut []string
+	switch x := xIn.(type) {
+	case []string:
+		xOut = x
+	case string:
+		xOut = []string{x}
+	default:
+		panic(fmt.Errorf("input is not []string or string"))
 	}
 
-	if !cast {
-		return nil, fmt.Errorf("conversion not allowed")
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]string, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
 	}
 
-	return Any2String(xIn), nil
+	return xOut
 }
 
-func ToDataType(x any, dt DataTypes, cast bool) (xout any, err error) {
+func ToDateSlc(xIn any, n int) []time.Time {
+	var xOut []time.Time
+	switch x := xIn.(type) {
+	case []time.Time:
+		xOut = x
+	case time.Time:
+		xOut = []time.Time{x}
+	default:
+		panic(fmt.Errorf("input is not []string or string"))
+	}
+
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]time.Time, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
+	}
+
+	return xOut
+}
+
+func ToFloatSlc(xIn any, n int) []float64 {
+	var xOut []float64
+	switch x := xIn.(type) {
+	case []float64:
+		xOut = x
+	case float64:
+		xOut = []float64{x}
+	case []float32:
+		xOut = make([]float64, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = float64(xf32)
+		}
+	case float32:
+		xOut = []float64{float64(x)}
+	default:
+		panic(fmt.Errorf("cannot convert to slice of float64"))
+	}
+
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]float64, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
+	}
+
+	return xOut
+}
+
+func ToIntSlc(xIn any, n int) []int {
+	var xOut []int
+	switch x := xIn.(type) {
+	case []int:
+		xOut = x
+	case int:
+		xOut = []int{x}
+	case int8:
+		xOut = []int{int(x)}
+	case int16:
+		xOut = []int{int(x)}
+	case int32:
+		xOut = []int{int(x)}
+	case int64:
+		xOut = []int{int(x)}
+	case []int8:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	case []int16:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	case []int32:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	case []int64:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	default:
+		panic(fmt.Errorf("cannot convert to slice of float64"))
+	}
+
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]int, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
+	}
+
+	return xOut
+}
+
+func ToDataType(x any, dt DataTypes, cast bool) any {
+	var xx any
 	switch dt {
 	case DTfloat:
-		return ToFloat(x, cast)
+		if v := Any2Float64(x, cast); v != nil {
+			xx = *v
+		}
 	case DTint:
-		return ToInt(x, cast)
+		if v := Any2Int(x, cast); v != nil {
+			xx = *v
+		}
 	case DTdate:
-		return ToDate(x, cast)
+		if v := Any2Date(x, cast); v != nil {
+			xx = *v
+		}
 	case DTstring:
-		return ToString(x, cast)
+		xx = *Any2String(x, cast)
 	case DTany:
-		return x, nil
-	default:
-		return nil, fmt.Errorf("type not supported in ToDataType")
+		xx = x
 	}
+
+	return xx
 }
 
 func BestType(xIn any) (xOut any, dt DataTypes, err error) {
 	// HERE added 11/2 WHY wasn't this here?
-	if x, e := ToDataType(xIn, DTdate, true); e == nil {
+	if x := ToDataType(xIn, DTdate, true); x != nil {
 		return x, DTdate, nil
 	}
 
-	if x, e := ToDataType(xIn, DTint, true); e == nil {
+	if x := ToDataType(xIn, DTint, true); x != nil {
 		return x, DTint, nil
 	}
 
-	if x, e := ToDataType(xIn, DTfloat, true); e == nil {
+	if x := ToDataType(xIn, DTfloat, true); x != nil {
 		return x, DTfloat, nil
 	}
 
-	if x, e := ToDataType(xIn, DTstring, true); e == nil {
-		return x, DTstring, nil
-	}
-
-	return nil, DTunknown, fmt.Errorf("cannot convert to BestType")
+	return ToDataType(xIn, DTstring, true), DTstring, nil
 }
 
 func WhatAmI(val any) DataTypes {
@@ -219,138 +316,6 @@ func WhatAmI(val any) DataTypes {
 		return DTdate
 	default:
 		return DTunknown
-	}
-}
-
-func MakeSlice(dt DataTypes, n int, initVal any) any {
-	switch dt {
-	case DTfloat:
-		xout := make([]float64, n)
-		if initVal == nil {
-			return xout
-		}
-
-		for ind := 0; ind < n; ind++ {
-			xout[ind] = initVal.(float64)
-		}
-
-		return xout
-	case DTint, DTcategorical:
-		xout := make([]int, n)
-		if initVal == nil {
-			return xout
-		}
-
-		for ind := 0; ind < n; ind++ {
-			xout[ind] = initVal.(int)
-		}
-
-		return xout
-	case DTdate:
-		xout := make([]time.Time, n)
-		if initVal == nil {
-			return xout
-		}
-
-		for ind := 0; ind < n; ind++ {
-			xout[ind] = initVal.(time.Time)
-		}
-
-		return xout
-	case DTstring:
-		xout := make([]string, n)
-		if initVal == nil {
-			return xout
-		}
-
-		for ind := 0; ind < n; ind++ {
-			xout[ind] = initVal.(string)
-		}
-
-		return xout
-	default:
-		return nil
-	}
-}
-
-func AppendSlice(x, xadd any, dt DataTypes) any {
-	switch dt {
-	case DTfloat:
-		x = append(x.([]float64), xadd.(float64))
-	case DTint, DTcategorical:
-		x = append(x.([]int), xadd.(int))
-	case DTdate:
-		x = append(x.([]time.Time), xadd.(time.Time))
-	case DTstring:
-		x = append(x.([]string), xadd.(string))
-	default:
-		return nil
-	}
-
-	return x
-}
-
-func GT(x, y any) (bool, error) {
-	var (
-		yy any
-		e  error
-	)
-
-	switch dx := x.(type) {
-	case float64:
-		if yy, e = ToFloat(y, true); e != nil {
-			return false, e
-		}
-
-		return dx > yy.(float64), nil
-	case int:
-		if yy, e = ToInt(y, true); e != nil {
-			return false, e
-		}
-
-		return dx > yy.(int), nil
-	case string:
-		if yy, e = ToString(y, true); e != nil {
-			return false, e
-		}
-
-		return dx > yy.(string), nil
-	case time.Time:
-		if yy, e = ToDate(y, true); e != nil {
-			return false, e
-		}
-
-		return dx.Sub(yy.(time.Time)).Minutes() > 0, nil
-	default:
-		return false, fmt.Errorf("unknown type in gt")
-	}
-}
-
-func Comparator(x, y any, op string) (bool, error) {
-	a, ea := GT(x, y)
-	if ea != nil {
-		return false, ea
-	}
-	b, eb := GT(y, x)
-	if eb != nil {
-		return false, eb
-	}
-
-	switch op {
-	case ">":
-		return a, nil
-	case "<":
-		return b, nil
-	case "==":
-		return !a && !b, nil
-	case ">=":
-		return !b, nil
-	case "<=":
-		return !a, nil
-	case "!=":
-		return a || b, nil
-	default:
-		return false, fmt.Errorf("invalid compare operator: %s", op)
 	}
 }
 

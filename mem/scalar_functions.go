@@ -29,7 +29,7 @@ func scalar(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 			dtOut = outp[ind]
 		}
 
-		data := d.MakeSlice(dtOut, 1, nil)
+		data := d.MakeVector(dtOut, 1)
 
 		var inData []any
 		for ind := 0; ind < len(col); ind++ {
@@ -39,16 +39,16 @@ func scalar(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 		switch {
 		case dtOut == d.DTfloat:
 			fny := fnUse.(func(...any) float64)
-			data.([]float64)[0] = fny(inData...)
+			data.SetFloat(fny(inData...), 0)
 		case dtOut == d.DTint:
 			fny := fnUse.(func(...any) int)
-			data.([]int)[0] = fny(inData...)
+			data.SetInt(fny(inData...), 0)
 		case dtOut == d.DTstring:
 			fny := fnUse.(func(...any) string)
-			data.([]string)[0] = fny(inData...)
+			data.SetString(fny(inData...), 0)
 		case dtOut == d.DTdate:
 			fny := fnUse.(func(...any) time.Time)
-			data.([]time.Time)[0] = fny(inData...)
+			data.SetDate(fny(inData...), 0)
 		}
 
 		return returnCol(data)

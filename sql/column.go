@@ -181,9 +181,9 @@ func (c *Col) String() string {
 			if k == nil {
 				k = "Other"
 			}
-			x, _ := d.ToString(k, true)
+			x := *d.Any2String(k, true)
 
-			keys = append(keys, x.(string))
+			keys = append(keys, x)
 			vals = append(vals, v)
 		}
 

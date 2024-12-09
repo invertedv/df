@@ -33,27 +33,27 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 			dtOut = outp[ind]
 		}
 
-		data := d.MakeSlice(dtOut, n, nil)
+		data := d.MakeVector(dtOut, n)
 		switch {
 		case dtOut == d.DTfloat:
 			fny := fnUse.(func(...any) float64)
 			for ind := 0; ind < n; ind++ {
-				data.([]float64)[ind] = fny(row(ind, col...)...)
+				data.SetFloat(fny(row(ind, col...)...), ind)
 			}
 		case dtOut == d.DTint:
 			fny := fnUse.(func(...any) int)
 			for ind := 0; ind < n; ind++ {
-				data.([]int)[ind] = fny(row(ind, col...)...)
+				data.SetInt(fny(row(ind, col...)...), ind)
 			}
 		case dtOut == d.DTstring:
 			fny := fnUse.(func(...any) string)
 			for ind := 0; ind < n; ind++ {
-				data.([]string)[ind] = fny(row(ind, col...)...)
+				data.SetString(fny(row(ind, col...)...), ind)
 			}
 		case dtOut == d.DTdate:
 			fny := fnUse.(func(...any) time.Time)
 			for ind := 0; ind < n; ind++ {
-				data.([]time.Time)[ind] = fny(row(ind, col...)...)
+				data.SetDate(fny(row(ind, col...)...), ind)
 			}
 		}
 

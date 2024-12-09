@@ -136,8 +136,8 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr st
 
 	if d.dialect == ch {
 		// is this a constant?
-		if x, ex := ToDate(fieldName, true); ex == nil {
-			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
+		if x := Any2Date(fieldName, true); x != nil {
+			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.Format("2006-01-02"), dbType)
 			return sqlStr, nil
 		}
 
@@ -360,7 +360,7 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 	return nil
 }
 
-func (d *Dialect) Load(qry string) ([]any, error) {
+func (d *Dialect) Load(qry string) ([]*Vector, error) {
 	var (
 		e     error
 		names []string
@@ -388,9 +388,9 @@ func (d *Dialect) Load(qry string) ([]any, error) {
 		return nil, e
 	}
 
-	var memData []any
+	var memData []*Vector
 	for ind := 0; ind < len(types); ind++ {
-		memData = append(memData, MakeSlice(types[ind], n, nil))
+		memData = append(memData, MakeVector(types[ind], n))
 	}
 
 	xind := 0
@@ -403,14 +403,14 @@ func (d *Dialect) Load(qry string) ([]any, error) {
 		for ind := 0; ind < len(types); ind++ {
 			val := castKind(ry[ind], kinds[ind])
 			switch types[ind] {
-			case DTint:
-				memData[ind].([]int)[xind] = val.(int)
 			case DTfloat:
-				memData[ind].([]float64)[xind] = val.(float64)
+				memData[ind].SetFloat(val.(float64), xind)
+			case DTint:
+				memData[ind].SetInt(val.(int), xind)
 			case DTstring:
-				memData[ind].([]string)[xind] = val.(string)
+				memData[ind].SetString(val.(string), xind)
 			case DTdate:
-				memData[ind].([]time.Time)[xind] = val.(time.Time)
+				memData[ind].SetDate(val.(time.Time), xind)
 			}
 		}
 
@@ -423,7 +423,7 @@ func (d *Dialect) Load(qry string) ([]any, error) {
 			continue
 		}
 
-		col := memData[c].([]time.Time)
+		col := memData[c].AsDate()
 		for rx := 0; rx < n; rx++ {
 			col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
 		}
@@ -579,7 +579,7 @@ func (d *Dialect) SetBufSize(mb int) {
 // ToString returns a string version of val that can be placed into SQL
 func (d *Dialect) ToString(val any) string {
 	if d.DialectName() == ch {
-		x := Any2String(val)
+		x := *Any2String(val, true)
 		if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
 			x = fmt.Sprintf("'%s'", x)
 		}

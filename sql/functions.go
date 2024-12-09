@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"strings"
 
 	d "github.com/invertedv/df"
 )
@@ -59,7 +60,7 @@ func sortDF(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 
 	ascending := true
 	// Any2String will strip out the single quotes
-	if d.Any2String(toCol(inputs[0]).SQL()) == "desc" {
+	if strings.ToLower(*d.Any2String(toCol(inputs[0]).SQL(), false)) == "desc" {
 		ascending = false
 	}
 
@@ -120,11 +121,8 @@ func toCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 	if len(inputs) > 1 {
 		f := toCol(inputs[1]).SQL()
 
-		var (
-			ex error
-			fa any
-		)
-		if fa, ex = d.ToDataType(f, d.DTint, true); ex != nil {
+		var fa any
+		if fa = d.ToDataType(f, d.DTint, true); fa == nil {
 			return &d.FnReturn{Err: fmt.Errorf("cannot interpret fuzz as integer in cat")}
 		}
 
@@ -161,17 +159,13 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
 	}
 
-	var (
-		defaultValue any
-		e            error
-	)
-
 	if newVal.DataType() != newData.DataType() {
 		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value to correct type in applyCat")}
 	}
 
-	if defaultValue, e = d.ToDataType(newVal.SQL(), newVal.DataType(), true); e != nil {
-		return &d.FnReturn{Err: e}
+	var defaultValue any
+	if defaultValue = d.ToDataType(newVal.SQL(), newVal.DataType(), true); defaultValue == nil {
+		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value")}
 	}
 
 	var levels []any
@@ -179,7 +173,10 @@ func applyCat(info bool, context *d.Context, inputs ...any) *d.FnReturn {
 		levels = append(levels, k)
 	}
 
-	var outCol d.Column
+	var (
+		outCol d.Column
+		e      error
+	)
 	if outCol, e = context.Self().(*DF).Categorical(newData.Name(), oldData.CategoryMap(), 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
@@ -383,7 +380,7 @@ func toCol(x any) *Col {
 	if s, ok := x.(*d.Scalar); ok {
 		var c *Col
 
-		fld := d.Any2String(s.Data())
+		fld := *d.Any2String(s.Data(), true)
 		if s.DataType() == d.DTstring {
 			fld = s.Context().Dialect().ToString(fld)
 		}

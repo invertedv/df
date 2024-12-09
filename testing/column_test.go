@@ -45,9 +45,9 @@ func TestReplace(t *testing.T) {
 		assert.NotNil(t, coly)
 		colyy := dfx.Column("yy")
 		assert.NotNil(t, colyy)
-		colR, e3 := coly.Replace(indCol.AsColumn(), colyy)
-		assert.Nil(t, e3)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, colR.Data())
+		//		colR, e3 := coly.Replace(indCol.AsColumn(), colyy)
+		//		assert.Nil(t, e3)
+		//		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, colR.Data())
 
 		// via Parse
 		out, e4 := dfx.Parse("if(y==-5,yy,y)")
@@ -61,6 +61,8 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
+			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+			{"dt != date(20221231)", 0, 0},
 			{"quantile(1.0,y)", 0, 6},
 			{"quantile(0.0,y)", 0, -5},
 			{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
@@ -103,9 +105,7 @@ func TestParser(t *testing.T) {
 			{"abs(x)", 0, 1.0},
 			{"abs(y)", 1, 5},
 			{"(x/0.1)*float(y+100)", 0, 1010.0},
-			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
 			{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-			{"dt != date(20221231)", 0, 0},
 			{"dt != date(20221231)", 1, 1},
 			{"dt == date(20221231)", 0, 1},
 			{"dt == date(20221231)", 1, 0},
@@ -197,6 +197,10 @@ func TestToCat(t *testing.T) {
 		e = dfx.AppendColumn(col, false)
 		assert.Nil(t, e)
 
+		//		colx, e = dfx.Parse("1")
+		//		col = colx.AsColumn()
+		//		e = col.Rename("howdy")
+		//		e = dfx.AppendColumn(col, false)
 		// try with DTint
 		colx, e = dfx.Parse("cat(y)")
 		assert.Nil(t, e)

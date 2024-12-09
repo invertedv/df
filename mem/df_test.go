@@ -449,7 +449,7 @@ func TestAppendRows(t *testing.T) {
 	x, _ := NewCol("x", []float64{1, -2, 3, 0, 2, 3})
 	y, _ := NewCol("x", []float64{1, 2, 3})
 
-	z, e := AppendRows(x, y, "test")
+	z, e := appendRows(x, y)
 	assert.Nil(t, e)
 	assert.Equal(t, float64(-2), z.Element(1))
 	assert.Equal(t, float64(3), z.Element(8))
@@ -457,7 +457,7 @@ func TestAppendRows(t *testing.T) {
 	x, _ = NewCol("x", []string{"a", "b", "c"})
 	y, _ = NewCol("x", []string{"d", "e", "f"})
 
-	z, e = AppendRows(x, y, "test")
+	z, e = appendRows(x, y)
 	assert.Nil(t, e)
 	assert.Equal(t, "b", z.Element(1))
 	assert.Equal(t, "e", z.Element(4))

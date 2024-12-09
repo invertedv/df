@@ -2,12 +2,16 @@ package df
 
 import (
 	"fmt"
-	"sort"
-	"time"
-
 	d "github.com/invertedv/df"
 	"gonum.org/v1/gonum/stat"
+	"sort"
 )
+
+type Col struct {
+	*d.Vector
+
+	*d.ColCore
+}
 
 // ***************** Col - Create *****************
 
@@ -16,62 +20,34 @@ func NewCol(name string, data any) (*Col, error) {
 		return nil, e
 	}
 
+	if v, ok := data.(*d.Vector); ok {
+		return &Col{
+			Vector:  v,
+			ColCore: d.NewColCore(v.VectorType(), d.ColName(name)),
+		}, nil
+	}
+
 	var dt d.DataTypes
 	if dt = d.WhatAmI(data); dt == d.DTunknown {
 		return nil, fmt.Errorf("unsupported data type in NewCol")
 	}
 
-	var t any
-	switch dx := data.(type) {
-	case float64:
-		t = []float64{dx}
-	case int:
-		t = []int{dx}
-	case time.Time:
-		t = []time.Time{dx}
-	case string:
-		t = []string{dx}
-	default:
-		t = data
-	}
-
-	c := &Col{
-		data:    t,
+	return &Col{
+		Vector:  d.NewVector(data, 0),
 		ColCore: d.NewColCore(dt, d.ColName(name)),
-	}
-
-	return c, nil
+	}, nil
 }
 
 // ***************** Col - Methods *****************
 
 func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
 	panicer(col2)
-	return AppendRows(c, col2, c.Name())
+	return appendRows(c, col2) // NOTE: , c.Name())
 }
 
 func (c *Col) Copy() d.Column {
-	var copiedData any
-	n := c.Len()
-	switch c.DataType() {
-	case d.DTfloat:
-		copiedData = make([]float64, n)
-		copy(copiedData.([]float64), c.data.([]float64))
-	case d.DTint:
-		copiedData = make([]int, n)
-		copy(copiedData.([]int), c.data.([]int))
-	case d.DTstring:
-		copiedData = make([]string, n)
-		copy(copiedData.([]string), c.data.([]string))
-	case d.DTdate:
-		copiedData = make([]time.Time, n)
-		copy(copiedData.([]time.Time), c.data.([]time.Time))
-	default:
-		panic(fmt.Errorf("unsupported data type in Copy"))
-	}
-
 	col := &Col{
-		data:    copiedData,
+		Vector:  c.Vector.Copy(),
 		ColCore: c.Core().Copy(),
 	}
 
@@ -82,109 +58,44 @@ func (c *Col) Core() *d.ColCore {
 	return c.ColCore
 }
 
-func (c *Col) Data() any {
-	return c.data
-}
-
-func (c *Col) Element(row int) any {
-	if c.Len() == 1 {
-		row = 0
-	}
-
-	switch c.DataType() {
-	case d.DTfloat:
-		return c.Data().([]float64)[row]
-	case d.DTint, d.DTcategorical:
-		return c.Data().([]int)[row]
-	case d.DTstring:
-		return c.Data().([]string)[row]
-	case d.DTdate:
-		return c.Data().([]time.Time)[row]
-	default:
-		panic(fmt.Errorf("unsupported data type in Element"))
-	}
-}
-
-func (c *Col) Greater(i, j int) bool {
-	switch c.DataType() {
-	case d.DTfloat:
-		return c.data.([]float64)[i] >= c.data.([]float64)[j]
-	case d.DTint:
-		return c.data.([]int)[i] >= c.data.([]int)[j]
-	case d.DTstring:
-		return c.data.([]string)[i] >= c.data.([]string)[j]
-	case d.DTdate:
-		return !c.data.([]time.Time)[i].Before(c.data.([]time.Time)[j])
-	default:
-		panic(fmt.Errorf("unsupported data type in Less"))
-	}
-}
-
-func (c *Col) Len() int {
-	switch c.DataType() {
-	case d.DTfloat:
-		return len(c.Data().([]float64))
-	case d.DTint, d.DTcategorical:
-		return len(c.Data().([]int))
-	case d.DTstring:
-		return len(c.Data().([]string))
-	case d.DTdate:
-		return len(c.Data().([]time.Time))
-	default:
-		return -1
-	}
-}
-
-func (c *Col) Less(i, j int) bool {
-	switch c.DataType() {
-	case d.DTfloat:
-		return c.data.([]float64)[i] <= c.data.([]float64)[j]
-	case d.DTint:
-		return c.data.([]int)[i] <= c.data.([]int)[j]
-	case d.DTstring:
-		return c.data.([]string)[i] <= c.data.([]string)[j]
-	case d.DTdate:
-		return !c.data.([]time.Time)[i].After(c.data.([]time.Time)[j])
-	default:
-		panic(fmt.Errorf("unsupported data type in Less"))
-	}
-}
-
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
-	if c.DataType() != replacement.DataType() {
-		return nil, fmt.Errorf("incompatible columns in Replace")
-	}
-
-	n := d.MaxInt(c.Len(), indicator.Len(), replacement.Len())
-	if (c.Len() > 1 && c.Len() != n) || (indicator.Len() > 1 && indicator.Len() != n) ||
-		(replacement.Len() > 1 && replacement.Len() != n) {
-		return nil, fmt.Errorf("columns not same length in Replacef")
-	}
-
-	if indicator.DataType() != d.DTint {
-		return nil, fmt.Errorf("indicator not type DTint in Replace")
-	}
-
-	data := d.MakeSlice(c.DataType(), 0, nil)
-
-	for ind := 0; ind < n; ind++ {
-		x := c.Element(ind)
-		if indicator.(*Col).Element(ind).(int) > 0 {
-			x = replacement.(*Col).Element(ind)
+	panic("not implemented")
+	/*
+		if c.DataType() != replacement.DataType() {
+			return nil, fmt.Errorf("incompatible columns in Replace")
 		}
 
-		data = d.AppendSlice(data, x, c.DataType())
-	}
-	var (
-		outCol *Col
-		e      error
-	)
-	if outCol, e = NewCol("", data); e != nil {
-		return nil, e
-	}
+		n := d.MaxInt(c.Len(), indicator.Len(), replacement.Len())
+		if (c.Len() > 1 && c.Len() != n) || (indicator.Len() > 1 && indicator.Len() != n) ||
+			(replacement.Len() > 1 && replacement.Len() != n) {
+			return nil, fmt.Errorf("columns not same length in Replacef")
+		}
 
-	return outCol, nil
+		if indicator.DataType() != d.DTint {
+			return nil, fmt.Errorf("indicator not type DTint in Replace")
+		}
+
+		data := d.MakeSlice(c.DataType(), 0, nil)
+
+		for ind := 0; ind < n; ind++ {
+			x := c.Element(ind)
+			if indicator.(*Col).Element(ind).(int) > 0 {
+				x = replacement.(*Col).Element(ind)
+			}
+
+			data = d.AppendSlice(data, x, c.DataType())
+		}
+		var (
+			outCol *Col
+			e      error
+		)
+		if outCol, e = NewCol("", data); e != nil {
+			return nil, e
+		}
+
+		return outCol, nil
+	*/
 }
 
 func (c *Col) String() string {
@@ -201,9 +112,9 @@ func (c *Col) String() string {
 			if k == nil {
 				k = "Other"
 			}
-			x, _ := d.ToString(k, true)
+			x := *d.Any2String(k, true)
 
-			keys = append(keys, x.(string))
+			keys = append(keys, x)
 			vals = append(vals, v)
 		}
 
@@ -223,7 +134,7 @@ func (c *Col) String() string {
 	}
 
 	x := make([]float64, c.Len())
-	copy(x, c.Data().([]float64))
+	copy(x, c.AsFloat())
 	sort.Float64s(x)
 	minx := x[0]
 	maxx := x[len(x)-1]
@@ -241,32 +152,18 @@ func (c *Col) String() string {
 
 // ***************** Helpers *****************
 
-func AppendRows(col1, col2 d.Column, name string) (*Col, error) {
+func appendRows(col1, col2 d.Column) (*Col, error) {
 	if col1.DataType() != col2.DataType() {
 		return nil, fmt.Errorf("append columns must have same type, got %s and %s for %s and %s",
 			col1.DataType(), col2.DataType(), col1.Name(), col2.Name())
 	}
 
-	var data any
-	switch col1.DataType() {
-	case d.DTfloat:
-		data = append(col1.Data().([]float64), col2.Data().([]float64)...)
-	case d.DTint:
-		data = append(col1.Data().([]int), col2.Data().([]int)...)
-	case d.DTstring:
-		data = append(col1.Data().([]string), col2.Data().([]string)...)
-	case d.DTdate:
-		data = append(col1.Data().([]time.Time), col2.Data().([]time.Time)...)
-	default:
-		return nil, fmt.Errorf("unsupported data type in AppendRows")
-	}
+	v := col1.(*Col).Vector.Copy()
+	v.AppendVector(col2.(*Col).Vector)
 
-	var (
-		col *Col
-		e   error
-	)
-	if col, e = NewCol(name, data); e != nil {
-		return nil, e
+	col := &Col{
+		Vector:  v,
+		ColCore: col1.Core().Copy(),
 	}
 
 	return col, nil

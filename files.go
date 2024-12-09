@@ -146,11 +146,11 @@ func (f *Files) detect() error {
 	return f.Open(f.fileName, f.FieldNames(), f.FieldTypes(), f.FieldWidths())
 }
 
-func (f *Files) Load() ([]any, error) {
+func (f *Files) Load() ([]*Vector, error) {
 	defer func() { _ = f.Close() }()
-	var memData []any
+	var memData []*Vector
 	for ind := 0; ind < len(f.FieldNames()); ind++ {
-		memData = append(memData, MakeSlice(f.FieldTypes()[ind], 0, nil))
+		memData = append(memData, MakeVector(f.FieldTypes()[ind], 0))
 	}
 
 	for {
@@ -169,7 +169,7 @@ func (f *Files) Load() ([]any, error) {
 
 		r := row.([]any)
 		for ind := 0; ind < len(r); ind++ {
-			memData[ind] = AppendSlice(memData[ind], r[ind], f.FieldTypes()[ind])
+			memData[ind].Append(r[ind])
 		}
 	}
 
@@ -259,22 +259,20 @@ func (f *Files) Read() (any, error) {
 	var out []any
 
 	for ind := 0; ind < len(f.FieldNames()); ind++ {
-		var (
-			x any
-			e error
-		)
+		var x any
 		fld := vals[ind]
 
 		dt := f.FieldTypes()[ind]
 		v := f.smartTrim(fld, dt)
-		if x, e = ToDataType(v, dt, true); e != nil {
+		if x = ToDataType(v, dt, true); x == nil {
 			switch f.Strict {
 			case true:
-				return nil, e
+				return nil, fmt.Errorf("conversion failed in Files.Read")
 			case false:
 				x = f.defaultValue(f.FieldTypes()[ind])
 			}
 		}
+
 		out = append(out, x)
 	}
 

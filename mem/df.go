@@ -9,7 +9,6 @@ import (
 	"io"
 	"maps"
 	"sort"
-	"time"
 
 	d "github.com/invertedv/df"
 )
@@ -21,12 +20,6 @@ type DF struct {
 	row         int
 
 	*d.DFcore
-}
-
-type Col struct {
-	data any
-
-	*d.ColCore
 }
 
 func StandardFunctions() d.Fns {
@@ -118,7 +111,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 		return nil, e
 	}
 
-	var memData []any
+	var memData []*d.Vector
 	if memData, e = dlct.Load(qry); e != nil {
 		return nil, e
 	}
@@ -154,7 +147,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 
 func FileLoad(f *d.Files) (*DF, error) {
 	var (
-		memData []any
+		memData []*d.Vector
 		e       error
 	)
 	if memData, e = f.Load(); e != nil {
@@ -200,18 +193,7 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 
 	colx := col.(*Col)
 	if colx.Len() == 1 {
-		var e error
-		dt := col.DataType()
-
-		xs := d.MakeSlice(col.DataType(), 0, nil)
-		val := colx.Element(0)
-		for ind := 0; ind < f.RowCount(); ind++ {
-			xs = d.AppendSlice(xs, val, dt)
-		}
-
-		if colx, e = NewCol(col.Name(), xs); e != nil {
-			return e
-		}
+		colx.Vector = d.NewVector(colx.Element(0), f.RowCount())
 	}
 
 	if ex := f.DFcore.AppendColumn(colx, replace); ex != nil {
@@ -305,7 +287,8 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		cnts[lvl] += cnt
 	}
 
-	data := d.MakeSlice(d.DTint, 0, nil)
+	vec := d.MakeVector(d.DTint, 0)
+
 	for ind := 0; ind < col.Len(); ind++ {
 		inVal := col.(*Col).Element(ind)
 
@@ -318,7 +301,8 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 			mapVal = toMap[defaultVal]
 		}
 
-		data = d.AppendSlice(data, mapVal, d.DTint)
+		vec.Append(mapVal)
+
 	}
 
 	var (
@@ -326,7 +310,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		e      error
 	)
 
-	if outCol, e = NewCol("", data); e != nil {
+	if outCol, e = NewCol("", vec); e != nil {
 		return nil, e
 	}
 
@@ -383,7 +367,7 @@ func (f *DF) Less(i, j int) bool {
 			less = f.by[ind].Less(i, j)
 
 		} else {
-			less = f.by[ind].Greater(i, j)
+			less = f.by[ind].Less(j, i)
 		}
 
 		// if greater, it's false
@@ -444,19 +428,20 @@ func (f *DF) String() string {
 
 func (f *DF) Swap(i, j int) {
 	for h := f.Next(true); h != nil; h = f.Next(false) {
-		data := h.(*Col).data
-		switch h.DataType() {
-		case d.DTfloat:
-			data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
-		case d.DTint:
-			data.([]int)[i], data.([]int)[j] = data.([]int)[j], data.([]int)[i]
-		case d.DTstring:
-			data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
-		case d.DTdate:
-			data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
-		default:
-			panic(fmt.Errorf("unsupported data type in Swap"))
-		}
+		h.(*Col).Swap(i, j)
+		/*		data := h.(*Col).data
+				switch h.DataType() {
+				case d.DTfloat:
+					data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
+				case d.DTint:
+					data.([]int)[i], data.([]int)[j] = data.([]int)[j], data.([]int)[i]
+				case d.DTstring:
+					data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
+				case d.DTdate:
+					data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
+				default:
+					panic(fmt.Errorf("unsupported data type in Swap"))
+				}*/
 	}
 }
 
@@ -511,7 +496,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	}
 
 	rate = ret.Value().(d.Column)
-	rate.Rename("rate")
+	_ = rate.Rename("rate")
 
 	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
 		return nil, ex1
@@ -531,25 +516,14 @@ func (f *DF) Where(indicator d.Column) (d.DF, error) {
 	}
 
 	dfNew := f.Copy()
+	i1 := indicator.(*Col)
 
-	var n int
 	for col := dfNew.Next(true); col != nil; col = dfNew.Next(false) {
 		cx := col.(*Col)
-		n = 0
-		newData := d.MakeSlice(cx.DataType(), 0, nil)
-
-		for ind := 0; ind < cx.Len(); ind++ {
-			if indicator.Data().([]int)[ind] > 0 {
-				n++
-				newData = d.AppendSlice(newData, cx.Element(ind), cx.DataType())
-			}
-		}
-
-		if n == 0 {
+		cx.Vector = cx.Where(i1.Vector)
+		if cx.Len() == 0 {
 			return nil, fmt.Errorf("no data after applying where")
 		}
-
-		cx.data = newData
 	}
 
 	return dfNew, nil
@@ -583,14 +557,14 @@ func makeTable(cols ...*Col) []*Col {
 	h := fnv.New64()
 
 	// scan the rows to build the table
-	for row := 0; row < cols[0].Len(); row++ {
+	for rowNum := 0; rowNum < cols[0].Len(); rowNum++ {
 		// str is the byte array that is hashed, its length is 8 times the # of columns
 		var str []byte
 
 		// rowVal holds the values of the columns for that row of the table
 		var rowVal []any
 		for c := 0; c < len(cols); c++ {
-			val := cols[c].Element(row)
+			val := cols[c].Element(rowNum)
 			rowVal = append(rowVal, val)
 			var (
 				cx int64
@@ -625,41 +599,42 @@ func makeTable(cols ...*Col) []*Col {
 		h.Reset()
 	}
 
-	// build the table in d.DF format
-	var outData []any
+	var outVecs []*d.Vector
 	for c := 0; c < len(cols); c++ {
-		outData = append(outData, d.MakeSlice(cols[c].DataType(), 0, nil))
+		outVecs = append(outVecs, d.MakeVector(cols[c].DataType(), 0))
 	}
 
-	outData = append(outData, d.MakeSlice(d.DTint, 0, nil))
+	// counts
+	outVecs = append(outVecs, d.MakeVector(d.DTint, 0))
 
 	for _, v := range tabMap {
-		for c := 0; c < len(v.row); c++ {
-			outData[c] = d.AppendSlice(outData[c], v.row[c], cols[c].DataType())
+		for c := 0; c < len(cols); c++ {
+			outVecs[c].Append(v.row[c])
 		}
 
-		outData[len(v.row)] = d.AppendSlice(outData[len(v.row)], v.count, d.DTint)
+		outVecs[len(outVecs)-1].Append(v.count)
 	}
 
-	// make into columns
-	var outCols []*Col
 	var (
-		mCol *Col
-		e    error
+		outCols []*Col
 	)
-	for c := 0; c < len(cols); c++ {
-		if mCol, e = NewCol(cols[c].Name(), outData[c]); e != nil {
+
+	for c := 0; c <= len(cols); c++ {
+		var (
+			col *Col
+			e   error
+		)
+		name := "count"
+		if c < len(cols) {
+			name = cols[c].Name()
+		}
+
+		if col, e = NewCol(name, outVecs[c]); e != nil {
 			panic(e)
 		}
 
-		outCols = append(outCols, mCol)
+		outCols = append(outCols, col)
 	}
-
-	if mCol, e = NewCol("count", outData[len(cols)]); e != nil {
-		panic(e)
-	}
-
-	outCols = append(outCols, mCol)
 
 	return outCols
 }
