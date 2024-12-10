@@ -176,6 +176,19 @@ func (v *Vector) Element(indx int) any {
 	}
 }
 
+func (v *Vector) ElementA(indx int) *Atomic {
+	// handles ops like x/2 where x is a vector
+	if v.Len() == 1 {
+		indx = 0
+	}
+
+	if indx < 0 || indx >= v.Len() {
+		panic(fmt.Errorf("index out of range"))
+	}
+
+	return NewAtomic(v.Element(indx), v.VectorType())
+}
+
 func (v *Vector) ElementFloat(indx int) float64 {
 	// handles ops like x/2 where x is a vector
 	if v.Len() == 1 {

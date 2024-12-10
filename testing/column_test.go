@@ -61,8 +61,10 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
-			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
+			{"z!='20060102'", 0, 1},
 			{"dt != date(20221231)", 0, 0},
+			{"y+y", 0, 2},
+			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
 			{"quantile(1.0,y)", 0, 6},
 			{"quantile(0.0,y)", 0, -5},
 			{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
@@ -114,7 +116,6 @@ func TestParser(t *testing.T) {
 			{"int(2.9)", 0, 2},
 			{"float(1)", 0, 1.0},
 			{"string(dt)", 0, "2022-12-31"},
-			{"z!='20060102'", 0, 1},
 			{"x--1.0", 0, 2.0},
 			{"x*10.0", 0, 10.0},
 			{"int(x)", 5, 3},

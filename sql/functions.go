@@ -1,12 +1,6 @@
 package sql
 
-import (
-	"fmt"
-	"strings"
-
-	d "github.com/invertedv/df"
-)
-
+/*
 func StandardFunctions() d.Fns {
 	return d.Fns{abs, add, and, applyCat, divide, dot, eq, exp, ge, gt, ifs, le, log, lt, mean,
 		multiply, ne, neg, not, or, rowNumber, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
@@ -447,3 +441,4 @@ func fnGen(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, info bool,
 
 	return &d.FnReturn{Value: outCol}
 }
+*/

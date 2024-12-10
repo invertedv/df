@@ -1,15 +1,16 @@
 package df
 
 import (
-	d "github.com/invertedv/df"
-	"gonum.org/v1/gonum/stat"
 	"math"
 	"sort"
 	"time"
+
+	d "github.com/invertedv/df"
+	"gonum.org/v1/gonum/stat"
 )
 
 func scalar(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
-	fn := func(info bool, context *d.Context, inputs ...any) *d.FnReturn {
+	fn := func(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 		if info {
 			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 		}
@@ -31,23 +32,23 @@ func scalar(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 
 		data := d.MakeVector(dtOut, 1)
 
-		var inData []any
+		var inData []*d.Vector
 		for ind := 0; ind < len(col); ind++ {
-			inData = append(inData, col[ind].Data())
+			inData = append(inData, col[ind].Vector) // .Data()
 		}
 
 		switch {
 		case dtOut == d.DTfloat:
-			fny := fnUse.(func(...any) float64)
+			fny := fnUse.(func(...*d.Vector) float64)
 			data.SetFloat(fny(inData...), 0)
 		case dtOut == d.DTint:
-			fny := fnUse.(func(...any) int)
+			fny := fnUse.(func(...*d.Vector) int)
 			data.SetInt(fny(inData...), 0)
 		case dtOut == d.DTstring:
-			fny := fnUse.(func(...any) string)
+			fny := fnUse.(func(...*d.Vector) string)
 			data.SetString(fny(inData...), 0)
 		case dtOut == d.DTdate:
-			fny := fnUse.(func(...any) time.Time)
+			fny := fnUse.(func(...*d.Vector) time.Time)
 			data.SetDate(fny(inData...), 0)
 		}
 
@@ -70,16 +71,16 @@ func summaries() d.Fns {
 
 	out := d.Fns{
 		scalar("sum", inType1, outType1,
-			func(x ...any) float64 {
+			func(x ...*d.Vector) float64 {
 				s := 0.0
-				for _, xx := range x[0].([]float64) {
+				for _, xx := range x[0].AsFloat() {
 					s += xx
 				}
 				return s
 			},
-			func(x ...any) int {
+			func(x ...*d.Vector) int {
 				s := 0
-				for _, xx := range x[0].([]int) {
+				for _, xx := range x[0].AsInt() {
 					s += xx
 				}
 				return s
@@ -87,42 +88,42 @@ func summaries() d.Fns {
 		scalar("mean", inType1, outType2, meanFlt, meanInt),
 		scalar("var", inType1, outType2, varFlt, varInt),
 		scalar("sdev", inType1, outType2,
-			func(x ...any) float64 { return math.Sqrt(varFlt(x...)) },
-			func(x ...any) float64 { return math.Sqrt(varInt(x...)) }),
+			func(x ...*d.Vector) float64 { return math.Sqrt(varFlt(x...)) },
+			func(x ...*d.Vector) float64 { return math.Sqrt(varInt(x...)) }),
 		scalar("median", inType1, outType1,
-			func(x ...any) float64 { return qFlt(0.5, x[0].([]float64)) },
-			func(x ...any) int { return qInt(0.5, x[0].([]int)) }),
+			func(x ...*d.Vector) float64 { return qFlt(0.5, x[0].AsFloat()) },
+			func(x ...*d.Vector) int { return qInt(0.5, x[0].AsInt()) }),
 		scalar("quantile", inType2, outType1,
-			func(x ...any) float64 { return qFlt(x[0].([]float64)[0], x[1].([]float64)) },
-			func(x ...any) int { return qInt(x[0].([]float64)[0], x[1].([]int)) }),
+			func(x ...*d.Vector) float64 { return qFlt(x[0].AsFloat()[0], x[1].AsFloat()) },
+			func(x ...*d.Vector) int { return qInt(x[0].AsFloat()[0], x[1].AsInt()) }),
 		scalar("min", inType3, outType3,
-			func(x ...any) float64 { return minMaxFlt(x[0].([]float64))[0] },
-			func(x ...any) int { return minMaxInt(x[0].([]int))[0] },
-			func(x ...any) string { return minMaxStr(x[0].([]string))[0] },
-			func(x ...any) time.Time { return minMaxDt(x[0].([]time.Time))[0] },
+			func(x ...*d.Vector) float64 { return minMaxFlt(x[0].AsFloat())[0] },
+			func(x ...*d.Vector) int { return minMaxInt(x[0].AsInt())[0] },
+			func(x ...*d.Vector) string { return minMaxStr(x[0].AsString())[0] },
+			func(x ...*d.Vector) time.Time { return minMaxDt(x[0].AsDate())[0] },
 		),
 		scalar("max", inType3, outType3,
-			func(x ...any) float64 { return minMaxFlt(x[0].([]float64))[1] },
-			func(x ...any) int { return minMaxInt(x[0].([]int))[1] },
-			func(x ...any) string { return minMaxStr(x[0].([]string))[1] },
-			func(x ...any) time.Time { return minMaxDt(x[0].([]time.Time))[1] },
+			func(x ...*d.Vector) float64 { return minMaxFlt(x[0].AsFloat())[1] },
+			func(x ...*d.Vector) int { return minMaxInt(x[0].AsInt())[1] },
+			func(x ...*d.Vector) string { return minMaxStr(x[0].AsString())[1] },
+			func(x ...*d.Vector) time.Time { return minMaxDt(x[0].AsDate())[1] },
 		),
-		scalar("dot", inType4, outType4, func(x ...any) float64 { return dotP(x[0].([]float64), x[1].([]float64)) }),
+		scalar("dot", inType4, outType4, func(x ...*d.Vector) float64 { return dotP(x[0].AsFloat(), x[1].AsFloat()) }),
 	}
 
 	return out
 }
 
-func meanFlt(x ...any) float64 {
-	s, v := 0.0, x[0].([]float64)
+func meanFlt(x ...*d.Vector) float64 {
+	s, v := 0.0, x[0].AsFloat()
 	for _, xx := range v {
 		s += xx
 	}
 	return s / float64(len(v))
 }
 
-func meanInt(x ...any) float64 {
-	s, v := 0.0, x[0].([]int)
+func meanInt(x ...*d.Vector) float64 {
+	s, v := 0.0, x[0].AsInt()
 	for _, xx := range v {
 		s += float64(xx)
 	}
@@ -131,9 +132,9 @@ func meanInt(x ...any) float64 {
 
 // variance
 
-func varFlt(x ...any) float64 {
+func varFlt(x ...*d.Vector) float64 {
 	mn := meanFlt(x[0])
-	varx, v := 0.0, x[0].([]float64)
+	varx, v := 0.0, x[0].AsFloat()
 	for _, xx := range v {
 		varx += (xx - mn) * (xx - mn)
 	}
@@ -141,9 +142,9 @@ func varFlt(x ...any) float64 {
 	return varx / float64(len(v)-1)
 }
 
-func varInt(x ...any) float64 {
+func varInt(x ...*d.Vector) float64 {
 	mn := meanInt(x[0])
-	varx, v := 0.0, x[0].([]int)
+	varx, v := 0.0, x[0].AsInt()
 	for _, xx := range v {
 		xxf := float64(xx)
 		varx += (xxf - mn) * (xxf - mn)

@@ -2,28 +2,28 @@ package df
 
 import (
 	"fmt"
+
 	d "github.com/invertedv/df"
-	"time"
 )
 
 // mean
 
 // buildTests builds suite of comparison function (>, <, >=, <=, ==, !=) for the four
 // core data types (dtFloat, dtInt, dtString,dtDate).
-func buildTests() [][]func(x ...any) int {
+func buildTests() [][]func(x ...*d.Atomic) int {
 	// build "greater than" functions for each type
-	var fnGTtype []func(x ...any) bool
+	var fnGTtype []func(x ...*d.Atomic) bool
 	for ind := 0; ind < 4; ind++ {
-		fn := func(x ...any) bool {
+		fn := func(x ...*d.Atomic) bool {
 			switch ind {
 			case 0:
-				return x[0].(float64) > x[1].(float64)
+				return *x[0].AsFloat() > *x[1].AsFloat()
 			case 1:
-				return x[0].(int) > x[1].(int)
+				return *x[0].AsInt() > *x[1].AsInt()
 			case 2:
-				return x[0].(string) > x[1].(string)
+				return *x[0].AsString() > *x[1].AsString()
 			default:
-				return x[0].(time.Time).Sub(x[1].(time.Time)).Minutes() > 0
+				return x[0].AsDate().Sub(*x[1].AsDate()).Minutes() > 0
 			}
 		}
 
@@ -31,11 +31,11 @@ func buildTests() [][]func(x ...any) int {
 	}
 
 	// build all comparison functions for each type leveraging fnGTtype slice
-	var fns [][]func(x ...any) int
+	var fns [][]func(x ...*d.Atomic) int
 	for comp := 0; comp < 6; comp++ {
-		var fnDt []func(x ...any) int
+		var fnDt []func(x ...*d.Atomic) int
 		for dt := 0; dt < len(fnGTtype); dt++ {
-			fn := func(x ...any) int {
+			fn := func(x ...*d.Atomic) int {
 				a, b := x[0], x[1]
 				switch comp {
 				case 0:
@@ -82,7 +82,8 @@ func toCol(x any) *Col {
 	panic("can't make column")
 }
 
-func parameters(inputs ...any) (cols []*Col, n int) {
+// TODO: here
+func parameters(inputs ...d.Column) (cols []*Col, n int) {
 	n = 1
 	for j := 0; j < len(inputs); j++ {
 		cx := toCol(inputs[j])
@@ -110,7 +111,7 @@ func returnCol(data any) *d.FnReturn {
 }
 
 // getNames returns the names of the input Columns starting with startInd element
-func getNames(startInd int, cols ...any) ([]string, error) {
+func getNames(startInd int, cols ...d.Column) ([]string, error) {
 	var colNames []string
 	for ind := startInd; ind < len(cols); ind++ {
 		var cn string

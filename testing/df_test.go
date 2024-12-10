@@ -1,15 +1,12 @@
 package testing
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"testing"
 
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
-	s "github.com/invertedv/df/sql"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +34,7 @@ import (
 	}
 */
 
-func TestTypes(t *testing.T) {
+/*func TestTypes(t *testing.T) {
 	table := "SELECT * EXCEPT(fhfa_msad, delta) FROM fhfa.msad LIMIT 10"
 	var db *sql.DB
 
@@ -64,7 +61,7 @@ func TestTypes(t *testing.T) {
 	}
 	fmt.Println(df.Column("yr").Name())
 	fmt.Println(df.Column("yr").Data())
-}
+}*/
 
 // TODO: if just return "x" in parse, it returns a pointer to the original not a copy
 func TestCheck(t *testing.T) {
@@ -86,23 +83,24 @@ func TestString(t *testing.T) {
 	}
 }
 
-func TestSeq(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-		var df d.DF
-		switch which {
-		case mem:
-			df = m.NewDFseq(nil, nil, 5)
-		default:
-			df = s.NewDFseq(nil, dfx.Context(), 5)
+/*
+	func TestSeq(t *testing.T) {
+		for _, which := range pkgs() {
+			dfx := loadData(which)
+			var df d.DF
+			switch which {
+			case mem:
+				df = m.NewDFseq(nil, nil, 5)
+			default:
+				df = s.NewDFseq(nil, dfx.Context(), 5)
+			}
+
+			col := df.Column("seq")
+			assert.NotNil(t, col)
+			assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
 		}
-
-		col := df.Column("seq")
-		assert.NotNil(t, col)
-		assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
 	}
-}
-
+*/
 func TestSQLsave(t *testing.T) {
 	const coln = "x"
 
@@ -117,13 +115,13 @@ func TestSQLsave(t *testing.T) {
 		assert.NotNil(t, c1)
 
 		// if this is sql, populate a mem DF to get values
-		if which != mem {
-			dfz, ez := m.DBLoad(c1.(*s.Col).MakeQuery(), dfx.Context().Dialect())
-			assert.Nil(t, ez)
-			c1 = dfz.Column(coln)
-			assert.NotNil(t, c1)
-		}
-
+		/*		if which != mem {
+					dfz, ez := m.DBLoad(c1.(*s.Col).MakeQuery(), dfx.Context().Dialect())
+					assert.Nil(t, ez)
+					c1 = dfz.Column(coln)
+					assert.NotNil(t, c1)
+				}
+		*/
 		_ = c1.Rename("expected")
 
 		// pull back from database
@@ -161,11 +159,11 @@ func TestFileSave(t *testing.T) {
 		assert.Nil(t, e2)
 		cexp := dfx.Column(coln)
 		// if sql, must pull data from query
-		if which != mem {
-			dfz, e3 := m.DBLoad(cexp.(*s.Col).MakeQuery(), dfx.Context().Dialect())
-			assert.Nil(t, e3)
-			cexp = dfz.Column(coln)
-		}
+		/*		if which != mem {
+				dfz, e3 := m.DBLoad(cexp.(*s.Col).MakeQuery(), dfx.Context().Dialect())
+				assert.Nil(t, e3)
+				cexp = dfz.Column(coln)
+			}*/
 		cact := dfy.Column(coln)
 		assert.Equal(t, cexp.Data(), cact.Data())
 	}

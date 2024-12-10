@@ -257,7 +257,7 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
 	}
 
-	var vals []any
+	var vals []Column
 	for ind := 0; ind < len(inputs); ind++ {
 		switch inputs[ind].Which() {
 		case "DF":

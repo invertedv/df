@@ -1,5 +1,6 @@
 package sql
 
+/*
 import (
 	"fmt"
 
@@ -216,3 +217,4 @@ func (c *Col) String() string {
 	vals, _ := c.Context().Dialect().Summary(c.MakeQuery(), c.Name())
 	return t + d.PrettyPrint(header, cols, vals)
 }
+*/

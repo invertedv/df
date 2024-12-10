@@ -4,7 +4,7 @@ import "fmt"
 
 // *********** Function types ***********
 
-type Fn func(info bool, context *Context, inputs ...any) *FnReturn
+type Fn func(info bool, context *Context, inputs ...Column) *FnReturn
 
 type Fns []Fn
 
@@ -30,7 +30,7 @@ type FnReturn struct {
 	Err error
 }
 
-func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
+func RunDFfn(fn Fn, context *Context, inputs []Column) (any, error) {
 	info := fn(true, nil)
 	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
@@ -40,7 +40,7 @@ func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
 		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
-	var inps []any
+	var inps []Column
 
 	for j := 0; j < len(inputs); j++ {
 		var (
@@ -67,7 +67,7 @@ func RunDFfn(fn Fn, context *Context, inputs []any) (any, error) {
 	return fnR.Value, nil
 }
 
-func okParams(cols []any, inputs [][]DataTypes, outputs []DataTypes) (ok bool, outType DataTypes) {
+func okParams(cols []Column, inputs [][]DataTypes, outputs []DataTypes) (ok bool, outType DataTypes) {
 	if inputs == nil {
 		return true, outputs[0]
 	}

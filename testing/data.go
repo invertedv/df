@@ -8,7 +8,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
-	s "github.com/invertedv/df/sql"
 )
 
 // THINK about...how self interacts in context...
@@ -85,7 +84,7 @@ func loadData(pkg string) d.DF {
 
 	ctx := d.NewContext(dialect, nil, nil)
 
-	if pkg != mem {
+	/*if pkg != mem {
 		var (
 			df *s.DF
 			e1 error
@@ -94,7 +93,7 @@ func loadData(pkg string) d.DF {
 			panic(e1)
 		}
 		return df
-	}
+	}*/
 
 	var (
 		df *m.DF

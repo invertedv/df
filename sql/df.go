@@ -1,7 +1,7 @@
 package sql
 
 // TODO: change SQL() to return string
-
+/*
 import (
 	"database/sql"
 	"fmt"
@@ -582,3 +582,4 @@ func sameSource(s1, s2 any) bool {
 
 	return sql1 == sql2
 }
+*/
