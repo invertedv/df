@@ -177,11 +177,20 @@ func (v *Vector) Element(indx int) any {
 }
 
 func (v *Vector) ElementFloat(indx int) float64 {
-	x := v.Element(indx)
-	if val, ok := x.(float64); ok {
-		return val
+	// handles ops like x/2 where x is a vector
+	if v.Len() == 1 {
+		indx = 0
 	}
 
+	if indx < 0 || indx >= v.Len() {
+		panic(fmt.Errorf("index out of range"))
+	}
+
+	if v.VectorType() == DTfloat {
+		return v.floats[indx]
+	}
+
+	x := v.Element(indx)
 	if val := Any2Float64(x, true); val != nil {
 		return *val
 	}
@@ -190,11 +199,20 @@ func (v *Vector) ElementFloat(indx int) float64 {
 }
 
 func (v *Vector) ElementInt(indx int) int {
-	x := v.Element(indx)
-	if val, ok := x.(int); ok {
-		return val
+	// handles ops like x/2 where x is a vector
+	if v.Len() == 1 {
+		indx = 0
 	}
 
+	if indx < 0 || indx >= v.Len() {
+		panic(fmt.Errorf("index out of range"))
+	}
+
+	if v.VectorType() == DTint {
+		return v.ints[indx]
+	}
+
+	x := v.Element(indx)
 	if val := Any2Int(x, true); val != nil {
 		return *val
 	}
@@ -203,20 +221,38 @@ func (v *Vector) ElementInt(indx int) int {
 }
 
 func (v *Vector) ElementString(indx int) string {
-	x := v.Element(indx)
-	if val, ok := x.(string); ok {
-		return val
+	// handles ops like x/2 where x is a vector
+	if v.Len() == 1 {
+		indx = 0
 	}
 
+	if indx < 0 || indx >= v.Len() {
+		panic(fmt.Errorf("index out of range"))
+	}
+
+	if v.VectorType() == DTstring {
+		return v.strings[indx]
+	}
+
+	x := v.Element(indx)
 	return *Any2String(x, true)
 }
 
 func (v *Vector) ElementDate(indx int) time.Time {
-	x := v.Element(indx)
-	if val, ok := x.(time.Time); ok {
-		return val
+	// handles ops like x/2 where x is a vector
+	if v.Len() == 1 {
+		indx = 0
 	}
 
+	if indx < 0 || indx >= v.Len() {
+		panic(fmt.Errorf("index out of range"))
+	}
+
+	if v.VectorType() == DTdate {
+		return v.dates[indx]
+	}
+
+	x := v.Element(indx)
 	if val := Any2Date(x, true); val != nil {
 		return *val
 	}
