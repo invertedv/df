@@ -43,14 +43,8 @@ func RunDFfn(fn Fn, context *Context, inputs []Column) (any, error) {
 	var inps []Column
 
 	for j := 0; j < len(inputs); j++ {
-		var (
-			ok  bool
-			col Column
-		)
-		if col, ok = inputs[j].(Column); !ok {
-			return nil, fmt.Errorf("inputs include a non-column")
-		}
-
+		col := inputs[j]
+		// set context
 		ColContext(context)(col.Core())
 		inps = append(inps, col)
 	}
@@ -75,7 +69,7 @@ func okParams(cols []Column, inputs [][]DataTypes, outputs []DataTypes) (ok bool
 	for j := 0; j < len(inputs); j++ {
 		ok = true
 		for k := 0; k < len(inputs[j]); k++ {
-			if inputs[j][k] != DTany && cols[k].(Column).DataType() != inputs[j][k] {
+			if inputs[j][k] != DTany && cols[k].DataType() != inputs[j][k] {
 				ok = false
 				break
 			}

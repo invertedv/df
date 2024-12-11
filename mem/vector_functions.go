@@ -281,7 +281,7 @@ func toCat(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 		if c.DataType() != d.DTint {
 			return &d.FnReturn{Err: fmt.Errorf("fuzz parameter to Cat must be type int")}
 		}
-		fuzz = c.Element(0).(int)
+		fuzz = c.ElementInt(0)
 	}
 
 	var (

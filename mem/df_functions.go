@@ -23,7 +23,7 @@ func sortDF(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 	}
 
 	ascending := true
-	if toCol(inputs[0]).Element(0).(string) == "desc" {
+	if toCol(inputs[0]).ElementString(0) == "desc" {
 		ascending = false
 	}
 

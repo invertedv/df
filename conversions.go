@@ -13,7 +13,6 @@ import (
 
 // Any2Float64 attempts to convert inVal to float64.  Returns nil if this fails.
 func Any2Float64(inVal any, cast bool) *float64 {
-
 	if v, ok := inVal.(float64); ok {
 		return &v
 	}
@@ -33,10 +32,14 @@ func Any2Float64(inVal any, cast bool) *float64 {
 	case float32:
 		outVal = float64(x)
 	case string:
-		xx, e := strconv.ParseFloat(x, 64)
-		if e != nil {
+		var (
+			xx float64
+			e  error
+		)
+		if xx, e = strconv.ParseFloat(x, 64); e != nil {
 			return nil
 		}
+
 		outVal = xx
 	default:
 		return nil
@@ -84,13 +87,40 @@ func Any2Int(inVal any, cast bool) *int {
 
 		outVal = int(x)
 	case string:
-		xx, e := strconv.ParseInt(x, 10, 32)
-		if e != nil {
+		var (
+			xx int64
+			e  error
+		)
+		if xx, e = strconv.ParseInt(x, 10, 32); e != nil {
 			return nil
 		}
+
 		outVal = int(xx)
 	default:
 		return nil
+	}
+
+	return &outVal
+}
+
+func Any2String(inVal any, cast bool) *string {
+	if v, ok := inVal.(string); ok {
+		return &v
+	}
+
+	if !cast {
+		return nil
+	}
+
+	var outVal string
+	switch x := inVal.(type) {
+	case time.Time:
+		outVal = x.Format("2006-01-02")
+		// TODO: use %f
+	case float32, float64:
+		outVal = fmt.Sprintf("%v", x)
+	default:
+		outVal = fmt.Sprintf("%v", x)
 	}
 
 	return &outVal
@@ -120,147 +150,6 @@ func Any2Date(inVal any, cast bool) *time.Time {
 	}
 
 	return nil
-}
-
-func Any2String(inVal any, cast bool) *string {
-	if v, ok := inVal.(string); ok {
-		return &v
-	}
-
-	var outVal string
-	switch x := inVal.(type) {
-	case time.Time:
-		outVal = x.Format("2006-01-02")
-	case float32, float64:
-		outVal = fmt.Sprintf("%v", x)
-	default:
-		outVal = fmt.Sprintf("%v", x)
-	}
-
-	return &outVal
-}
-
-func ToStringSlc(xIn any, n int) []string {
-	var xOut []string
-	switch x := xIn.(type) {
-	case []string:
-		xOut = x
-	case string:
-		xOut = []string{x}
-	default:
-		panic(fmt.Errorf("input is not []string or string"))
-	}
-
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]string, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
-	}
-
-	return xOut
-}
-
-func ToDateSlc(xIn any, n int) []time.Time {
-	var xOut []time.Time
-	switch x := xIn.(type) {
-	case []time.Time:
-		xOut = x
-	case time.Time:
-		xOut = []time.Time{x}
-	default:
-		panic(fmt.Errorf("input is not []string or string"))
-	}
-
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]time.Time, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
-	}
-
-	return xOut
-}
-
-func ToFloatSlc(xIn any, n int) []float64 {
-	var xOut []float64
-	switch x := xIn.(type) {
-	case []float64:
-		xOut = x
-	case float64:
-		xOut = []float64{x}
-	case []float32:
-		xOut = make([]float64, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = float64(xf32)
-		}
-	case float32:
-		xOut = []float64{float64(x)}
-	default:
-		panic(fmt.Errorf("cannot convert to slice of float64"))
-	}
-
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]float64, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
-	}
-
-	return xOut
-}
-
-func ToIntSlc(xIn any, n int) []int {
-	var xOut []int
-	switch x := xIn.(type) {
-	case []int:
-		xOut = x
-	case int:
-		xOut = []int{x}
-	case int8:
-		xOut = []int{int(x)}
-	case int16:
-		xOut = []int{int(x)}
-	case int32:
-		xOut = []int{int(x)}
-	case int64:
-		xOut = []int{int(x)}
-	case []int8:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	case []int16:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	case []int32:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	case []int64:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	default:
-		panic(fmt.Errorf("cannot convert to slice of float64"))
-	}
-
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]int, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
-	}
-
-	return xOut
 }
 
 func ToDataType(x any, dt DataTypes, cast bool) any {
@@ -317,6 +206,129 @@ func WhatAmI(val any) DataTypes {
 	default:
 		return DTunknown
 	}
+}
+
+func ToStringSlc(xIn any, n int) []string {
+	var xOut []string
+	switch x := xIn.(type) {
+	case []string:
+		xOut = x
+	case string:
+		xOut = []string{x}
+	default:
+		panic(fmt.Errorf("input is not []string or string"))
+	}
+
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]string, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
+	}
+
+	return xOut
+}
+
+func ToDateSlc(xIn any, n int) []time.Time {
+	var xOut []time.Time
+	switch x := xIn.(type) {
+	case []time.Time:
+		xOut = x
+	case time.Time:
+		xOut = []time.Time{x}
+	default:
+		panic(fmt.Errorf("input is not []time.Time or time.Time"))
+	}
+
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]time.Time, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
+	}
+
+	return xOut
+}
+
+func ToFloatSlc(xIn any, n int) []float64 {
+	var xOut []float64
+	switch x := xIn.(type) {
+	case []float64:
+		xOut = x
+	case float64:
+		xOut = []float64{x}
+	case []float32:
+		xOut = make([]float64, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = float64(xf32)
+		}
+	case float32:
+		xOut = []float64{float64(x)}
+	default:
+		panic(fmt.Errorf("input is not []float32, []float64, float32, float64"))
+	}
+
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]float64, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
+	}
+
+	return xOut
+}
+
+func ToIntSlc(xIn any, n int) []int {
+	var xOut []int
+	switch x := xIn.(type) {
+	case []int:
+		xOut = x
+	case int:
+		xOut = []int{x}
+	case int8:
+		xOut = []int{int(x)}
+	case int16:
+		xOut = []int{int(x)}
+	case int32:
+		xOut = []int{int(x)}
+	case int64:
+		xOut = []int{int(x)}
+	case []int8:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	case []int16:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	case []int32:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	case []int64:
+		xOut = make([]int, len(x))
+		for ind, xf32 := range x {
+			xOut[ind] = int(xf32)
+		}
+	default:
+		panic(fmt.Errorf("input is not an integer type"))
+	}
+
+	if n > 0 && len(xOut) == 1 {
+		z := xOut[0]
+		xOut = make([]int, n)
+		for ind := 0; ind < n; ind++ {
+			xOut[ind] = z
+		}
+	}
+
+	return xOut
 }
 
 func In(check any, pop []any) bool {
