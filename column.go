@@ -1,9 +1,5 @@
 package df
 
-import (
-	"fmt"
-)
-
 // Column interface defines the methods the columns of DFcore that must be supported
 type Column interface {
 	CategoryMap() CategoryMap
@@ -102,12 +98,18 @@ func ColRawType(rt DataTypes) COpt {
 }
 
 // *********** Methods ***********
+
 func (c *ColCore) CategoryMap() CategoryMap {
 	return c.catMap
 }
 
 func (c *ColCore) CategoryCounts() CategoryMap {
 	return c.catCounts
+}
+
+// Core returns itself. We eed a method to return itself since DFCore struct will need these methods
+func (c *ColCore) Core() *ColCore {
+	return c
 }
 
 func (c *ColCore) Context() *Context {
@@ -183,48 +185,4 @@ func (cm CategoryMap) Min() int {
 	}
 
 	return *minVal
-}
-
-//  *********** DataTypes ***********
-
-// DataTypes are the types of data that the package supports
-type DataTypes uint8
-
-// values of DataTypes
-const (
-	DTunknown DataTypes = 0 + iota
-	DTstring
-	DTfloat
-	DTint
-	DTcategorical
-	DTdate
-	DTnil
-	DTdf
-	DTconstant
-	DTany // keep as last entry
-)
-
-//go:generate stringer -type=DataTypes
-
-// MaxDT is max value of DataTypes type
-const MaxDT = DTany
-
-func DTFromString(nm string) DataTypes {
-	const skeleton = "%v"
-
-	var nms []string
-	for ind := DataTypes(0); ind <= MaxDT; ind++ {
-		nms = append(nms, fmt.Sprintf(skeleton, ind))
-	}
-
-	pos := Position(nm, "", nms...)
-	if pos < 0 {
-		return DTunknown
-	}
-
-	return DataTypes(uint8(pos))
-}
-
-func (d DataTypes) IsNumeric() bool {
-	return d == DTfloat || d == DTint || d == DTcategorical
 }

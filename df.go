@@ -13,17 +13,16 @@ import (
 // TODO: panic needs error or just string?
 
 type DF interface {
+	Core() *DFcore
+
 	// generic from DFcore
 	AppendColumn(col Column, replace bool) error
 	AppendDFcore(df2 DF) (*DFcore, error)
-
-	//	Column(colName string) (col Column, err error)
 	Column(colName string) Column
 	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
 	Context() *Context
-	Core() *DFcore
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	DoOp(opName string, inputs ...*Parsed) (any, error)
 	DropColumns(colNames ...string) error
@@ -31,7 +30,6 @@ type DF interface {
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
 	Parse(expr string) (*Parsed, error)
-	SetContext(ctx *Context)
 
 	// specific to underlying data source
 
@@ -47,6 +45,18 @@ type DF interface {
 	Where(indicator Column) (DF, error)
 }
 
+type DFopt func(df *DFcore)
+
+func DFcontext(ctx *Context) DFopt {
+	if ctx == nil {
+		ctx = NewContext(nil, nil, nil, nil)
+	}
+
+	return func(df *DFcore) {
+		df.ctx = ctx
+	}
+}
+
 // *********** DFcore ***********
 
 // DFcore is the nucleus implementation of the DataFrame.  It does not implement all the required methods.
@@ -56,7 +66,7 @@ type DFcore struct {
 	appFuncs Fns
 
 	current *columnList
-
+	// TODO: embed this
 	ctx *Context
 }
 

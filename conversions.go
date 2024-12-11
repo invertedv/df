@@ -331,6 +331,8 @@ func ToIntSlc(xIn any, n int) []int {
 	return xOut
 }
 
+// *********** Other ***********
+
 func In(check any, pop []any) bool {
 	switch WhatAmI(check) {
 	case DTfloat, DTint, DTstring:
@@ -463,8 +465,6 @@ func PrettyPrint(header []string, cols ...any) string {
 
 	return out
 }
-
-// *********** Other ***********
 
 // Has returns true if needle is in haystack
 func Has(needle, delim string, haystack ...string) bool {

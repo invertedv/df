@@ -46,7 +46,7 @@ func NewParsed(value any, dependencies ...string) *Parsed {
 		return p
 	}
 
-	value.(Column).Core().dep = dependencies
+	colDependencies(dependencies)(value.(Column).Core())
 	p.col = value.(Column)
 	return p
 }

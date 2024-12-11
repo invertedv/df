@@ -2,9 +2,10 @@ package df
 
 import (
 	"fmt"
+	"sort"
+
 	d "github.com/invertedv/df"
 	"gonum.org/v1/gonum/stat"
-	"sort"
 )
 
 type Col struct {
@@ -48,14 +49,10 @@ func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
 func (c *Col) Copy() d.Column {
 	col := &Col{
 		Vector:  c.Vector.Copy(),
-		ColCore: c.Core().Copy(),
+		ColCore: c.ColCore.Copy(),
 	}
 
 	return col
-}
-
-func (c *Col) Core() *d.ColCore {
-	return c.ColCore
 }
 
 func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
@@ -163,7 +160,7 @@ func appendRows(col1, col2 d.Column) (*Col, error) {
 
 	col := &Col{
 		Vector:  v,
-		ColCore: col1.Core().Copy(),
+		ColCore: col1.(*Col).ColCore.Copy(),
 	}
 
 	return col, nil

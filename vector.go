@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// TODO: add stringer
+
 type Vector struct {
 	dt DataTypes
 
@@ -35,7 +37,7 @@ func NewVector(data any, n int) *Vector {
 		// TODO: consider zeroing out hours/time zone here
 		return &Vector{dt: DTdate, dates: ToDateSlc(x, n)}
 	default:
-		panic("unsupported data type in NewVector")
+		panic(fmt.Errorf("unsupported data type in NewVector"))
 	}
 }
 
@@ -59,8 +61,8 @@ func (v *Vector) VectorType() DataTypes {
 }
 
 // TODO: allow for casting?
-func (v *Vector) Set(val any, indx int) {
-	if WhatAmI(val) != v.VectorType() {
+func (v *Vector) Setx(val *Atomic, indx int) {
+	if val.AtomType() != v.VectorType() {
 		panic(fmt.Errorf("different types in set"))
 	}
 
@@ -70,19 +72,23 @@ func (v *Vector) Set(val any, indx int) {
 
 	switch v.VectorType() {
 	case DTfloat:
-		v.floats[indx] = val.(float64)
+		v.floats[indx] = *val.AsFloat()
 	case DTint:
-		v.ints[indx] = val.(int)
+		v.ints[indx] = *val.AsInt()
 	case DTstring:
-		v.strings[indx] = val.(string)
+		v.strings[indx] = *val.AsString()
 	case DTdate:
-		v.dates[indx] = val.(time.Time)
+		v.dates[indx] = *val.AsDate()
 	default:
 		panic(fmt.Errorf("error in Vector.Set"))
 	}
 }
 
 func (v *Vector) SetFloat(val float64, indx int) {
+	if v.VectorType() != DTfloat {
+		panic(fmt.Errorf("vector isn't DTfloat"))
+	}
+
 	if indx < 0 || indx >= v.Len() {
 		panic(fmt.Errorf("index out of range"))
 	}
@@ -91,6 +97,10 @@ func (v *Vector) SetFloat(val float64, indx int) {
 }
 
 func (v *Vector) SetInt(val, indx int) {
+	if v.VectorType() != DTint {
+		panic(fmt.Errorf("vector isn't DTint"))
+	}
+
 	if indx < 0 || indx >= v.Len() {
 		panic(fmt.Errorf("index out of range"))
 	}
@@ -99,6 +109,10 @@ func (v *Vector) SetInt(val, indx int) {
 }
 
 func (v *Vector) SetString(val string, indx int) {
+	if v.VectorType() != DTstring {
+		panic(fmt.Errorf("vector isn't DTstring"))
+	}
+
 	if indx < 0 || indx >= v.Len() {
 		panic(fmt.Errorf("index out of range"))
 	}
@@ -107,6 +121,10 @@ func (v *Vector) SetString(val string, indx int) {
 }
 
 func (v *Vector) SetDate(val time.Time, indx int) {
+	if v.VectorType() != DTdate {
+		panic(fmt.Errorf("vector isn't DTdate"))
+	}
+
 	if indx < 0 || indx >= v.Len() {
 		panic(fmt.Errorf("index out of range"))
 	}
@@ -125,7 +143,7 @@ func (v *Vector) Data() any {
 	case DTdate:
 		return v.dates
 	default:
-		panic("error in Vector.Data")
+		panic(fmt.Errorf("error in Vector.Data"))
 	}
 }
 
@@ -136,7 +154,7 @@ func (v *Vector) AsFloat() []float64 {
 
 	var vx *Vector
 	if vx = v.Coerce(DTfloat); vx == nil {
-		panic("cannot convert to Vector.AsFloat")
+		panic(fmt.Errorf("cannot convert to Vector.AsFloat"))
 	}
 
 	return vx.floats
@@ -149,7 +167,7 @@ func (v *Vector) AsInt() []int {
 
 	var vx *Vector
 	if vx = v.Coerce(DTint); vx == nil {
-		panic("cannot convert to Vector.AsInt")
+		panic(fmt.Errorf("cannot convert to Vector.AsInt"))
 	}
 
 	return vx.ints
@@ -162,7 +180,7 @@ func (v *Vector) AsString() []string {
 
 	var vx *Vector
 	if vx = v.Coerce(DTstring); vx == nil {
-		panic("cannot convert to Vector.AsString")
+		panic(fmt.Errorf("cannot convert to Vector.AsString"))
 	}
 
 	return vx.strings
@@ -175,7 +193,7 @@ func (v *Vector) AsDate() []time.Time {
 
 	var vx *Vector
 	if vx = v.Coerce(DTdate); vx == nil {
-		panic("cannot convert to Vector.AsDate")
+		panic(fmt.Errorf("cannot convert to Vector.AsDate"))
 	}
 
 	return vx.dates

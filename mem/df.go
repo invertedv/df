@@ -2,7 +2,6 @@ package df
 
 import (
 	"bytes"
-	//	_ "embed"
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
@@ -67,9 +66,11 @@ func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 		return nil, e
 	}
 
-	df.SetContext(d.NewContext(nil, nil, nil, nil))
+	//df.SetContext(d.NewContext(nil, nil, nil, nil))
+	d.DFcontext(nil)(df)
 	if context != nil {
-		df.SetContext(context)
+		d.DFcontext(context)(df)
+		//		df.SetContext(context)
 	}
 
 	outDF := &DF{DFcore: df, row: -1}
@@ -140,7 +141,8 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 	memDF.sourceQuery = qry
 	memDF.row = -1
 
-	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
+	//	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
+	d.DFcontext(d.NewContext(nil, memDF, nil))(memDF.Core())
 
 	return memDF, nil
 }
@@ -177,7 +179,8 @@ func FileLoad(f *d.Files) (*DF, error) {
 
 	memDF.row = -1
 
-	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
+	//	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
+	d.DFcontext(d.NewContext(nil, memDF, nil))(memDF.Core())
 
 	return memDF, nil
 }
@@ -314,9 +317,9 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, e
 	}
 
-	d.ColDataType(d.DTcategorical)(outCol.Core())
-	d.ColCatMap(toMap)(outCol.Core())
-	d.ColCatCounts(cnts)(outCol.Core())
+	d.ColDataType(d.DTcategorical)(outCol.ColCore)
+	d.ColCatMap(toMap)(outCol.ColCore)
+	d.ColCatCounts(cnts)(outCol.ColCore)
 
 	return outCol, nil
 }
@@ -331,8 +334,8 @@ func (f *DF) Copy() d.DF {
 		DFcore:      dfC,
 	}
 
-	ctx := d.NewContext(f.Context().Dialect(), mNew)
-	mNew.SetContext(ctx)
+	d.DFcontext(d.NewContext(f.Context().Dialect(), mNew))(mNew.Core())
+	//	mNew.SetContext(ctx)
 
 	return mNew
 }

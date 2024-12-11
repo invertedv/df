@@ -103,7 +103,8 @@ func loadData(pkg string) d.DF {
 		panic(e2)
 	}
 
-	df.SetContext(ctx)
+	//	df.SetContext(ctx)
+	d.DFcontext(ctx)(df.Core())
 	df.Context().SetSelf(df)
 
 	return df

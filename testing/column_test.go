@@ -10,6 +10,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type intp int
+
+func (i intp) Less(x intp) bool {
+	return i < x
+}
+
+type Orderable[T intp | float64] interface {
+	Less(a T) bool
+}
+
+func TestRandom(t *testing.T) {
+	a := float64(1.0)
+	b := intp(2)
+	_, _ = a, b
+	var i interface{} = b
+	if _, ok := i.(Orderable[intp]); ok {
+		fmt.Println("YES")
+	}
+
+}
+
 func TestRename(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
@@ -39,7 +60,7 @@ func TestReplace(t *testing.T) {
 		indCol, e0 := dfx.Parse("y==-5")
 		assert.Nil(t, e0)
 		indCol.AsColumn().Rename("ind")
-		e := dfx.AppendColumn(indCol.AsColumn(), false)
+		e := dfx.Core().AppendColumn(indCol.AsColumn(), false)
 		assert.Nil(t, e)
 		coly := dfx.Column("y")
 		assert.NotNil(t, coly)
@@ -195,7 +216,7 @@ func TestToCat(t *testing.T) {
 		assert.Nil(t, e)
 		col := colx.AsColumn()
 		col.Rename("dt1")
-		e = dfx.AppendColumn(col, false)
+		e = dfx.Core().AppendColumn(col, false)
 		assert.Nil(t, e)
 
 		//		colx, e = dfx.Parse("1")
@@ -245,7 +266,7 @@ func TestApplyCat(t *testing.T) {
 		assert.Nil(t, e)
 		sx := r.AsColumn()
 		sx.Rename("caty")
-		e1 := dfx.AppendColumn(sx, false)
+		e1 := dfx.Core().AppendColumn(sx, false)
 		assert.Nil(t, e1)
 
 		r2, e2 := dfx.Parse("applyCat(yy, caty, -5)")
@@ -259,7 +280,7 @@ func TestApplyCat(t *testing.T) {
 		r3, e3 := dfx.Parse("cat(y,2)")
 		assert.Nil(t, e3)
 		r3.AsColumn().Rename("caty2")
-		e4 := dfx.AppendColumn(r3.AsColumn(), false)
+		e4 := dfx.Core().AppendColumn(r3.AsColumn(), false)
 		assert.Nil(t, e4)
 
 		r5, e5 := dfx.Parse("applyCat(yy,caty2,-5)")

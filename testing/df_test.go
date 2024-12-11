@@ -70,9 +70,9 @@ func TestCheck(t *testing.T) {
 	out, e := dfx.Parse("float(x)")
 	assert.Nil(t, e)
 	_ = out.AsColumn().Rename("xx")
-	e1 := dfx.AppendColumn(out.AsColumn(), false)
+	e1 := dfx.Core().AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e1)
-	e2 := dfy.AppendColumn(out.AsColumn(), false)
+	e2 := dfy.Core().AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e2)
 }
 
@@ -205,7 +205,7 @@ func TestWhere(t *testing.T) {
 		indCol, e := dfx.Parse("y==-5 || yy == 16")
 		assert.Nil(t, e)
 		indCol.AsColumn().Rename("ind")
-		e1 := dfx.AppendColumn(indCol.AsColumn(), false)
+		e1 := dfx.Core().AppendColumn(indCol.AsColumn(), false)
 		assert.Nil(t, e1)
 		dfOut, e2 := dfx.Where(indCol.AsColumn())
 		assert.Nil(t, e2)
