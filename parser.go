@@ -5,6 +5,26 @@ import (
 	"strings"
 )
 
+func Parse(df DF, expr string) (*Parsed, error) {
+	var (
+		ot *OpTree
+		e  error
+	)
+	if ot, e = NewOpTree(expr, df.Fns()); e != nil {
+		return nil, e
+	}
+
+	if ex := ot.Build(); ex != nil {
+		return nil, ex
+	}
+
+	if ex := ot.Eval(df); ex != nil {
+		return nil, ex
+	}
+
+	return ot.Value(), nil
+}
+
 type OpTree struct {
 	value *Parsed
 
@@ -83,7 +103,7 @@ func (p *Parsed) Which() string {
 	return "nil"
 }
 
-func ParseExpr(expr string, df *DFcore) (*Parsed, error) {
+func ParseExpr(expr string, df DF) (*Parsed, error) {
 	var (
 		ot *OpTree
 		e  error
@@ -190,7 +210,7 @@ func (ot *OpTree) Build() error {
 }
 
 // Eval evaluates the expression over the dataframe df
-func (ot *OpTree) Eval(df *DFcore) error {
+func (ot *OpTree) Eval(df DF) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
 		if c := df.Column(ot.expr); c != nil {

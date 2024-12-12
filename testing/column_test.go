@@ -48,7 +48,7 @@ func TestRename(t *testing.T) {
 func TestRowNumber(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		out, e := dfx.Parse("rowNumber()")
+		out, e := d.Parse(dfx, "rowNumber()")
 		assert.Nil(t, e)
 		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data())
 	}
@@ -57,7 +57,7 @@ func TestRowNumber(t *testing.T) {
 func TestReplace(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		indCol, e0 := dfx.Parse("y==-5")
+		indCol, e0 := d.Parse(dfx, "y==-5")
 		assert.Nil(t, e0)
 		indCol.AsColumn().Rename("ind")
 		e := dfx.Core().AppendColumn(indCol.AsColumn(), false)
@@ -71,7 +71,7 @@ func TestReplace(t *testing.T) {
 		//		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, colR.Data())
 
 		// via Parse
-		out, e4 := dfx.Parse("if(y==-5,yy,y)")
+		out, e4 := d.Parse(dfx, "if(y==-5,yy,y)")
 		assert.Nil(t, e4)
 		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.AsColumn().Data())
 	}
@@ -187,7 +187,7 @@ func TestParser(t *testing.T) {
 			cnt++
 			eqn := x[ind][0].(string)
 			fmt.Println(eqn)
-			xOut, e := dfx.Parse(eqn)
+			xOut, e := d.Parse(dfx, eqn)
 			assert.Nil(t, e)
 			result := xOut.AsColumn().Data()
 			switch d.WhatAmI(result) {
@@ -212,7 +212,7 @@ func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 
-		colx, e := dfx.Parse("date(z)")
+		colx, e := d.Parse(dfx, "date(z)")
 		assert.Nil(t, e)
 		col := colx.AsColumn()
 		col.Rename("dt1")
@@ -224,7 +224,7 @@ func TestToCat(t *testing.T) {
 		//		e = col.Rename("howdy")
 		//		e = dfx.AppendColumn(col, false)
 		// try with DTint
-		colx, e = dfx.Parse("cat(y)")
+		colx, e = d.Parse(dfx, "cat(y)")
 		assert.Nil(t, e)
 		colx.AsColumn().Rename("test")
 		result := colx.AsColumn().Data()
@@ -232,28 +232,28 @@ func TestToCat(t *testing.T) {
 		assert.Equal(t, expected, result)
 
 		// try with DTstring
-		colx, e = dfx.Parse("cat(z)")
+		colx, e = d.Parse(dfx, "cat(z)")
 		assert.Nil(t, e)
 		result = colx.AsColumn().Data()
 		expected = []int{3, 0, 1, 1, 4, 2}
 		assert.Equal(t, expected, result)
 
 		// try with DTdate
-		colx, e = dfx.Parse("cat(dt1)")
+		colx, e = d.Parse(dfx, "cat(dt1)")
 		assert.Nil(t, e)
 		result = colx.AsColumn().Data()
 		expected = []int{3, 0, 1, 1, 4, 2}
 		assert.Equal(t, expected, result)
 
 		// try with fuzz > 1
-		colx, e = dfx.Parse("cat(y, 2)")
+		colx, e = d.Parse(dfx, "cat(y, 2)")
 		assert.Nil(t, e)
 		result = colx.AsColumn().Data()
 		expected = []int{0, -1, -1, 0, -1, -1}
 		assert.Equal(t, expected, result)
 
 		// try with DTfloat
-		_, e = dfx.Parse("cat(x)")
+		_, e = d.Parse(dfx, "cat(x)")
 		assert.NotNil(t, e)
 	}
 }
@@ -262,14 +262,14 @@ func TestApplyCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 
-		r, e := dfx.Parse("cat(y)")
+		r, e := d.Parse(dfx, "cat(y)")
 		assert.Nil(t, e)
 		sx := r.AsColumn()
 		sx.Rename("caty")
 		e1 := dfx.Core().AppendColumn(sx, false)
 		assert.Nil(t, e1)
 
-		r2, e2 := dfx.Parse("applyCat(yy, caty, -5)")
+		r2, e2 := d.Parse(dfx, "applyCat(yy, caty, -5)")
 		assert.Nil(t, e2)
 
 		// -5 maps to 0 so all new values map to 0
@@ -277,13 +277,13 @@ func TestApplyCat(t *testing.T) {
 		assert.Equal(t, expected, r2.AsColumn().Data())
 
 		// try with fuzz > 1
-		r3, e3 := dfx.Parse("cat(y,2)")
+		r3, e3 := d.Parse(dfx, "cat(y,2)")
 		assert.Nil(t, e3)
 		r3.AsColumn().Rename("caty2")
 		e4 := dfx.Core().AppendColumn(r3.AsColumn(), false)
 		assert.Nil(t, e4)
 
-		r5, e5 := dfx.Parse("applyCat(yy,caty2,-5)")
+		r5, e5 := d.Parse(dfx, "applyCat(yy,caty2,-5)")
 		assert.Nil(t, e5)
 		expected = []int{0, -1, -1, 0, -1, -1}
 		assert.Equal(t, expected, r5.AsColumn().Data())

@@ -494,7 +494,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		ex   error
 	)
 
-	if ret, ex = d.ParseExpr(expr, outDF.(*DF).DFcore); ex != nil || ret.Which() != "Column" {
+	if ret, ex = d.ParseExpr(expr, outDF); ex != nil || ret.Which() != "Column" {
 		return nil, ex
 	}
 

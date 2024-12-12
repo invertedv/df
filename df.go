@@ -29,7 +29,7 @@ type DF interface {
 	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
-	Parse(expr string) (*Parsed, error)
+	//	Parse(expr string) (*Parsed, error)
 
 	// specific to underlying data source
 
@@ -383,7 +383,7 @@ func (df *DFcore) Next(reset bool) Column {
 	return df.current.col
 }
 
-func (df *DFcore) Parse(expr string) (*Parsed, error) {
+/*func (df *DFcore) Parse(expr string) (*Parsed, error) {
 	var (
 		ot *OpTree
 		e  error
@@ -401,7 +401,7 @@ func (df *DFcore) Parse(expr string) (*Parsed, error) {
 	}
 
 	return ot.Value(), nil
-}
+}*/
 
 func (df *DFcore) SetContext(ctx *Context) {
 	df.ctx = ctx
