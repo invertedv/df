@@ -45,6 +45,34 @@ type OpTree struct {
 	dependencies []string
 }
 
+func DoOp(df DF, opName string, inputs ...*Parsed) (any, error) {
+	var fn Fn
+
+	if fn = df.Fns().Get(opName); fn == nil {
+		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
+	}
+
+	var vals []Column
+	for ind := 0; ind < len(inputs); ind++ {
+		switch inputs[ind].Which() {
+		case "DF":
+			return nil, fmt.Errorf("cannot take DF as function input")
+		case "Column":
+			vals = append(vals, inputs[ind].AsColumn())
+		}
+	}
+
+	var (
+		col any
+		e   error
+	)
+	if col, e = RunDFfn(fn, df.Context(), vals); e != nil {
+		return nil, e
+	}
+
+	return col, nil
+}
+
 type operations [][]string
 
 type Parsed struct {
@@ -245,7 +273,7 @@ func (ot *OpTree) Eval(df DF) error {
 			ot.dependencies = nodupAppend(ot.dependencies, ot.inputs[ind].dependencies...)
 		}
 
-		if c, ex = df.DoOp(ot.fnName, inp...); ex != nil {
+		if c, ex = DoOp(df, ot.fnName, inp...); ex != nil {
 			return ex
 		}
 
@@ -278,7 +306,7 @@ func (ot *OpTree) Eval(df DF) error {
 		ot.dependencies = nodupAppend(ot.dependencies, ot.right.dependencies...)
 	}
 
-	if c, ex = df.DoOp(mapOp(ot.op), vl, vr); ex != nil {
+	if c, ex = DoOp(df, mapOp(ot.op), vl, vr); ex != nil {
 		return ex
 	}
 

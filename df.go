@@ -24,7 +24,7 @@ type DF interface {
 	ColumnTypes(cols ...string) ([]DataTypes, error)
 	Context() *Context
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
-	DoOp(opName string, inputs ...*Parsed) (any, error)
+	//	DoOp(opName string, inputs ...*Parsed) (any, error)
 	DropColumns(colNames ...string) error
 	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
@@ -260,7 +260,7 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 	return df.Context().dialect.Create(tableName, noDesc, cols, dts, overwrite)
 }
 
-func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
+/*func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 	var fn Fn
 
 	if fn = df.appFuncs.Get(opName); fn == nil {
@@ -286,7 +286,7 @@ func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
 	}
 
 	return col, nil
-}
+}*/
 
 func (df *DFcore) DropColumns(colNames ...string) error {
 	for _, cName := range colNames {
