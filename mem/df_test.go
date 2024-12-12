@@ -19,7 +19,7 @@ func testDF() *DF {
 	y, _ := NewCol("y", []int{1, -5, 6, 1, 4, 5})
 	yy, _ := NewCol("yy", []int{1, -15, 16, 1, 15, 14})
 	z, _ := NewCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx, e := NewDFcol(StandardFunctions(), nil, x, y, z, yy)
+	dfx, e := NewDFcol(StandardFunctions(), x, y, z, yy)
 	if e != nil {
 		panic(e)
 	}
@@ -55,7 +55,7 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 
 func TestRowNumber(t *testing.T) {
 	dfx := testDF()
-	out, e := dfx.Parse("rowNumber()")
+	out, e := d.Parse(dfx, "rowNumber()")
 	assert.Nil(t, e)
 
 	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.AsColumn(), -1))
@@ -63,7 +63,7 @@ func TestRowNumber(t *testing.T) {
 
 func TestParse_Sort(t *testing.T) {
 	dfx := testDF()
-	_, e := dfx.Parse("sort('asc', y, x)")
+	_, e := d.Parse(dfx, "sort('asc', y, x)")
 	assert.Nil(t, e)
 	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", nil, -1))
 	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", nil, -1))
@@ -71,7 +71,7 @@ func TestParse_Sort(t *testing.T) {
 
 func TestParse_Table(t *testing.T) {
 	dfx := testDF()
-	df1, e := dfx.Parse("table(y,yy)")
+	df1, e := d.Parse(dfx, "table(y,yy)")
 	assert.Nil(t, e)
 	fmt.Println(df1.AsDF().Column("count"))
 	col := df1.AsDF().Column("count")
@@ -84,7 +84,7 @@ func TestParse_Table(t *testing.T) {
 func TestParser(t *testing.T) {
 	dfx := testDF()
 	eqn := "date(z)"
-	colx, e := d.ParseExpr(eqn, dfx.DFcore)
+	colx, e := d.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
 	col := colx.AsColumn()
 	col.Rename("dt")
@@ -160,7 +160,7 @@ func TestParser(t *testing.T) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
-		xOut, ex := dfx.Parse(eqn)
+		xOut, ex := d.Parse(dfx, eqn)
 		assert.Nil(t, ex)
 
 		result := checker(dfx, "test", xOut.AsColumn(), x[ind][1].(int))
@@ -177,7 +177,7 @@ func TestParser(t *testing.T) {
 }
 
 func TestNewDFseq(t *testing.T) {
-	df := NewDFseq(nil, nil, 5)
+	df := NewDFseq(nil, 5)
 	col := df.Column("seq")
 	assert.NotNil(t, col)
 	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
@@ -188,13 +188,13 @@ func TestApplyCat(t *testing.T) {
 	//	yy, _ := NewCol("yy", []int{1, -15, 16, 1, 4, 5})
 	dfx := testDF()
 	expr := "cat(y)"
-	colx, ex := dfx.Parse(expr)
+	colx, ex := d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	col := colx.AsColumn()
 	col.Rename("c")
 	_ = dfx.AppendColumn(col, false)
 	fmt.Println(col)
-	back, ex := dfx.Parse("int(c)")
+	back, ex := d.Parse(dfx, "int(c)")
 	back.AsColumn().Rename("test")
 	assert.Nil(t, ex)
 	fmt.Println(back.AsColumn())
@@ -203,21 +203,21 @@ func TestApplyCat(t *testing.T) {
 
 	// default is a known category level
 	expr = "applyCat(yy, c, 6)"
-	colx, ex = dfx.Parse(expr)
+	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	exp := []int{1, v, v, 1, v, v}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	// default is not a known category level
 	expr = "applyCat(yy, c, 100)"
-	colx, ex = dfx.Parse(expr)
+	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	v = -1
 	exp = []int{1, v, v, 1, v, v}
 	assert.Equal(t, exp, colx.AsColumn().Data())
 
 	expr = "c + y"
-	_, ex = dfx.Parse(expr)
+	_, ex = d.Parse(dfx, expr)
 	assert.NotNil(t, ex)
 }
 
@@ -230,7 +230,7 @@ func TestToCat(t *testing.T) {
 		colx *d.Parsed
 		ex   error
 	)
-	colx, ex = dfx.Parse(expr)
+	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	col := colx.AsColumn()
 	col.Rename("dt")
@@ -238,7 +238,7 @@ func TestToCat(t *testing.T) {
 	assert.Nil(t, ex)
 
 	expr = "cat(y)"
-	colx, ex = dfx.Parse(expr)
+	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 
 	result := checker(dfx, "test", colx.AsColumn(), -1)
@@ -246,21 +246,21 @@ func TestToCat(t *testing.T) {
 	assert.Equal(t, expected, result)
 
 	expr = "cat(z)"
-	colx, ex = dfx.Parse(expr)
+	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	result = checker(dfx, "test", colx.AsColumn(), -1)
 	expected = []int{3, 0, 1, 1, 4, 2}
 	assert.Equal(t, expected, result)
 
 	expr = "cat(dt)"
-	colx, ex = dfx.Parse(expr)
+	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	result = checker(dfx, "test", colx.AsColumn(), -1)
 	expected = []int{3, 0, 1, 1, 4, 2}
 	assert.Equal(t, expected, result)
 
 	expr = "cat(x)"
-	colx, ex = dfx.Parse(expr)
+	colx, ex = d.Parse(dfx, expr)
 	assert.NotNil(t, ex)
 }
 
@@ -270,91 +270,91 @@ func TestSumx(t *testing.T) {
 		col *d.Parsed
 		e   error
 	)
-	col, e = dfx.Parse("float(sum(y))*x")
+	col, e = d.Parse(dfx, "float(sum(y))*x")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("sum(x)")
+	col, e = d.Parse(dfx, "sum(x)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("-x")
+	col, e = d.Parse(dfx, "-x")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("x > 0.0 || y == 1")
+	col, e = d.Parse(dfx, "x > 0.0 || y == 1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("log(x)")
+	col, e = d.Parse(dfx, "log(x)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("exp(x)")
+	col, e = d.Parse(dfx, "exp(x)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("string(x)")
+	col, e = d.Parse(dfx, "string(x)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("date(z)")
+	col, e = d.Parse(dfx, "date(z)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("int(x)")
+	col, e = d.Parse(dfx, "int(x)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("float(y)")
+	col, e = d.Parse(dfx, "float(y)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("if(x>1.0,y,yy)")
+	col, e = d.Parse(dfx, "if(x>1.0,y,yy)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("x/2.0")
+	col, e = d.Parse(dfx, "x/2.0")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("2-y")
+	col, e = d.Parse(dfx, "2-y")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("2+y")
+	col, e = d.Parse(dfx, "2+y")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("x >= 1.0 && y==1")
+	col, e = d.Parse(dfx, "x >= 1.0 && y==1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("abs(y)")
+	col, e = d.Parse(dfx, "abs(y)")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("y == 1")
+	col, e = d.Parse(dfx, "y == 1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("y >= 1")
+	col, e = d.Parse(dfx, "y >= 1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("y > 1")
+	col, e = d.Parse(dfx, "y > 1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("y <= 1")
+	col, e = d.Parse(dfx, "y <= 1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("y < 1")
+	col, e = d.Parse(dfx, "y < 1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
-	col, e = dfx.Parse("y != 1")
+	col, e = d.Parse(dfx, "y != 1")
 	assert.Nil(t, e)
 	fmt.Println(col.AsColumn().Data())
 
@@ -418,7 +418,7 @@ func TestMemCol_String(t *testing.T) {
 
 func TestMemCol_Replace(t *testing.T) {
 	dfx := testDF()
-	//	indCol, e0 := dfx.Parse("y==-5")
+	//	indCol, e0 := d.Parse(dfx,"y==-5")
 	//	assert.Nil(t, e0)
 	coly := dfx.Column("y")
 	assert.NotNil(t, coly)
@@ -440,15 +440,15 @@ func TestVector(t *testing.T) {
 func TestWhere(t *testing.T) {
 	dfx := testDF()
 	expr := "where(y>1)"
-	outDF, e := dfx.Parse(expr)
+	outDF, e := d.Parse(dfx, expr)
 	assert.Nil(t, e)
 	assert.Equal(t, 3, outDF.AsDF().RowCount())
 
-	outDF, e = dfx.Parse("where(x >= 1.0)")
+	outDF, e = d.Parse(dfx, "where(x >= 1.0)")
 	assert.Nil(t, e)
 	assert.Equal(t, 4, outDF.AsDF().RowCount())
 
-	outDF, e = outDF.AsDF().Parse("where( x>=3.0)")
+	outDF, e = d.Parse(outDF.AsDF(), "where( x>=3.0)")
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.AsDF().RowCount())
 }
@@ -488,9 +488,9 @@ func TestMemDF_Table(t *testing.T) {
 	x, _ := NewCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
 	y, _ := NewCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
 	z, _ := NewCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
-	dfx, e := NewDFcol(StandardFunctions(), nil, x, y, z)
+	dfx, e := NewDFcol(StandardFunctions(), x, y, z)
 	assert.Nil(t, e)
-	dtx, ex := dfx.Parse("date(z)")
+	dtx, ex := d.Parse(dfx, "date(z)")
 	assert.Nil(t, ex)
 	dt := dtx.AsColumn()
 	dt.Rename("dt")

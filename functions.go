@@ -4,7 +4,7 @@ import "fmt"
 
 // *********** Function types ***********
 
-type Fn func(info bool, context *Context, inputs ...Column) *FnReturn
+type Fn func(info bool, df DF, inputs ...Column) *FnReturn
 
 type Fns []Fn
 
@@ -30,7 +30,7 @@ type FnReturn struct {
 	Err error
 }
 
-func RunDFfn(fn Fn, context *Context, inputs []Column) (any, error) {
+func RunDFfn(fn Fn, df DF, inputs []Column) (any, error) {
 	info := fn(true, nil)
 	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
@@ -44,8 +44,6 @@ func RunDFfn(fn Fn, context *Context, inputs []Column) (any, error) {
 
 	for j := 0; j < len(inputs); j++ {
 		col := inputs[j]
-		// set context
-		ColContext(context)(col.Core())
 		inps = append(inps, col)
 	}
 
@@ -54,7 +52,7 @@ func RunDFfn(fn Fn, context *Context, inputs []Column) (any, error) {
 	}
 
 	var fnR *FnReturn
-	if fnR = fn(false, context, inps...); fnR.Err != nil {
+	if fnR = fn(false, df, inps...); fnR.Err != nil {
 		return nil, fnR.Err
 	}
 

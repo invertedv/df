@@ -10,7 +10,6 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
-// THINK about...how self interacts in context...
 // CONSIDER making .Data fetch the data for sql....
 const (
 	fileName   = "test.csv"
@@ -82,8 +81,6 @@ func loadData(pkg string) d.DF {
 		panic(e)
 	}
 
-	ctx := d.NewContext(dialect, nil, nil)
-
 	/*if pkg != mem {
 		var (
 			df *s.DF
@@ -103,9 +100,7 @@ func loadData(pkg string) d.DF {
 		panic(e2)
 	}
 
-	//	df.SetContext(ctx)
-	d.DFcontext(ctx)(df.Core())
-	df.Context().SetSelf(df)
+	d.DFdialect(dialect)(df.Core())
 
 	return df
 }

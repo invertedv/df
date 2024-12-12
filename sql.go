@@ -213,7 +213,7 @@ func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF) 
 		return e
 	}
 
-	return df.Context().dialect.Create(tableName, noDesc, cols, dts, overwrite)
+	return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite)
 }
 
 func (d *Dialect) DB() *sql.DB {

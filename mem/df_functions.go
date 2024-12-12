@@ -2,7 +2,7 @@ package df
 
 import d "github.com/invertedv/df"
 
-func where(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
+func where(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "where", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTdf}}
 	}
@@ -11,12 +11,12 @@ func where(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 		outDF d.DF
 		e     error
 	)
-	outDF, e = context.Self().Where(inputs[0])
+	outDF, e = df.Where(inputs[0])
 
 	return &d.FnReturn{Value: outDF, Err: e}
 }
 
-func sortDF(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
+func sortDF(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
 			Output: []d.DataTypes{d.DTnil}, Varying: true}
@@ -36,10 +36,10 @@ func sortDF(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 		return &d.FnReturn{Err: e}
 	}
 
-	return &d.FnReturn{Err: context.Self().Sort(ascending, colNames...)}
+	return &d.FnReturn{Err: df.Sort(ascending, colNames...)}
 }
 
-func table(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
+func table(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "table", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},
 			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, Varying: true}
@@ -58,7 +58,7 @@ func table(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 		outDF d.DF
 		ex    error
 	)
-	if outDF, ex = context.Self().Table(false, colNames...); ex != nil {
+	if outDF, ex = df.Table(false, colNames...); ex != nil {
 		return &d.FnReturn{Err: ex}
 	}
 

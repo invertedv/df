@@ -25,26 +25,6 @@ func Parse(df DF, expr string) (*Parsed, error) {
 	return ot.Value(), nil
 }
 
-type OpTree struct {
-	value *Parsed
-
-	expr string
-
-	op    string
-	left  *OpTree
-	right *OpTree
-
-	fnName string
-	inputs []*OpTree
-
-	funcs   Fns
-	fnNames []string
-
-	ops operations
-
-	dependencies []string
-}
-
 func DoOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 	var fn Fn
 
@@ -66,11 +46,31 @@ func DoOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 		col any
 		e   error
 	)
-	if col, e = RunDFfn(fn, df.Context(), vals); e != nil {
+	if col, e = RunDFfn(fn, df, vals); e != nil {
 		return nil, e
 	}
 
 	return col, nil
+}
+
+type OpTree struct {
+	value *Parsed
+
+	expr string
+
+	op    string
+	left  *OpTree
+	right *OpTree
+
+	fnName string
+	inputs []*OpTree
+
+	funcs   Fns
+	fnNames []string
+
+	ops operations
+
+	dependencies []string
 }
 
 type operations [][]string

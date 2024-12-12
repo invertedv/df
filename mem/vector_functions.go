@@ -11,13 +11,13 @@ import (
 // TODO: what happens if try to compare to dtCategorical??
 
 func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
-	fn := func(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
+	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
 			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 		}
 
 		fnUse := fnx[0]
-		n := context.Self().RowCount()
+		n := df.RowCount()
 		dtOut := outp[0]
 		var col []*Col
 		if inp != nil {
@@ -262,7 +262,7 @@ func ifOp() d.Fn {
 
 // ***************** Categorical Operations *****************
 
-func toCat(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
+func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
 			Output:  []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical},
@@ -289,7 +289,7 @@ func toCat(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = context.Self().(*DF).Categorical(col.Name(), nil, fuzz, nil, nil); e != nil {
+	if outCol, e = df.Categorical(col.Name(), nil, fuzz, nil, nil); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 
@@ -305,7 +305,7 @@ func toCat(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 // - vector with cats
 // - default if new category
 // TODO: should the default be an existing category?
-func applyCat(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
+func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
 			{d.DTstring, d.DTcategorical, d.DTstring}, {d.DTdate, d.DTcategorical, d.DTdate}},
@@ -337,7 +337,7 @@ func applyCat(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
 	}
 
 	var outCol d.Column
-	if outCol, e = context.Self().(*DF).Categorical(newData.Name(), oldData.CategoryMap(), 0, defaultValue, levels); e != nil {
+	if outCol, e = df.Categorical(newData.Name(), oldData.CategoryMap(), 0, defaultValue, levels); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 

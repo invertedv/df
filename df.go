@@ -22,14 +22,12 @@ type DF interface {
 	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
-	Context() *Context
+	Dialect() *Dialect
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
-	//	DoOp(opName string, inputs ...*Parsed) (any, error)
 	DropColumns(colNames ...string) error
 	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next(reset bool) Column
-	//	Parse(expr string) (*Parsed, error)
 
 	// specific to underlying data source
 
@@ -47,13 +45,9 @@ type DF interface {
 
 type DFopt func(df *DFcore)
 
-func DFcontext(ctx *Context) DFopt {
-	if ctx == nil {
-		ctx = NewContext(nil, nil, nil, nil)
-	}
-
+func DFdialect(d *Dialect) DFopt {
 	return func(df *DFcore) {
-		df.ctx = ctx
+		df.dlct = d
 	}
 }
 
@@ -66,8 +60,8 @@ type DFcore struct {
 	appFuncs Fns
 
 	current *columnList
-	// TODO: embed this
-	ctx *Context
+
+	dlct *Dialect
 }
 
 type columnList struct {
@@ -106,6 +100,10 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 }
 
 // *********** DFcore methods ***********
+
+func (df *DFcore) Dialect() *Dialect {
+	return df.dlct
+}
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	if df.Column(col.Name()) != nil {
@@ -214,10 +212,6 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 	return types, nil
 }
 
-func (df *DFcore) Context() *Context {
-	return df.ctx
-}
-
 func (df *DFcore) Copy() *DFcore {
 	var cols []Column
 	for c := df.Next(true); c != nil; c = df.Next(false) {
@@ -236,7 +230,7 @@ func (df *DFcore) Core() *DFcore {
 }
 
 func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error {
-	if df.Context().dialect == nil {
+	if df.Dialect() == nil {
 		return fmt.Errorf("no database defined")
 	}
 
@@ -257,36 +251,8 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 		return e
 	}
 
-	return df.Context().dialect.Create(tableName, noDesc, cols, dts, overwrite)
+	return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite)
 }
-
-/*func (df *DFcore) DoOp(opName string, inputs ...*Parsed) (any, error) {
-	var fn Fn
-
-	if fn = df.appFuncs.Get(opName); fn == nil {
-		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
-	}
-
-	var vals []Column
-	for ind := 0; ind < len(inputs); ind++ {
-		switch inputs[ind].Which() {
-		case "DF":
-			return nil, fmt.Errorf("cannot take DF as function input")
-		case "Column":
-			vals = append(vals, inputs[ind].AsColumn())
-		}
-	}
-
-	var (
-		col any
-		e   error
-	)
-	if col, e = RunDFfn(fn, df.Context(), vals); e != nil {
-		return nil, e
-	}
-
-	return col, nil
-}*/
 
 func (df *DFcore) DropColumns(colNames ...string) error {
 	for _, cName := range colNames {
@@ -362,7 +328,6 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	subsetDF := &DFcore{
 		head:     subHead,
 		appFuncs: df.appFuncs,
-		ctx:      df.Context(),
 	}
 
 	return subsetDF, nil
@@ -381,33 +346,6 @@ func (df *DFcore) Next(reset bool) Column {
 
 	df.current = df.current.next
 	return df.current.col
-}
-
-/*func (df *DFcore) Parse(expr string) (*Parsed, error) {
-	var (
-		ot *OpTree
-		e  error
-	)
-	if ot, e = NewOpTree(expr, df.Fns()); e != nil {
-		return nil, e
-	}
-
-	if ex := ot.Build(); ex != nil {
-		return nil, ex
-	}
-
-	if ex := ot.Eval(df); ex != nil {
-		return nil, ex
-	}
-
-	return ot.Value(), nil
-}*/
-
-func (df *DFcore) SetContext(ctx *Context) {
-	df.ctx = ctx
-	for cx := df.Next(true); cx != nil; cx = df.Next(false) {
-		ColContext(ctx)(cx.Core())
-	}
 }
 
 func (df *DFcore) node(colName string) (node *columnList, err error) {

@@ -4,7 +4,6 @@ package df
 type Column interface {
 	CategoryMap() CategoryMap
 
-	Context() *Context
 	DataType() DataTypes
 	Dependencies() []string
 	Name() string
@@ -25,7 +24,6 @@ type Column interface {
 type ColCore struct {
 	name string
 	dt   DataTypes
-	ctx  *Context
 
 	catMap    CategoryMap
 	catCounts CategoryMap
@@ -60,12 +58,6 @@ func ColName(name string) COpt {
 
 	return func(c *ColCore) {
 		c.name = name
-	}
-}
-
-func ColContext(ctx *Context) COpt {
-	return func(c *ColCore) {
-		c.ctx = ctx
 	}
 }
 
@@ -112,10 +104,6 @@ func (c *ColCore) Core() *ColCore {
 	return c
 }
 
-func (c *ColCore) Context() *Context {
-	return c.ctx
-}
-
 func (c *ColCore) RawType() DataTypes {
 	return c.rawType
 }
@@ -131,7 +119,6 @@ func (c *ColCore) DataType() DataTypes {
 func (c *ColCore) Copy() *ColCore {
 	return NewColCore(c.DataType(),
 		ColName(c.Name()),
-		ColContext(c.Context()),
 		colDependencies(c.Dependencies()),
 		ColRawType(c.RawType()),
 		ColCatMap(c.CategoryMap()),
@@ -146,10 +133,6 @@ func (c *ColCore) Rename(newName string) error {
 	ColName(newName)(c)
 
 	return nil
-}
-
-func (c *ColCore) SetContext(ctx *Context) {
-	ColContext(ctx)(c)
 }
 
 // *********** Category Map ***********

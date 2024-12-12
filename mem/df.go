@@ -42,7 +42,7 @@ func StandardFunctions() d.Fns {
 
 // ***************** DF - Create *****************
 
-func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
+func NewDFcol(funcs d.Fns, cols ...*Col) (*DF, error) {
 	if funcs == nil {
 		funcs = StandardFunctions()
 	}
@@ -66,20 +66,12 @@ func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 		return nil, e
 	}
 
-	//df.SetContext(d.NewContext(nil, nil, nil, nil))
-	d.DFcontext(nil)(df)
-	if context != nil {
-		d.DFcontext(context)(df)
-		//		df.SetContext(context)
-	}
-
 	outDF := &DF{DFcore: df, row: -1}
-	outDF.Context().SetSelf(outDF)
 
 	return outDF, nil
 }
 
-func NewDFseq(funcs d.Fns, context *d.Context, n int) *DF {
+func NewDFseq(funcs d.Fns, n int) *DF {
 	if n <= 0 {
 		panic(fmt.Errorf("n must be positive in NewDFseq"))
 	}
@@ -95,8 +87,7 @@ func NewDFseq(funcs d.Fns, context *d.Context, n int) *DF {
 
 	col, _ := NewCol("seq", data)
 
-	df, _ := NewDFcol(funcs, context, col)
-	df.Context().SetSelf(df)
+	df, _ := NewDFcol(funcs, col)
 
 	return df
 }
@@ -126,7 +117,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(StandardFunctions(), nil, col); e != nil {
+			if memDF, e = NewDFcol(StandardFunctions(), col); e != nil {
 				return nil, e
 			}
 
@@ -140,9 +131,6 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 
 	memDF.sourceQuery = qry
 	memDF.row = -1
-
-	//	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
-	d.DFcontext(d.NewContext(nil, memDF, nil))(memDF.Core())
 
 	return memDF, nil
 }
@@ -165,7 +153,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(StandardFunctions(), nil, col); e != nil {
+			if memDF, e = NewDFcol(StandardFunctions(), col); e != nil {
 				return nil, e
 			}
 
@@ -178,9 +166,6 @@ func FileLoad(f *d.Files) (*DF, error) {
 	}
 
 	memDF.row = -1
-
-	//	memDF.SetContext(d.NewContext(nil, memDF, nil)) // HERE
-	d.DFcontext(d.NewContext(nil, memDF, nil))(memDF.Core())
 
 	return memDF, nil
 }
@@ -334,9 +319,6 @@ func (f *DF) Copy() d.DF {
 		DFcore:      dfC,
 	}
 
-	d.DFcontext(d.NewContext(f.Context().Dialect(), mNew))(mNew.Core())
-	//	mNew.SetContext(ctx)
-
 	return mNew
 }
 
@@ -470,8 +452,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		e     error
 	)
 
-	ctx := d.NewContext(f.Context().Dialect(), nil, nil)
-	if outDF, e = NewDFcol(f.Fns(), ctx, outCols...); e != nil {
+	if outDF, e = NewDFcol(f.Fns(), outCols...); e != nil {
 		return nil, e
 	}
 

@@ -10,7 +10,7 @@ import (
 )
 
 func scalar(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
-	fn := func(info bool, context *d.Context, inputs ...d.Column) *d.FnReturn {
+	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
 			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 		}
@@ -54,7 +54,6 @@ func scalar(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 
 		return returnCol(data)
 	}
-
 	return fn
 }
 

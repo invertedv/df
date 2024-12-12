@@ -106,7 +106,7 @@ func TestSQLsave(t *testing.T) {
 
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		dlct := dfx.Context().Dialect()
+		dlct := dfx.Dialect()
 
 		// save to a table
 		e := dlct.Save(outTable, "k", true, dfx)
@@ -125,15 +125,14 @@ func TestSQLsave(t *testing.T) {
 		_ = c1.Rename("expected")
 
 		// pull back from database
-		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Context().Dialect())
+		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		c2 := dfy.Column(coln)
 		assert.NotNil(t, c2)
 		_ = c2.Rename("actual")
 
 		// join expected & actual into a dataframe
-		ctx := d.NewContext(dfx.Context().Dialect(), nil)
-		dfb, eb := m.NewDFcol(nil, ctx, c1.(*m.Col), c2.(*m.Col))
+		dfb, eb := m.NewDFcol(nil, c1.(*m.Col), c2.(*m.Col))
 		assert.Nil(t, eb)
 		outx, ep := d.Parse(dfb, "actual==expected")
 		assert.Nil(t, ep)
