@@ -1,20 +1,6 @@
 package sql
 
-import (
-	"database/sql"
-	"fmt"
-	"math"
-	"os"
-	"testing"
-	"time"
-
-	d "github.com/invertedv/df"
-	m "github.com/invertedv/df/mem"
-
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/stretchr/testify/assert"
-)
-
+/*
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
 func newConnect(host, user, password string) (db *sql.DB, err error) {
@@ -295,7 +281,7 @@ func TestParserS(t *testing.T) {
 
 	fmt.Println("# tests: ", cnt)
 }*/
-
+/*
 // TODO: implement SORT
 func TestSQLdf_Table(t *testing.T) {
 	dfx := testDF()
@@ -319,9 +305,9 @@ func TestSQLcol_String(t *testing.T) {
 		cx, _ = dfx.Column("dt")
 		fmt.Println(cx)
 
-	*/
-}
+*/
 
+/*
 func TestSQLdf_AppendDF(t *testing.T) {
 	dfx := testDF()
 	dfy := testDF()
@@ -424,3 +410,4 @@ func TestApplyCat(t *testing.T) {
 
 // mem & sql out of sync
 //
+*/

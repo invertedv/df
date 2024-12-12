@@ -331,7 +331,7 @@ func (f *DF) Iter(reset bool) (row []any, err error) {
 		return nil, io.EOF
 	}
 
-	for c := f.Next(true); c != nil; c = f.Next(false) {
+	for c := f.First(); c != nil; c = f.Next() {
 		row = append(row, c.(*Col).Element(f.row))
 	}
 
@@ -376,7 +376,7 @@ func (f *DF) MakeQuery(colNames ...string) string {
 }
 
 func (f *DF) RowCount() int {
-	return f.Next(true).Len()
+	return f.First().Len()
 }
 
 func (f *DF) Sort(ascending bool, cols ...string) error {
@@ -404,7 +404,7 @@ func (f *DF) SourceQuery() string {
 
 func (f *DF) String() string {
 	var sx string
-	for c := f.Next(true); c != nil; c = f.Next(false) {
+	for c := f.First(); c != nil; c = f.Next() {
 		sx += c.String() + "\n"
 	}
 
@@ -412,7 +412,7 @@ func (f *DF) String() string {
 }
 
 func (f *DF) Swap(i, j int) {
-	for h := f.Next(true); h != nil; h = f.Next(false) {
+	for h := f.First(); h != nil; h = f.Next() {
 		h.(*Col).Swap(i, j)
 		/*		data := h.(*Col).data
 				switch h.DataType() {
@@ -502,7 +502,7 @@ func (f *DF) Where(indicator d.Column) (d.DF, error) {
 	dfNew := f.Copy()
 	i1 := indicator.(*Col)
 
-	for col := dfNew.Next(true); col != nil; col = dfNew.Next(false) {
+	for col := dfNew.First(); col != nil; col = dfNew.Next() {
 		cx := col.(*Col)
 		cx.Vector = cx.Where(i1.Vector)
 		if cx.Len() == 0 {

@@ -27,7 +27,8 @@ type DF interface {
 	DropColumns(colNames ...string) error
 	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
-	Next(reset bool) Column
+	Next() Column
+	First() Column
 
 	// specific to underlying data source
 
@@ -141,7 +142,7 @@ func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
 
 	var cols []Column
 
-	for c := df.Next(true); c != nil; c = df.Next(false) {
+	for c := df.First(); c != nil; c = df.Next() {
 		var (
 			col2, nc Column
 			e        error
@@ -214,7 +215,7 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 
 func (df *DFcore) Copy() *DFcore {
 	var cols []Column
-	for c := df.Next(true); c != nil; c = df.Next(false) {
+	for c := df.First(); c != nil; c = df.Next() {
 		cols = append(cols, c.Copy())
 	}
 
@@ -333,11 +334,16 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	return subsetDF, nil
 }
 
-func (df *DFcore) Next(reset bool) Column {
-	if reset || df.current == nil {
-		df.current = df.head
-		return df.current.col
-	}
+func (df *DFcore) First() Column {
+	df.current = df.head
+	return df.head.col
+}
+
+func (df *DFcore) Next() Column {
+	//	if reset || df.current == nil {
+	//		df.current = df.head
+	//		return df.current.colf
+	//	}
 
 	if df.current.next == nil {
 		df.current = nil
