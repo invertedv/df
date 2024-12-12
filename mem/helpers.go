@@ -72,7 +72,7 @@ func toCol(x any) *Col {
 			c *Col
 			e error
 		)
-		if c, e = NewCol(s.Name(), s.Data()); e != nil {
+		if c, e = NewCol(s.Data(), d.ColName(s.Name())); e != nil {
 			panic(e)
 		}
 
@@ -103,7 +103,7 @@ func returnCol(data any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = NewCol("", data); e != nil {
+	if outCol, e = NewCol(data); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 

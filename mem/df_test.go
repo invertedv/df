@@ -15,16 +15,16 @@ import (
 )
 
 func testDF() *DF {
-	x, _ := NewCol("x", []float64{1, -2, 3, 0, 2, 3.5})
-	y, _ := NewCol("y", []int{1, -5, 6, 1, 4, 5})
-	yy, _ := NewCol("yy", []int{1, -15, 16, 1, 15, 14})
-	z, _ := NewCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"})
-	dfx, e := NewDFcol(StandardFunctions(), x, y, z, yy)
+	x, _ := NewCol([]float64{1, -2, 3, 0, 2, 3.5}, d.ColName("x"))
+	y, _ := NewCol([]int{1, -5, 6, 1, 4, 5}, d.ColName("y"))
+	yy, _ := NewCol([]int{1, -15, 16, 1, 15, 14}, d.ColName("yy"))
+	z, _ := NewCol([]string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310"}, d.ColName("z"))
+	dfx, e := NewDFcol(StandardFunctions(), []*Col{x, y, z, yy})
 	if e != nil {
 		panic(e)
 	}
 
-	xx, _ := NewCol("r", []int{1, 2, 3, 1, 2, 3})
+	xx, _ := NewCol([]int{1, 2, 3, 1, 2, 3}, d.ColName("r"))
 	if e := dfx.AppendColumn(xx, false); e != nil {
 		panic(e)
 	}
@@ -454,16 +454,16 @@ func TestWhere(t *testing.T) {
 }
 
 func TestAppendRows(t *testing.T) {
-	x, _ := NewCol("x", []float64{1, -2, 3, 0, 2, 3})
-	y, _ := NewCol("x", []float64{1, 2, 3})
+	x, _ := NewCol([]float64{1, -2, 3, 0, 2, 3}, d.ColName("x"))
+	y, _ := NewCol([]float64{1, 2, 3}, d.ColName("x"))
 
 	z, e := appendRows(x, y)
 	assert.Nil(t, e)
 	assert.Equal(t, float64(-2), z.Element(1))
 	assert.Equal(t, float64(3), z.Element(8))
 
-	x, _ = NewCol("x", []string{"a", "b", "c"})
-	y, _ = NewCol("x", []string{"d", "e", "f"})
+	x, _ = NewCol([]string{"a", "b", "c"}, d.ColName("x"))
+	y, _ = NewCol([]string{"d", "e", "f"}, d.ColName("x"))
 
 	z, e = appendRows(x, y)
 	assert.Nil(t, e)
@@ -485,10 +485,10 @@ func TestMemDF_AppendDF(t *testing.T) {
 }
 
 func TestMemDF_Table(t *testing.T) {
-	x, _ := NewCol("x", []int{1, -5, 6, 1, 4, 5, 4, 4}) //5:  0, 1, 2, 0, 3, 4, 3, 3
-	y, _ := NewCol("y", []int{1, -5, 6, 1, 3, 5, 4, 4}) //6:  0, 1, 2, 0, 3, 4, 5, 5
-	z, _ := NewCol("z", []string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"})
-	dfx, e := NewDFcol(StandardFunctions(), x, y, z)
+	x, _ := NewCol([]int{1, -5, 6, 1, 4, 5, 4, 4}, d.ColName("x")) //5:  0, 1, 2, 0, 3, 4, 3, 3
+	y, _ := NewCol([]int{1, -5, 6, 1, 3, 5, 4, 4}, d.ColName("y")) //6:  0, 1, 2, 0, 3, 4, 5, 5
+	z, _ := NewCol([]string{"20221231", "20000101", "20060102", "20060102", "20230915", "20060310", "20160430", "20160430"}, d.ColName("z"))
+	dfx, e := NewDFcol(StandardFunctions(), []*Col{x, y, z})
 	assert.Nil(t, e)
 	dtx, ex := d.Parse(dfx, "date(z)")
 	assert.Nil(t, ex)

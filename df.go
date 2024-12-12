@@ -12,8 +12,12 @@ import (
 // TODO: think about panic vs error
 // TODO: panic needs error or just string?
 
-type DF interface {
+type DD interface {
 	Core() *DFcore
+}
+
+type DF interface {
+	DD
 
 	// generic from DFcore
 	AppendColumn(col Column, replace bool) error
@@ -44,11 +48,11 @@ type DF interface {
 	Where(indicator Column) (DF, error)
 }
 
-type DFopt func(df *DFcore)
+type DFopt func(df DD)
 
 func DFdialect(d *Dialect) DFopt {
-	return func(df *DFcore) {
-		df.dlct = d
+	return func(df DD) {
+		df.Core().dlct = d
 	}
 }
 

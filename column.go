@@ -1,7 +1,12 @@
 package df
 
+type CC interface {
+	Core() *ColCore
+}
+
 // Column interface defines the methods the columns of DFcore that must be supported
 type Column interface {
+	CC
 	CategoryMap() CategoryMap
 
 	DataType() DataTypes
@@ -11,7 +16,6 @@ type Column interface {
 
 	AppendRows(col Column) (Column, error)
 	Copy() Column
-	Core() *ColCore
 	Data() any
 	Len() int
 	Replace(ind, repl Column) (Column, error)
@@ -32,11 +36,11 @@ type ColCore struct {
 	dep []string
 }
 
-type COpt func(c *ColCore)
+type COpt func(c CC)
 
 func ColDataType(dt DataTypes) COpt {
-	return func(c *ColCore) {
-		c.dt = dt
+	return func(c CC) {
+		c.Core().dt = dt
 	}
 }
 
@@ -56,14 +60,14 @@ func ColName(name string) COpt {
 		panic(e)
 	}
 
-	return func(c *ColCore) {
-		c.name = name
+	return func(c CC) {
+		c.Core().name = name
 	}
 }
 
 func colDependencies(dep []string) COpt {
-	return func(c *ColCore) {
-		c.dep = dep
+	return func(c CC) {
+		c.Core().dep = dep
 	}
 }
 
@@ -72,20 +76,20 @@ func (c *ColCore) Dependencies() []string {
 }
 
 func ColCatMap(cm CategoryMap) COpt {
-	return func(c *ColCore) {
-		c.catMap = cm
+	return func(c CC) {
+		c.Core().catMap = cm
 	}
 }
 
 func ColCatCounts(ct CategoryMap) COpt {
-	return func(c *ColCore) {
-		c.catCounts = ct
+	return func(c CC) {
+		c.Core().catCounts = ct
 	}
 }
 
 func ColRawType(rt DataTypes) COpt {
-	return func(c *ColCore) {
-		c.rawType = rt
+	return func(c CC) {
+		c.Core().rawType = rt
 	}
 }
 

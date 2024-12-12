@@ -16,27 +16,32 @@ type Col struct {
 
 // ***************** Col - Create *****************
 
-func NewCol(name string, data any) (*Col, error) {
-	if e := d.ValidName(name); e != nil {
-		return nil, e
-	}
-
+func NewCol(data any, opts ...d.COpt) (*Col, error) {
+	var col *Col
 	if v, ok := data.(*d.Vector); ok {
-		return &Col{
+		col = &Col{
 			Vector:  v,
-			ColCore: d.NewColCore(v.VectorType(), d.ColName(name)),
-		}, nil
+			ColCore: d.NewColCore(v.VectorType()),
+		}
 	}
 
-	var dt d.DataTypes
-	if dt = d.WhatAmI(data); dt == d.DTunknown {
-		return nil, fmt.Errorf("unsupported data type in NewCol")
+	if col == nil {
+		var dt d.DataTypes
+		if dt = d.WhatAmI(data); dt == d.DTunknown {
+			return nil, fmt.Errorf("unsupported data type in NewCol")
+		}
+
+		col = &Col{
+			Vector:  d.NewVector(data, 0),
+			ColCore: d.NewColCore(dt),
+		}
 	}
 
-	return &Col{
-		Vector:  d.NewVector(data, 0),
-		ColCore: d.NewColCore(dt, d.ColName(name)),
-	}, nil
+	for _, opt := range opts {
+		opt(col)
+	}
+
+	return col, nil
 }
 
 // ***************** Col - Methods *****************
@@ -120,7 +125,7 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		tab, _ := NewDFcol(nil, makeTable(c)...)
+		tab, _ := NewDFcol(nil, makeTable(c))
 		_ = tab.Sort(false, "count")
 		l := tab.Column(c.Name())
 		c := tab.Column("count")

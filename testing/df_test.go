@@ -132,7 +132,7 @@ func TestSQLsave(t *testing.T) {
 		_ = c2.Rename("actual")
 
 		// join expected & actual into a dataframe
-		dfb, eb := m.NewDFcol(nil, c1.(*m.Col), c2.(*m.Col))
+		dfb, eb := m.NewDFcol(nil, []*m.Col{c1.(*m.Col), c2.(*m.Col)})
 		assert.Nil(t, eb)
 		outx, ep := d.Parse(dfb, "actual==expected")
 		assert.Nil(t, ep)

@@ -42,7 +42,7 @@ func StandardFunctions() d.Fns {
 
 // ***************** DF - Create *****************
 
-func NewDFcol(funcs d.Fns, cols ...*Col) (*DF, error) {
+func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if funcs == nil {
 		funcs = StandardFunctions()
 	}
@@ -68,10 +68,14 @@ func NewDFcol(funcs d.Fns, cols ...*Col) (*DF, error) {
 
 	outDF := &DF{DFcore: df, row: -1}
 
+	for _, opt := range opts {
+		opt(outDF)
+	}
+
 	return outDF, nil
 }
 
-func NewDFseq(funcs d.Fns, n int) *DF {
+func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) *DF {
 	if n <= 0 {
 		panic(fmt.Errorf("n must be positive in NewDFseq"))
 	}
@@ -85,9 +89,13 @@ func NewDFseq(funcs d.Fns, n int) *DF {
 		data[ind] = ind
 	}
 
-	col, _ := NewCol("seq", data)
+	col, _ := NewCol(data, d.ColName("seq"))
 
-	df, _ := NewDFcol(funcs, col)
+	df, _ := NewDFcol(funcs, []*Col{col})
+
+	for _, opt := range opts {
+		opt(df)
+	}
 
 	return df
 }
@@ -112,12 +120,12 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 	for ind := 0; ind < len(columnTypes); ind++ {
 		var col *Col
 
-		if col, e = NewCol(columnNames[ind], memData[ind]); e != nil {
+		if col, e = NewCol(memData[ind], d.ColName(columnNames[ind])); e != nil {
 			return nil, e
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(StandardFunctions(), col); e != nil {
+			if memDF, e = NewDFcol(StandardFunctions(), []*Col{col}); e != nil {
 				return nil, e
 			}
 
@@ -148,12 +156,12 @@ func FileLoad(f *d.Files) (*DF, error) {
 	for ind := 0; ind < len(f.FieldNames()); ind++ {
 		var col *Col
 
-		if col, e = NewCol(f.FieldNames()[ind], memData[ind]); e != nil {
+		if col, e = NewCol(memData[ind], d.ColName(f.FieldNames()[ind])); e != nil {
 			return nil, e
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(StandardFunctions(), col); e != nil {
+			if memDF, e = NewDFcol(StandardFunctions(), []*Col{col}); e != nil {
 				return nil, e
 			}
 
@@ -298,7 +306,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		e      error
 	)
 
-	if outCol, e = NewCol("", vec); e != nil {
+	if outCol, e = NewCol(vec); e != nil {
 		return nil, e
 	}
 
@@ -414,19 +422,6 @@ func (f *DF) String() string {
 func (f *DF) Swap(i, j int) {
 	for h := f.First(); h != nil; h = f.Next() {
 		h.(*Col).Swap(i, j)
-		/*		data := h.(*Col).data
-				switch h.DataType() {
-				case d.DTfloat:
-					data.([]float64)[i], data.([]float64)[j] = data.([]float64)[j], data.([]float64)[i]
-				case d.DTint:
-					data.([]int)[i], data.([]int)[j] = data.([]int)[j], data.([]int)[i]
-				case d.DTstring:
-					data.([]string)[i], data.([]string)[j] = data.([]string)[j], data.([]string)[i]
-				case d.DTdate:
-					data.([]time.Time)[i], data.([]time.Time)[j] = data.([]time.Time)[j], data.([]time.Time)[i]
-				default:
-					panic(fmt.Errorf("unsupported data type in Swap"))
-				}*/
 	}
 }
 
@@ -452,7 +447,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		e     error
 	)
 
-	if outDF, e = NewDFcol(f.Fns(), outCols...); e != nil {
+	if outDF, e = NewDFcol(f.Fns(), outCols); e != nil {
 		return nil, e
 	}
 
@@ -613,7 +608,7 @@ func makeTable(cols ...*Col) []*Col {
 			name = cols[c].Name()
 		}
 
-		if col, e = NewCol(name, outVecs[c]); e != nil {
+		if col, e = NewCol(outVecs[c], d.ColName(name)); e != nil {
 			panic(e)
 		}
 
