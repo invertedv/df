@@ -16,7 +16,7 @@ type Column interface {
 
 	AppendRows(col Column) (Column, error)
 	Copy() Column
-	Data() any
+	Data() *Vector
 	Len() int
 	Replace(ind, repl Column) (Column, error)
 	String() string

@@ -22,8 +22,8 @@ func (s *Scalar) Core() *ColCore {
 	return s.ColCore
 }
 
-func (s *Scalar) Data() any {
-	return s.Atomic.AsAny()
+func (s *Scalar) Data() *Vector {
+	return NewVector(s.Atomic.AsAny(), 1)
 }
 
 func (s *Scalar) Len() int {

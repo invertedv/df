@@ -130,7 +130,7 @@ func (p *Plot) PlotXY(x, y Column, seriesName, color string) error {
 		return fmt.Errorf("xy plots require floats")
 	}
 
-	tr := &grob.Scatter{Name: seriesName, X: x.Data().([]float64), Y: y.Data().([]float64),
+	tr := &grob.Scatter{Name: seriesName, X: x.Data().AsFloat(), Y: y.Data().AsFloat(),
 		Mode: grob.ScatterModeLines, Line: &grob.ScatterLine{Color: color}}
 
 	p.Fig.AddTraces(tr)

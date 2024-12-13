@@ -50,7 +50,7 @@ func TestRowNumber(t *testing.T) {
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "rowNumber()")
 		assert.Nil(t, e)
-		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data())
+		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data().AsInt())
 	}
 }
 
@@ -73,7 +73,7 @@ func TestReplace(t *testing.T) {
 		// via Parse
 		out, e4 := d.Parse(dfx, "if(y==-5,yy,y)")
 		assert.Nil(t, e4)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.AsColumn().Data())
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.AsColumn().Data().AsInt())
 	}
 }
 
@@ -192,13 +192,13 @@ func TestParser(t *testing.T) {
 			result := xOut.AsColumn().Data()
 			switch d.WhatAmI(result) {
 			case d.DTfloat:
-				assert.InEpsilon(t, x[ind][2].(float64), result.([]float64)[x[ind][1].(int)], .001)
+				assert.InEpsilon(t, x[ind][2].(float64), result.AsFloat()[x[ind][1].(int)], .001)
 			case d.DTint:
-				assert.Equal(t, x[ind][2], result.([]int)[x[ind][1].(int)])
+				assert.Equal(t, x[ind][2], result.AsInt()[x[ind][1].(int)])
 			case d.DTstring:
-				assert.Equal(t, x[ind][2], result.([]string)[x[ind][1].(int)])
+				assert.Equal(t, x[ind][2], result.AsString()[x[ind][1].(int)])
 			case d.DTdate:
-				val := result.([]time.Time)[x[ind][1].(int)]
+				val := result.AsDate()[x[ind][1].(int)]
 				assert.Equal(t, val.Year(), x[ind][2].(time.Time).Year())
 				assert.Equal(t, val.Month(), x[ind][2].(time.Time).Month())
 				assert.Equal(t, val.Day(), x[ind][2].(time.Time).Day())
@@ -229,28 +229,28 @@ func TestToCat(t *testing.T) {
 		colx.AsColumn().Rename("test")
 		result := colx.AsColumn().Data()
 		expected := []int{1, 0, 4, 1, 2, 3}
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, result.AsInt())
 
 		// try with DTstring
 		colx, e = d.Parse(dfx, "cat(z)")
 		assert.Nil(t, e)
 		result = colx.AsColumn().Data()
 		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, result.AsInt())
 
 		// try with DTdate
 		colx, e = d.Parse(dfx, "cat(dt1)")
 		assert.Nil(t, e)
 		result = colx.AsColumn().Data()
 		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, result.AsInt())
 
 		// try with fuzz > 1
 		colx, e = d.Parse(dfx, "cat(y, 2)")
 		assert.Nil(t, e)
 		result = colx.AsColumn().Data()
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, result)
+		assert.Equal(t, expected, result.AsInt())
 
 		// try with DTfloat
 		_, e = d.Parse(dfx, "cat(x)")
@@ -274,7 +274,7 @@ func TestApplyCat(t *testing.T) {
 
 		// -5 maps to 0 so all new values map to 0
 		expected := []int{1, 0, 0, 1, 0, 0}
-		assert.Equal(t, expected, r2.AsColumn().Data())
+		assert.Equal(t, expected, r2.AsColumn().Data().AsInt())
 
 		// try with fuzz > 1
 		r3, e3 := d.Parse(dfx, "cat(y,2)")
@@ -286,6 +286,6 @@ func TestApplyCat(t *testing.T) {
 		r5, e5 := d.Parse(dfx, "applyCat(yy,caty2,-5)")
 		assert.Nil(t, e5)
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, r5.AsColumn().Data())
+		assert.Equal(t, expected, r5.AsColumn().Data().AsInt())
 	}
 }

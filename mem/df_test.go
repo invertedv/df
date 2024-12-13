@@ -58,15 +58,15 @@ func TestRowNumber(t *testing.T) {
 	out, e := d.Parse(dfx, "rowNumber()")
 	assert.Nil(t, e)
 
-	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.AsColumn(), -1))
+	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data().AsInt())
 }
 
 func TestParse_Sort(t *testing.T) {
 	dfx := testDF()
 	_, e := d.Parse(dfx, "sort('asc', y, x)")
 	assert.Nil(t, e)
-	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, checker(dfx, "y", nil, -1))
-	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, checker(dfx, "yy", nil, -1))
+	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsInt())
+	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsInt())
 }
 
 func TestParse_Table(t *testing.T) {
@@ -75,7 +75,7 @@ func TestParse_Table(t *testing.T) {
 	assert.Nil(t, e)
 	fmt.Println(df1.AsDF().Column("count"))
 	col := df1.AsDF().Column("count")
-	assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data())
+	assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data().AsInt())
 	e = df1.AsDF().Sort(true, "y", "yy")
 	assert.Nil(t, e)
 	fmt.Println(df1.AsDF().Column("y"))
@@ -180,7 +180,7 @@ func TestNewDFseq(t *testing.T) {
 	df := NewDFseq(nil, 5)
 	col := df.Column("seq")
 	assert.NotNil(t, col)
-	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
+	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data().AsInt())
 }
 
 func TestApplyCat(t *testing.T) {
@@ -206,7 +206,7 @@ func TestApplyCat(t *testing.T) {
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	exp := []int{1, v, v, 1, v, v}
-	assert.Equal(t, exp, colx.AsColumn().Data())
+	assert.Equal(t, exp, colx.AsColumn().Data().AsInt())
 
 	// default is not a known category level
 	expr = "applyCat(yy, c, 100)"
@@ -214,7 +214,7 @@ func TestApplyCat(t *testing.T) {
 	assert.Nil(t, ex)
 	v = -1
 	exp = []int{1, v, v, 1, v, v}
-	assert.Equal(t, exp, colx.AsColumn().Data())
+	assert.Equal(t, exp, colx.AsColumn().Data().AsInt())
 
 	expr = "c + y"
 	_, ex = d.Parse(dfx, expr)
@@ -241,23 +241,20 @@ func TestToCat(t *testing.T) {
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 
-	result := checker(dfx, "test", colx.AsColumn(), -1)
 	expected := []int{1, 0, 4, 1, 2, 3}
-	assert.Equal(t, expected, result)
+	assert.Equal(t, expected, colx.AsColumn().Data().AsInt())
 
 	expr = "cat(z)"
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
-	result = checker(dfx, "test", colx.AsColumn(), -1)
 	expected = []int{3, 0, 1, 1, 4, 2}
-	assert.Equal(t, expected, result)
+	assert.Equal(t, expected, colx.AsColumn().Data().AsInt())
 
 	expr = "cat(dt)"
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
-	result = checker(dfx, "test", colx.AsColumn(), -1)
 	expected = []int{3, 0, 1, 1, 4, 2}
-	assert.Equal(t, expected, result)
+	assert.Equal(t, expected, colx.AsColumn().Data().AsInt())
 
 	expr = "cat(x)"
 	colx, ex = d.Parse(dfx, expr)

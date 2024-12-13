@@ -132,19 +132,8 @@ func (v *Vector) SetDate(val time.Time, indx int) {
 	v.dates[indx] = val
 }
 
-func (v *Vector) Data() any {
-	switch v.dt {
-	case DTfloat:
-		return v.floats
-	case DTint:
-		return v.ints
-	case DTstring:
-		return v.strings
-	case DTdate:
-		return v.dates
-	default:
-		panic(fmt.Errorf("error in Vector.Data"))
-	}
+func (v *Vector) Data() *Vector {
+	return v
 }
 
 func (v *Vector) AsFloat() []float64 {

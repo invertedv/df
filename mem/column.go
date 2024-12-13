@@ -128,11 +128,11 @@ func (c *Col) String() string {
 		tab, _ := NewDFcol(nil, makeTable(c))
 		_ = tab.Sort(false, "count")
 		l := tab.Column(c.Name())
-		c := tab.Column("count")
+		cx := tab.Column("count")
 
 		header := []string{l.Name(), c.Name()}
 
-		return t + d.PrettyPrint(header, l.Data(), c.Data())
+		return t + d.PrettyPrint(header, l.Data().AsString(), cx.Data().AsInt())
 	}
 
 	x := make([]float64, c.Len())
