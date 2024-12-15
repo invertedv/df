@@ -34,7 +34,7 @@ func testDF() *DF {
 
 func checker(df d.DF, colName string, col d.Column, indx int) any {
 	if col != nil {
-		col.Rename(colName)
+		d.ColName(colName)(col)
 		if e := df.AppendColumn(col, true); e != nil {
 			panic(e)
 		}
@@ -87,7 +87,7 @@ func TestParser(t *testing.T) {
 	colx, e := d.ParseExpr(eqn, dfx)
 	assert.Nil(t, e)
 	col := colx.AsColumn()
-	col.Rename("dt")
+	d.ColName("dt")(col)
 	e = dfx.AppendColumn(col, true)
 	assert.Nil(t, e)
 
@@ -191,11 +191,11 @@ func TestApplyCat(t *testing.T) {
 	colx, ex := d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	col := colx.AsColumn()
-	col.Rename("c")
+	d.ColName("c")(col)
 	_ = dfx.AppendColumn(col, false)
 	fmt.Println(col)
 	back, ex := d.Parse(dfx, "int(c)")
-	back.AsColumn().Rename("test")
+	d.ColName("test")(back.AsColumn())
 	assert.Nil(t, ex)
 	fmt.Println(back.AsColumn())
 
@@ -233,7 +233,7 @@ func TestToCat(t *testing.T) {
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	col := colx.AsColumn()
-	col.Rename("dt")
+	d.ColName("dt")(col)
 	ex = dfx.AppendColumn(col, false)
 	assert.Nil(t, ex)
 
@@ -490,7 +490,7 @@ func TestMemDF_Table(t *testing.T) {
 	dtx, ex := d.Parse(dfx, "date(z)")
 	assert.Nil(t, ex)
 	dt := dtx.AsColumn()
-	dt.Rename("dt")
+	d.ColName("dt")(dt)
 	e = dfx.AppendColumn(dt, false)
 	assert.Nil(t, e)
 

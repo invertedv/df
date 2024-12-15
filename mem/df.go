@@ -209,7 +209,7 @@ func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 		e      error
 	)
 
-	if dfCore, e = f.AppendDFcore(df); e != nil {
+	if dfCore, e = f.AppendDFcore(df.Core()); e != nil {
 		return nil, e
 	}
 
@@ -475,7 +475,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	}
 
 	rate = ret.Value().(d.Column)
-	_ = rate.Rename("rate")
+	d.ColName("rate")(rate)
 
 	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
 		return nil, ex1

@@ -2,17 +2,15 @@ package df
 
 type CC interface {
 	Core() *ColCore
+	CategoryMap() CategoryMap
+	DataType() DataTypes
+	Dependencies() []string
+	Name() string
 }
 
 // Column interface defines the methods the columns of DFcore that must be supported
 type Column interface {
 	CC
-	CategoryMap() CategoryMap
-
-	DataType() DataTypes
-	Dependencies() []string
-	Name() string
-	Rename(newName string) error
 
 	AppendRows(col Column) (Column, error)
 	Copy() Column
@@ -127,16 +125,6 @@ func (c *ColCore) Copy() *ColCore {
 		ColRawType(c.RawType()),
 		ColCatMap(c.CategoryMap()),
 		ColCatCounts(c.CategoryCounts()))
-}
-
-func (c *ColCore) Rename(newName string) error {
-	if e := ValidName(newName); e != nil {
-		return e
-	}
-
-	ColName(newName)(c)
-
-	return nil
 }
 
 // *********** Category Map ***********

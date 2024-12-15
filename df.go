@@ -14,14 +14,7 @@ import (
 
 type DD interface {
 	Core() *DFcore
-}
-
-type DF interface {
-	DD
-
-	// generic from DFcore
 	AppendColumn(col Column, replace bool) error
-	AppendDFcore(df2 DF) (*DFcore, error)
 	Column(colName string) Column
 	ColumnCount() int
 	ColumnNames() []string
@@ -33,8 +26,11 @@ type DF interface {
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next() Column
 	First() Column
+	AppendDFcore(df2 *DFcore) (*DFcore, error)
+}
 
-	// specific to underlying data source
+type DF interface {
+	DD
 
 	AppendDF(df DF) (DF, error)
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
@@ -135,7 +131,7 @@ func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	return nil
 }
 
-func (df *DFcore) AppendDFcore(df2 DF) (*DFcore, error) {
+func (df *DFcore) AppendDFcore(df2 *DFcore) (*DFcore, error) {
 	if df == nil {
 		return nil, nil
 	}
