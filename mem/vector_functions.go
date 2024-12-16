@@ -18,7 +18,6 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 
 		fnUse := fnx[0]
 		n := df.RowCount()
-		dtOut := outp[0]
 		var col []*Col
 		if inp != nil {
 			col, n = parameters(inputs...)
@@ -28,32 +27,10 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 			}
 
 			fnUse = fnx[ind]
-			dtOut = outp[ind]
 		}
 
-		data := d.MakeVector(dtOut, n)
-		switch {
-		case dtOut == d.DTfloat:
-			fny := fnUse.(func(...*d.Atomic) float64)
-			for ind := 0; ind < n; ind++ {
-				data.SetFloat(fny(row(ind, col...)...), ind)
-			}
-		case dtOut == d.DTint:
-			fny := fnUse.(func(...*d.Atomic) int)
-			for ind := 0; ind < n; ind++ {
-				data.SetInt(fny(row(ind, col...)...), ind)
-			}
-		case dtOut == d.DTstring:
-			fny := fnUse.(func(...*d.Atomic) string)
-			for ind := 0; ind < n; ind++ {
-				data.SetString(fny(row(ind, col...)...), ind)
-			}
-		case dtOut == d.DTdate:
-			fny := fnUse.(func(...*d.Atomic) time.Time)
-			for ind := 0; ind < n; ind++ {
-				data.SetDate(fny(row(ind, col...)...), ind)
-			}
-		}
+		inData := getVecs(n, col...)
+		data := fnUse.(func(x ...any) *d.Vector)(inData...)
 
 		return returnCol(data)
 	}
@@ -61,68 +38,46 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 	return fn
 }
 
-// row returns the ind row from cols
-func row(ind int, cols ...*Col) []*d.Atomic {
-	if cols == nil {
-		return []*d.Atomic{d.NewAtomic(ind, d.DTint)}
+func getVecs(n int, cols ...*Col) []any {
+	v := []any{n}
+	for ind := 0; ind < len(cols); ind++ {
+		v = append(v, cols[ind].Data().AsAny())
 	}
 
-	outRow := make([]*d.Atomic, len(cols))
-	for j := 0; j < len(cols); j++ {
-		outRow[j] = cols[j].ElementA(ind)
-	}
-
-	return outRow
+	return v
 }
 
 func castOps() d.Fns {
-	const (
-		bitSizeF = 64
-		bitSizeI = 64
-		base     = 10
-		dtFmt    = "2006-01-02"
-	)
-
 	inType1 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTcategorical}}
 	inType2 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}}
 	inType3 := [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}}
 
-	/*	asDate := func(x string) time.Time {
-		formats := []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006", "Jan 2 2006", "January 2 2006", "2006-01-02"}
-		for _, fmtx := range formats {
-			dt, e := time.Parse(fmtx, strings.ReplaceAll(x, "'", ""))
-			if e == nil {
-				return dt
-			}
-		}
-
-		panic("cannot convert to date")
-	}*/
-
 	out := d.Fns{
 		vector("float", inType1, []d.DataTypes{d.DTfloat, d.DTfloat, d.DTfloat, d.DTfloat},
-			func(x ...*d.Atomic) float64 { return *x[0].AsFloat() },
-			func(x ...*d.Atomic) float64 { return *x[0].AsFloat() },
-			func(x ...*d.Atomic) float64 { return *x[0].AsFloat() },
-			func(x ...*d.Atomic) float64 { return *x[0].AsFloat() },
+			func(x ...any) *d.Vector {
+				return d.NewVector(x[1].([]float64), 0)
+			},
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsFloat(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsFloat(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]time.Time), 0).AsFloat(), 0) },
 		),
 		vector("int", inType1, []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint},
-			func(x ...*d.Atomic) int { return *x[0].AsInt() },
-			func(x ...*d.Atomic) int { return *x[0].AsInt() },
-			func(x ...*d.Atomic) int { return *x[0].AsInt() },
-			func(x ...*d.Atomic) int { return *x[0].AsInt() },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]float64), 0).AsInt(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(x[1].([]int), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsInt(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]time.Time), 0).AsInt(), 0) },
 		),
 		vector("string", inType2, []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring},
 			// TODO: build smarter choice for # decimals
-			func(x ...*d.Atomic) string { return *x[0].AsString() },
-			func(x ...*d.Atomic) string { return *x[0].AsString() },
-			func(x ...*d.Atomic) string { return *x[0].AsString() },
-			func(x ...*d.Atomic) string { return *x[0].AsString() },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]float64), 0).AsString(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsString(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(x[1].([]string), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]time.Time), 0).AsString(), 0) },
 		),
 		vector("date", inType3, []d.DataTypes{d.DTdate, d.DTdate, d.DTdate},
-			func(x ...*d.Atomic) time.Time { return *x[0].AsDate() },
-			func(x ...*d.Atomic) time.Time { return *x[0].AsDate() },
-			func(x ...*d.Atomic) time.Time { return *x[0].AsDate() },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsDate(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsDate(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(x[1].([]time.Time), 0) },
 		)}
 
 	return out
@@ -134,33 +89,97 @@ func mathFuncs() d.Fns {
 	outType1 := []d.DataTypes{d.DTfloat}
 	outType2 := []d.DataTypes{d.DTfloat, d.DTint}
 
-	absInt := func(x ...*d.Atomic) int {
-		xx := *x[0].AsInt()
-		if xx >= 0 {
-			return xx
+	coreFlt := func(op func(a float64) float64, x ...any) *d.Vector {
+		n, x1 := x[0].(int), x[1].([]float64)
+		xOut := make([]float64, n)
+
+		for ind, xv := range x1 {
+			xOut[ind] = op(xv)
 		}
 
-		return -xx
+		return d.NewVector(xOut, 0)
+	}
+
+	coreInt := func(op func(a int) int, x ...any) *d.Vector {
+		n, x1 := x[0].(int), x[1].([]int)
+		xOut := make([]int, n)
+
+		for ind, xv := range x1 {
+			xOut[ind] = op(xv)
+		}
+
+		return d.NewVector(xOut, 0)
+	}
+
+	absInt := func(x int) int {
+		if x >= 0 {
+			return x
+		}
+
+		return -x
 	}
 
 	out := d.Fns{
-		vector("exp", inType1, outType1, func(x ...*d.Atomic) float64 { return math.Exp(*x[0].AsFloat()) }),
-		vector("log", inType1, outType1, func(x ...*d.Atomic) float64 { return math.Log(*x[0].AsFloat()) }),
-		vector("sqrt", inType1, outType1, func(x ...*d.Atomic) float64 { return math.Sqrt(*x[0].AsFloat()) }),
-		vector("abs", inType2, outType2, func(x ...*d.Atomic) float64 { return math.Abs(*x[0].AsFloat()) }, absInt),
+		vector("exp", inType1, outType1, func(x ...any) *d.Vector { return coreFlt(math.Exp, x...) }),
+		vector("log", inType1, outType1, func(x ...any) *d.Vector { return coreFlt(math.Log, x...) }),
+		vector("sqrt", inType1, outType1, func(x ...any) *d.Vector { return coreFlt(math.Sqrt, x...) }),
+		vector("abs", inType2, outType2, func(x ...any) *d.Vector { return coreFlt(math.Abs, x...) },
+			func(x ...any) *d.Vector { return coreInt(absInt, x...) }),
+		vector("neg", inType2, outType2, func(x ...any) *d.Vector { return coreFlt(func(a float64) float64 { return -a }, x...) },
+			func(x ...any) *d.Vector { return coreInt(func(a int) int { return -a }, x...) }),
 	}
 
 	return out
+}
+
+func logic(n int, x, y []int, test func(a, b *int) bool) *d.Vector {
+	z := make([]int, n)
+	inc1, inc2 := 1, 1
+	if len(x) == 1 {
+		inc1 = 0
+	}
+	if len(y) == 1 {
+		inc2 = 0
+	}
+
+	ind1, ind2 := 0, 0
+	var yp *int
+	yp = nil
+	for ind := 0; ind < n; ind++ {
+		if y != nil {
+			yp = &y[ind2]
+		}
+		if test(&x[ind1], yp) {
+			z[ind] = 1
+		}
+		ind1 += inc1
+		ind2 += inc2
+	}
+
+	return d.NewVector(z, 0)
 }
 
 func logicalOps() d.Fns {
 	inType2 := [][]d.DataTypes{{d.DTint, d.DTint}}
 	inType1 := [][]d.DataTypes{{d.DTint}}
 	outType := []d.DataTypes{d.DTint}
+
+	and := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
+		return logic(n, x1, x2, func(a, b *int) bool { return *a > 0 && *b > 0 })
+	}
+	or := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
+		return logic(n, x1, x2, func(a, b *int) bool { return *a > 0 || *b > 0 })
+	}
+	not := func(x ...any) *d.Vector {
+		n, x1 := x[0].(int), x[1].([]int)
+		return logic(n, x1, nil, func(a, b *int) bool { return *a <= 0 })
+	}
 	out := d.Fns{
-		vector("and", inType2, outType, func(x ...*d.Atomic) int { return bint(*x[0].AsInt() > 0 && *x[1].AsInt() > 0) }),
-		vector("or", inType2, outType, func(x ...*d.Atomic) int { return bint(*x[0].AsInt() > 0 || *x[1].AsInt() > 0) }),
-		vector("not", inType1, outType, func(x ...*d.Atomic) int { return 1 - bint(*x[0].AsInt() > 0) })}
+		vector("and", inType2, outType, and),
+		vector("or", inType2, outType, or),
+		vector("not", inType1, outType, not)}
 
 	return out
 }
@@ -177,38 +196,79 @@ func comparisons() d.Fns {
 	var out d.Fns
 	for ind, op := range []string{"gt", "lt", "ge", "le", "eq", "ne"} {
 		out = append(out,
-			vector(op, inType, outType, fns[ind][0], fns[ind][1], fns[ind][2], fns[ind][3]))
+			vector(op, inType, outType, fns[0][ind], fns[1][ind], fns[2][ind], fns[3][ind]))
 	}
 
 	return out
 }
 
+func mathFn[T comparable](n int, x, y []T, op func(a, b T) T) *d.Vector {
+	inc1, inc2 := 1, 1
+	if len(x) == 1 {
+		inc1 = 0
+	}
+	if len(y) == 1 {
+		inc2 = 0
+	}
+
+	z := make([]T, n)
+	ind1, ind2 := 0, 0
+	for ind := 0; ind < n; ind++ {
+		z[ind] = op(x[ind1], y[ind2])
+		ind1 += inc1
+		ind2 += inc2
+	}
+
+	return d.NewVector(z, 0)
+
+}
+
 func mathOps() d.Fns {
-	inType2 := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}}
-	inType1 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
+	inType := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}}
 	outType := []d.DataTypes{d.DTfloat, d.DTint}
 
-	addFloat := func(x ...*d.Atomic) float64 {
-		return *x[0].AsFloat() + *x[1].AsFloat()
+	addFloat := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
+		return mathFn(n, x1, x2, func(a, b float64) float64 { return a + b })
 	}
-	addInt := func(x ...*d.Atomic) int {
-		return *x[0].AsInt() + *x[1].AsInt()
+	addInt := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
+		return mathFn(n, x1, x2, func(a, b int) int { return a + b })
 	}
-	subFloat := func(x ...*d.Atomic) float64 { return *x[0].AsFloat() - *x[1].AsFloat() }
-	subInt := func(x ...*d.Atomic) int { return *x[0].AsInt() - *x[1].AsInt() }
-	multFloat := func(x ...*d.Atomic) float64 { return *x[0].AsFloat() * *x[1].AsFloat() }
-	multInt := func(x ...*d.Atomic) int { return *x[0].AsInt() * *x[1].AsInt() }
-	divFloat := func(x ...*d.Atomic) float64 { return *x[0].AsFloat() / *x[1].AsFloat() }
-	divInt := func(x ...*d.Atomic) int { return *x[0].AsInt() / *x[1].AsInt() }
-	negFloat := func(x ...*d.Atomic) float64 { return -*x[0].AsFloat() }
-	negInt := func(x ...*d.Atomic) int { return -*x[0].AsInt() }
+
+	subFloat := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
+		return mathFn(n, x1, x2, func(a, b float64) float64 { return a - b })
+	}
+	subInt := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
+		return mathFn(n, x1, x2, func(a, b int) int { return a - b })
+	}
+
+	multFloat := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
+		return mathFn(n, x1, x2, func(a, b float64) float64 { return a * b })
+	}
+	multInt := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
+		return mathFn(n, x1, x2, func(a, b int) int { return a * b })
+	}
+
+	divFloat := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
+		return mathFn(n, x1, x2, func(a, b float64) float64 { return a / b })
+	}
+	divInt := func(x ...any) *d.Vector {
+		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
+		return mathFn(n, x1, x2, func(a, b int) int { return a / b })
+	}
 
 	out := d.Fns{
-		vector("add", inType2, outType, addFloat, addInt),
-		vector("divide", inType2, outType, divFloat, divInt),
-		vector("multiply", inType2, outType, multFloat, multInt),
-		vector("subtract", inType2, outType, subFloat, subInt),
-		vector("neg", inType1, outType, negFloat, negInt)}
+		vector("add", inType, outType, addFloat, addInt),
+		vector("divide", inType, outType, divFloat, divInt),
+		vector("multiply", inType, outType, multFloat, multInt),
+		vector("subtract", inType, outType, subFloat, subInt)}
+	//		vector("neg", inType1, outType, negFloat, negInt)}
 
 	return out
 }
@@ -216,11 +276,49 @@ func mathOps() d.Fns {
 func otherVectors() d.Fns {
 	outType := []d.DataTypes{d.DTint}
 
+	rn := func(x ...any) *d.Vector {
+		n := x[0].(int)
+		outX := make([]int, n)
+		for ind := 0; ind < n; ind++ {
+			outX[ind] = ind
+		}
+
+		return d.NewVector(outX, 0)
+	}
+
 	out := d.Fns{
-		vector("rowNumber", nil, outType, func(x ...*d.Atomic) int { return *x[0].AsInt() }),
+		vector("rowNumber", nil, outType, rn),
 		ifOp()}
 
 	return out
+}
+
+func ifx[T comparable](n int, cond []int, x, y []T) *d.Vector {
+	z := make([]T, n)
+	inc0, inc1, inc2 := 1, 1, 1
+	if len(cond) == 1 {
+		inc0 = 0
+	}
+	if len(x) == 1 {
+		inc1 = 0
+	}
+	if len(y) == 1 {
+		inc2 = 0
+	}
+
+	ind0, ind1, ind2 := 0, 0, 0
+	for ind := 0; ind < n; ind++ {
+		if cond[ind0] > 0 {
+			z[ind] = x[ind1]
+		} else {
+			z[ind] = y[ind2]
+		}
+		ind0 += inc0
+		ind1 += inc1
+		ind2 += inc2
+	}
+
+	return d.NewVector(z, 0)
 }
 
 // ifOp implements the if statement
@@ -230,32 +328,27 @@ func ifOp() d.Fn {
 	}
 	outType := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate}
 
-	iFloat64 := func(x ...*d.Atomic) float64 {
-		if *x[0].AsInt() > 0 {
-			return *x[1].AsFloat()
-		}
-		return *x[2].AsFloat()
-	}
-	iInt := func(x ...*d.Atomic) int {
-		if *x[0].AsInt() > 0 {
-			return *x[1].AsInt()
-		}
-		return *x[2].AsInt()
-	}
-	iString := func(x ...*d.Atomic) string {
-		if *x[0].AsInt() > 0 {
-			return *x[1].AsString()
-		}
-		return *x[2].AsString()
-	}
-	iDate := func(x ...*d.Atomic) time.Time {
-		if *x[0].AsInt() > 0 {
-			return *x[1].AsDate()
-		}
-		return *x[2].AsDate()
+	iFloat := func(x ...any) *d.Vector {
+		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]float64), x[3].([]float64)
+		return ifx(n, cond, x1, x2)
 	}
 
-	return vector("if", inType, outType, iFloat64, iInt, iString, iDate)
+	iInt := func(x ...any) *d.Vector {
+		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int), x[3].([]int)
+		return ifx(n, cond, x1, x2)
+	}
+
+	iString := func(x ...any) *d.Vector {
+		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]string), x[3].([]string)
+		return ifx(n, cond, x1, x2)
+	}
+
+	iDate := func(x ...any) *d.Vector {
+		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]time.Time), x[3].([]time.Time)
+		return ifx(n, cond, x1, x2)
+	}
+
+	return vector("if", inType, outType, iFloat, iInt, iString, iDate)
 }
 
 // ***************** Functions that take a single column and return a scalar *****************

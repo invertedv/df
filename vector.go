@@ -136,9 +136,33 @@ func (v *Vector) Data() *Vector {
 	return v
 }
 
-func (v *Vector) AsFloat() []float64 {
-	if v.dt == DTfloat {
+func (v *Vector) AsAny() any {
+	switch v.VectorType() {
+	case DTfloat:
 		return v.floats
+	case DTint:
+		return v.ints
+	case DTstring:
+		return v.strings
+	case DTdate:
+		return v.dates
+	}
+
+	return nil
+}
+
+func (v *Vector) AsFloat() []float64 {
+	if v.VectorType() == DTfloat {
+		return v.floats
+	}
+
+	if v.VectorType() == DTint {
+		xOut := make([]float64, v.Len())
+		for ind, xx := range v.ints {
+			xOut[ind] = float64(xx)
+		}
+
+		return xOut
 	}
 
 	var vx *Vector
@@ -150,8 +174,17 @@ func (v *Vector) AsFloat() []float64 {
 }
 
 func (v *Vector) AsInt() []int {
-	if v.dt == DTint {
+	if v.VectorType() == DTint {
 		return v.ints
+	}
+
+	if v.VectorType() == DTfloat {
+		xOut := make([]int, v.Len())
+		for ind, xx := range v.floats {
+			xOut[ind] = int(xx)
+		}
+
+		return xOut
 	}
 
 	var vx *Vector

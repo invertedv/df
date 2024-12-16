@@ -2,64 +2,93 @@ package df
 
 import (
 	"fmt"
+	"time"
 
 	d "github.com/invertedv/df"
 )
 
-// mean
+func compare[T comparable](n int, x, y []T, comp func(a, b T) bool) *d.Vector {
+	z := make([]int, n)
+	inc1, inc2 := 1, 1
+	if len(x) == 1 {
+		inc1 = 0
+	}
+
+	if len(y) == 1 {
+		inc2 = 0
+	}
+
+	ind1, ind2 := 0, 0
+	for ind := 0; ind < n; ind++ {
+		if comp(x[ind1], y[ind2]) {
+			z[ind] = 1
+		}
+		ind1 += inc1
+		ind2 += inc2
+	}
+
+	return d.NewVector(z, 0)
+}
 
 // buildTests builds suite of comparison function (>, <, >=, <=, ==, !=) for the four
 // core data types (dtFloat, dtInt, dtString,dtDate).
-func buildTests() [][]func(x ...*d.Atomic) int {
+func buildTests() [][]func(x ...any) *d.Vector {
 	// build "greater than" functions for each type
-	var fnGTtype []func(x ...*d.Atomic) bool
-	for ind := 0; ind < 4; ind++ {
-		fn := func(x ...*d.Atomic) bool {
-			switch ind {
-			case 0:
-				return *x[0].AsFloat() > *x[1].AsFloat()
-			case 1:
-				return *x[0].AsInt() > *x[1].AsInt()
-			case 2:
-				return *x[0].AsString() > *x[1].AsString()
-			default:
-				return x[0].AsDate().Sub(*x[1].AsDate()).Minutes() > 0
-			}
-		}
-
-		fnGTtype = append(fnGTtype, fn)
+	fltCmp := []func(a, b float64) bool{
+		func(a, b float64) bool { return a > b },
+		func(a, b float64) bool { return a < b },
+		func(a, b float64) bool { return a >= b },
+		func(a, b float64) bool { return a <= b },
+		func(a, b float64) bool { return a == b },
+		func(a, b float64) bool { return a != b },
+	}
+	intCmp := []func(a, b int) bool{
+		func(a, b int) bool { return a > b },
+		func(a, b int) bool { return a < b },
+		func(a, b int) bool { return a >= b },
+		func(a, b int) bool { return a <= b },
+		func(a, b int) bool { return a == b },
+		func(a, b int) bool { return a != b },
+	}
+	stringCmp := []func(a, b string) bool{
+		func(a, b string) bool { return a > b },
+		func(a, b string) bool { return a < b },
+		func(a, b string) bool { return a >= b },
+		func(a, b string) bool { return a <= b },
+		func(a, b string) bool { return a == b },
+		func(a, b string) bool { return a != b },
+	}
+	dateCmp := []func(a, b time.Time) bool{
+		func(a, b time.Time) bool { return a.Sub(b).Seconds() > 0 },
+		func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 },
+		func(a, b time.Time) bool { return a.Sub(b).Seconds() >= 0 },
+		func(a, b time.Time) bool { return a.Sub(b).Seconds() <= 0 },
+		func(a, b time.Time) bool { return a.Sub(b).Seconds() == 0 },
+		func(a, b time.Time) bool { return a.Sub(b).Seconds() != 0 },
 	}
 
-	// build all comparison functions for each type leveraging fnGTtype slice
-	var fns [][]func(x ...*d.Atomic) int
-	for comp := 0; comp < 6; comp++ {
-		var fnDt []func(x ...*d.Atomic) int
-		for dt := 0; dt < len(fnGTtype); dt++ {
-			fn := func(x ...*d.Atomic) int {
-				a, b := x[0], x[1]
-				switch comp {
-				case 0:
-					return bint(fnGTtype[dt](a, b)) // a > b
-				case 1:
-					return bint(fnGTtype[dt](b, a)) // a < b
-				case 2:
-					return bint(!fnGTtype[dt](b, a)) // a >= b
-				case 3:
-					return bint(!fnGTtype[dt](a, b)) // a <= b
-				case 4:
-					return bint(!fnGTtype[dt](a, b) && !fnGTtype[dt](b, a)) // a == b
-				default:
-					return bint(fnGTtype[dt](a, b) || fnGTtype[dt](b, a)) // a!=b
-				}
-			}
+	var flts, ints, strs, dts []func(x ...any) *d.Vector
 
-			fnDt = append(fnDt, fn)
-		}
-
-		fns = append(fns, fnDt)
+	for ind := 0; ind < len(fltCmp); ind++ {
+		flts = append(flts, func(x ...any) *d.Vector {
+			n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
+			return compare(n, x1, x2, fltCmp[ind])
+		})
+		ints = append(ints, func(x ...any) *d.Vector {
+			n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
+			return compare(n, x1, x2, intCmp[ind])
+		})
+		strs = append(strs, func(x ...any) *d.Vector {
+			n, x1, x2 := x[0].(int), x[1].([]string), x[2].([]string)
+			return compare(n, x1, x2, stringCmp[ind])
+		})
+		dts = append(dts, func(x ...any) *d.Vector {
+			n, x1, x2 := x[0].(int), x[1].([]time.Time), x[2].([]time.Time)
+			return compare(n, x1, x2, dateCmp[ind])
+		})
 	}
 
-	return fns
+	return [][]func(x ...any) *d.Vector{flts, ints, strs, dts}
 }
 
 func toCol(x any) *Col {

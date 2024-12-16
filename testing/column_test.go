@@ -6,29 +6,45 @@ import (
 	"testing"
 	"time"
 
+	m "github.com/invertedv/df/mem"
+
 	d "github.com/invertedv/df"
 	"github.com/stretchr/testify/assert"
 )
 
-type intp int
-
-func (i intp) Less(x intp) bool {
-	return i < x
-}
-
-type Orderable[T intp | float64] interface {
-	Less(a T) bool
-}
-
 func TestRandom(t *testing.T) {
-	a := float64(1.0)
-	b := intp(2)
-	_, _ = a, b
-	var i interface{} = b
-	if _, ok := i.(Orderable[intp]); ok {
-		fmt.Println("YES")
+	n := 10000 //0000
+	x := make([]int, n)
+	y := make([]float64, n)
+	z := make([]float64, n)
+	_ = z
+	for ind := 0; ind < n; ind++ {
+		x[ind] = int(ind + 1)
+		y[ind] = float64(-2*ind - 2)
+		z[ind] = float64(ind)
 	}
 
+	vx := d.NewVector(x, 0)
+	vy := d.NewVector(y, 0)
+	vz := d.NewVector(z, 0)
+	colx, ex := m.NewCol(vx, d.ColName("x"))
+	assert.Nil(t, ex)
+	coly, ey := m.NewCol(vy, d.ColName("y"))
+	assert.Nil(t, ey)
+	colz, ez := m.NewCol(vz, d.ColName("z"))
+	assert.Nil(t, ez)
+	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz})
+	assert.Nil(t, ed)
+	tx := time.Now()
+	outCol, ep := d.Parse(df, "if(x > 5,y,z)")
+	assert.Nil(t, ep)
+	fmt.Println(time.Since(tx).Seconds(), " seconds")
+	tx = time.Now()
+	//	for ind := 0; ind < n; ind++ {
+	//		z[ind] = ind
+	//	}
+	fmt.Println(time.Since(tx).Seconds(), " seconds")
+	_ = outCol
 }
 
 func TestRename(t *testing.T) {
@@ -79,6 +95,9 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
+			{"(x/0.1)", 0, 10.0},
+			{"y+100", 0, 101.0},
+			{"(x/0.1)*float(y+100)", 0, 1010.0},
 			{"z!='20060102'", 0, 1},
 			{"dt != date(20221231)", 0, 0},
 			{"y+y", 0, 2},
@@ -124,7 +143,6 @@ func TestParser(t *testing.T) {
 			{"exp(x-1.0)", 0, 1.0},
 			{"abs(x)", 0, 1.0},
 			{"abs(y)", 1, 5},
-			{"(x/0.1)*float(y+100)", 0, 1010.0},
 			{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
 			{"dt != date(20221231)", 1, 1},
 			{"dt == date(20221231)", 0, 1},
