@@ -12,32 +12,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: test min/max for string & date <---------------
 func TestRandom(t *testing.T) {
 	n := 10000 //0000
 	x := make([]int, n)
 	y := make([]float64, n)
 	z := make([]float64, n)
-	_ = z
+	s := make([]string, n)
+	dt := make([]time.Time, n)
 	for ind := 0; ind < n; ind++ {
 		x[ind] = int(ind + 1)
-		y[ind] = float64(-2*ind - 2)
+		y[ind] = float64(ind + 1)
 		z[ind] = float64(ind)
+		s[ind] = fmt.Sprintf("%d", ind)
+		l := ind % 40
+		dt[ind] = time.Date(1980+l, 6, 1, 0, 0, 0, 0, time.UTC)
+
 	}
 
 	vx := d.NewVector(x, 0)
 	vy := d.NewVector(y, 0)
 	vz := d.NewVector(z, 0)
+	vs := d.NewVector(s, 0)
+	vdt := d.NewVector(dt, 0)
 	colx, ex := m.NewCol(vx, d.ColName("x"))
 	assert.Nil(t, ex)
 	coly, ey := m.NewCol(vy, d.ColName("y"))
 	assert.Nil(t, ey)
 	colz, ez := m.NewCol(vz, d.ColName("z"))
 	assert.Nil(t, ez)
-	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz})
+	cols, es := m.NewCol(vs, d.ColName("s"))
+	assert.Nil(t, es)
+	coldt, edt := m.NewCol(vdt, d.ColName("dt"))
+	assert.Nil(t, edt)
+	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols, coldt})
 	assert.Nil(t, ed)
 	tx := time.Now()
-	outCol, ep := d.Parse(df, "if(x > 5,y,z)")
+	outCol, ep := d.Parse(df, "dot(y/sqrt(dot(y,y)), y/sqrt(dot(y,y)))")
+	//	outCol, ep := d.Parse(df, "dot(y,y)")
 	assert.Nil(t, ep)
+
+	fmt.Println("value ", outCol.AsColumn().(*m.Col).Element(0))
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 	tx = time.Now()
 	//	for ind := 0; ind < n; ind++ {

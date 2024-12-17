@@ -111,7 +111,6 @@ func toCol(x any) *Col {
 	panic("can't make column")
 }
 
-// TODO: here
 func parameters(inputs ...d.Column) (cols []*Col, n int) {
 	n = 1
 	for j := 0; j < len(inputs); j++ {
@@ -152,13 +151,6 @@ func getNames(startInd int, cols ...d.Column) ([]string, error) {
 	}
 
 	return colNames, nil
-}
-
-func bint(x bool) int {
-	if x {
-		return 1
-	}
-	return 0
 }
 
 func signature(target [][]d.DataTypes, cols ...*Col) int {

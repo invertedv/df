@@ -60,30 +60,6 @@ func (v *Vector) VectorType() DataTypes {
 	return v.dt
 }
 
-// TODO: allow for casting?
-func (v *Vector) Setx(val *Atomic, indx int) {
-	if val.AtomType() != v.VectorType() {
-		panic(fmt.Errorf("different types in set"))
-	}
-
-	if indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
-	}
-
-	switch v.VectorType() {
-	case DTfloat:
-		v.floats[indx] = *val.AsFloat()
-	case DTint:
-		v.ints[indx] = *val.AsInt()
-	case DTstring:
-		v.strings[indx] = *val.AsString()
-	case DTdate:
-		v.dates[indx] = *val.AsDate()
-	default:
-		panic(fmt.Errorf("error in Vector.Set"))
-	}
-}
-
 func (v *Vector) SetFloat(val float64, indx int) {
 	if v.VectorType() != DTfloat {
 		panic(fmt.Errorf("vector isn't DTfloat"))
@@ -243,19 +219,6 @@ func (v *Vector) Element(indx int) any {
 	default:
 		panic(fmt.Errorf("error in Element"))
 	}
-}
-
-func (v *Vector) ElementA(indx int) *Atomic {
-	// handles ops like x/2 where x is a vector
-	if v.Len() == 1 {
-		indx = 0
-	}
-
-	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
-	}
-
-	return NewAtomic(v.Element(indx), v.VectorType())
 }
 
 func (v *Vector) ElementFloat(indx int) float64 {

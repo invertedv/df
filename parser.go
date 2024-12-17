@@ -333,7 +333,6 @@ func (ot *OpTree) constant(xIn string) (*Parsed, error) {
 		xIn = strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'")
 		c := NewScalar(xIn)
 		return NewParsed(c), nil
-		//		return NewParsed(xIn), nil
 	}
 
 	var (
@@ -459,7 +458,7 @@ func (ot *OpTree) args(xIn string) ([]string, error) {
 
 // makeFn populates the OpTree function fields
 func (ot *OpTree) makeFn(fnName string) error {
-	inner := strings.ReplaceAll(ot.expr, fnName, "")
+	inner := strings.Replace(ot.expr, fnName, "", 1)
 	inner = inner[:len(inner)-1]
 
 	var (

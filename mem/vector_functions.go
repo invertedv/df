@@ -202,9 +202,6 @@ func comparisons() d.Fns {
 	return out
 }
 
-// TODO: see if I can consolidate these function
-// TODO: see where else parameter type constraints will work
-
 func mathFn[T float64 | int | string | time.Time](n int, x, y []T, op func(a, b T) T) *d.Vector {
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {
@@ -389,7 +386,6 @@ func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		return &d.FnReturn{Err: e}
 	}
 
-	//	outCol.(*Col).rawType = dt
 	d.ColRawType(dt)(outCol.(*Col).ColCore)
 	outFn := &d.FnReturn{Value: outCol}
 
@@ -437,7 +433,6 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		return &d.FnReturn{Err: e}
 	}
 
-	//	outCol.(*Col).RawType() = newData.DataType()
 	d.ColRawType(newData.DataType())(outCol.(*Col).ColCore)
 	outFn := &d.FnReturn{Value: outCol}
 
