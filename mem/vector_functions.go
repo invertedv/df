@@ -59,13 +59,13 @@ func castOps() d.Fns {
 			},
 			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsFloat(), 0) },
 			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsFloat(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]time.Time), 0).AsFloat(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsFloat(), 0) },
 		),
 		vector("int", inType1, []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint},
 			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]float64), 0).AsInt(), 0) },
 			func(x ...any) *d.Vector { return d.NewVector(x[1].([]int), 0) },
 			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsInt(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]time.Time), 0).AsInt(), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsInt(), 0) },
 		),
 		vector("string", inType2, []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring},
 			// TODO: build smarter choice for # decimals
@@ -83,33 +83,21 @@ func castOps() d.Fns {
 	return out
 }
 
+func core[T float64 | int](op func(a T) T, x ...any) *d.Vector {
+	n, x1 := x[0].(int), x[1].([]T)
+	xOut := make([]T, n)
+	for ind, xv := range x1 {
+		xOut[ind] = op(xv)
+	}
+
+	return d.NewVector(xOut, 0)
+}
+
 func mathFuncs() d.Fns {
 	inType1 := [][]d.DataTypes{{d.DTfloat}}
 	inType2 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
 	outType1 := []d.DataTypes{d.DTfloat}
 	outType2 := []d.DataTypes{d.DTfloat, d.DTint}
-
-	coreFlt := func(op func(a float64) float64, x ...any) *d.Vector {
-		n, x1 := x[0].(int), x[1].([]float64)
-		xOut := make([]float64, n)
-
-		for ind, xv := range x1 {
-			xOut[ind] = op(xv)
-		}
-
-		return d.NewVector(xOut, 0)
-	}
-
-	coreInt := func(op func(a int) int, x ...any) *d.Vector {
-		n, x1 := x[0].(int), x[1].([]int)
-		xOut := make([]int, n)
-
-		for ind, xv := range x1 {
-			xOut[ind] = op(xv)
-		}
-
-		return d.NewVector(xOut, 0)
-	}
 
 	absInt := func(x int) int {
 		if x >= 0 {
@@ -120,13 +108,13 @@ func mathFuncs() d.Fns {
 	}
 
 	out := d.Fns{
-		vector("exp", inType1, outType1, func(x ...any) *d.Vector { return coreFlt(math.Exp, x...) }),
-		vector("log", inType1, outType1, func(x ...any) *d.Vector { return coreFlt(math.Log, x...) }),
-		vector("sqrt", inType1, outType1, func(x ...any) *d.Vector { return coreFlt(math.Sqrt, x...) }),
-		vector("abs", inType2, outType2, func(x ...any) *d.Vector { return coreFlt(math.Abs, x...) },
-			func(x ...any) *d.Vector { return coreInt(absInt, x...) }),
-		vector("neg", inType2, outType2, func(x ...any) *d.Vector { return coreFlt(func(a float64) float64 { return -a }, x...) },
-			func(x ...any) *d.Vector { return coreInt(func(a int) int { return -a }, x...) }),
+		vector("exp", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Exp, x...) }),
+		vector("log", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Log, x...) }),
+		vector("sqrt", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Sqrt, x...) }),
+		vector("abs", inType2, outType2, func(x ...any) *d.Vector { return core[float64](math.Abs, x...) },
+			func(x ...any) *d.Vector { return core[int](absInt, x...) }),
+		vector("neg", inType2, outType2, func(x ...any) *d.Vector { return core[float64](func(a float64) float64 { return -a }, x...) },
+			func(x ...any) *d.Vector { return core[int](func(a int) int { return -a }, x...) }),
 	}
 
 	return out
@@ -202,7 +190,7 @@ func comparisons() d.Fns {
 	return out
 }
 
-func mathFn[T float64 | int | string | time.Time](n int, x, y []T, op func(a, b T) T) *d.Vector {
+func mathFn[T float64 | int](n int, x, y []T, op func(a, b T) T) *d.Vector {
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {
 		inc1 = 0
