@@ -44,6 +44,10 @@ func summaries() d.Fns {
 			func(x ...any) *d.Vector { return d.NewVector(quantile(x[1].([]float64)[0], x[2].([]float64)), 0) },
 			func(x ...any) *d.Vector { return d.NewVector(qInt(x[1].([]float64)[0], x[2].([]int)), 0) },
 		),
+		vector("median", inType1, outType1,
+			func(x ...any) *d.Vector { return d.NewVector(quantile(0.5, x[1].([]float64)), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(qInt(0.5, x[1].([]int)), 0) },
+		),
 		vector("min", inType3, outType3,
 			func(x ...any) *d.Vector {
 				return d.NewVector(minMax(true, x[1].([]float64), func(a, b float64) bool { return a < b }), 0)

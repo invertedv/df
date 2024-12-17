@@ -3,7 +3,7 @@ package df
 import "fmt"
 
 type Scalar struct {
-	*Atomic
+	atomic any
 	*ColCore
 }
 
@@ -13,7 +13,7 @@ func (s *Scalar) AppendRows(col Column) (Column, error) {
 
 func (s *Scalar) Copy() Column {
 	return &Scalar{
-		Atomic:  s.Atomic.Copy(),
+		atomic:  s.atomic,
 		ColCore: s.Core().Copy(),
 	}
 }
@@ -23,7 +23,7 @@ func (s *Scalar) Core() *ColCore {
 }
 
 func (s *Scalar) Data() *Vector {
-	return NewVector(s.Atomic.AsAny(), 1)
+	return NewVector(s.atomic, 1)
 }
 
 func (s *Scalar) Len() int {
@@ -35,7 +35,7 @@ func (s *Scalar) Replace(ind, repl Column) (Column, error) {
 }
 
 func (s *Scalar) String() string {
-	return *s.Atomic.AsString()
+	return fmt.Sprintf("%v", s.atomic)
 }
 
 func NewScalar(val any, opts ...COpt) *Scalar {
@@ -46,7 +46,7 @@ func NewScalar(val any, opts ...COpt) *Scalar {
 
 	cc := NewColCore(dt, opts...)
 	return &Scalar{
-		Atomic:  NewAtomic(val, dt),
+		atomic:  val,
 		ColCore: cc,
 	}
 }
