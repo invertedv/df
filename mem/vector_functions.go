@@ -8,6 +8,8 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// *********** functions which return a vector ***********
+
 // TODO: what happens if try to compare to dtCategorical??
 
 func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
@@ -134,6 +136,7 @@ func logic(n int, x, y []int, test func(a, b *int) bool) *d.Vector {
 	var yp *int
 	yp = nil
 	for ind := 0; ind < n; ind++ {
+		// handles "not" which has only 1 arg
 		if y != nil {
 			yp = &y[ind2]
 		}
