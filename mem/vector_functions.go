@@ -256,7 +256,8 @@ func otherVectors() d.Fns {
 	return out
 }
 
-func ifx[T float64 | int | string | time.Time](n int, cond []int, x, y []T) *d.Vector {
+func ifx[T float64 | int | string | time.Time](xIn ...any) *d.Vector {
+	n, cond, x, y := xIn[0].(int), xIn[1].([]int), xIn[2].([]T), xIn[3].([]T)
 	z := make([]T, n)
 	inc0, inc1, inc2 := 1, 1, 1
 	if len(cond) == 1 {
@@ -291,27 +292,11 @@ func ifOp() d.Fn {
 	}
 	outType := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate}
 
-	iFloat := func(x ...any) *d.Vector {
-		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]float64), x[3].([]float64)
-		return ifx(n, cond, x1, x2)
-	}
-
-	iInt := func(x ...any) *d.Vector {
-		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int), x[3].([]int)
-		return ifx(n, cond, x1, x2)
-	}
-
-	iString := func(x ...any) *d.Vector {
-		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]string), x[3].([]string)
-		return ifx(n, cond, x1, x2)
-	}
-
-	iDate := func(x ...any) *d.Vector {
-		n, cond, x1, x2 := x[0].(int), x[1].([]int), x[2].([]time.Time), x[3].([]time.Time)
-		return ifx(n, cond, x1, x2)
-	}
-
-	return vector("if", inType, outType, iFloat, iInt, iString, iDate)
+	return vector("if", inType, outType,
+		func(x ...any) *d.Vector { return ifx[float64](x...) },
+		func(x ...any) *d.Vector { return ifx[int](x...) },
+		func(x ...any) *d.Vector { return ifx[string](x...) },
+		func(x ...any) *d.Vector { return ifx[time.Time](x...) })
 }
 
 // ***************** Functions that take a single column and return a scalar *****************
