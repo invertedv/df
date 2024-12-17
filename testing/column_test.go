@@ -48,7 +48,7 @@ func TestRandom(t *testing.T) {
 	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols, coldt})
 	assert.Nil(t, ed)
 	tx := time.Now()
-	outCol, ep := d.Parse(df, "exp(y)/10000.0")
+	outCol, ep := d.Parse(df, "y+z")
 	//	outCol, ep := d.Parse(df, "dot(y,y)")
 	assert.Nil(t, ep)
 

@@ -190,7 +190,8 @@ func comparisons() d.Fns {
 	return out
 }
 
-func mathFn[T float64 | int](n int, x, y []T, op func(a, b T) T) *d.Vector {
+func mathFn[T float64 | int](op func(a, b T) T, xIn ...any) *d.Vector {
+	n, x, y := xIn[0].(int), xIn[1].([]T), xIn[2].([]T)
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {
 		inc1 = 0
@@ -212,51 +213,25 @@ func mathFn[T float64 | int](n int, x, y []T, op func(a, b T) T) *d.Vector {
 
 }
 
+func add[T float64 | int](a, b T) T  { return a + b }
+func sub[T float64 | int](a, b T) T  { return a - b }
+func mult[T float64 | int](a, b T) T { return a * b }
+func div[T float64 | int](a, b T) T  { return a / b }
+
 func mathOps() d.Fns {
 	inType := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}}
 	outType := []d.DataTypes{d.DTfloat, d.DTint}
 
-	addFloat := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
-		return mathFn(n, x1, x2, func(a, b float64) float64 { return a + b })
-	}
-	addInt := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
-		return mathFn(n, x1, x2, func(a, b int) int { return a + b })
-	}
-
-	subFloat := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
-		return mathFn(n, x1, x2, func(a, b float64) float64 { return a - b })
-	}
-	subInt := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
-		return mathFn(n, x1, x2, func(a, b int) int { return a - b })
-	}
-
-	multFloat := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
-		return mathFn(n, x1, x2, func(a, b float64) float64 { return a * b })
-	}
-	multInt := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
-		return mathFn(n, x1, x2, func(a, b int) int { return a * b })
-	}
-
-	divFloat := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
-		return mathFn(n, x1, x2, func(a, b float64) float64 { return a / b })
-	}
-	divInt := func(x ...any) *d.Vector {
-		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
-		return mathFn(n, x1, x2, func(a, b int) int { return a / b })
-	}
-
 	out := d.Fns{
-		vector("add", inType, outType, addFloat, addInt),
-		vector("divide", inType, outType, divFloat, divInt),
-		vector("multiply", inType, outType, multFloat, multInt),
-		vector("subtract", inType, outType, subFloat, subInt)}
+		vector("add", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](add, x...) },
+			func(x ...any) *d.Vector { return mathFn[int](add, x...) }),
+		vector("subtract", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](sub, x...) },
+			func(x ...any) *d.Vector { return mathFn[int](sub, x...) }),
+		vector("multiply", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](mult, x...) },
+			func(x ...any) *d.Vector { return mathFn[int](mult, x...) }),
+		vector("divide", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](div, x...) },
+			func(x ...any) *d.Vector { return mathFn[int](div, x...) }),
+	}
 
 	return out
 }
