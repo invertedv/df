@@ -7,7 +7,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
-func compare[T comparable](n int, x, y []T, comp func(a, b T) bool) *d.Vector {
+func compare[T float64 | int | string | time.Time](n int, x, y []T, comp func(a, b T) bool) *d.Vector {
 	z := make([]int, n)
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {

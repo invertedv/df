@@ -202,11 +202,15 @@ func comparisons() d.Fns {
 	return out
 }
 
-func mathFn[T comparable](n int, x, y []T, op func(a, b T) T) *d.Vector {
+// TODO: see if I can consolidate these function
+// TODO: see where else parameter type constraints will work
+
+func mathFn[T float64 | int | string | time.Time](n int, x, y []T, op func(a, b T) T) *d.Vector {
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {
 		inc1 = 0
 	}
+
 	if len(y) == 1 {
 		inc2 = 0
 	}
@@ -268,7 +272,6 @@ func mathOps() d.Fns {
 		vector("divide", inType, outType, divFloat, divInt),
 		vector("multiply", inType, outType, multFloat, multInt),
 		vector("subtract", inType, outType, subFloat, subInt)}
-	//		vector("neg", inType1, outType, negFloat, negInt)}
 
 	return out
 }
@@ -293,7 +296,7 @@ func otherVectors() d.Fns {
 	return out
 }
 
-func ifx[T comparable](n int, cond []int, x, y []T) *d.Vector {
+func ifx[T float64 | int | string | time.Time](n int, cond []int, x, y []T) *d.Vector {
 	z := make([]T, n)
 	inc0, inc1, inc2 := 1, 1, 1
 	if len(cond) == 1 {
