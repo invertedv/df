@@ -21,8 +21,8 @@ func TestRandom(t *testing.T) {
 	s := make([]string, n)
 	dt := make([]time.Time, n)
 	for ind := 0; ind < n; ind++ {
-		x[ind] = int(ind + 1)
-		y[ind] = float64(ind + 1)
+		x[ind] = int(-ind + 1)
+		y[ind] = float64(-ind + 1)
 		z[ind] = float64(ind)
 		s[ind] = fmt.Sprintf("%d", ind)
 		l := ind % 40
@@ -48,7 +48,7 @@ func TestRandom(t *testing.T) {
 	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols, coldt})
 	assert.Nil(t, ed)
 	tx := time.Now()
-	outCol, ep := d.Parse(df, "y+z")
+	outCol, ep := d.Parse(df, "abs(x)")
 	//	outCol, ep := d.Parse(df, "dot(y,y)")
 	assert.Nil(t, ep)
 

@@ -95,26 +95,26 @@ func core[T float64 | int](op func(a T) T, x ...any) *d.Vector {
 	return d.NewVector(xOut, 0)
 }
 
+func abs[T float64 | int](x T) T {
+	if x >= 0 {
+		return x
+	}
+
+	return -x
+}
+
 func mathFuncs() d.Fns {
 	inType1 := [][]d.DataTypes{{d.DTfloat}}
 	inType2 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}}
 	outType1 := []d.DataTypes{d.DTfloat}
 	outType2 := []d.DataTypes{d.DTfloat, d.DTint}
 
-	absInt := func(x int) int {
-		if x >= 0 {
-			return x
-		}
-
-		return -x
-	}
-
 	out := d.Fns{
 		vector("exp", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Exp, x...) }),
 		vector("log", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Log, x...) }),
 		vector("sqrt", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Sqrt, x...) }),
-		vector("abs", inType2, outType2, func(x ...any) *d.Vector { return core[float64](math.Abs, x...) },
-			func(x ...any) *d.Vector { return core[int](absInt, x...) }),
+		vector("abs", inType2, outType2, func(x ...any) *d.Vector { return core[float64](abs, x...) },
+			func(x ...any) *d.Vector { return core[int](abs, x...) }),
 		vector("neg", inType2, outType2, func(x ...any) *d.Vector { return core[float64](func(a float64) float64 { return -a }, x...) },
 			func(x ...any) *d.Vector { return core[int](func(a int) int { return -a }, x...) }),
 	}
