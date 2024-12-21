@@ -332,33 +332,6 @@ func ToIntSlc(xIn any, n int) []int {
 }
 
 // *********** Other ***********
-
-func In(check any, pop []any) bool {
-	switch WhatAmI(check) {
-	case DTfloat, DTint, DTstring:
-		for _, val := range pop {
-			if check == val {
-				return true
-			}
-		}
-	case DTdate:
-		// avoids complications due to time zones
-		c := check.(time.Time)
-		for _, val := range pop {
-			v := val.(time.Time)
-			if c.Year() == v.Year() &&
-				c.Month() == v.Month() &&
-				c.Day() == v.Day() {
-				return true
-			}
-		}
-	default:
-		return false
-	}
-
-	return false
-}
-
 func SelectFormat(x []float64) string {
 	minX := math.Abs(x[0])
 	maxX := math.Abs(x[0])

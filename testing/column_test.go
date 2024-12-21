@@ -279,6 +279,11 @@ func toSlc(xIn any, target d.DataTypes) (any, bool) {
 }
 
 func TestT(t *testing.T) {
+	d1 := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
+	if d1 == d2 {
+		fmt.Println("Dates the same")
+	}
 	fmt.Println(toSlc([]string{"20060102", "20201231"}, d.DTfloat))
 	fmt.Println(toSlc(1.23331, d.DTstring))
 	n := 1000 //00000
