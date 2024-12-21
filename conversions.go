@@ -466,11 +466,6 @@ func PrettyPrint(header []string, cols ...any) string {
 	return out
 }
 
-// Has returns true if needle is in haystack
-func Has(needle, delim string, haystack ...string) bool {
-	return Position(needle, delim, haystack...) >= 0
-}
-
 // Slash adds a trailing slash if inStr doesn't end in a slash
 func Slash(inStr string) string {
 	if inStr[len(inStr)-1] == '/' {
@@ -480,16 +475,13 @@ func Slash(inStr string) string {
 	return inStr + "/"
 }
 
-func Position(needle, delim string, haystack ...string) int {
-	var haySlice []string
-	haySlice = haystack
+func Has[C comparable](needle C, haystack []C) bool {
+	return Position(needle, haystack) >= 0
+}
 
-	if len(haystack) == 1 && delim != "" && strings.Contains(haystack[0], delim) {
-		haySlice = strings.Split(haystack[0], delim)
-	}
-
-	for ind, straw := range haySlice {
-		if straw == needle {
+func Position[C comparable](needle C, haystack []C) int {
+	for ind, straw := range haystack {
+		if needle == straw {
 			return ind
 		}
 	}

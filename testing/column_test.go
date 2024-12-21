@@ -3,6 +3,9 @@ package testing
 import (
 	"fmt"
 	"math"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,9 +15,303 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type vector[T Supported] struct {
+	dt   d.DataTypes
+	data []T
+}
+
+func (v *vector[T]) VectorType() d.DataTypes {
+	return v.dt
+}
+
+func (v *vector[T]) AsFloat() []float64 {
+	if v.dt == d.DTfloat {
+		var x any
+		x = v.data
+		return x.([]float64)
+	}
+
+	return nil
+}
+
+type Supported interface {
+	float64 | int | string | time.Time
+	//	Less(i, j int) bool
+}
+
+type slc[S Supported] []S
+
+func (v *vector[S]) Less(i, j int) bool {
+	switch r := any(v.data).(type) {
+	case []float64:
+		return r[i] < r[j]
+	case slc[int]:
+		return r[i] < r[j]
+	case slc[string]:
+		return r[i] < r[j]
+	case slc[time.Time]:
+		return r[i].Sub(r[j]).Seconds() < 0
+	}
+
+	return false
+}
+
+func sum[S ~float64 | ~int](x []S) S {
+	var sumx S = 0.0
+	for _, xx := range x {
+		sumx += xx
+	}
+
+	return sumx
+}
+
+func newVector[T Supported](data []T, n int) *vector[T] {
+	v := &vector[T]{data: data}
+	v.dt = d.WhatAmI(v.data[0])
+
+	if n > 0 {
+		for ind := 1; ind < n; ind++ {
+			v.data = append(v.data, v.data[0])
+		}
+	}
+
+	return v
+}
+
+func makeVector[T Supported](n int) *vector[T] {
+	datx := make([]T, n)
+	v := newVector[T](datx, 0)
+
+	return v
+}
+
+func xyz[T Supported](v *vector[T]) {
+	fmt.Println(v.data[0])
+}
+
+type vecs interface {
+	*vector[float64] | *vector[int] | *vector[string] | *vector[time.Time]
+}
+
+func ttt(x ...any) bool {
+	for ind := 0; ind < len(x); ind++ {
+		switch x[ind].(type) {
+		case *vector[float64]:
+			fmt.Println("float")
+		case *vector[int]:
+			fmt.Println("int")
+		case *vector[string]:
+			fmt.Println("string")
+		case *vector[time.Time]:
+			fmt.Println("date")
+		}
+	}
+	z := x[0]
+	_ = z
+	return false
+}
+
+func ok1(x any) (int, bool) {
+	fn := func(x reflect.Value) (int, bool) {
+		if x.CanInt() {
+			return int(x.Int()), true
+		}
+
+		fmt.Println("NO")
+		return -1, false
+	}
+
+	return fn(reflect.ValueOf(x))
+}
+
+// TODO: replace Any2* with these
+// TODO: add checks for slices in NewVector using reflect
+
+func toInt(x any) (any, bool) {
+	if i, ok := x.(int); ok {
+		return i, true
+	}
+
+	xv := reflect.ValueOf(x)
+	if xv.CanInt() {
+		return int(xv.Int()), true
+	}
+
+	// TODO: check can this ever be true?
+	if xv.CanFloat() {
+		return int(xv.Float()), true
+	}
+
+	if s, ok := x.(string); ok {
+		if i, e := strconv.ParseInt(s, 10, 64); e == nil {
+			return int(i), true
+		}
+	}
+
+	return nil, false
+}
+
+func toFloat(x any) (any, bool) {
+	if f, ok := x.(float64); ok {
+		return f, true
+	}
+
+	xv := reflect.ValueOf(x)
+	if xv.CanFloat() {
+		return xv.Float(), true
+	}
+
+	// TODO: check can this ever be true?
+	if xv.CanInt() {
+		return float64(xv.Int()), true
+	}
+
+	if s, ok := x.(string); ok {
+		if f, e := strconv.ParseFloat(s, 64); e == nil {
+			return f, true
+		}
+	}
+
+	return nil, false
+}
+
+func toString(x any) (any, bool) {
+	if s, ok := x.(string); ok {
+		return s, true
+	}
+
+	if f, ok := x.(float64); ok {
+		return fmt.Sprintf("%0.3f", f), true
+	}
+
+	if i, ok := x.(int); ok {
+		return fmt.Sprintf("%d", i), true
+	}
+
+	if s, ok := x.(time.Time); ok {
+		return s.Format("2006-01-02"), true
+	}
+
+	return nil, false
+}
+
+func toDate(x any) (any, bool) {
+	if d, ok := x.(time.Time); ok {
+		return d, true
+	}
+
+	xv := reflect.ValueOf(x)
+	if xv.CanInt() {
+		return toDate(fmt.Sprintf("%d", xv.Int()))
+	}
+
+	if d, ok := x.(string); ok {
+		formats := []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006", "Jan 2 2006", "January 2 2006", "2006-01-02"}
+		for _, fmtx := range formats {
+			if dt, e := time.Parse(fmtx, strings.ReplaceAll(d, "'", "")); e == nil {
+				return dt, true
+			}
+		}
+	}
+
+	return nil, false
+}
+
+func toSlc(xIn any, target d.DataTypes) (any, bool) {
+	typSlc := []reflect.Type{reflect.TypeOf([]float64{}), reflect.TypeOf([]int{}), reflect.TypeOf([]string{""}), reflect.TypeOf([]time.Time{})}
+	toFns := []func(a any) (any, bool){toFloat, toInt, toString, toDate}
+
+	x := reflect.ValueOf(xIn)
+
+	var indx int
+	switch target {
+	case d.DTfloat:
+		indx = 0
+	case d.DTint:
+		indx = 1
+	case d.DTstring:
+		indx = 2
+	case d.DTdate:
+		indx = 3
+	default:
+		return nil, false
+	}
+
+	outType := typSlc[indx]
+
+	// nothing to do
+	if x.Type() == outType {
+		return xIn, true
+	}
+
+	toFn := toFns[indx]
+	var xOut reflect.Value
+	if x.Kind() == reflect.Slice {
+		for ind := 0; ind < x.Len(); ind++ {
+			r := x.Index(ind).Interface()
+			if ind == 0 {
+				xOut = reflect.MakeSlice(outType, x.Len(), x.Len())
+			}
+			var (
+				val any
+				ok  bool
+			)
+
+			if val, ok = toFn(r); !ok {
+				return nil, false
+			}
+
+			xOut.Index(ind).Set(reflect.ValueOf(val))
+
+		}
+
+		return xOut.Interface(), true
+	}
+
+	// input is not a slice:
+	if val, ok := toFn(xIn); ok {
+		xOut = reflect.MakeSlice(outType, 1, 1)
+		xOut.Index(0).Set(reflect.ValueOf(val))
+		return xOut.Interface(), true
+	}
+
+	return nil, false
+}
+
+func TestT(t *testing.T) {
+	fmt.Println(toSlc([]string{"20060102", "20201231"}, d.DTfloat))
+	fmt.Println(toSlc(1.23331, d.DTstring))
+	n := 1000 //00000
+	z := make([]float32, n)
+	for ind := int(0); ind < int(n); ind++ {
+		//zx, _ := toInt(ind)
+		z[ind] = float32(ind) + 0.1234 //zx.(int)
+	}
+	tm := time.Now()
+	zout, _ := toSlc(z, d.DTfloat)
+	fmt.Println(time.Since(tm).Seconds(), "Seconds")
+	_ = zout
+	ok1(1)
+	ok1(int32(1))
+	ok1("hello")
+	x := make([]float64, 10)
+	for ind := 0; ind < 10; ind++ {
+		x[ind] = 4.0 - float64(ind)
+	}
+	y := newVector[float64](x, 0)
+	fmt.Println(y)
+	xyz(y)
+	fmt.Println(1, 2, y.Less(1, 2))
+	fmt.Println(2, 1, y.Less(2, 1))
+	//	fmt.Println(sum(y.data))
+	r := reflect.TypeOf(y.data[0])
+	fmt.Println(r.Kind())
+
+}
+
 // TODO: test min/max for string & date <---------------
 func TestRandom(t *testing.T) {
-	n := 10000 //0000
+	n := 1000 //00000
 	x := make([]int, n)
 	y := make([]float64, n)
 	z := make([]float64, n)

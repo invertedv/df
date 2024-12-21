@@ -35,7 +35,7 @@ func DTFromString(nm string) DataTypes {
 		nms = append(nms, fmt.Sprintf(skeleton, ind))
 	}
 
-	pos := Position(nm, "", nms...)
+	pos := Position(nm, nms)
 	if pos < 0 {
 		return DTunknown
 	}

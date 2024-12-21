@@ -631,7 +631,7 @@ func mapOp(op string) string {
 
 func nodupAppend(x []string, xadd ...string) []string {
 	for _, xa := range xadd {
-		if !Has(xa, "", x...) {
+		if !Has(xa, x) {
 			x = append(x, xa)
 		}
 	}
