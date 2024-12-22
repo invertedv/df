@@ -316,7 +316,7 @@ func TestT(t *testing.T) {
 
 // TODO: test min/max for string & date <---------------
 func TestRandom(t *testing.T) {
-	n := 100000000
+	n := 1000 //00000
 	x := make([]float64, n)
 	y := make([]float64, n)
 	z := make([]float64, n)

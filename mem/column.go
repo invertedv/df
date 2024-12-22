@@ -15,7 +15,7 @@ type Col struct {
 }
 
 // ***************** Col - Create *****************
-// TODO: add dt d.DataTypes as an arg
+
 func NewCol(data any, dt d.DataTypes, opts ...d.COpt) (*Col, error) {
 	var col *Col
 	if v, ok := data.(*d.Vector); ok {
@@ -26,11 +26,6 @@ func NewCol(data any, dt d.DataTypes, opts ...d.COpt) (*Col, error) {
 	}
 
 	if col == nil {
-		//		var dt d.DataTypes
-		//		if dt = d.WhatAmI(data); dt == d.DTunknown {
-		//			return nil, fmt.Errorf("unsupported data type in NewCol")
-		//		}
-
 		col = &Col{
 			Vector:  d.NewVector(data, dt),
 			ColCore: d.NewColCore(dt),

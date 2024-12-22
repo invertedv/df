@@ -102,47 +102,49 @@ func ToDate(x any) (any, bool) {
 	return nil, false
 }
 
-func ToDataType(x any, dt DataTypes) any {
-	var xx any
+func ToDataType(x any, dt DataTypes) (any, bool) {
 	switch dt {
 	case DTfloat:
 		if v, ok := ToFloat(x); ok {
-			xx = v.(float64)
+			return v.(float64), true
 		}
 	case DTint:
 		if v, ok := ToInt(x); ok {
-			xx = v.(int)
+			return v.(int), true
 		}
 	case DTdate:
 		if v, ok := ToDate(x); ok {
-			xx = v.(time.Time)
+			return v.(time.Time), true
 		}
 	case DTstring:
 		if v, ok := ToString(x); ok {
-			xx = v.(string)
+			return v.(string), true
 		}
 	case DTany:
-		xx = x
+		return x, true
 	}
 
-	return xx
+	return nil, false
 }
 
 func BestType(xIn any) (xOut any, dt DataTypes, err error) {
-	// HERE added 11/2 WHY wasn't this here?
-	if x := ToDataType(xIn, DTdate); x != nil {
-		return x, DTdate, nil
+	if x, ok := ToDate(xIn); ok {
+		return x.(time.Time), DTdate, nil
 	}
 
-	if x := ToDataType(xIn, DTint); x != nil {
-		return x, DTint, nil
+	if x, ok := ToInt(xIn); ok {
+		return x.(int), DTint, nil
 	}
 
-	if x := ToDataType(xIn, DTfloat); x != nil {
-		return x, DTfloat, nil
+	if x, ok := ToFloat(xIn); ok {
+		return x.(float64), DTfloat, nil
 	}
 
-	return ToDataType(xIn, DTstring), DTstring, nil
+	if x, ok := ToString(xIn); ok {
+		return x.(string), DTstring, nil
+	}
+
+	return nil, DTunknown, fmt.Errorf("cannot convert value")
 }
 
 func WhatAmI(val any) DataTypes {
@@ -205,7 +207,6 @@ func ToSlc(xIn any, target DataTypes) (any, bool) {
 			}
 
 			xOut.Index(ind).Set(reflect.ValueOf(val))
-
 		}
 
 		return xOut.Interface(), true
