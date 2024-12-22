@@ -101,73 +101,35 @@ func (v *Vector) AsAny() any {
 }
 
 func (v *Vector) AsFloat() []float64 {
-	if v.VectorType() == DTfloat {
-		return v.data.([]float64)
+	if xOut, ok := ToSlc(v.data, DTfloat); ok {
+		return xOut.([]float64)
 	}
 
-	if v.VectorType() == DTint {
-		xOut := make([]float64, v.Len())
-		for ind, xx := range v.data.([]int) {
-			xOut[ind] = float64(xx)
-		}
-
-		return xOut
-	}
-
-	var vx *Vector
-	if vx = v.Coerce(DTfloat); vx == nil {
-		panic(fmt.Errorf("cannot convert to Vector.AsFloat"))
-	}
-
-	return vx.data.([]float64)
+	panic(fmt.Errorf("cannot convert to Vector.AsFloat"))
 }
 
 func (v *Vector) AsInt() []int {
-	if v.VectorType() == DTint {
-		return v.data.([]int)
+	if xOut, ok := ToSlc(v.data, DTint); ok {
+		return xOut.([]int)
 	}
 
-	if v.VectorType() == DTfloat {
-		xOut := make([]int, v.Len())
-		for ind, xx := range v.data.([]float64) {
-			xOut[ind] = int(xx)
-		}
-
-		return xOut
-	}
-
-	var vx *Vector
-	if vx = v.Coerce(DTint); vx == nil {
-		panic(fmt.Errorf("cannot convert to Vector.AsInt"))
-	}
-
-	return vx.data.([]int)
+	panic(fmt.Errorf("cannot convert to Vector.AsInt"))
 }
 
 func (v *Vector) AsString() []string {
-	if v.dt == DTstring {
-		return v.data.([]string)
+	if xOut, ok := ToSlc(v.data, DTstring); ok {
+		return xOut.([]string)
 	}
 
-	var vx *Vector
-	if vx = v.Coerce(DTstring); vx == nil {
-		panic(fmt.Errorf("cannot convert to Vector.AsString"))
-	}
-
-	return vx.data.([]string)
+	panic(fmt.Errorf("cannot convert to Vector.AsString"))
 }
 
 func (v *Vector) AsDate() []time.Time {
-	if v.dt == DTdate {
-		return v.data.([]time.Time)
+	if xOut, ok := ToSlc(v.data, DTdate); ok {
+		return xOut.([]time.Time)
 	}
 
-	var vx *Vector
-	if vx = v.Coerce(DTdate); vx == nil {
-		panic(fmt.Errorf("cannot convert to Vector.AsDate"))
-	}
-
-	return vx.data.([]time.Time)
+	panic(fmt.Errorf("cannot convert to Vector.AsDate"))
 }
 
 func (v *Vector) Element(indx int) any {
@@ -195,19 +157,6 @@ func (v *Vector) Element(indx int) any {
 }
 
 func (v *Vector) ElementFloat(indx int) float64 {
-	// handles ops like x/2 where x is a vector
-	if v.Len() == 1 {
-		indx = 0
-	}
-
-	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
-	}
-
-	if v.VectorType() == DTfloat {
-		return v.data.([]float64)[indx]
-	}
-
 	if val, ok := ToFloat(v.Element(indx)); ok {
 		return val.(float64)
 	}
@@ -216,19 +165,6 @@ func (v *Vector) ElementFloat(indx int) float64 {
 }
 
 func (v *Vector) ElementInt(indx int) int {
-	// handles ops like x/2 where x is a vector
-	if v.Len() == 1 {
-		indx = 0
-	}
-
-	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
-	}
-
-	if v.VectorType() == DTint {
-		return v.data.([]int)[indx]
-	}
-
 	if val, ok := ToInt(v.Element(indx)); ok {
 		return val.(int)
 	}
@@ -237,19 +173,6 @@ func (v *Vector) ElementInt(indx int) int {
 }
 
 func (v *Vector) ElementString(indx int) string {
-	// handles ops like x/2 where x is a vector
-	if v.Len() == 1 {
-		indx = 0
-	}
-
-	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
-	}
-
-	if v.VectorType() == DTstring {
-		return v.data.([]string)[indx]
-	}
-
 	if x, ok := ToString(v.Element(indx)); ok {
 		return x.(string)
 	}
@@ -258,21 +181,7 @@ func (v *Vector) ElementString(indx int) string {
 }
 
 func (v *Vector) ElementDate(indx int) time.Time {
-	// handles ops like x/2 where x is a vector
-	if v.Len() == 1 {
-		indx = 0
-	}
-
-	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
-	}
-
-	if v.VectorType() == DTdate {
-		return v.data.([]time.Time)[indx]
-	}
-
-	x := v.Element(indx)
-	if val, ok := ToDate(x); ok {
+	if val, ok := ToDate(v.Element(indx)); ok {
 		return val.(time.Time)
 	}
 
@@ -430,36 +339,15 @@ func (v *Vector) Where(indic *Vector) *Vector {
 func (v *Vector) Coerce(to DataTypes) *Vector {
 	xOut := MakeVector(to, v.Len())
 	for ind := 0; ind < v.Len(); ind++ {
-		vIn := v.Element(ind)
 		switch to {
 		case DTfloat:
-			if vOut, ok := ToFloat(vIn); ok {
-				xOut.SetFloat(vOut.(float64), ind)
-				continue
-			}
-
-			return nil
+			return NewVector(v.AsFloat(), DTfloat)
 		case DTint:
-			if vOut, ok := ToInt(vIn); ok {
-				xOut.SetInt(vOut.(int), ind)
-				continue
-			}
-
-			return nil
+			return NewVector(v.AsInt(), DTint)
 		case DTstring:
-			if vOut, ok := ToString(vIn); ok {
-				xOut.SetString(vOut.(string), ind)
-				continue
-			}
-
-			return nil
+			return NewVector(v.AsString(), DTstring)
 		case DTdate:
-			if vOut, ok := ToDate(vIn); ok {
-				xOut.SetDate(vOut.(time.Time), ind)
-				continue
-			}
-
-			return nil
+			return NewVector(v.AsDate(), DTdate)
 		}
 	}
 

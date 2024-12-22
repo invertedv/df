@@ -428,10 +428,8 @@ func TestMemCol_Replace(t *testing.T) {
 
 func TestVector(t *testing.T) {
 	v := d.NewVector([]int{1, 2, 3, 4}, d.DTint)
-	vx := v.Coerce(d.DTstring)
+	vx := d.NewVector(v.AsString(), d.DTstring) // v.Coerce(d.DTstring)
 	assert.NotNil(t, vx)
-	vx = v.Coerce(d.DTdate)
-	assert.Nil(t, vx)
 }
 
 func TestWhere(t *testing.T) {

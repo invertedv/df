@@ -287,10 +287,10 @@ func TestT(t *testing.T) {
 	fmt.Println(toSlc([]string{"20060102", "20201231"}, d.DTfloat))
 	fmt.Println(toSlc(1.23331, d.DTstring))
 	n := 1000 //00000
-	z := make([]float32, n)
+	z := make([]float64, n)
 	for ind := int(0); ind < int(n); ind++ {
 		//zx, _ := toInt(ind)
-		z[ind] = float32(ind) + 0.1234 //zx.(int)
+		z[ind] = float64(ind) + 0.1234 //zx.(int)
 	}
 	tm := time.Now()
 	zout, _ := toSlc(z, d.DTfloat)
@@ -316,7 +316,7 @@ func TestT(t *testing.T) {
 
 // TODO: test min/max for string & date <---------------
 func TestRandom(t *testing.T) {
-	n := 1000 //00000
+	n := 10000 //0000
 	x := make([]float64, n)
 	y := make([]float64, n)
 	z := make([]float64, n)
@@ -351,7 +351,7 @@ func TestRandom(t *testing.T) {
 	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols})
 	assert.Nil(t, ed)
 	tx := time.Now()
-	outCol, ep := d.Parse(df, "x")
+	outCol, ep := d.Parse(df, "x+y+y")
 	//	outCol, ep := d.Parse(df, "dot(y,y)")
 	assert.Nil(t, ep)
 
@@ -367,7 +367,7 @@ func TestRandom(t *testing.T) {
 	//	}
 	for ind := 0; ind < n; ind++ {
 		//z[ind] = x[ind] - y[ind] // x[ind] + y[ind]
-		z[ind] = x[ind]
+		z[ind] = x[ind] + y[ind] + y[ind]
 	}
 
 	fmt.Println(time.Since(tx).Seconds(), " seconds")

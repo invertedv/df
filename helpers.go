@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// *********** Conversions ***********
+
 func ToFloat(x any) (any, bool) {
 	if f, ok := x.(float64); ok {
 		return f, true
