@@ -6,169 +6,121 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Any2Float64 attempts to convert inVal to float64.  Returns nil if this fails.
-func Any2Float64(inVal any, cast bool) *float64 {
-	if v, ok := inVal.(float64); ok {
-		return &v
+func ToFloat(x any) (any, bool) {
+	if f, ok := x.(float64); ok {
+		return f, true
 	}
 
-	if !cast {
-		return nil
+	xv := reflect.ValueOf(x)
+	if xv.CanFloat() {
+		return xv.Float(), true
 	}
 
-	var outVal float64
-	switch x := inVal.(type) {
-	case int:
-		outVal = float64(x)
-	case int32:
-		outVal = float64(x)
-	case int64:
-		outVal = float64(x)
-	case float32:
-		outVal = float64(x)
-	case string:
-		var (
-			xx float64
-			e  error
-		)
-		if xx, e = strconv.ParseFloat(x, 64); e != nil {
-			return nil
+	// TODO: check can this ever be true?
+	if xv.CanInt() {
+		return float64(xv.Int()), true
+	}
+
+	if s, ok := x.(string); ok {
+		if f, e := strconv.ParseFloat(s, 64); e == nil {
+			return f, true
 		}
-
-		outVal = xx
-	default:
-		return nil
 	}
 
-	return &outVal
+	return nil, false
 }
 
-// Any2Int attempts to convert inVal to int.  Returns nil if this fails.
-func Any2Int(inVal any, cast bool) *int {
-	if v, ok := inVal.(int); ok {
-		return &v
+func ToInt(x any) (any, bool) {
+	if i, ok := x.(int); ok {
+		return i, true
 	}
 
-	if !cast {
-		return nil
+	xv := reflect.ValueOf(x)
+	if xv.CanInt() {
+		return int(xv.Int()), true
 	}
 
-	var outVal int
-	switch x := inVal.(type) {
-	case int:
-		outVal = x
-	case int8:
-		outVal = int(x)
-	case int16:
-		outVal = int(x)
-	case int32:
-		outVal = int(x)
-	case int64:
-		if x > math.MaxInt || x < math.MinInt {
-			return nil
-		}
-
-		outVal = int(x)
-	case float32:
-		if x > math.MaxInt || x < math.MinInt {
-			return nil
-		}
-
-		outVal = int(x)
-	case float64:
-		if x > math.MaxInt || x < math.MinInt {
-			return nil
-		}
-
-		outVal = int(x)
-	case string:
-		var (
-			xx int64
-			e  error
-		)
-		if xx, e = strconv.ParseInt(x, 10, 32); e != nil {
-			return nil
-		}
-
-		outVal = int(xx)
-	default:
-		return nil
+	// TODO: check can this ever be true?
+	if xv.CanFloat() {
+		return int(xv.Float()), true
 	}
 
-	return &outVal
+	if s, ok := x.(string); ok {
+		if i, e := strconv.ParseInt(s, 10, 64); e == nil {
+			return int(i), true
+		}
+	}
+
+	return nil, false
 }
 
-func Any2String(inVal any, cast bool) *string {
-	if v, ok := inVal.(string); ok {
-		return &v
+func ToString(x any) (any, bool) {
+	if s, ok := x.(string); ok {
+		return s, true
 	}
 
-	if !cast {
-		return nil
+	if f, ok := x.(float64); ok {
+		return fmt.Sprintf("%0.3f", f), true
 	}
 
-	var outVal string
-	switch x := inVal.(type) {
-	case time.Time:
-		outVal = x.Format("2006-01-02")
-		// TODO: use %f
-	case float32, float64:
-		outVal = fmt.Sprintf("%v", x)
-	default:
-		outVal = fmt.Sprintf("%v", x)
+	if i, ok := x.(int); ok {
+		return fmt.Sprintf("%d", i), true
 	}
 
-	return &outVal
+	if s, ok := x.(time.Time); ok {
+		return s.Format("2006-01-02"), true
+	}
+
+	return nil, false
 }
 
-// Any2Date attempts to convert inVal to a date (time.Time). Returns nil if this fails.
-func Any2Date(inVal any, cast bool) *time.Time {
-	if v, ok := inVal.(time.Time); ok {
-		return &v
+func ToDate(x any) (any, bool) {
+	if d, ok := x.(time.Time); ok {
+		return d, true
 	}
 
-	if !cast {
-		return nil
+	xv := reflect.ValueOf(x)
+	if xv.CanInt() {
+		return ToDate(fmt.Sprintf("%d", xv.Int()))
 	}
 
-	switch x := inVal.(type) {
-	case string:
+	if d, ok := x.(string); ok {
 		formats := []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006", "Jan 2 2006", "January 2 2006", "2006-01-02"}
 		for _, fmtx := range formats {
-			dt, e := time.Parse(fmtx, strings.ReplaceAll(x, "'", ""))
-			if e == nil {
-				return &dt
+			if dt, e := time.Parse(fmtx, strings.ReplaceAll(d, "'", "")); e == nil {
+				return dt, true
 			}
 		}
-	case int, int32, int64:
-		return Any2Date(fmt.Sprintf("%d", x), true)
 	}
 
-	return nil
+	return nil, false
 }
 
-func ToDataType(x any, dt DataTypes, cast bool) any {
+func ToDataType(x any, dt DataTypes) any {
 	var xx any
 	switch dt {
 	case DTfloat:
-		if v := Any2Float64(x, cast); v != nil {
-			xx = *v
+		if v, ok := ToFloat(x); ok {
+			xx = v.(float64)
 		}
 	case DTint:
-		if v := Any2Int(x, cast); v != nil {
-			xx = *v
+		if v, ok := ToInt(x); ok {
+			xx = v.(int)
 		}
 	case DTdate:
-		if v := Any2Date(x, cast); v != nil {
-			xx = *v
+		if v, ok := ToDate(x); ok {
+			xx = v.(time.Time)
 		}
 	case DTstring:
-		xx = *Any2String(x, cast)
+		if v, ok := ToString(x); ok {
+			xx = v.(string)
+		}
 	case DTany:
 		xx = x
 	}
@@ -178,19 +130,19 @@ func ToDataType(x any, dt DataTypes, cast bool) any {
 
 func BestType(xIn any) (xOut any, dt DataTypes, err error) {
 	// HERE added 11/2 WHY wasn't this here?
-	if x := ToDataType(xIn, DTdate, true); x != nil {
+	if x := ToDataType(xIn, DTdate); x != nil {
 		return x, DTdate, nil
 	}
 
-	if x := ToDataType(xIn, DTint, true); x != nil {
+	if x := ToDataType(xIn, DTint); x != nil {
 		return x, DTint, nil
 	}
 
-	if x := ToDataType(xIn, DTfloat, true); x != nil {
+	if x := ToDataType(xIn, DTfloat); x != nil {
 		return x, DTfloat, nil
 	}
 
-	return ToDataType(xIn, DTstring, true), DTstring, nil
+	return ToDataType(xIn, DTstring), DTstring, nil
 }
 
 func WhatAmI(val any) DataTypes {
@@ -208,127 +160,65 @@ func WhatAmI(val any) DataTypes {
 	}
 }
 
-func ToStringSlc(xIn any, n int) []string {
-	var xOut []string
-	switch x := xIn.(type) {
-	case []string:
-		xOut = x
-	case string:
-		xOut = []string{x}
+func ToSlc(xIn any, target DataTypes) (any, bool) {
+	typSlc := []reflect.Type{reflect.TypeOf([]float64{}), reflect.TypeOf([]int{}), reflect.TypeOf([]string{""}), reflect.TypeOf([]time.Time{})}
+	toFns := []func(a any) (any, bool){ToFloat, ToInt, ToString, ToDate}
+
+	x := reflect.ValueOf(xIn)
+
+	var indx int
+	switch target {
+	case DTfloat:
+		indx = 0
+	case DTint:
+		indx = 1
+	case DTstring:
+		indx = 2
+	case DTdate:
+		indx = 3
 	default:
-		panic(fmt.Errorf("input is not []string or string"))
+		return nil, false
 	}
 
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]string, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
+	outType := typSlc[indx]
+
+	// nothing to do
+	if x.Type() == outType {
+		return xIn, true
 	}
 
-	return xOut
-}
+	toFn := toFns[indx]
+	var xOut reflect.Value
+	if x.Kind() == reflect.Slice {
+		for ind := 0; ind < x.Len(); ind++ {
+			r := x.Index(ind).Interface()
+			if ind == 0 {
+				xOut = reflect.MakeSlice(outType, x.Len(), x.Len())
+			}
+			var (
+				val any
+				ok  bool
+			)
 
-func ToDateSlc(xIn any, n int) []time.Time {
-	var xOut []time.Time
-	switch x := xIn.(type) {
-	case []time.Time:
-		xOut = x
-	case time.Time:
-		xOut = []time.Time{x}
-	default:
-		panic(fmt.Errorf("input is not []time.Time or time.Time"))
+			if val, ok = toFn(r); !ok {
+				return nil, false
+			}
+
+			xOut.Index(ind).Set(reflect.ValueOf(val))
+
+		}
+
+		return xOut.Interface(), true
 	}
 
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]time.Time, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
+	// input is not a slice:
+	if val, ok := toFn(xIn); ok {
+		xOut = reflect.MakeSlice(outType, 1, 1)
+		xOut.Index(0).Set(reflect.ValueOf(val))
+		return xOut.Interface(), true
 	}
 
-	return xOut
-}
-
-func ToFloatSlc(xIn any, n int) []float64 {
-	var xOut []float64
-	switch x := xIn.(type) {
-	case []float64:
-		xOut = x
-	case float64:
-		xOut = []float64{x}
-	case []float32:
-		xOut = make([]float64, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = float64(xf32)
-		}
-	case float32:
-		xOut = []float64{float64(x)}
-	default:
-		panic(fmt.Errorf("input is not []float32, []float64, float32, float64"))
-	}
-
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]float64, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
-	}
-
-	return xOut
-}
-
-func ToIntSlc(xIn any, n int) []int {
-	var xOut []int
-	switch x := xIn.(type) {
-	case []int:
-		xOut = x
-	case int:
-		xOut = []int{x}
-	case int8:
-		xOut = []int{int(x)}
-	case int16:
-		xOut = []int{int(x)}
-	case int32:
-		xOut = []int{int(x)}
-	case int64:
-		xOut = []int{int(x)}
-	case []int8:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	case []int16:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	case []int32:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	case []int64:
-		xOut = make([]int, len(x))
-		for ind, xf32 := range x {
-			xOut[ind] = int(xf32)
-		}
-	default:
-		panic(fmt.Errorf("input is not an integer type"))
-	}
-
-	if n > 0 && len(xOut) == 1 {
-		z := xOut[0]
-		xOut = make([]int, n)
-		for ind := 0; ind < n; ind++ {
-			xOut[ind] = z
-		}
-	}
-
-	return xOut
+	return nil, false
 }
 
 // *********** Other ***********

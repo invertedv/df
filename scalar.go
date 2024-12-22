@@ -23,7 +23,7 @@ func (s *Scalar) Core() *ColCore {
 }
 
 func (s *Scalar) Data() *Vector {
-	return NewVector(s.atomic, 1)
+	return NewVector(s.atomic, WhatAmI(s.atomic))
 }
 
 func (s *Scalar) Len() int {

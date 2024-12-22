@@ -264,7 +264,7 @@ func (f *Files) Read() (any, error) {
 
 		dt := f.FieldTypes()[ind]
 		v := f.smartTrim(fld, dt)
-		if x = ToDataType(v, dt, true); x == nil {
+		if x = ToDataType(v, dt); x == nil {
 			switch f.Strict {
 			case true:
 				return nil, fmt.Errorf("conversion failed in Files.Read")

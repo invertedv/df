@@ -27,7 +27,7 @@ func compare[T float64 | int | string | time.Time](n int, x, y []T, comp func(a,
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, 0)
+	return d.NewVector(z, d.WhatAmI(z[0]))
 }
 
 // buildTests builds suite of comparison function (>, <, >=, <=, ==, !=) for the four
@@ -101,7 +101,7 @@ func toCol(x any) *Col {
 			c *Col
 			e error
 		)
-		if c, e = NewCol(s.Data(), d.ColName(s.Name())); e != nil {
+		if c, e = NewCol(s.Data(), s.DataType(), d.ColName(s.Name())); e != nil {
 			panic(e)
 		}
 
@@ -131,7 +131,8 @@ func returnCol(data any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = NewCol(data); e != nil {
+	// TODO: this may not work
+	if outCol, e = NewCol(data, d.WhatAmI(data)); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 

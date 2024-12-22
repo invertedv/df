@@ -57,29 +57,47 @@ func castOps() d.Fns {
 	out := d.Fns{
 		vector("float", inType1, []d.DataTypes{d.DTfloat, d.DTfloat, d.DTfloat, d.DTfloat},
 			func(x ...any) *d.Vector {
-				return d.NewVector(x[1].([]float64), 0)
+				return d.NewVector(x[1].([]float64), d.DTfloat)
 			},
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsFloat(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsFloat(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsFloat(), 0) },
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsFloat(), d.DTfloat)
+			},
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]string), d.DTstring).AsFloat(), d.DTfloat)
+			},
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsFloat(), d.DTfloat)
+			},
 		),
 		vector("int", inType1, []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint},
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]float64), 0).AsInt(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(x[1].([]int), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsInt(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsInt(), 0) },
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]float64), d.DTfloat).AsInt(), d.DTint)
+			},
+			func(x ...any) *d.Vector { return d.NewVector(x[1].([]int), d.DTint) },
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]string), d.DTstring).AsInt(), d.DTint)
+			},
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsInt(), d.DTint) },
 		),
 		vector("string", inType2, []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring},
 			// TODO: build smarter choice for # decimals
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]float64), 0).AsString(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsString(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(x[1].([]string), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]time.Time), 0).AsString(), 0) },
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]float64), d.DTfloat).AsString(), d.DTstring)
+			},
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsString(), d.DTstring)
+			},
+			func(x ...any) *d.Vector { return d.NewVector(x[1].([]string), d.DTstring) },
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]time.Time), d.DTdate).AsString(), d.DTstring)
+			},
 		),
 		vector("date", inType3, []d.DataTypes{d.DTdate, d.DTdate, d.DTdate},
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), 0).AsDate(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]string), 0).AsDate(), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(x[1].([]time.Time), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsDate(), d.DTdate) },
+			func(x ...any) *d.Vector {
+				return d.NewVector(d.NewVector(x[1].([]string), d.DTstring).AsDate(), d.DTdate)
+			},
+			func(x ...any) *d.Vector { return d.NewVector(x[1].([]time.Time), d.DTdate) },
 		)}
 
 	return out
@@ -92,7 +110,7 @@ func core[T float64 | int](op func(a T) T, x ...any) *d.Vector {
 		xOut[ind] = op(xv)
 	}
 
-	return d.NewVector(xOut, 0)
+	return d.NewVector(xOut, d.WhatAmI(xOut[0]))
 }
 
 func abs[T float64 | int](x T) T {
@@ -147,7 +165,7 @@ func logic(n int, x, y []int, test func(a, b *int) bool) *d.Vector {
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, 0)
+	return d.NewVector(z, d.DTint)
 }
 
 func logicalOps() d.Fns {
@@ -212,7 +230,7 @@ func mathFn[T float64 | int](op func(a, b T) T, xIn ...any) *d.Vector {
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, 0)
+	return d.NewVector(z, d.WhatAmI(z[0]))
 
 }
 
@@ -249,7 +267,7 @@ func otherVectors() d.Fns {
 			outX[ind] = ind
 		}
 
-		return d.NewVector(outX, 0)
+		return d.NewVector(outX, d.WhatAmI(outX[0]))
 	}
 
 	out := d.Fns{
@@ -285,7 +303,7 @@ func ifx[T float64 | int | string | time.Time](xIn ...any) *d.Vector {
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, 0)
+	return d.NewVector(z, d.WhatAmI(z[0]))
 }
 
 // ifOp implements the if statement

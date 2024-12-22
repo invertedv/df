@@ -89,7 +89,7 @@ func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) *DF {
 		data[ind] = ind
 	}
 
-	col, _ := NewCol(data, d.ColName("seq"))
+	col, _ := NewCol(data, d.DTint, d.ColName("seq"))
 
 	df, _ := NewDFcol(funcs, []*Col{col})
 
@@ -120,7 +120,7 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 	for ind := 0; ind < len(columnTypes); ind++ {
 		var col *Col
 
-		if col, e = NewCol(memData[ind], d.ColName(columnNames[ind])); e != nil {
+		if col, e = NewCol(memData[ind], columnTypes[ind], d.ColName(columnNames[ind])); e != nil {
 			return nil, e
 		}
 
@@ -156,7 +156,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 	for ind := 0; ind < len(f.FieldNames()); ind++ {
 		var col *Col
 
-		if col, e = NewCol(memData[ind], d.ColName(f.FieldNames()[ind])); e != nil {
+		if col, e = NewCol(memData[ind], f.FieldTypes()[ind], d.ColName(f.FieldNames()[ind])); e != nil {
 			return nil, e
 		}
 
@@ -189,7 +189,13 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 
 	colx := col.(*Col)
 	if colx.Len() == 1 {
-		colx.Vector = d.NewVector(colx.Element(0), f.RowCount())
+		val := colx.Vector.Element(0)
+		v := d.NewVector(val, colx.DataType())
+		for ind := 1; ind < f.RowCount(); ind++ {
+			v.Append(val)
+		}
+
+		colx.Vector = v
 	}
 
 	if ex := f.DFcore.AppendColumn(colx, replace); ex != nil {
@@ -306,7 +312,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		e      error
 	)
 
-	if outCol, e = NewCol(vec); e != nil {
+	if outCol, e = NewCol(vec, vec.VectorType()); e != nil {
 		return nil, e
 	}
 
@@ -608,7 +614,7 @@ func makeTable(cols ...*Col) []*Col {
 			name = cols[c].Name()
 		}
 
-		if col, e = NewCol(outVecs[c], d.ColName(name)); e != nil {
+		if col, e = NewCol(outVecs[c], outVecs[c].VectorType(), d.ColName(name)); e != nil {
 			panic(e)
 		}
 

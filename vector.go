@@ -10,47 +10,31 @@ import (
 type Vector struct {
 	dt DataTypes
 
-	floats  []float64
-	ints    []int
-	strings []string
-	dates   []time.Time
+	data any
 }
 
-func NewVector(data any, n int) *Vector {
-	switch x := data.(type) {
-	case []float64:
-		return &Vector{dt: DTfloat, floats: x}
-	case []int:
-		return &Vector{dt: DTint, ints: x}
-	case []string:
-		return &Vector{dt: DTstring, strings: x}
-	case []time.Time:
-		// TODO: consider zeroing out hours/time zone here
-		return &Vector{dt: DTdate, dates: x}
-	case []float32, float64, float32:
-		return &Vector{dt: DTfloat, floats: ToFloatSlc(data, n)}
-	case int, int8, int16, int32, int64, []int8, []int16, []int32, []int64:
-		return &Vector{dt: DTint, ints: ToIntSlc(x, n)}
-	case string:
-		return &Vector{dt: DTstring, strings: ToStringSlc(x, n)}
-	case time.Time:
-		// TODO: consider zeroing out hours/time zone here
-		return &Vector{dt: DTdate, dates: ToDateSlc(x, n)}
-	default:
-		panic(fmt.Errorf("unsupported data type in NewVector"))
+func NewVector(data any, dt DataTypes) *Vector {
+	var (
+		v  any
+		ok bool
+	)
+	if v, ok = ToSlc(data, dt); !ok {
+		panic(fmt.Errorf("cannot make vector of type %s", dt))
 	}
+
+	return &Vector{dt: dt, data: v}
 }
 
 func MakeVector(dt DataTypes, n int) *Vector {
 	switch dt {
 	case DTfloat:
-		return &Vector{dt: dt, floats: make([]float64, n)}
+		return &Vector{dt: dt, data: make([]float64, n)}
 	case DTint:
-		return &Vector{dt: dt, ints: make([]int, n)}
+		return &Vector{dt: dt, data: make([]int, n)}
 	case DTstring:
-		return &Vector{dt: dt, strings: make([]string, n)}
+		return &Vector{dt: dt, data: make([]string, n)}
 	case DTdate:
-		return &Vector{dt: dt, dates: make([]time.Time, n)}
+		return &Vector{dt: dt, data: make([]time.Time, n)}
 	default:
 		panic(fmt.Errorf("cannot make Vector with data type %s", dt))
 	}
@@ -69,7 +53,7 @@ func (v *Vector) SetFloat(val float64, indx int) {
 		panic(fmt.Errorf("index out of range"))
 	}
 
-	v.floats[indx] = val
+	v.data.([]float64)[indx] = val
 }
 
 func (v *Vector) SetInt(val, indx int) {
@@ -81,7 +65,7 @@ func (v *Vector) SetInt(val, indx int) {
 		panic(fmt.Errorf("index out of range"))
 	}
 
-	v.ints[indx] = val
+	v.data.([]int)[indx] = val
 }
 
 func (v *Vector) SetString(val string, indx int) {
@@ -93,7 +77,7 @@ func (v *Vector) SetString(val string, indx int) {
 		panic(fmt.Errorf("index out of range"))
 	}
 
-	v.strings[indx] = val
+	v.data.([]string)[indx] = val
 }
 
 func (v *Vector) SetDate(val time.Time, indx int) {
@@ -105,7 +89,7 @@ func (v *Vector) SetDate(val time.Time, indx int) {
 		panic(fmt.Errorf("index out of range"))
 	}
 
-	v.dates[indx] = val
+	v.data.([]time.Time)[indx] = val
 }
 
 func (v *Vector) Data() *Vector {
@@ -113,28 +97,17 @@ func (v *Vector) Data() *Vector {
 }
 
 func (v *Vector) AsAny() any {
-	switch v.VectorType() {
-	case DTfloat:
-		return v.floats
-	case DTint:
-		return v.ints
-	case DTstring:
-		return v.strings
-	case DTdate:
-		return v.dates
-	}
-
-	return nil
+	return v.data
 }
 
 func (v *Vector) AsFloat() []float64 {
 	if v.VectorType() == DTfloat {
-		return v.floats
+		return v.data.([]float64)
 	}
 
 	if v.VectorType() == DTint {
 		xOut := make([]float64, v.Len())
-		for ind, xx := range v.ints {
+		for ind, xx := range v.data.([]int) {
 			xOut[ind] = float64(xx)
 		}
 
@@ -146,17 +119,17 @@ func (v *Vector) AsFloat() []float64 {
 		panic(fmt.Errorf("cannot convert to Vector.AsFloat"))
 	}
 
-	return vx.floats
+	return vx.data.([]float64)
 }
 
 func (v *Vector) AsInt() []int {
 	if v.VectorType() == DTint {
-		return v.ints
+		return v.data.([]int)
 	}
 
 	if v.VectorType() == DTfloat {
 		xOut := make([]int, v.Len())
-		for ind, xx := range v.floats {
+		for ind, xx := range v.data.([]float64) {
 			xOut[ind] = int(xx)
 		}
 
@@ -168,12 +141,12 @@ func (v *Vector) AsInt() []int {
 		panic(fmt.Errorf("cannot convert to Vector.AsInt"))
 	}
 
-	return vx.ints
+	return vx.data.([]int)
 }
 
 func (v *Vector) AsString() []string {
 	if v.dt == DTstring {
-		return v.strings
+		return v.data.([]string)
 	}
 
 	var vx *Vector
@@ -181,12 +154,12 @@ func (v *Vector) AsString() []string {
 		panic(fmt.Errorf("cannot convert to Vector.AsString"))
 	}
 
-	return vx.strings
+	return vx.data.([]string)
 }
 
 func (v *Vector) AsDate() []time.Time {
 	if v.dt == DTdate {
-		return v.dates
+		return v.data.([]time.Time)
 	}
 
 	var vx *Vector
@@ -194,7 +167,7 @@ func (v *Vector) AsDate() []time.Time {
 		panic(fmt.Errorf("cannot convert to Vector.AsDate"))
 	}
 
-	return vx.dates
+	return vx.data.([]time.Time)
 }
 
 func (v *Vector) Element(indx int) any {
@@ -209,13 +182,13 @@ func (v *Vector) Element(indx int) any {
 
 	switch v.dt {
 	case DTfloat:
-		return v.floats[indx]
+		return v.data.([]float64)[indx]
 	case DTint:
-		return v.ints[indx]
+		return v.data.([]int)[indx]
 	case DTstring:
-		return v.strings[indx]
+		return v.data.([]string)[indx]
 	case DTdate:
-		return v.dates[indx]
+		return v.data.([]time.Time)[indx]
 	default:
 		panic(fmt.Errorf("error in Element"))
 	}
@@ -232,11 +205,11 @@ func (v *Vector) ElementFloat(indx int) float64 {
 	}
 
 	if v.VectorType() == DTfloat {
-		return v.floats[indx]
+		return v.data.([]float64)[indx]
 	}
 
-	if val := Any2Float64(v.Element(indx), true); val != nil {
-		return *val
+	if val, ok := ToFloat(v.Element(indx)); ok {
+		return val.(float64)
 	}
 
 	panic(fmt.Errorf("element is not float-able"))
@@ -253,11 +226,11 @@ func (v *Vector) ElementInt(indx int) int {
 	}
 
 	if v.VectorType() == DTint {
-		return v.ints[indx]
+		return v.data.([]int)[indx]
 	}
 
-	if val := Any2Int(v.Element(indx), true); val != nil {
-		return *val
+	if val, ok := ToInt(v.Element(indx)); ok {
+		return val.(int)
 	}
 
 	panic(fmt.Errorf("element is not int-able"))
@@ -274,10 +247,14 @@ func (v *Vector) ElementString(indx int) string {
 	}
 
 	if v.VectorType() == DTstring {
-		return v.strings[indx]
+		return v.data.([]string)[indx]
 	}
 
-	return *Any2String(v.Element(indx), true)
+	if x, ok := ToString(v.Element(indx)); ok {
+		return x.(string)
+	}
+
+	return ""
 }
 
 func (v *Vector) ElementDate(indx int) time.Time {
@@ -291,12 +268,12 @@ func (v *Vector) ElementDate(indx int) time.Time {
 	}
 
 	if v.VectorType() == DTdate {
-		return v.dates[indx]
+		return v.data.([]time.Time)[indx]
 	}
 
 	x := v.Element(indx)
-	if val := Any2Date(x, true); val != nil {
-		return *val
+	if val, ok := ToDate(x); ok {
+		return val.(time.Time)
 	}
 
 	panic(fmt.Errorf("element is not date-able"))
@@ -305,13 +282,13 @@ func (v *Vector) ElementDate(indx int) time.Time {
 func (v *Vector) Len() int {
 	switch v.dt {
 	case DTfloat:
-		return len(v.floats)
+		return len(v.data.([]float64))
 	case DTint:
-		return len(v.ints)
+		return len(v.data.([]int))
 	case DTstring:
-		return len(v.strings)
+		return len(v.data.([]string))
 	case DTdate:
-		return len(v.dates)
+		return len(v.data.([]time.Time))
 	default:
 		panic(fmt.Errorf("unexpected error in Vector.Len"))
 	}
@@ -320,13 +297,13 @@ func (v *Vector) Len() int {
 func (v *Vector) Swap(i, j int) {
 	switch v.dt {
 	case DTfloat:
-		v.floats[i], v.floats[j] = v.floats[j], v.floats[i]
+		v.data.([]float64)[i], v.data.([]float64)[j] = v.data.([]float64)[j], v.data.([]float64)[i]
 	case DTint:
-		v.ints[i], v.ints[j] = v.ints[j], v.ints[i]
+		v.data.([]int)[i], v.data.([]int)[j] = v.data.([]int)[j], v.data.([]int)[i]
 	case DTstring:
-		v.strings[i], v.strings[j] = v.strings[j], v.strings[i]
+		v.data.([]string)[i], v.data.([]string)[j] = v.data.([]string)[j], v.data.([]string)[i]
 	case DTdate:
-		v.dates[i], v.dates[j] = v.dates[j], v.dates[i]
+		v.data.([]time.Time)[i], v.data.([]time.Time)[j] = v.data.([]time.Time)[j], v.data.([]time.Time)[i]
 	default:
 		panic(fmt.Errorf("unexpected error in Vector.Len"))
 	}
@@ -335,13 +312,13 @@ func (v *Vector) Swap(i, j int) {
 func (v *Vector) Less(i, j int) bool {
 	switch v.dt {
 	case DTfloat:
-		return v.floats[i] < v.floats[j]
+		return v.data.([]float64)[i] < v.data.([]float64)[j]
 	case DTint:
-		return v.ints[i] < v.ints[j]
+		return v.data.([]int)[i] < v.data.([]int)[j]
 	case DTstring:
-		return v.strings[i] < v.strings[j]
+		return v.data.([]string)[i] < v.data.([]string)[j]
 	case DTdate:
-		return v.dates[i].Sub(v.dates[j]).Minutes() < 0
+		return v.data.([]time.Time)[i].Sub(v.data.([]time.Time)[j]).Minutes() < 0
 	default:
 		panic(fmt.Errorf("unexpected error in vector.Less"))
 	}
@@ -354,13 +331,13 @@ func (v *Vector) AppendVector(vAdd *Vector) {
 
 	switch v.dt {
 	case DTfloat:
-		v.floats = append(v.floats, vAdd.floats...)
+		v.data = append(v.data.([]float64), vAdd.data.([]float64)...)
 	case DTint:
-		v.ints = append(v.ints, vAdd.ints...)
+		v.data = append(v.data.([]int), vAdd.data.([]int)...)
 	case DTstring:
-		v.strings = append(v.strings, vAdd.strings...)
+		v.data = append(v.data.([]string), vAdd.data.([]string)...)
 	case DTdate:
-		v.dates = append(v.dates, vAdd.dates...)
+		v.data = append(v.data.([]time.Time), vAdd.data.([]time.Time)...)
 	default:
 		panic(fmt.Errorf("unknown type in Vector.Append"))
 	}
@@ -370,28 +347,45 @@ func (v *Vector) Append(data ...any) {
 	for ind := 0; ind < len(data); ind++ {
 		switch v.dt {
 		case DTfloat:
-			var x *float64
-			if x = Any2Float64(data[ind], true); x == nil {
+			var (
+				x  any
+				ok bool
+			)
+			if x, ok = ToFloat(data[ind]); !ok {
 				panic(fmt.Errorf("cannot make float in Append"))
 			}
 
-			v.floats = append(v.floats, *x)
+			v.data = append(v.data.([]float64), x.(float64))
 		case DTint:
-			var x *int
-			if x = Any2Int(data[ind], true); x == nil {
+			var (
+				x  any
+				ok bool
+			)
+			if x, ok = ToInt(data[ind]); !ok {
 				panic(fmt.Errorf("cannot make int in Append"))
 			}
 
-			v.ints = append(v.ints, *x)
+			v.data = append(v.data.([]int), x.(int))
 		case DTstring:
-			v.strings = append(v.strings, *Any2String(data[ind], true))
+			var (
+				x  any
+				ok bool
+			)
+			if x, ok = ToString(data[ind]); !ok {
+				panic(fmt.Errorf("cannot make string in Append"))
+			}
+
+			v.data = append(v.data.([]string), x.(string))
 		case DTdate:
-			var x *time.Time
-			if x = Any2Date(data[ind], true); x == nil {
+			var (
+				xv any
+				ok bool
+			)
+			if xv, ok = ToDate(data[ind]); !ok {
 				panic(fmt.Errorf("cannot make date in Append"))
 			}
 
-			v.dates = append(v.dates, *x)
+			v.data = append(v.data.([]time.Time), xv.(time.Time))
 		}
 	}
 }
@@ -400,17 +394,21 @@ func (v *Vector) Copy() *Vector {
 	vCopy := &Vector{dt: v.dt}
 	switch v.dt {
 	case DTfloat:
-		vCopy.floats = make([]float64, v.Len())
-		copy(vCopy.floats, v.floats)
+		x := make([]float64, v.Len())
+		copy(x, v.data.([]float64))
+		vCopy.data = x
 	case DTint:
-		vCopy.ints = make([]int, v.Len())
-		copy(vCopy.ints, v.ints)
+		x := make([]int, v.Len())
+		copy(x, v.data.([]int))
+		vCopy.data = x
 	case DTstring:
-		vCopy.strings = make([]string, v.Len())
-		copy(vCopy.strings, v.strings)
+		x := make([]string, v.Len())
+		copy(x, v.data.([]string))
+		vCopy.data = x
 	case DTdate:
-		vCopy.dates = make([]time.Time, v.Len())
-		copy(vCopy.dates, v.dates)
+		x := make([]time.Time, v.Len())
+		copy(x, v.data.([]time.Time))
+		vCopy.data = x
 	default:
 		panic(fmt.Errorf("unexpected error in Vector.Copy"))
 	}
@@ -435,29 +433,29 @@ func (v *Vector) Coerce(to DataTypes) *Vector {
 		vIn := v.Element(ind)
 		switch to {
 		case DTfloat:
-			if vOut := Any2Float64(vIn, true); vOut != nil {
-				xOut.SetFloat(*vOut, ind)
+			if vOut, ok := ToFloat(vIn); ok {
+				xOut.SetFloat(vOut.(float64), ind)
 				continue
 			}
 
 			return nil
 		case DTint:
-			if vOut := Any2Int(vIn, true); vOut != nil {
-				xOut.SetInt(*vOut, ind)
+			if vOut, ok := ToInt(vIn); ok {
+				xOut.SetInt(vOut.(int), ind)
 				continue
 			}
 
 			return nil
 		case DTstring:
-			if vOut := Any2String(vIn, true); vOut != nil {
-				xOut.SetString(*vOut, ind)
+			if vOut, ok := ToString(vIn); ok {
+				xOut.SetString(vOut.(string), ind)
 				continue
 			}
 
 			return nil
 		case DTdate:
-			if vOut := Any2Date(vIn, true); vOut != nil {
-				xOut.SetDate(*vOut, ind)
+			if vOut, ok := ToDate(vIn); ok {
+				xOut.SetDate(vOut.(time.Time), ind)
 				continue
 			}
 

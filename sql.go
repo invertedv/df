@@ -136,10 +136,14 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr st
 
 	if d.dialect == ch {
 		// is this a constant?
-		if x := Any2Date(fieldName, true); x != nil {
-			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.Format("2006-01-02"), dbType)
+		if x, ok := ToDate(fieldName); ok {
+			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
 			return sqlStr, nil
 		}
+		//		if x := Any2Date(fieldName, true); x != nil {
+		//			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.Format("2006-01-02"), dbType)
+		//			return sqlStr, nil
+		//		}
 
 		if fromDT == DTfloat && toDT == DTstring {
 			sqlStr = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
@@ -579,10 +583,19 @@ func (d *Dialect) SetBufSize(mb int) {
 // ToString returns a string version of val that can be placed into SQL
 func (d *Dialect) ToString(val any) string {
 	if d.DialectName() == ch {
-		x := *Any2String(val, true)
+		var (
+			xv any
+			ok bool
+		)
+		if xv, ok = ToString(val); !ok {
+			panic(fmt.Errorf("can't make string"))
+		}
+
+		x := xv.(string)
 		if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
 			x = fmt.Sprintf("'%s'", x)
 		}
+
 		return x
 	}
 

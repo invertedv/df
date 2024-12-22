@@ -21,59 +21,61 @@ func summaries() d.Fns {
 
 	out := d.Fns{
 		vector("dot", inType4, outType2,
-			func(x ...any) *d.Vector { return d.NewVector(dotP(x[1].([]float64), x[2].([]float64)), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(dotP(x[1].([]int), x[2].([]int)), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(dotP(x[1].([]float64), x[2].([]float64)), outType2[0]) },
+			func(x ...any) *d.Vector { return d.NewVector(dotP(x[1].([]int), x[2].([]int)), outType2[1]) },
 		),
-		vector("sum", inType1, outType2,
-			func(x ...any) *d.Vector { return d.NewVector(sum(x[1].([]float64)), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(sum(x[1].([]int)), 0) },
+		vector("sum", inType1, outType1,
+			func(x ...any) *d.Vector { return d.NewVector(sum(x[1].([]float64)), outType1[0]) },
+			func(x ...any) *d.Vector { return d.NewVector(sum(x[1].([]int)), outType1[1]) },
 		),
 		vector("mean", inType1, outType2,
-			func(x ...any) *d.Vector { return d.NewVector(mean(x[1].([]float64)), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(mean(x[1].([]int)), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(mean(x[1].([]float64)), outType2[0]) },
+			func(x ...any) *d.Vector { return d.NewVector(mean(x[1].([]int)), outType2[1]) },
 		),
 		vector("var", inType1, outType2,
-			func(x ...any) *d.Vector { return d.NewVector(variance(x[1].([]float64)), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(variance(x[1].([]int)), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(variance(x[1].([]float64)), outType2[0]) },
+			func(x ...any) *d.Vector { return d.NewVector(variance(x[1].([]int)), outType2[1]) },
 		),
 		vector("sdev", inType1, outType2,
-			func(x ...any) *d.Vector { return d.NewVector(math.Sqrt(variance(x[1].([]float64))), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(math.Sqrt(variance(x[1].([]int))), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(math.Sqrt(variance(x[1].([]float64))), outType2[0]) },
+			func(x ...any) *d.Vector { return d.NewVector(math.Sqrt(variance(x[1].([]int))), outType2[1]) },
 		),
 		vector("quantile", inType2, outType1,
-			func(x ...any) *d.Vector { return d.NewVector(quantile(x[1].([]float64)[0], x[2].([]float64)), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(qInt(x[1].([]float64)[0], x[2].([]int)), 0) },
+			func(x ...any) *d.Vector {
+				return d.NewVector(quantile(x[1].([]float64)[0], x[2].([]float64)), outType1[0])
+			},
+			func(x ...any) *d.Vector { return d.NewVector(qInt(x[1].([]float64)[0], x[2].([]int)), outType1[1]) },
 		),
 		vector("median", inType1, outType1,
-			func(x ...any) *d.Vector { return d.NewVector(quantile(0.5, x[1].([]float64)), 0) },
-			func(x ...any) *d.Vector { return d.NewVector(qInt(0.5, x[1].([]int)), 0) },
+			func(x ...any) *d.Vector { return d.NewVector(quantile(0.5, x[1].([]float64)), outType1[0]) },
+			func(x ...any) *d.Vector { return d.NewVector(qInt(0.5, x[1].([]int)), outType1[1]) },
 		),
 		vector("min", inType3, outType3,
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(true, x[1].([]float64), func(a, b float64) bool { return a < b }), 0)
+				return d.NewVector(minMax(true, x[1].([]float64), func(a, b float64) bool { return a < b }), outType3[0])
 			},
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(true, x[1].([]int), func(a, b int) bool { return a < b }), 0)
+				return d.NewVector(minMax(true, x[1].([]int), func(a, b int) bool { return a < b }), outType3[1])
 			},
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(true, x[1].([]string), func(a, b string) bool { return a < b }), 0)
+				return d.NewVector(minMax(true, x[1].([]string), func(a, b string) bool { return a < b }), outType3[2])
 			},
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(true, x[1].([]time.Time), func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 }), 0)
+				return d.NewVector(minMax(true, x[1].([]time.Time), func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 }), outType3[3])
 			},
 		),
 		vector("max", inType3, outType3,
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(false, x[1].([]float64), func(a, b float64) bool { return a < b }), 0)
+				return d.NewVector(minMax(false, x[1].([]float64), func(a, b float64) bool { return a < b }), outType3[0])
 			},
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(false, x[1].([]int), func(a, b int) bool { return a < b }), 0)
+				return d.NewVector(minMax(false, x[1].([]int), func(a, b int) bool { return a < b }), outType3[1])
 			},
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(false, x[1].([]string), func(a, b string) bool { return a < b }), 0)
+				return d.NewVector(minMax(false, x[1].([]string), func(a, b string) bool { return a < b }), outType3[2])
 			},
 			func(x ...any) *d.Vector {
-				return d.NewVector(minMax(false, x[1].([]time.Time), func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 }), 0)
+				return d.NewVector(minMax(false, x[1].([]time.Time), func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 }), outType3[3])
 			},
 		),
 	}

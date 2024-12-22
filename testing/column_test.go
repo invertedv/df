@@ -316,50 +316,60 @@ func TestT(t *testing.T) {
 
 // TODO: test min/max for string & date <---------------
 func TestRandom(t *testing.T) {
-	n := 1000 //00000
-	x := make([]int, n)
+	n := 100000000
+	x := make([]float64, n)
 	y := make([]float64, n)
 	z := make([]float64, n)
 	s := make([]string, n)
-	dt := make([]time.Time, n)
+	//	dt := make([]time.Time, n)
 	for ind := 0; ind < n; ind++ {
-		x[ind] = int(-ind + 1)
+		x[ind] = float64(-ind + 1)
 		y[ind] = float64(-ind + 1)
 		z[ind] = float64(ind)
 		s[ind] = fmt.Sprintf("%d", ind)
-		l := ind % 40
-		dt[ind] = time.Date(1980+l, 6, 1, 0, 0, 0, 0, time.UTC)
+		//		s[ind] = fmt.Sprintf("%d", ind)
+		//		l := ind % 40
+		//		dt[ind] = time.Date(1980+l, 6, 1, 0, 0, 0, 0, time.UTC)
 
 	}
 
-	vx := d.NewVector(x, 0)
-	vy := d.NewVector(y, 0)
-	vz := d.NewVector(z, 0)
-	vs := d.NewVector(s, 0)
-	vdt := d.NewVector(dt, 0)
-	colx, ex := m.NewCol(vx, d.ColName("x"))
+	vx := d.NewVector(x, d.DTfloat)
+	vy := d.NewVector(y, d.DTfloat)
+	vz := d.NewVector(z, d.DTfloat)
+	vs := d.NewVector(s, d.DTstring)
+	//	vdt := d.NewVector(dt, 0)
+	colx, ex := m.NewCol(vx, vx.VectorType(), d.ColName("x"))
 	assert.Nil(t, ex)
-	coly, ey := m.NewCol(vy, d.ColName("y"))
+	coly, ey := m.NewCol(vy, vy.VectorType(), d.ColName("y"))
 	assert.Nil(t, ey)
-	colz, ez := m.NewCol(vz, d.ColName("z"))
+	colz, ez := m.NewCol(vz, vz.VectorType(), d.ColName("z"))
 	assert.Nil(t, ez)
-	cols, es := m.NewCol(vs, d.ColName("s"))
+	cols, es := m.NewCol(vs, vs.VectorType(), d.ColName("s"))
 	assert.Nil(t, es)
-	coldt, edt := m.NewCol(vdt, d.ColName("dt"))
-	assert.Nil(t, edt)
-	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols, coldt})
+	//	coldt, edt := m.NewCol(vdt, d.ColName("dt"))
+	//	assert.Nil(t, edt)
+	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols})
 	assert.Nil(t, ed)
 	tx := time.Now()
-	outCol, ep := d.Parse(df, "abs(x)")
+	outCol, ep := d.Parse(df, "x")
 	//	outCol, ep := d.Parse(df, "dot(y,y)")
 	assert.Nil(t, ep)
 
 	fmt.Println("value ", outCol.AsColumn().(*m.Col).Element(0))
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 	tx = time.Now()
+	//	m := x[0]
 	//	for ind := 0; ind < n; ind++ {
-	//		z[ind] = ind
+	//		//z[ind] = x[ind] - y[ind] // x[ind] + y[ind]
+	//		if x[ind] > m {
+	//			m = x[ind]
+	//		}
 	//	}
+	for ind := 0; ind < n; ind++ {
+		//z[ind] = x[ind] - y[ind] // x[ind] + y[ind]
+		z[ind] = x[ind]
+	}
+
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 	_ = outCol
 }
@@ -412,6 +422,7 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 
 		x := [][]any{
+			{"sum(y)", 0, 12},
 			{"(x/0.1)", 0, 10.0},
 			{"y+100", 0, 101.0},
 			{"(x/0.1)*float(y+100)", 0, 1010.0},
@@ -446,7 +457,6 @@ func TestParser(t *testing.T) {
 			{"dot(x,x)", 0, 30.25},
 			{"mean(x)", 0, 1.25},
 			{"x--3.0", 0, 4.0},
-			{"sum(y)", 0, 12},
 			{"sum(x)", 0, 7.5},
 			{"dt != date(20221231)", 0, 0},
 			{"dt != date(20221231)", 0, 0},

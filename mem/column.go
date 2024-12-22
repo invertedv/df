@@ -15,8 +15,8 @@ type Col struct {
 }
 
 // ***************** Col - Create *****************
-
-func NewCol(data any, opts ...d.COpt) (*Col, error) {
+// TODO: add dt d.DataTypes as an arg
+func NewCol(data any, dt d.DataTypes, opts ...d.COpt) (*Col, error) {
 	var col *Col
 	if v, ok := data.(*d.Vector); ok {
 		col = &Col{
@@ -26,13 +26,13 @@ func NewCol(data any, opts ...d.COpt) (*Col, error) {
 	}
 
 	if col == nil {
-		var dt d.DataTypes
-		if dt = d.WhatAmI(data); dt == d.DTunknown {
-			return nil, fmt.Errorf("unsupported data type in NewCol")
-		}
+		//		var dt d.DataTypes
+		//		if dt = d.WhatAmI(data); dt == d.DTunknown {
+		//			return nil, fmt.Errorf("unsupported data type in NewCol")
+		//		}
 
 		col = &Col{
-			Vector:  d.NewVector(data, 0),
+			Vector:  d.NewVector(data, dt),
 			ColCore: d.NewColCore(dt),
 		}
 	}
@@ -114,9 +114,16 @@ func (c *Col) String() string {
 			if k == nil {
 				k = "Other"
 			}
-			x := *d.Any2String(k, true)
 
-			keys = append(keys, x)
+			var (
+				x  any
+				ok bool
+			)
+			if x, ok = d.ToString(k); !ok {
+				panic(fmt.Errorf("cannot convert to string in Col.String()"))
+			}
+
+			keys = append(keys, x.(string))
 			vals = append(vals, v)
 		}
 
