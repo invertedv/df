@@ -54,7 +54,7 @@ func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
 
 // *********** Setters ***********
 func ColName(name string) COpt {
-	if e := ValidName(name); e != nil {
+	if e := validName(name); e != nil {
 		panic(e)
 	}
 

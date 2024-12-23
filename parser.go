@@ -340,7 +340,7 @@ func (ot *OpTree) constant(xIn string) (*Parsed, error) {
 		dt DataTypes
 		e  error
 	)
-	if v, dt, e = BestType(xIn); e != nil || dt == DTunknown || dt == DTstring {
+	if v, dt, e = bestType(xIn); e != nil || dt == DTunknown || dt == DTstring {
 		return nil, fmt.Errorf("cannot interpret %v as a constant", xIn)
 	}
 

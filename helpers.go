@@ -14,7 +14,7 @@ import (
 
 // *********** Conversions ***********
 
-func ToFloat(x any) (any, bool) {
+func toFloat(x any) (any, bool) {
 	if f, ok := x.(float64); ok {
 		return f, true
 	}
@@ -38,7 +38,7 @@ func ToFloat(x any) (any, bool) {
 	return nil, false
 }
 
-func ToInt(x any) (any, bool) {
+func toInt(x any) (any, bool) {
 	if i, ok := x.(int); ok {
 		return i, true
 	}
@@ -62,7 +62,7 @@ func ToInt(x any) (any, bool) {
 	return nil, false
 }
 
-func ToString(x any) (any, bool) {
+func toString(x any) (any, bool) {
 	if s, ok := x.(string); ok {
 		return s, true
 	}
@@ -82,14 +82,14 @@ func ToString(x any) (any, bool) {
 	return nil, false
 }
 
-func ToDate(x any) (any, bool) {
+func toDate(x any) (any, bool) {
 	if d, ok := x.(time.Time); ok {
 		return d, true
 	}
 
 	xv := reflect.ValueOf(x)
 	if xv.CanInt() {
-		return ToDate(fmt.Sprintf("%d", xv.Int()))
+		return toDate(fmt.Sprintf("%d", xv.Int()))
 	}
 
 	if d, ok := x.(string); ok {
@@ -104,22 +104,22 @@ func ToDate(x any) (any, bool) {
 	return nil, false
 }
 
-func ToDataType(x any, dt DataTypes) (any, bool) {
+func toDataType(x any, dt DataTypes) (any, bool) {
 	switch dt {
 	case DTfloat:
-		if v, ok := ToFloat(x); ok {
+		if v, ok := toFloat(x); ok {
 			return v.(float64), true
 		}
 	case DTint:
-		if v, ok := ToInt(x); ok {
+		if v, ok := toInt(x); ok {
 			return v.(int), true
 		}
 	case DTdate:
-		if v, ok := ToDate(x); ok {
+		if v, ok := toDate(x); ok {
 			return v.(time.Time), true
 		}
 	case DTstring:
-		if v, ok := ToString(x); ok {
+		if v, ok := toString(x); ok {
 			return v.(string), true
 		}
 	case DTany:
@@ -129,20 +129,20 @@ func ToDataType(x any, dt DataTypes) (any, bool) {
 	return nil, false
 }
 
-func BestType(xIn any) (xOut any, dt DataTypes, err error) {
-	if x, ok := ToDate(xIn); ok {
+func bestType(xIn any) (xOut any, dt DataTypes, err error) {
+	if x, ok := toDate(xIn); ok {
 		return x.(time.Time), DTdate, nil
 	}
 
-	if x, ok := ToInt(xIn); ok {
+	if x, ok := toInt(xIn); ok {
 		return x.(int), DTint, nil
 	}
 
-	if x, ok := ToFloat(xIn); ok {
+	if x, ok := toFloat(xIn); ok {
 		return x.(float64), DTfloat, nil
 	}
 
-	if x, ok := ToString(xIn); ok {
+	if x, ok := toString(xIn); ok {
 		return x.(string), DTstring, nil
 	}
 
@@ -164,9 +164,9 @@ func WhatAmI(val any) DataTypes {
 	}
 }
 
-func ToSlc(xIn any, target DataTypes) (any, bool) {
+func toSlc(xIn any, target DataTypes) (any, bool) {
 	typSlc := []reflect.Type{reflect.TypeOf([]float64{}), reflect.TypeOf([]int{}), reflect.TypeOf([]string{""}), reflect.TypeOf([]time.Time{})}
-	toFns := []func(a any) (any, bool){ToFloat, ToInt, ToString, ToDate}
+	toFns := []func(a any) (any, bool){toFloat, toInt, toString, toDate}
 
 	x := reflect.ValueOf(xIn)
 
@@ -225,7 +225,7 @@ func ToSlc(xIn any, target DataTypes) (any, bool) {
 }
 
 // *********** Other ***********
-func SelectFormat(x []float64) string {
+func selectFormat(x []float64) string {
 	minX := math.Abs(x[0])
 	maxX := math.Abs(x[0])
 	for _, xv := range x {
@@ -255,7 +255,7 @@ func SelectFormat(x []float64) string {
 	return format
 }
 
-func StringSlice(header string, inVal any) []string {
+func stringSlice(header string, inVal any) []string {
 	const pad = 3
 	c := []string{header}
 
@@ -264,7 +264,7 @@ func StringSlice(header string, inVal any) []string {
 	var dt DataTypes
 	switch x := inVal.(type) {
 	case []float64:
-		format = SelectFormat(x)
+		format = selectFormat(x)
 		n = len(x)
 		dt = DTfloat
 	case []int:
@@ -318,7 +318,7 @@ func PrettyPrint(header []string, cols ...any) string {
 	var colsS [][]string
 
 	for ind := 0; ind < len(cols); ind++ {
-		colsS = append(colsS, StringSlice(header[ind], cols[ind]))
+		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
 	}
 
 	out := ""
@@ -355,11 +355,11 @@ func Position[C comparable](needle C, haystack []C) int {
 	return -1
 }
 
-// RandomLetters generates a string of length "length" by randomly choosing from a-z
-func RandomLetters(length int) string {
+// randomLetters generates a string of length "length" by randomly choosing from a-z
+func randomLetters(length int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz"
 
-	randN, err := RandUnifInt(len(letters), len(letters))
+	randN, err := randUnifInt(len(letters), len(letters))
 	if err != nil {
 		panic(err)
 	}
@@ -372,8 +372,8 @@ func RandomLetters(length int) string {
 	return name
 }
 
-// RandUnifInt generates a slice whose elements are random U[0,upper) int64's
-func RandUnifInt(n, upper int) ([]int64, error) {
+// randUnifInt generates a slice whose elements are random U[0,upper) int64's
+func randUnifInt(n, upper int) ([]int64, error) {
 	const bytesPerInt = 8
 
 	// generate random bytes
@@ -396,7 +396,7 @@ func RandUnifInt(n, upper int) ([]int64, error) {
 	return outInts, nil
 }
 
-func ValidName(name string) error {
+func validName(name string) error {
 	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~ " + `"`
 
 	if strings.ContainsAny(name, illegal) {

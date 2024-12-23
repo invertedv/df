@@ -112,7 +112,7 @@ func (f *Files) detect() error {
 				dt DataTypes
 				e3 error
 			)
-			if _, dt, e3 = BestType(vals[ind]); e3 != nil {
+			if _, dt, e3 = bestType(vals[ind]); e3 != nil {
 				return e3
 			}
 
@@ -267,7 +267,7 @@ func (f *Files) Read() (any, error) {
 
 		dt := f.FieldTypes()[ind]
 		v := f.smartTrim(fld, dt)
-		if x, ok = ToDataType(v, dt); !ok {
+		if x, ok = toDataType(v, dt); !ok {
 			switch f.Strict {
 			case true:
 				return nil, fmt.Errorf("conversion failed in Files.Read")

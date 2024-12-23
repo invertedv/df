@@ -1,5 +1,6 @@
 package df
 
+// TODO: panic to error, ok vs error
 import (
 	"fmt"
 	"time"
@@ -18,7 +19,7 @@ func NewVector(data any, dt DataTypes) *Vector {
 		v  any
 		ok bool
 	)
-	if v, ok = ToSlc(data, dt); !ok {
+	if v, ok = toSlc(data, dt); !ok {
 		panic(fmt.Errorf("cannot make vector of type %s", dt))
 	}
 
@@ -43,6 +44,8 @@ func MakeVector(dt DataTypes, n int) *Vector {
 func (v *Vector) VectorType() DataTypes {
 	return v.dt
 }
+
+// TODO: return error
 
 func (v *Vector) SetFloat(val float64, indx int) {
 	if v.VectorType() != DTfloat {
@@ -100,8 +103,10 @@ func (v *Vector) AsAny() any {
 	return v.data
 }
 
+// TODO: return error
+
 func (v *Vector) AsFloat() []float64 {
-	if xOut, ok := ToSlc(v.data, DTfloat); ok {
+	if xOut, ok := toSlc(v.data, DTfloat); ok {
 		return xOut.([]float64)
 	}
 
@@ -109,7 +114,7 @@ func (v *Vector) AsFloat() []float64 {
 }
 
 func (v *Vector) AsInt() []int {
-	if xOut, ok := ToSlc(v.data, DTint); ok {
+	if xOut, ok := toSlc(v.data, DTint); ok {
 		return xOut.([]int)
 	}
 
@@ -117,7 +122,7 @@ func (v *Vector) AsInt() []int {
 }
 
 func (v *Vector) AsString() []string {
-	if xOut, ok := ToSlc(v.data, DTstring); ok {
+	if xOut, ok := toSlc(v.data, DTstring); ok {
 		return xOut.([]string)
 	}
 
@@ -125,7 +130,7 @@ func (v *Vector) AsString() []string {
 }
 
 func (v *Vector) AsDate() []time.Time {
-	if xOut, ok := ToSlc(v.data, DTdate); ok {
+	if xOut, ok := toSlc(v.data, DTdate); ok {
 		return xOut.([]time.Time)
 	}
 
@@ -157,7 +162,7 @@ func (v *Vector) Element(indx int) any {
 }
 
 func (v *Vector) ElementFloat(indx int) float64 {
-	if val, ok := ToFloat(v.Element(indx)); ok {
+	if val, ok := toFloat(v.Element(indx)); ok {
 		return val.(float64)
 	}
 
@@ -165,7 +170,7 @@ func (v *Vector) ElementFloat(indx int) float64 {
 }
 
 func (v *Vector) ElementInt(indx int) int {
-	if val, ok := ToInt(v.Element(indx)); ok {
+	if val, ok := toInt(v.Element(indx)); ok {
 		return val.(int)
 	}
 
@@ -173,7 +178,7 @@ func (v *Vector) ElementInt(indx int) int {
 }
 
 func (v *Vector) ElementString(indx int) string {
-	if x, ok := ToString(v.Element(indx)); ok {
+	if x, ok := toString(v.Element(indx)); ok {
 		return x.(string)
 	}
 
@@ -181,7 +186,7 @@ func (v *Vector) ElementString(indx int) string {
 }
 
 func (v *Vector) ElementDate(indx int) time.Time {
-	if val, ok := ToDate(v.Element(indx)); ok {
+	if val, ok := toDate(v.Element(indx)); ok {
 		return val.(time.Time)
 	}
 
@@ -260,7 +265,7 @@ func (v *Vector) Append(data ...any) {
 				x  any
 				ok bool
 			)
-			if x, ok = ToFloat(data[ind]); !ok {
+			if x, ok = toFloat(data[ind]); !ok {
 				panic(fmt.Errorf("cannot make float in Append"))
 			}
 
@@ -270,7 +275,7 @@ func (v *Vector) Append(data ...any) {
 				x  any
 				ok bool
 			)
-			if x, ok = ToInt(data[ind]); !ok {
+			if x, ok = toInt(data[ind]); !ok {
 				panic(fmt.Errorf("cannot make int in Append"))
 			}
 
@@ -280,7 +285,7 @@ func (v *Vector) Append(data ...any) {
 				x  any
 				ok bool
 			)
-			if x, ok = ToString(data[ind]); !ok {
+			if x, ok = toString(data[ind]); !ok {
 				panic(fmt.Errorf("cannot make string in Append"))
 			}
 
@@ -290,7 +295,7 @@ func (v *Vector) Append(data ...any) {
 				xv any
 				ok bool
 			)
-			if xv, ok = ToDate(data[ind]); !ok {
+			if xv, ok = toDate(data[ind]); !ok {
 				panic(fmt.Errorf("cannot make date in Append"))
 			}
 

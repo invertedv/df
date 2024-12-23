@@ -136,7 +136,7 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr st
 
 	if d.dialect == ch {
 		// is this a constant?
-		if x, ok := ToDate(fieldName); ok {
+		if x, ok := toDate(fieldName); ok {
 			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
 			return sqlStr, nil
 		}
@@ -455,7 +455,7 @@ func (d *Dialect) Min(col string) string {
 
 func (d *Dialect) WithName() string {
 	const wLen = 4
-	return RandomLetters(wLen)
+	return randomLetters(wLen)
 }
 
 func (d *Dialect) Quantile(col string, q float64) string {
@@ -587,7 +587,7 @@ func (d *Dialect) ToString(val any) string {
 			xv any
 			ok bool
 		)
-		if xv, ok = ToString(val); !ok {
+		if xv, ok = toString(val); !ok {
 			panic(fmt.Errorf("can't make string"))
 		}
 

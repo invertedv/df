@@ -2,10 +2,9 @@ package df
 
 import (
 	"fmt"
-	"sort"
-
 	d "github.com/invertedv/df"
 	"gonum.org/v1/gonum/stat"
+	"sort"
 )
 
 type Col struct {
@@ -95,6 +94,11 @@ func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
 	*/
 }
 
+// TODO: get rid of this ... was using d.ToString(x)
+func toString(x any) (any, bool) {
+	return fmt.Sprintf("%v", x), true
+}
+
 func (c *Col) String() string {
 	if c.Name() == "" {
 		panic("column has no name")
@@ -114,7 +118,7 @@ func (c *Col) String() string {
 				x  any
 				ok bool
 			)
-			if x, ok = d.ToString(k); !ok {
+			if x, ok = toString(k); !ok {
 				panic(fmt.Errorf("cannot convert to string in Col.String()"))
 			}
 
