@@ -84,7 +84,7 @@ func TestParse_Table(t *testing.T) {
 func TestParser(t *testing.T) {
 	dfx := testDF()
 	eqn := "date(z)"
-	colx, e := d.ParseExpr(eqn, dfx)
+	colx, e := d.Parse(dfx, eqn)
 	assert.Nil(t, e)
 	col := colx.AsColumn()
 	d.ColName("dt")(col)
@@ -147,7 +147,6 @@ func TestParser(t *testing.T) {
 		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
 		{"-x +2.0", 0, float64(1)},
 		{"-x +4.0", 1, float64(6)},
-		{"x/0.0", 0, math.Inf(1)},
 		{"(3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0))", 0, float64(42)},
 		{"(1 + 2) - -(-1 - 2)", 0, 0},
 		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},

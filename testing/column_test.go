@@ -26,8 +26,7 @@ func (v *vector[T]) VectorType() d.DataTypes {
 
 func (v *vector[T]) AsFloat() []float64 {
 	if v.dt == d.DTfloat {
-		var x any
-		x = v.data
+		var x any = v.data
 		return x.([]float64)
 	}
 
@@ -311,7 +310,6 @@ func TestT(t *testing.T) {
 	//	fmt.Println(sum(y.data))
 	r := reflect.TypeOf(y.data[0])
 	fmt.Println(r.Kind())
-
 }
 
 // TODO: test min/max for string & date <---------------
@@ -424,6 +422,9 @@ func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		x := [][]any{
+			{"e()", 0, math.E},
+			{"exp(1000000.0)==pInf()", 0, 1},
+			{"log(0.0)==mInf()", 0, 1},
 			{"if(y==1,2,y)", 0, 2},
 			{"rowNumber()", 1, 1},
 			{"x + 2.0", 0, 3.0},
@@ -578,6 +579,17 @@ func TestToCat(t *testing.T) {
 		result := colx.AsColumn().Data()
 		expected := []int{1, 0, 4, 1, 2, 3}
 		assert.Equal(t, expected, result.AsInt())
+
+		if which == "mem" {
+			e = dfx.AppendColumn(colx.AsColumn(), true)
+			assert.Nil(t, e)
+			coly := colx.AsColumn().Copy()
+			d.ColName("test1")(coly)
+			e = dfx.AppendColumn(coly, true)
+			colx, e = d.Parse(dfx, "sum(int(test1)==int(test))")
+			assert.Nil(t, e)
+			assert.Equal(t, colx.AsColumn().(*m.Col).ElementInt(0), 6)
+		}
 
 		// try with DTstring
 		colx, e = d.Parse(dfx, "cat(z)")

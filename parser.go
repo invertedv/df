@@ -5,98 +5,9 @@ import (
 	"strings"
 )
 
-func Parse(df DF, expr string) (*Parsed, error) {
-	var (
-		ot *OpTree
-		e  error
-	)
-	if ot, e = NewOpTree(expr, df.Fns()); e != nil {
-		return nil, e
-	}
-
-	if ex := ot.Build(); ex != nil {
-		return nil, ex
-	}
-
-	if ex := ot.Eval(df); ex != nil {
-		return nil, ex
-	}
-
-	return ot.Value(), nil
-}
-
-func DoOp(df DF, opName string, inputs ...*Parsed) (any, error) {
-	var fn Fn
-
-	if fn = df.Fns().Get(opName); fn == nil {
-		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
-	}
-
-	var vals []Column
-	for ind := 0; ind < len(inputs); ind++ {
-		switch inputs[ind].Which() {
-		case "DF":
-			return nil, fmt.Errorf("cannot take DF as function input")
-		case "Column":
-			vals = append(vals, inputs[ind].AsColumn())
-		}
-	}
-
-	var (
-		col any
-		e   error
-	)
-	if col, e = RunDFfn(fn, df, vals); e != nil {
-		return nil, e
-	}
-
-	return col, nil
-}
-
-type OpTree struct {
-	value *Parsed
-
-	expr string
-
-	op    string
-	left  *OpTree
-	right *OpTree
-
-	fnName string
-	inputs []*OpTree
-
-	funcs   Fns
-	fnNames []string
-
-	ops operations
-
-	dependencies []string
-}
-
-type operations [][]string
-
 type Parsed struct {
-	//	which string
-
 	col Column
 	df  DF
-}
-
-func NewParsed(value any, dependencies ...string) *Parsed {
-	p := &Parsed{}
-
-	if value == nil {
-		return p
-	}
-
-	if _, ok := value.(DF); ok {
-		p.df = value.(DF)
-		return p
-	}
-
-	colDependencies(dependencies)(value.(Column).Core())
-	p.col = value.(Column)
-	return p
 }
 
 func (p *Parsed) Value() any {
@@ -131,34 +42,101 @@ func (p *Parsed) Which() string {
 	return "nil"
 }
 
-func ParseExpr(expr string, df DF) (*Parsed, error) {
+func Parse(df DF, expr string) (*Parsed, error) {
 	var (
-		ot *OpTree
+		ot *opTree
 		e  error
 	)
-	if ot, e = NewOpTree(expr, df.Fns()); e != nil {
+	if ot, e = newOpTree(expr, df.Fns()); e != nil {
 		return nil, e
 	}
 
-	if ex := ot.Build(); ex != nil {
+	if ex := ot.build(); ex != nil {
 		return nil, ex
 	}
 
-	if ex := ot.Eval(df); ex != nil {
+	if ex := ot.eval(df); ex != nil {
 		return nil, ex
 	}
 
-	return ot.Value(), nil
+	return ot.value, nil
 }
 
-func NewOpTree(expression string, funcs Fns) (*OpTree, error) {
+func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
+	var fn Fn
+
+	if fn = df.Fns().Get(opName); fn == nil {
+		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
+	}
+
+	var vals []Column
+	for ind := 0; ind < len(inputs); ind++ {
+		switch inputs[ind].Which() {
+		case "DF":
+			return nil, fmt.Errorf("cannot take DF as function input")
+		case "Column":
+			vals = append(vals, inputs[ind].AsColumn())
+		}
+	}
+
+	var (
+		col any
+		e   error
+	)
+	if col, e = RunDFfn(fn, df, vals); e != nil {
+		return nil, e
+	}
+
+	return col, nil
+}
+
+type opTree struct {
+	value *Parsed
+
+	expr string
+
+	op    string
+	left  *opTree
+	right *opTree
+
+	fnName string
+	inputs []*opTree
+
+	funcs   Fns
+	fnNames []string
+
+	ops operations
+
+	dependencies []string
+}
+
+type operations [][]string
+
+func newParsed(value any, dependencies ...string) *Parsed {
+	p := &Parsed{}
+
+	if value == nil {
+		return p
+	}
+
+	if _, ok := value.(DF); ok {
+		p.df = value.(DF)
+		return p
+	}
+
+	colDependencies(dependencies)(value.(Column).Core())
+	p.col = value.(Column)
+	return p
+}
+
+func newOpTree(expression string, funcs Fns) (*opTree, error) {
 	expression = strings.ReplaceAll(expression, " ", "")
 	var fns []string
 	for _, fn := range funcs {
 		fns = append(fns, fn(true, nil, nil).Name+"(")
 	}
 
-	ot := &OpTree{expr: expression, funcs: funcs, ops: newOperations(), fnNames: fns}
+	ot := &opTree{expr: expression, funcs: funcs, ops: newOperations(), fnNames: fns}
 	return ot, nil
 }
 
@@ -182,10 +160,8 @@ func newOperations() operations {
 	return order
 }
 
-//////////////// Exported OpTree methods
-
-// Build creates the tree representation of the expression
-func (ot *OpTree) Build() error {
+// build creates the tree representation of the expression
+func (ot *opTree) build() error {
 	if ex := ot.parenError(); ex != nil {
 		return ex
 	}
@@ -205,27 +181,27 @@ func (ot *OpTree) Build() error {
 	}
 
 	if l != "" {
-		ot.left = &OpTree{
+		ot.left = &opTree{
 			expr:    l,
 			funcs:   ot.funcs,
 			ops:     ot.ops,
 			fnNames: ot.fnNames,
 		}
 
-		if e := ot.left.Build(); e != nil {
+		if e := ot.left.build(); e != nil {
 			return e
 		}
 	}
 
 	if r != "" {
-		ot.right = &OpTree{
+		ot.right = &opTree{
 			expr:    r,
 			funcs:   ot.funcs,
 			ops:     ot.ops,
 			fnNames: ot.fnNames,
 		}
 
-		if e := ot.right.Build(); e != nil {
+		if e := ot.right.build(); e != nil {
 			return e
 		}
 	}
@@ -237,13 +213,13 @@ func (ot *OpTree) Build() error {
 	return nil
 }
 
-// Eval evaluates the expression over the dataframe df
-func (ot *OpTree) Eval(df DF) error {
+// eval evaluates the expression over the dataframe df
+func (ot *opTree) eval(df DF) error {
 	// bottom level -- either a constant or a member of df
 	if ot.op == "" && ot.fnName == "" {
 		if c := df.Column(ot.expr); c != nil {
 			ot.dependencies = nodupAppend(ot.dependencies, c.Name())
-			ot.value = NewParsed(c, ot.dependencies...)
+			ot.value = newParsed(c, ot.dependencies...)
 			return nil
 		}
 
@@ -262,33 +238,33 @@ func (ot *OpTree) Eval(df DF) error {
 	// handle function call
 	if ot.fnName != "" {
 		for ind := 0; ind < len(ot.inputs); ind++ {
-			if e := ot.inputs[ind].Eval(df); e != nil {
+			if e := ot.inputs[ind].eval(df); e != nil {
 				return e
 			}
 		}
 
 		var inp []*Parsed
 		for ind := 0; ind < len(ot.inputs); ind++ {
-			inp = append(inp, ot.inputs[ind].Value())
+			inp = append(inp, ot.inputs[ind].value)
 			ot.dependencies = nodupAppend(ot.dependencies, ot.inputs[ind].dependencies...)
 		}
 
-		if c, ex = DoOp(df, ot.fnName, inp...); ex != nil {
+		if c, ex = doOp(df, ot.fnName, inp...); ex != nil {
 			return ex
 		}
 
-		ot.value = NewParsed(c, ot.dependencies...)
+		ot.value = newParsed(c, ot.dependencies...)
 
 		return nil
 	}
 
-	// Do left/right Eval then op for this node
+	// Do left/right eval then op for this node
 	if ot.left != nil {
-		if e := ot.left.Eval(df); e != nil {
+		if e := ot.left.eval(df); e != nil {
 			return e
 		}
 
-		if e := ot.right.Eval(df); e != nil {
+		if e := ot.right.eval(df); e != nil {
 			return e
 		}
 	}
@@ -296,35 +272,30 @@ func (ot *OpTree) Eval(df DF) error {
 	// handle the usual ops
 	var vl *Parsed
 	if ot.left != nil {
-		vl = ot.left.Value()
+		vl = ot.left.value
 		ot.dependencies = nodupAppend(ot.dependencies, ot.left.dependencies...)
 	}
 
 	var vr *Parsed
 	if ot.right != nil {
-		vr = ot.right.Value()
+		vr = ot.right.value
 		ot.dependencies = nodupAppend(ot.dependencies, ot.right.dependencies...)
 	}
 
-	if c, ex = DoOp(df, mapOp(ot.op), vl, vr); ex != nil {
+	if c, ex = doOp(df, mapOp(ot.op), vl, vr); ex != nil {
 		return ex
 	}
 
-	ot.value = NewParsed(c, ot.dependencies...)
+	ot.value = newParsed(c, ot.dependencies...)
 
 	return nil
 }
 
-// Value returns the value of the node. It will either be a Column or a scalar value.
-func (ot *OpTree) Value() *Parsed {
-	return ot.value
-}
+// //////// Unexported opTree methods
 
-// //////// Unexported OpTree methods
-
-// constant handles the leaf of the OpTree when it is a constant.
+// constant handles the leaf of the opTree when it is a constant.
 // strings are surrounded by single quotes
-func (ot *OpTree) constant(xIn string) (*Parsed, error) {
+func (ot *opTree) constant(xIn string) (*Parsed, error) {
 	if xIn == "" {
 		return nil, nil
 	}
@@ -332,7 +303,7 @@ func (ot *OpTree) constant(xIn string) (*Parsed, error) {
 	if len(xIn) >= 2 && xIn[0:1] == "'" && xIn[len(xIn)-1:] == "'" {
 		xIn = strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'")
 		c := NewScalar(xIn)
-		return NewParsed(c), nil
+		return newParsed(c), nil
 	}
 
 	var (
@@ -345,14 +316,13 @@ func (ot *OpTree) constant(xIn string) (*Parsed, error) {
 	}
 
 	c := NewScalar(v)
-	return NewParsed(c), nil
-	//	return NewParsed(v), nil
+	return newParsed(c), nil
 }
 
 // outerParen strips away parentheses that surround the entire expression.
 // For example, ((a+b)) becomes a+b
 // but (a+b)*3 is not changed.
-func (ot *OpTree) outerParen(s string) string {
+func (ot *opTree) outerParen(s string) string {
 	if len(s) <= 2 || s[0] != '(' {
 		return s
 	}
@@ -374,7 +344,7 @@ func (ot *OpTree) outerParen(s string) string {
 }
 
 // isFunction determines whether the expression starts with a function
-func (ot *OpTree) isFunction() (haveFn bool, fnOp string) {
+func (ot *opTree) isFunction() (haveFn bool, fnOp string) {
 	for _, f := range ot.fnNames {
 		if len(ot.expr) >= len(f) && ot.expr[:len(f)] == f {
 			return true, f
@@ -386,7 +356,7 @@ func (ot *OpTree) isFunction() (haveFn bool, fnOp string) {
 
 // scan determines whether the expression ot.expr is an (a) expression; (b) a function
 // or a leaf and fills in the appropriate fields of ot.
-func (ot *OpTree) scan() (left, right, op string, err error) {
+func (ot *opTree) scan() (left, right, op string, err error) {
 	// strip outer parens
 	ot.expr = ot.outerParen(ot.expr)
 
@@ -427,7 +397,7 @@ func (ot *OpTree) scan() (left, right, op string, err error) {
 }
 
 // args breaks a function argument string into its arguments
-func (ot *OpTree) args(xIn string) ([]string, error) {
+func (ot *opTree) args(xIn string) ([]string, error) {
 	var (
 		xOut []string
 		arg  string
@@ -456,8 +426,8 @@ func (ot *OpTree) args(xIn string) ([]string, error) {
 	return xOut, nil
 }
 
-// makeFn populates the OpTree function fields
-func (ot *OpTree) makeFn(fnName string) error {
+// makeFn populates the opTree function fields
+func (ot *opTree) makeFn(fnName string) error {
 	inner := strings.Replace(ot.expr, fnName, "", 1)
 	inner = inner[:len(inner)-1]
 
@@ -477,14 +447,14 @@ func (ot *OpTree) makeFn(fnName string) error {
 		}
 
 		var (
-			op *OpTree
+			op *opTree
 			ex error
 		)
-		if op, ex = NewOpTree(x[ind], ot.funcs); ex != nil {
+		if op, ex = newOpTree(x[ind], ot.funcs); ex != nil {
 			return ex
 		}
 
-		if ex := op.Build(); ex != nil {
+		if ex := op.build(); ex != nil {
 			return ex
 		}
 
@@ -494,7 +464,7 @@ func (ot *OpTree) makeFn(fnName string) error {
 	return nil
 }
 
-func (ot *OpTree) parenError() error {
+func (ot *opTree) parenError() error {
 	haveQuote, count := false, 0
 	for ind := 0; ind < len(ot.expr); ind++ {
 		char := ot.expr[ind : ind+1]

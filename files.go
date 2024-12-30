@@ -18,6 +18,8 @@ import (
 
 // All code interacting with files is here
 
+// TODO: don't export all this but have setters
+
 // Defaults
 var (
 	Sep         = ','
@@ -528,7 +530,7 @@ type ctr struct {
 }
 
 func (c *ctr) max() DataTypes {
-	switch m := MaxInt(c.cInt, c.cFloat, c.cDate, c.cString); m {
+	switch m := maxInt(c.cInt, c.cFloat, c.cDate, c.cString); m {
 	case c.cDate:
 		return DTdate
 	case c.cInt:
@@ -538,4 +540,16 @@ func (c *ctr) max() DataTypes {
 	default:
 		return DTstring
 	}
+}
+
+// maxInt returns the maximum of ints
+func maxInt(ints ...int) int {
+	mx := ints[0]
+	for _, i := range ints {
+		if i > mx {
+			mx = i
+		}
+	}
+
+	return mx
 }

@@ -653,18 +653,6 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 	return d.dbTypes[pos], nil
 }
 
-// MaxInt returns the maximum of ints
-func MaxInt(ints ...int) int {
-	mx := ints[0]
-	for _, i := range ints {
-		if i > mx {
-			mx = i
-		}
-	}
-
-	return mx
-}
-
 // **************** helpers **************
 
 func buildRow(k []reflect.Kind) []any {

@@ -55,7 +55,6 @@ func getVecs(n int, cols ...*Col) []any {
 	return v
 }
 
-// Can just return newVector(x[1], <from>).Coerce(<to>) which gives *Vector, error
 func castOps() d.Fns {
 	inType1 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTcategorical}}
 	inType2 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}}
@@ -110,7 +109,7 @@ func castOps() d.Fns {
 	return out
 }
 
-func core[T float64 | int](op func(a T) T, x ...any) (*d.Vector, error) {
+func coreMathFn[T float64 | int](op func(a T) T, x ...any) (*d.Vector, error) {
 	n, x1 := x[0].(int), x[1].([]T)
 	xOut := make([]T, n)
 	for ind, xv := range x1 {
@@ -135,13 +134,15 @@ func mathFuncs() d.Fns {
 	outType2 := []d.DataTypes{d.DTfloat, d.DTint}
 
 	out := d.Fns{
-		vector("exp", inType1, outType1, func(x ...any) (*d.Vector, error) { return core[float64](math.Exp, x...) }),
-		vector("log", inType1, outType1, func(x ...any) (*d.Vector, error) { return core[float64](math.Log, x...) }),
-		vector("sqrt", inType1, outType1, func(x ...any) (*d.Vector, error) { return core[float64](math.Sqrt, x...) }),
-		vector("abs", inType2, outType2, func(x ...any) (*d.Vector, error) { return core[float64](abs, x...) },
-			func(x ...any) (*d.Vector, error) { return core[int](abs, x...) }),
-		vector("neg", inType2, outType2, func(x ...any) (*d.Vector, error) { return core[float64](func(a float64) float64 { return -a }, x...) },
-			func(x ...any) (*d.Vector, error) { return core[int](func(a int) int { return -a }, x...) }),
+		vector("exp", inType1, outType1, func(x ...any) (*d.Vector, error) { return coreMathFn[float64](math.Exp, x...) }),
+		vector("log", inType1, outType1, func(x ...any) (*d.Vector, error) { return coreMathFn[float64](math.Log, x...) }),
+		vector("sqrt", inType1, outType1, func(x ...any) (*d.Vector, error) { return coreMathFn[float64](math.Sqrt, x...) }),
+		vector("abs", inType2, outType2, func(x ...any) (*d.Vector, error) { return coreMathFn[float64](abs, x...) },
+			func(x ...any) (*d.Vector, error) { return coreMathFn[int](abs, x...) }),
+		vector("neg", inType2, outType2, func(x ...any) (*d.Vector, error) {
+			return coreMathFn[float64](func(a float64) float64 { return -a }, x...)
+		},
+			func(x ...any) (*d.Vector, error) { return coreMathFn[int](func(a int) int { return -a }, x...) }),
 	}
 
 	return out
@@ -153,6 +154,7 @@ func logic(n int, x, y []int, test func(a, b *int) bool) (*d.Vector, error) {
 	if len(x) == 1 {
 		inc1 = 0
 	}
+
 	if len(y) == 1 {
 		inc2 = 0
 	}
@@ -272,26 +274,6 @@ func mathOps() d.Fns {
 	return out
 }
 
-func otherVectors() d.Fns {
-	outType := []d.DataTypes{d.DTint}
-
-	rn := func(x ...any) (*d.Vector, error) {
-		n := x[0].(int)
-		outX := make([]int, n)
-		for ind := 0; ind < n; ind++ {
-			outX[ind] = ind
-		}
-
-		return newVector(outX, d.WhatAmI(outX[0])), nil
-	}
-
-	out := d.Fns{
-		vector("rowNumber", nil, outType, rn),
-		ifOp()}
-
-	return out
-}
-
 func ifx[T float64 | int | string | time.Time](xIn ...any) (*d.Vector, error) {
 	n, cond, x, y := xIn[0].(int), xIn[1].([]int), xIn[2].([]T), xIn[3].([]T)
 	z := make([]T, n)
@@ -335,7 +317,41 @@ func ifOp() d.Fn {
 		func(x ...any) (*d.Vector, error) { return ifx[time.Time](x...) })
 }
 
-// ***************** Functions that take a single column and return a scalar *****************
+func otherVectors() d.Fns {
+	outType1 := []d.DataTypes{d.DTint}
+	outType2 := []d.DataTypes{d.DTfloat}
+
+	rn := func(x ...any) (*d.Vector, error) {
+		n := x[0].(int)
+		outX := make([]int, n)
+		for ind := 0; ind < n; ind++ {
+			outX[ind] = ind
+		}
+
+		return newVector(outX, d.WhatAmI(outX[0])), nil
+	}
+
+	ev := func(x ...any) (*d.Vector, error) {
+		return newVector(math.E, d.DTfloat), nil
+	}
+
+	pInf := func(x ...any) (*d.Vector, error) {
+		return newVector(math.Inf(1), d.DTfloat), nil
+	}
+
+	mInf := func(x ...any) (*d.Vector, error) {
+		return newVector(math.Inf(-1), d.DTfloat), nil
+	}
+
+	out := d.Fns{
+		vector("rowNumber", nil, outType1, rn),
+		vector("e", nil, outType2, ev),
+		vector("pInf", nil, outType2, pInf),
+		vector("mInf", nil, outType2, mInf),
+		ifOp()}
+
+	return out
+}
 
 // ***************** Categorical Operations *****************
 
