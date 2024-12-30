@@ -32,7 +32,13 @@ func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.
 		}
 
 		inData := getVecs(n, col...)
-		data := fnUse.(func(x ...any) *d.Vector)(inData...)
+		var (
+			data *d.Vector
+			err  error
+		)
+		if data, err = fnUse.(func(x ...any) (*d.Vector, error))(inData...); err != nil {
+			return &d.FnReturn{Err: err}
+		}
 
 		return returnCol(data)
 	}
@@ -49,6 +55,7 @@ func getVecs(n int, cols ...*Col) []any {
 	return v
 }
 
+// Can just return newVector(x[1], <from>).Coerce(<to>) which gives *Vector, error
 func castOps() d.Fns {
 	inType1 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTcategorical}}
 	inType2 := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}}
@@ -56,61 +63,61 @@ func castOps() d.Fns {
 
 	out := d.Fns{
 		vector("float", inType1, []d.DataTypes{d.DTfloat, d.DTfloat, d.DTfloat, d.DTfloat},
-			func(x ...any) *d.Vector {
-				return d.NewVector(x[1].([]float64), d.DTfloat)
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]float64), d.DTfloat), nil
 			},
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsFloat(), d.DTfloat)
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]int), d.DTint).Coerce(d.DTfloat)
 			},
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]string), d.DTstring).AsFloat(), d.DTfloat)
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]string), d.DTstring).Coerce(d.DTfloat)
 			},
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsFloat(), d.DTfloat)
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]int), d.DTint).Coerce(d.DTfloat)
 			},
 		),
 		vector("int", inType1, []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint},
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]float64), d.DTfloat).AsInt(), d.DTint)
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]float64), d.DTfloat).Coerce(d.DTint)
 			},
-			func(x ...any) *d.Vector { return d.NewVector(x[1].([]int), d.DTint) },
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]string), d.DTstring).AsInt(), d.DTint)
+			func(x ...any) (*d.Vector, error) { return newVector(x[1].([]int), d.DTint), nil },
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]string), d.DTstring).Coerce(d.DTint)
 			},
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsInt(), d.DTint) },
+			func(x ...any) (*d.Vector, error) { return newVector(x[1].([]int), d.DTint), nil },
 		),
 		vector("string", inType2, []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring},
 			// TODO: build smarter choice for # decimals
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]float64), d.DTfloat).AsString(), d.DTstring)
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]float64), d.DTfloat).Coerce(d.DTstring)
 			},
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsString(), d.DTstring)
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]int), d.DTint).Coerce(d.DTstring)
 			},
-			func(x ...any) *d.Vector { return d.NewVector(x[1].([]string), d.DTstring) },
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]time.Time), d.DTdate).AsString(), d.DTstring)
+			func(x ...any) (*d.Vector, error) { return newVector(x[1].([]string), d.DTstring), nil },
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]time.Time), d.DTdate).Coerce(d.DTstring)
 			},
 		),
 		vector("date", inType3, []d.DataTypes{d.DTdate, d.DTdate, d.DTdate},
-			func(x ...any) *d.Vector { return d.NewVector(d.NewVector(x[1].([]int), d.DTint).AsDate(), d.DTdate) },
-			func(x ...any) *d.Vector {
-				return d.NewVector(d.NewVector(x[1].([]string), d.DTstring).AsDate(), d.DTdate)
+			func(x ...any) (*d.Vector, error) { return newVector(x[1].([]int), d.DTint).Coerce(d.DTdate) },
+			func(x ...any) (*d.Vector, error) {
+				return newVector(x[1].([]string), d.DTstring).Coerce(d.DTdate)
 			},
-			func(x ...any) *d.Vector { return d.NewVector(x[1].([]time.Time), d.DTdate) },
+			func(x ...any) (*d.Vector, error) { return newVector(x[1].([]time.Time), d.DTdate), nil },
 		)}
 
 	return out
 }
 
-func core[T float64 | int](op func(a T) T, x ...any) *d.Vector {
+func core[T float64 | int](op func(a T) T, x ...any) (*d.Vector, error) {
 	n, x1 := x[0].(int), x[1].([]T)
 	xOut := make([]T, n)
 	for ind, xv := range x1 {
 		xOut[ind] = op(xv)
 	}
 
-	return d.NewVector(xOut, d.WhatAmI(xOut[0]))
+	return newVector(xOut, d.WhatAmI(xOut[0])), nil
 }
 
 func abs[T float64 | int](x T) T {
@@ -128,19 +135,19 @@ func mathFuncs() d.Fns {
 	outType2 := []d.DataTypes{d.DTfloat, d.DTint}
 
 	out := d.Fns{
-		vector("exp", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Exp, x...) }),
-		vector("log", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Log, x...) }),
-		vector("sqrt", inType1, outType1, func(x ...any) *d.Vector { return core[float64](math.Sqrt, x...) }),
-		vector("abs", inType2, outType2, func(x ...any) *d.Vector { return core[float64](abs, x...) },
-			func(x ...any) *d.Vector { return core[int](abs, x...) }),
-		vector("neg", inType2, outType2, func(x ...any) *d.Vector { return core[float64](func(a float64) float64 { return -a }, x...) },
-			func(x ...any) *d.Vector { return core[int](func(a int) int { return -a }, x...) }),
+		vector("exp", inType1, outType1, func(x ...any) (*d.Vector, error) { return core[float64](math.Exp, x...) }),
+		vector("log", inType1, outType1, func(x ...any) (*d.Vector, error) { return core[float64](math.Log, x...) }),
+		vector("sqrt", inType1, outType1, func(x ...any) (*d.Vector, error) { return core[float64](math.Sqrt, x...) }),
+		vector("abs", inType2, outType2, func(x ...any) (*d.Vector, error) { return core[float64](abs, x...) },
+			func(x ...any) (*d.Vector, error) { return core[int](abs, x...) }),
+		vector("neg", inType2, outType2, func(x ...any) (*d.Vector, error) { return core[float64](func(a float64) float64 { return -a }, x...) },
+			func(x ...any) (*d.Vector, error) { return core[int](func(a int) int { return -a }, x...) }),
 	}
 
 	return out
 }
 
-func logic(n int, x, y []int, test func(a, b *int) bool) *d.Vector {
+func logic(n int, x, y []int, test func(a, b *int) bool) (*d.Vector, error) {
 	z := make([]int, n)
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {
@@ -165,7 +172,7 @@ func logic(n int, x, y []int, test func(a, b *int) bool) *d.Vector {
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, d.DTint)
+	return newVector(z, d.DTint), nil
 }
 
 func logicalOps() d.Fns {
@@ -173,15 +180,15 @@ func logicalOps() d.Fns {
 	inType1 := [][]d.DataTypes{{d.DTint}}
 	outType := []d.DataTypes{d.DTint}
 
-	and := func(x ...any) *d.Vector {
+	and := func(x ...any) (*d.Vector, error) {
 		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
 		return logic(n, x1, x2, func(a, b *int) bool { return *a > 0 && *b > 0 })
 	}
-	or := func(x ...any) *d.Vector {
+	or := func(x ...any) (*d.Vector, error) {
 		n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
 		return logic(n, x1, x2, func(a, b *int) bool { return *a > 0 || *b > 0 })
 	}
-	not := func(x ...any) *d.Vector {
+	not := func(x ...any) (*d.Vector, error) {
 		n, x1 := x[0].(int), x[1].([]int)
 		return logic(n, x1, nil, func(a, b *int) bool { return *a <= 0 })
 	}
@@ -211,7 +218,7 @@ func comparisons() d.Fns {
 	return out
 }
 
-func mathFn[T float64 | int](op func(a, b T) T, xIn ...any) *d.Vector {
+func mathFn[T float64 | int](op func(a, b T) (T, error), xIn ...any) (*d.Vector, error) {
 	n, x, y := xIn[0].(int), xIn[1].([]T), xIn[2].([]T)
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {
@@ -224,34 +231,42 @@ func mathFn[T float64 | int](op func(a, b T) T, xIn ...any) *d.Vector {
 
 	z := make([]T, n)
 	ind1, ind2 := 0, 0
+	var e error
 	for ind := 0; ind < n; ind++ {
-		z[ind] = op(x[ind1], y[ind2])
+		if z[ind], e = op(x[ind1], y[ind2]); e != nil {
+			return nil, e
+		}
+
 		ind1 += inc1
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, d.WhatAmI(z[0]))
-
+	return newVector(z, d.WhatAmI(z[0])), nil
 }
 
-func add[T float64 | int](a, b T) T  { return a + b }
-func sub[T float64 | int](a, b T) T  { return a - b }
-func mult[T float64 | int](a, b T) T { return a * b }
-func div[T float64 | int](a, b T) T  { return a / b }
+func add[T float64 | int](a, b T) (T, error)  { return a + b, nil }
+func sub[T float64 | int](a, b T) (T, error)  { return a - b, nil }
+func mult[T float64 | int](a, b T) (T, error) { return a * b, nil }
+func div[T float64 | int](a, b T) (T, error) {
+	if b != 0 {
+		return a / b, nil
+	}
+	return 0, fmt.Errorf("divide by 0")
+}
 
 func mathOps() d.Fns {
 	inType := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}}
 	outType := []d.DataTypes{d.DTfloat, d.DTint}
 
 	out := d.Fns{
-		vector("add", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](add, x...) },
-			func(x ...any) *d.Vector { return mathFn[int](add, x...) }),
-		vector("subtract", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](sub, x...) },
-			func(x ...any) *d.Vector { return mathFn[int](sub, x...) }),
-		vector("multiply", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](mult, x...) },
-			func(x ...any) *d.Vector { return mathFn[int](mult, x...) }),
-		vector("divide", inType, outType, func(x ...any) *d.Vector { return mathFn[float64](div, x...) },
-			func(x ...any) *d.Vector { return mathFn[int](div, x...) }),
+		vector("add", inType, outType, func(x ...any) (*d.Vector, error) { return mathFn[float64](add, x...) },
+			func(x ...any) (*d.Vector, error) { return mathFn[int](add, x...) }),
+		vector("subtract", inType, outType, func(x ...any) (*d.Vector, error) { return mathFn[float64](sub, x...) },
+			func(x ...any) (*d.Vector, error) { return mathFn[int](sub, x...) }),
+		vector("multiply", inType, outType, func(x ...any) (*d.Vector, error) { return mathFn[float64](mult, x...) },
+			func(x ...any) (*d.Vector, error) { return mathFn[int](mult, x...) }),
+		vector("divide", inType, outType, func(x ...any) (*d.Vector, error) { return mathFn[float64](div, x...) },
+			func(x ...any) (*d.Vector, error) { return mathFn[int](div, x...) }),
 	}
 
 	return out
@@ -260,14 +275,14 @@ func mathOps() d.Fns {
 func otherVectors() d.Fns {
 	outType := []d.DataTypes{d.DTint}
 
-	rn := func(x ...any) *d.Vector {
+	rn := func(x ...any) (*d.Vector, error) {
 		n := x[0].(int)
 		outX := make([]int, n)
 		for ind := 0; ind < n; ind++ {
 			outX[ind] = ind
 		}
 
-		return d.NewVector(outX, d.WhatAmI(outX[0]))
+		return newVector(outX, d.WhatAmI(outX[0])), nil
 	}
 
 	out := d.Fns{
@@ -277,7 +292,7 @@ func otherVectors() d.Fns {
 	return out
 }
 
-func ifx[T float64 | int | string | time.Time](xIn ...any) *d.Vector {
+func ifx[T float64 | int | string | time.Time](xIn ...any) (*d.Vector, error) {
 	n, cond, x, y := xIn[0].(int), xIn[1].([]int), xIn[2].([]T), xIn[3].([]T)
 	z := make([]T, n)
 	inc0, inc1, inc2 := 1, 1, 1
@@ -303,7 +318,7 @@ func ifx[T float64 | int | string | time.Time](xIn ...any) *d.Vector {
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, d.WhatAmI(z[0]))
+	return newVector(z, d.WhatAmI(z[0])), nil
 }
 
 // ifOp implements the if statement
@@ -314,10 +329,10 @@ func ifOp() d.Fn {
 	outType := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate}
 
 	return vector("if", inType, outType,
-		func(x ...any) *d.Vector { return ifx[float64](x...) },
-		func(x ...any) *d.Vector { return ifx[int](x...) },
-		func(x ...any) *d.Vector { return ifx[string](x...) },
-		func(x ...any) *d.Vector { return ifx[time.Time](x...) })
+		func(x ...any) (*d.Vector, error) { return ifx[float64](x...) },
+		func(x ...any) (*d.Vector, error) { return ifx[int](x...) },
+		func(x ...any) (*d.Vector, error) { return ifx[string](x...) },
+		func(x ...any) (*d.Vector, error) { return ifx[time.Time](x...) })
 }
 
 // ***************** Functions that take a single column and return a scalar *****************
@@ -406,4 +421,13 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
+}
+
+func newVector(data any, dt d.DataTypes) *d.Vector {
+	x, e := d.NewVector(data, dt)
+	if e != nil {
+		panic(e)
+	}
+
+	return x
 }

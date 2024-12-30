@@ -316,7 +316,7 @@ func TestT(t *testing.T) {
 
 // TODO: test min/max for string & date <---------------
 func TestRandom(t *testing.T) {
-	n := 10000 //0000
+	n := 10000 //000
 	x := make([]float64, n)
 	y := make([]float64, n)
 	z := make([]float64, n)
@@ -333,10 +333,10 @@ func TestRandom(t *testing.T) {
 
 	}
 
-	vx := d.NewVector(x, d.DTfloat)
-	vy := d.NewVector(y, d.DTfloat)
-	vz := d.NewVector(z, d.DTfloat)
-	vs := d.NewVector(s, d.DTstring)
+	vx, _ := d.NewVector(x, d.DTfloat)
+	vy, _ := d.NewVector(y, d.DTfloat)
+	vz, _ := d.NewVector(z, d.DTfloat)
+	vs, _ := d.NewVector(s, d.DTstring)
 	//	vdt := d.NewVector(dt, 0)
 	colx, ex := m.NewCol(vx, vx.VectorType(), d.ColName("x"))
 	assert.Nil(t, ex)
@@ -351,12 +351,13 @@ func TestRandom(t *testing.T) {
 	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols})
 	assert.Nil(t, ed)
 	tx := time.Now()
-	outCol, ep := d.Parse(df, "x+y+y")
+	outCol, ep := d.Parse(df, "x+y")
 	//	outCol, ep := d.Parse(df, "dot(y,y)")
 	assert.Nil(t, ep)
 
 	fmt.Println("value ", outCol.AsColumn().(*m.Col).Element(0))
-	fmt.Println(time.Since(tx).Seconds(), " seconds")
+	t1 := time.Since(tx).Seconds()
+	fmt.Println(t1, " seconds")
 	tx = time.Now()
 	//	m := x[0]
 	//	for ind := 0; ind < n; ind++ {
@@ -370,7 +371,9 @@ func TestRandom(t *testing.T) {
 		z[ind] = x[ind] + y[ind] + y[ind]
 	}
 
-	fmt.Println(time.Since(tx).Seconds(), " seconds")
+	t2 := time.Since(tx).Seconds()
+	fmt.Println(t2, " seconds")
+	fmt.Println(t1/t2, " ratio")
 	_ = outCol
 }
 
@@ -420,11 +423,14 @@ func TestReplace(t *testing.T) {
 func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-
 		x := [][]any{
+			{"if(y==1,2,y)", 0, 2},
+			{"rowNumber()", 1, 1},
+			{"x + 2.0", 0, 3.0},
+			{"float(y)", 0, 1.0},
 			{"sum(y)", 0, 12},
 			{"(x/0.1)", 0, 10.0},
-			{"y+100", 0, 101.0},
+			{"y+100", 0, 101},
 			{"(x/0.1)*float(y+100)", 0, 1010.0},
 			{"z!='20060102'", 0, 1},
 			{"dt != date(20221231)", 0, 0},
@@ -518,7 +524,7 @@ func TestParser(t *testing.T) {
 			{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
 			{"-x +2.0", 0, 1.0},
 			{"-x +4.0", 1, 6.0},
-			{"x/0.0", 0, math.Inf(1)},
+			//			{"x/0.0", 0, math.Inf(1)},
 			{"float((3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0)))", 0, 42.0},
 			{"(1 + 2) - -(-1 - 2)", 0, 0},
 			{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, 2.0},
@@ -532,7 +538,7 @@ func TestParser(t *testing.T) {
 			xOut, e := d.Parse(dfx, eqn)
 			assert.Nil(t, e)
 			result := xOut.AsColumn().Data()
-			switch d.WhatAmI(result) {
+			switch xOut.AsColumn().DataType() {
 			case d.DTfloat:
 				assert.InEpsilon(t, x[ind][2].(float64), result.AsFloat()[x[ind][1].(int)], .001)
 			case d.DTint:

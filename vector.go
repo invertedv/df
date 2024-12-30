@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// TODO: add stringer
+// TODO: move stringer from mem/*Col to here
 
 type Vector struct {
 	dt DataTypes
@@ -14,16 +14,16 @@ type Vector struct {
 	data any
 }
 
-func NewVector(data any, dt DataTypes) *Vector {
+func NewVector(data any, dt DataTypes) (*Vector, error) {
 	var (
 		v  any
 		ok bool
 	)
 	if v, ok = toSlc(data, dt); !ok {
-		panic(fmt.Errorf("cannot make vector of type %s", dt))
+		return nil, fmt.Errorf("cannot make vector of type %s", dt)
 	}
 
-	return &Vector{dt: dt, data: v}
+	return &Vector{dt: dt, data: v}, nil
 }
 
 func MakeVector(dt DataTypes, n int) *Vector {
@@ -47,52 +47,60 @@ func (v *Vector) VectorType() DataTypes {
 
 // TODO: return error
 
-func (v *Vector) SetFloat(val float64, indx int) {
+func (v *Vector) SetFloat(val float64, indx int) error {
 	if v.VectorType() != DTfloat {
-		panic(fmt.Errorf("vector isn't DTfloat"))
+		return fmt.Errorf("vector isn't DTfloat")
 	}
 
 	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
+		return fmt.Errorf("index out of range")
 	}
 
 	v.data.([]float64)[indx] = val
+
+	return nil
 }
 
-func (v *Vector) SetInt(val, indx int) {
+func (v *Vector) SetInt(val, indx int) error {
 	if v.VectorType() != DTint {
-		panic(fmt.Errorf("vector isn't DTint"))
+		return fmt.Errorf("vector isn't DTint")
 	}
 
 	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
+		return fmt.Errorf("index out of range")
 	}
 
 	v.data.([]int)[indx] = val
+
+	return nil
 }
 
-func (v *Vector) SetString(val string, indx int) {
+func (v *Vector) SetString(val string, indx int) error {
 	if v.VectorType() != DTstring {
-		panic(fmt.Errorf("vector isn't DTstring"))
+		return fmt.Errorf("vector isn't DTstring")
 	}
 
 	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
+		return fmt.Errorf("index out of range")
 	}
 
 	v.data.([]string)[indx] = val
+
+	return nil
 }
 
-func (v *Vector) SetDate(val time.Time, indx int) {
+func (v *Vector) SetDate(val time.Time, indx int) error {
 	if v.VectorType() != DTdate {
-		panic(fmt.Errorf("vector isn't DTdate"))
+		return fmt.Errorf("vector isn't DTdate")
 	}
 
 	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
+		return fmt.Errorf("index out of range")
 	}
 
 	v.data.([]time.Time)[indx] = val
+
+	return nil
 }
 
 func (v *Vector) Data() *Vector {
@@ -341,8 +349,7 @@ func (v *Vector) Where(indic *Vector) *Vector {
 	return outVec
 }
 
-func (v *Vector) Coerce(to DataTypes) *Vector {
-	xOut := MakeVector(to, v.Len())
+func (v *Vector) Coerce(to DataTypes) (*Vector, error) {
 	for ind := 0; ind < v.Len(); ind++ {
 		switch to {
 		case DTfloat:
@@ -356,5 +363,5 @@ func (v *Vector) Coerce(to DataTypes) *Vector {
 		}
 	}
 
-	return xOut
+	return nil, fmt.Errorf("cannot Coerce")
 }

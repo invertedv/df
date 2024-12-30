@@ -190,7 +190,8 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	colx := col.(*Col)
 	if colx.Len() == 1 {
 		val := colx.Vector.Element(0)
-		v := d.NewVector(val, colx.DataType())
+		// should not fail
+		v, _ := d.NewVector(val, colx.DataType())
 		for ind := 1; ind < f.RowCount(); ind++ {
 			v.Append(val)
 		}

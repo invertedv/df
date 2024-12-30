@@ -23,7 +23,9 @@ func (s *Scalar) Core() *ColCore {
 }
 
 func (s *Scalar) Data() *Vector {
-	return NewVector(s.atomic, WhatAmI(s.atomic))
+	// should not fail
+	v, _ := NewVector(s.atomic, WhatAmI(s.atomic))
+	return v
 }
 
 func (s *Scalar) Len() int {

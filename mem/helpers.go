@@ -7,7 +7,8 @@ import (
 	d "github.com/invertedv/df"
 )
 
-func compare[T float64 | int | string | time.Time](n int, x, y []T, comp func(a, b T) bool) *d.Vector {
+// TODO: move to vector_functions
+func compare[T float64 | int | string | time.Time](n int, x, y []T, comp func(a, b T) bool) (*d.Vector, error) {
 	z := make([]int, n)
 	inc1, inc2 := 1, 1
 	if len(x) == 1 {
@@ -27,12 +28,14 @@ func compare[T float64 | int | string | time.Time](n int, x, y []T, comp func(a,
 		ind2 += inc2
 	}
 
-	return d.NewVector(z, d.WhatAmI(z[0]))
+	// should not fail
+	v, _ := d.NewVector(z, d.WhatAmI(z[0]))
+	return v, nil
 }
 
 // buildTests builds suite of comparison function (>, <, >=, <=, ==, !=) for the four
 // core data types (dtFloat, dtInt, dtString,dtDate).
-func buildTests() [][]func(x ...any) *d.Vector {
+func buildTests() [][]func(x ...any) (*d.Vector, error) {
 	// build "greater than" functions for each type
 	fltCmp := []func(a, b float64) bool{
 		func(a, b float64) bool { return a > b },
@@ -67,28 +70,28 @@ func buildTests() [][]func(x ...any) *d.Vector {
 		func(a, b time.Time) bool { return a.Sub(b).Seconds() != 0 },
 	}
 
-	var flts, ints, strs, dts []func(x ...any) *d.Vector
+	var flts, ints, strs, dts []func(x ...any) (*d.Vector, error)
 
 	for ind := 0; ind < len(fltCmp); ind++ {
-		flts = append(flts, func(x ...any) *d.Vector {
+		flts = append(flts, func(x ...any) (*d.Vector, error) {
 			n, x1, x2 := x[0].(int), x[1].([]float64), x[2].([]float64)
 			return compare(n, x1, x2, fltCmp[ind])
 		})
-		ints = append(ints, func(x ...any) *d.Vector {
+		ints = append(ints, func(x ...any) (*d.Vector, error) {
 			n, x1, x2 := x[0].(int), x[1].([]int), x[2].([]int)
 			return compare(n, x1, x2, intCmp[ind])
 		})
-		strs = append(strs, func(x ...any) *d.Vector {
+		strs = append(strs, func(x ...any) (*d.Vector, error) {
 			n, x1, x2 := x[0].(int), x[1].([]string), x[2].([]string)
 			return compare(n, x1, x2, stringCmp[ind])
 		})
-		dts = append(dts, func(x ...any) *d.Vector {
+		dts = append(dts, func(x ...any) (*d.Vector, error) {
 			n, x1, x2 := x[0].(int), x[1].([]time.Time), x[2].([]time.Time)
 			return compare(n, x1, x2, dateCmp[ind])
 		})
 	}
 
-	return [][]func(x ...any) *d.Vector{flts, ints, strs, dts}
+	return [][]func(x ...any) (*d.Vector, error){flts, ints, strs, dts}
 }
 
 func toCol(x any) *Col {

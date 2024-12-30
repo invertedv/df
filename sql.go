@@ -408,13 +408,13 @@ func (d *Dialect) Load(qry string) ([]*Vector, error) {
 			val := castKind(ry[ind], kinds[ind])
 			switch types[ind] {
 			case DTfloat:
-				memData[ind].SetFloat(val.(float64), xind)
+				_ = memData[ind].SetFloat(val.(float64), xind)
 			case DTint:
-				memData[ind].SetInt(val.(int), xind)
+				_ = memData[ind].SetInt(val.(int), xind)
 			case DTstring:
-				memData[ind].SetString(val.(string), xind)
+				_ = memData[ind].SetString(val.(string), xind)
 			case DTdate:
-				memData[ind].SetDate(val.(time.Time), xind)
+				_ = memData[ind].SetDate(val.(time.Time), xind)
 			}
 		}
 

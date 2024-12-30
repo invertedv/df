@@ -25,8 +25,16 @@ func NewCol(data any, dt d.DataTypes, opts ...d.COpt) (*Col, error) {
 	}
 
 	if col == nil {
+		var (
+			v *d.Vector
+			e error
+		)
+		if v, e = d.NewVector(data, dt); e != nil {
+			return nil, e
+		}
+
 		col = &Col{
-			Vector:  d.NewVector(data, dt),
+			Vector:  v,
 			ColCore: d.NewColCore(dt),
 		}
 	}
