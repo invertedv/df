@@ -145,7 +145,7 @@ func TestSQLsave(t *testing.T) {
 		assert.Nil(t, eb)
 		outx, ep := d.Parse(dfb, "actual==expected")
 		assert.Nil(t, ep)
-		assert.Equal(t, []int{1, 1, 1, 1, 1, 1}, outx.AsColumn().Data().AsInt())
+		assert.Equal(t, []int{1, 1, 1, 1, 1, 1}, inter(outx.AsColumn()))
 	}
 }
 
@@ -187,7 +187,7 @@ func TestParse_Table(t *testing.T) {
 		assert.Nil(t, e1)
 		col := df1.Column("count")
 		assert.NotNil(t, col)
-		assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data().AsInt())
+		assert.Equal(t, []int{2, 1, 1, 1, 1}, inter(col))
 
 		_, e3 := d.Parse(dfx, "table(x)")
 		assert.NotNil(t, e3)
@@ -200,8 +200,8 @@ func TestParse_Sort(t *testing.T) {
 		outdf, e := d.Parse(dfx, "sort('asc', y, x)")
 		_ = outdf
 		assert.Nil(t, e)
-		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsInt())
-		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsInt())
+		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, inter(dfx.Column("y")))
+		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, inter(dfx.Column("yy")))
 	}
 }
 
@@ -219,13 +219,13 @@ func TestWhere(t *testing.T) {
 		assert.Nil(t, e2)
 		r := dfOut.Column("y")
 		fmt.Println(r.Data())
-		assert.Equal(t, []int{-5, 6}, dfOut.Column("y").Data().AsInt())
-		assert.Equal(t, []int{-15, 16}, dfOut.Column("yy").Data().AsInt())
+		assert.Equal(t, []int{-5, 6}, inter(dfOut.Column("y")))
+		assert.Equal(t, []int{-15, 16}, inter(dfOut.Column("yy")))
 
 		// via Parse
 		out, e3 := d.Parse(dfx, "where(y == -5 || yy == 16)")
 		assert.Nil(t, e3)
-		assert.Equal(t, []int{-5, 6}, out.AsDF().Column("y").Data().AsInt())
+		assert.Equal(t, []int{-5, 6}, inter(out.AsDF().Column("y")))
 	}
 }
 

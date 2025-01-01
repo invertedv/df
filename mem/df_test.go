@@ -53,20 +53,32 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 	panic(fmt.Errorf("error in checker"))
 }
 
+func inter(c d.Column) []int {
+	var (
+		x []int
+		e error
+	)
+	if x, e = c.Data().AsInt(); e != nil {
+		panic(e)
+	}
+
+	return x
+}
+
 func TestRowNumber(t *testing.T) {
 	dfx := testDF()
 	out, e := d.Parse(dfx, "rowNumber()")
 	assert.Nil(t, e)
 
-	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data().AsInt())
+	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, inter(out.AsColumn()))
 }
 
 func TestParse_Sort(t *testing.T) {
 	dfx := testDF()
 	_, e := d.Parse(dfx, "sort('asc', y, x)")
 	assert.Nil(t, e)
-	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsInt())
-	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsInt())
+	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, inter(dfx.Column("y")))
+	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, inter(dfx.Column("yy")))
 }
 
 func TestParse_Table(t *testing.T) {
@@ -75,7 +87,7 @@ func TestParse_Table(t *testing.T) {
 	assert.Nil(t, e)
 	fmt.Println(df1.AsDF().Column("count"))
 	col := df1.AsDF().Column("count")
-	assert.Equal(t, []int{2, 1, 1, 1, 1}, col.Data().AsInt())
+	assert.Equal(t, []int{2, 1, 1, 1, 1}, inter(col))
 	e = df1.AsDF().Sort(true, "y", "yy")
 	assert.Nil(t, e)
 	fmt.Println(df1.AsDF().Column("y"))
@@ -179,7 +191,7 @@ func TestNewDFseq(t *testing.T) {
 	df := NewDFseq(nil, 5)
 	col := df.Column("seq")
 	assert.NotNil(t, col)
-	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data().AsInt())
+	assert.Equal(t, []int{0, 1, 2, 3, 4}, inter(col))
 }
 
 func TestApplyCat(t *testing.T) {
@@ -205,7 +217,7 @@ func TestApplyCat(t *testing.T) {
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	exp := []int{1, v, v, 1, v, v}
-	assert.Equal(t, exp, colx.AsColumn().Data().AsInt())
+	assert.Equal(t, exp, inter(colx.AsColumn()))
 
 	// default is not a known category level
 	expr = "applyCat(yy, c, 100)"
@@ -213,7 +225,7 @@ func TestApplyCat(t *testing.T) {
 	assert.Nil(t, ex)
 	v = -1
 	exp = []int{1, v, v, 1, v, v}
-	assert.Equal(t, exp, colx.AsColumn().Data().AsInt())
+	assert.Equal(t, exp, inter(colx.AsColumn()))
 
 	expr = "c + y"
 	_, ex = d.Parse(dfx, expr)
@@ -241,19 +253,19 @@ func TestToCat(t *testing.T) {
 	assert.Nil(t, ex)
 
 	expected := []int{1, 0, 4, 1, 2, 3}
-	assert.Equal(t, expected, colx.AsColumn().Data().AsInt())
+	assert.Equal(t, expected, inter(colx.AsColumn()))
 
 	expr = "cat(z)"
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	expected = []int{3, 0, 1, 1, 4, 2}
-	assert.Equal(t, expected, colx.AsColumn().Data().AsInt())
+	assert.Equal(t, expected, inter(colx.AsColumn()))
 
 	expr = "cat(dt)"
 	colx, ex = d.Parse(dfx, expr)
 	assert.Nil(t, ex)
 	expected = []int{3, 0, 1, 1, 4, 2}
-	assert.Equal(t, expected, colx.AsColumn().Data().AsInt())
+	assert.Equal(t, expected, inter(colx.AsColumn()))
 
 	expr = "cat(x)"
 	colx, ex = d.Parse(dfx, expr)
@@ -427,7 +439,9 @@ func TestMemCol_Replace(t *testing.T) {
 
 func TestVector(t *testing.T) {
 	v, _ := d.NewVector([]int{1, 2, 3, 4}, d.DTint)
-	vx, _ := d.NewVector(v.AsString(), d.DTstring) // v.Coerce(d.DTstring)
+	str, e := v.AsString()
+	assert.Nil(t, e)
+	vx, _ := d.NewVector(str, d.DTstring) // v.Coerce(d.DTstring)
 	assert.NotNil(t, vx)
 }
 

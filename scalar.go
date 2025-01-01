@@ -40,7 +40,7 @@ func (s *Scalar) String() string {
 	return fmt.Sprintf("%v", s.atomic)
 }
 
-func NewScalar(val any, opts ...COpt) *Scalar {
+func NewScalar(val any, opts ...ColOpt) *Scalar {
 	var dt DataTypes
 	if dt = WhatAmI(val); dt == DTunknown {
 		panic("unsupported data type")

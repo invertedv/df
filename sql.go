@@ -427,7 +427,14 @@ func (d *Dialect) Load(qry string) ([]*Vector, error) {
 			continue
 		}
 
-		col := memData[c].AsDate()
+		var (
+			col []time.Time
+			ex  error
+		)
+		if col, ex = memData[c].AsDate(); ex != nil {
+			return nil, ex
+		}
+
 		for rx := 0; rx < n; rx++ {
 			col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
 		}

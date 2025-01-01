@@ -15,7 +15,7 @@ type Col struct {
 
 // ***************** Col - Create *****************
 
-func NewCol(data any, dt d.DataTypes, opts ...d.COpt) (*Col, error) {
+func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 	var col *Col
 	if v, ok := data.(*d.Vector); ok {
 		col = &Col{
@@ -146,11 +146,14 @@ func (c *Col) String() string {
 
 		header := []string{l.Name(), c.Name()}
 
-		return t + d.PrettyPrint(header, l.Data().AsString(), cx.Data().AsInt())
+		cxi, _ := cx.Data().AsInt()
+		str, _ := l.Data().AsString()
+		return t + d.PrettyPrint(header, str, cxi)
 	}
 
 	x := make([]float64, c.Len())
-	copy(x, c.AsFloat())
+	f, _ := c.AsFloat()
+	copy(x, f)
 	sort.Float64s(x)
 	minx := x[0]
 	maxx := x[len(x)-1]

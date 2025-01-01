@@ -15,6 +15,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func inter(c d.Column) []int {
+	var (
+		x []int
+		e error
+	)
+	if x, e = c.Data().AsInt(); e != nil {
+		panic(e)
+	}
+
+	return x
+}
+
 type vector[T Supported] struct {
 	dt   d.DataTypes
 	data []T
@@ -391,7 +403,7 @@ func TestRowNumber(t *testing.T) {
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "rowNumber()")
 		assert.Nil(t, e)
-		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.AsColumn().Data().AsInt())
+		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, inter(out.AsColumn()))
 	}
 }
 
@@ -414,7 +426,7 @@ func TestReplace(t *testing.T) {
 		// via Parse
 		out, e4 := d.Parse(dfx, "if(y==-5,yy,y)")
 		assert.Nil(t, e4)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.AsColumn().Data().AsInt())
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, inter(out.AsColumn()))
 	}
 }
 
@@ -541,13 +553,16 @@ func TestParser(t *testing.T) {
 			result := xOut.AsColumn().Data()
 			switch xOut.AsColumn().DataType() {
 			case d.DTfloat:
-				assert.InEpsilon(t, x[ind][2].(float64), result.AsFloat()[x[ind][1].(int)], .001)
+				xv, _ := result.AsFloat()
+				assert.InEpsilon(t, x[ind][2].(float64), xv[x[ind][1].(int)], .001)
 			case d.DTint:
-				assert.Equal(t, x[ind][2], result.AsInt()[x[ind][1].(int)])
+				assert.Equal(t, x[ind][2], inter(xOut.AsColumn())[x[ind][1].(int)])
 			case d.DTstring:
-				assert.Equal(t, x[ind][2], result.AsString()[x[ind][1].(int)])
+				xv, _ := result.AsString()
+				assert.Equal(t, x[ind][2], xv[x[ind][1].(int)])
 			case d.DTdate:
-				val := result.AsDate()[x[ind][1].(int)]
+				vx, _ := result.AsDate()
+				val := vx[x[ind][1].(int)]
 				assert.Equal(t, val.Year(), x[ind][2].(time.Time).Year())
 				assert.Equal(t, val.Month(), x[ind][2].(time.Time).Month())
 				assert.Equal(t, val.Day(), x[ind][2].(time.Time).Day())
@@ -576,9 +591,9 @@ func TestToCat(t *testing.T) {
 		colx, e = d.Parse(dfx, "cat(y)")
 		assert.Nil(t, e)
 		d.ColName("test")(colx.AsColumn())
-		result := colx.AsColumn().Data()
+		result := colx.AsColumn()
 		expected := []int{1, 0, 4, 1, 2, 3}
-		assert.Equal(t, expected, result.AsInt())
+		assert.Equal(t, expected, inter(result))
 
 		if which == "mem" {
 			e = dfx.AppendColumn(colx.AsColumn(), true)
@@ -594,23 +609,23 @@ func TestToCat(t *testing.T) {
 		// try with DTstring
 		colx, e = d.Parse(dfx, "cat(z)")
 		assert.Nil(t, e)
-		result = colx.AsColumn().Data()
+		result = colx.AsColumn()
 		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result.AsInt())
+		assert.Equal(t, expected, inter(result))
 
 		// try with DTdate
 		colx, e = d.Parse(dfx, "cat(dt1)")
 		assert.Nil(t, e)
-		result = colx.AsColumn().Data()
+		result = colx.AsColumn()
 		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result.AsInt())
+		assert.Equal(t, expected, inter(result))
 
 		// try with fuzz > 1
 		colx, e = d.Parse(dfx, "cat(y, 2)")
 		assert.Nil(t, e)
-		result = colx.AsColumn().Data()
+		result = colx.AsColumn()
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, result.AsInt())
+		assert.Equal(t, expected, inter(result))
 
 		// try with DTfloat
 		_, e = d.Parse(dfx, "cat(x)")
@@ -634,7 +649,7 @@ func TestApplyCat(t *testing.T) {
 
 		// -5 maps to 0 so all new values map to 0
 		expected := []int{1, 0, 0, 1, 0, 0}
-		assert.Equal(t, expected, r2.AsColumn().Data().AsInt())
+		assert.Equal(t, expected, inter(r2.AsColumn()))
 
 		// try with fuzz > 1
 		r3, e3 := d.Parse(dfx, "cat(y,2)")
@@ -646,6 +661,6 @@ func TestApplyCat(t *testing.T) {
 		r5, e5 := d.Parse(dfx, "applyCat(yy,caty2,-5)")
 		assert.Nil(t, e5)
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, r5.AsColumn().Data().AsInt())
+		assert.Equal(t, expected, inter(r5.AsColumn()))
 	}
 }

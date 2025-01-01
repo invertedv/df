@@ -113,36 +113,36 @@ func (v *Vector) AsAny() any {
 
 // TODO: return error
 
-func (v *Vector) AsFloat() []float64 {
+func (v *Vector) AsFloat() ([]float64, error) {
 	if xOut, ok := toSlc(v.data, DTfloat); ok {
-		return xOut.([]float64)
+		return xOut.([]float64), nil
 	}
 
-	panic(fmt.Errorf("cannot convert to Vector.AsFloat"))
+	return nil, fmt.Errorf("cannot convert to Vector.AsFloat")
 }
 
-func (v *Vector) AsInt() []int {
+func (v *Vector) AsInt() ([]int, error) {
 	if xOut, ok := toSlc(v.data, DTint); ok {
-		return xOut.([]int)
+		return xOut.([]int), nil
 	}
 
-	panic(fmt.Errorf("cannot convert to Vector.AsInt"))
+	return nil, fmt.Errorf("cannot convert to Vector.AsInt")
 }
 
-func (v *Vector) AsString() []string {
+func (v *Vector) AsString() ([]string, error) {
 	if xOut, ok := toSlc(v.data, DTstring); ok {
-		return xOut.([]string)
+		return xOut.([]string), nil
 	}
 
-	panic(fmt.Errorf("cannot convert to Vector.AsString"))
+	return nil, fmt.Errorf("cannot convert to Vector.AsString")
 }
 
-func (v *Vector) AsDate() []time.Time {
+func (v *Vector) AsDate() ([]time.Time, error) {
 	if xOut, ok := toSlc(v.data, DTdate); ok {
-		return xOut.([]time.Time)
+		return xOut.([]time.Time), nil
 	}
 
-	panic(fmt.Errorf("cannot convert to Vector.AsDate"))
+	return nil, fmt.Errorf("cannot convert to Vector.AsDate")
 }
 
 func (v *Vector) Element(indx int) any {
@@ -353,13 +353,45 @@ func (v *Vector) Coerce(to DataTypes) (*Vector, error) {
 	for ind := 0; ind < v.Len(); ind++ {
 		switch to {
 		case DTfloat:
-			return NewVector(v.AsFloat(), DTfloat)
+			var (
+				x []float64
+				e error
+			)
+			if x, e = v.AsFloat(); e != nil {
+				return nil, e
+			}
+
+			return NewVector(x, DTfloat)
 		case DTint:
-			return NewVector(v.AsInt(), DTint)
+			var (
+				x []int
+				e error
+			)
+			if x, e = v.AsInt(); e != nil {
+				return nil, e
+			}
+
+			return NewVector(x, DTint)
 		case DTstring:
-			return NewVector(v.AsString(), DTstring)
+			var (
+				x []string
+				e error
+			)
+			if x, e = v.AsString(); e != nil {
+				return nil, e
+			}
+
+			return NewVector(x, DTstring)
 		case DTdate:
-			return NewVector(v.AsDate(), DTdate)
+			var (
+				x []time.Time
+				e error
+			)
+			if x, e = v.AsDate(); e != nil {
+				return nil, e
+			}
+
+			return NewVector(x, DTdate)
 		}
 	}
 

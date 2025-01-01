@@ -34,15 +34,15 @@ type ColCore struct {
 	dep []string
 }
 
-type COpt func(c CC)
+type ColOpt func(c CC)
 
-func ColDataType(dt DataTypes) COpt {
+func ColDataType(dt DataTypes) ColOpt {
 	return func(c CC) {
 		c.Core().dt = dt
 	}
 }
 
-func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
+func NewColCore(dt DataTypes, ops ...ColOpt) *ColCore {
 	c := &ColCore{dt: dt}
 
 	for _, op := range ops {
@@ -53,7 +53,7 @@ func NewColCore(dt DataTypes, ops ...COpt) *ColCore {
 }
 
 // *********** Setters ***********
-func ColName(name string) COpt {
+func ColName(name string) ColOpt {
 	if e := validName(name); e != nil {
 		panic(e)
 	}
@@ -63,7 +63,7 @@ func ColName(name string) COpt {
 	}
 }
 
-func colDependencies(dep []string) COpt {
+func colDependencies(dep []string) ColOpt {
 	return func(c CC) {
 		c.Core().dep = dep
 	}
@@ -73,19 +73,19 @@ func (c *ColCore) Dependencies() []string {
 	return c.dep
 }
 
-func ColCatMap(cm CategoryMap) COpt {
+func ColCatMap(cm CategoryMap) ColOpt {
 	return func(c CC) {
 		c.Core().catMap = cm
 	}
 }
 
-func ColCatCounts(ct CategoryMap) COpt {
+func ColCatCounts(ct CategoryMap) ColOpt {
 	return func(c CC) {
 		c.Core().catCounts = ct
 	}
 }
 
-func ColRawType(rt DataTypes) COpt {
+func ColRawType(rt DataTypes) ColOpt {
 	return func(c CC) {
 		c.Core().rawType = rt
 	}

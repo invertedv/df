@@ -16,13 +16,14 @@ type Plot struct {
 	Lay *grob.Layout
 }
 
-type Opt func(plot *Plot) *Plot
+type PlotOpt func(plot *Plot)
 
-func NewPlot(opt ...Opt) *Plot {
+func NewPlot(opt ...PlotOpt) *Plot {
 	fig := &grob.Fig{}
 	lay := &grob.Layout{}
 	fig.Layout = lay
 	p := &Plot{Fig: fig, Lay: lay}
+
 	for _, o := range opt {
 		o(p)
 	}
@@ -30,33 +31,31 @@ func NewPlot(opt ...Opt) *Plot {
 	return p
 }
 
-func WithWidth(w float64) Opt {
+func PlotWidth(w float64) PlotOpt {
 	if w < 0.0 {
 		panic(fmt.Errorf("negative width"))
 	}
-	return func(p *Plot) *Plot {
+	return func(p *Plot) {
 		p.Lay.Width = w
-		return p
 	}
 }
 
-func WithHeight(h float64) Opt {
+func PlotHeight(h float64) PlotOpt {
 	if h < 0.0 {
 		panic(fmt.Errorf("negative height"))
 	}
-	return func(p *Plot) *Plot {
+	return func(p *Plot) {
 		p.Lay.Height = h
-		return p
 	}
 }
 
-func WithTitle(title string) Opt {
-	return func(p *Plot) *Plot { p.Lay.Title = &grob.LayoutTitle{Text: title}; return p }
+func PlotTitle(title string) PlotOpt {
+	return func(p *Plot) { p.Lay.Title = &grob.LayoutTitle{Text: title} }
 }
 
 // add to below x title
-func WithSubtitle(subTitle string) Opt {
-	return func(p *Plot) *Plot {
+func PlotSubtitle(subTitle string) PlotOpt {
+	return func(p *Plot) {
 		if p.Lay.Xaxis == nil {
 			p.Lay.Xaxis = &grob.LayoutXaxis{}
 		}
@@ -70,24 +69,21 @@ func WithSubtitle(subTitle string) Opt {
 			xLabel += "<br>"
 		}
 		xAxis.Title.Text = xLabel + subTitle
-		return p
 	}
 }
 
-func WithLegend(show bool) Opt {
-	return func(p *Plot) *Plot {
+func PlotLegend(show bool) PlotOpt {
+	return func(p *Plot) {
 		if show {
 			p.Lay.Showlegend = grob.True
 		} else {
 			p.Lay.Showlegend = grob.False
 		}
-
-		return p
 	}
 }
 
-func WithXlabel(label string) Opt {
-	return func(p *Plot) *Plot {
+func PlotXlabel(label string) PlotOpt {
+	return func(p *Plot) {
 		if p.Lay.Xaxis == nil {
 			p.Lay.Xaxis = &grob.LayoutXaxis{}
 		}
@@ -106,12 +102,11 @@ func WithXlabel(label string) Opt {
 		}
 
 		xAxis.Title.Text = label + subTitle
-		return p
 	}
 }
 
-func WithYlabel(label string) Opt {
-	return func(p *Plot) *Plot {
+func PlotYlabel(label string) PlotOpt {
+	return func(p *Plot) {
 		if p.Lay.Yaxis == nil {
 			p.Lay.Yaxis = &grob.LayoutYaxis{}
 		}
@@ -121,7 +116,6 @@ func WithYlabel(label string) Opt {
 
 		yAxis := p.Lay.Yaxis
 		yAxis.Title.Text = label
-		return p
 	}
 }
 
@@ -130,7 +124,18 @@ func (p *Plot) PlotXY(x, y Column, seriesName, color string) error {
 		return fmt.Errorf("xy plots require floats")
 	}
 
-	tr := &grob.Scatter{Name: seriesName, X: x.Data().AsFloat(), Y: y.Data().AsFloat(),
+	var (
+		xv, yv []float64
+		e      error
+	)
+	if xv, e = x.Data().AsFloat(); e != nil {
+		return e
+	}
+	if yv, e = y.Data().AsFloat(); e != nil {
+		return e
+	}
+
+	tr := &grob.Scatter{Name: seriesName, X: xv, Y: yv,
 		Mode: grob.ScatterModeLines, Line: &grob.ScatterLine{Color: color}}
 
 	p.Fig.AddTraces(tr)
