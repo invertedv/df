@@ -54,12 +54,10 @@ func NewColCore(dt DataTypes, ops ...ColOpt) *ColCore {
 
 // *********** Setters ***********
 func ColName(name string) ColOpt {
-	if e := validName(name); e != nil {
-		panic(e)
-	}
-
 	return func(c CC) {
-		c.Core().name = name
+		if validName(name) {
+			c.Core().name = name
+		}
 	}
 }
 

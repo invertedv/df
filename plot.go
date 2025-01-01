@@ -32,20 +32,18 @@ func NewPlot(opt ...PlotOpt) *Plot {
 }
 
 func PlotWidth(w float64) PlotOpt {
-	if w < 0.0 {
-		panic(fmt.Errorf("negative width"))
-	}
 	return func(p *Plot) {
-		p.Lay.Width = w
+		if w > 25 {
+			p.Lay.Width = w
+		}
 	}
 }
 
 func PlotHeight(h float64) PlotOpt {
-	if h < 0.0 {
-		panic(fmt.Errorf("negative height"))
-	}
 	return func(p *Plot) {
-		p.Lay.Height = h
+		if h > 25 {
+			p.Lay.Height = h
+		}
 	}
 }
 

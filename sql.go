@@ -573,14 +573,14 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {
 
 func (d *Dialect) Seq(n int) string {
 	if n <= 0 {
-		panic(fmt.Sprintf("n must be positive in Seq"))
+		return ""
 	}
 
 	if d.DialectName() == ch {
 		return fmt.Sprintf("toInt32(arrayJoin(range(0,%d)))", n)
 	}
-	panic(fmt.Errorf("unsupported dialect for Seq"))
 
+	panic(fmt.Errorf("unsupported dialect for Seq"))
 }
 
 func (d *Dialect) SetBufSize(mb int) {

@@ -274,12 +274,12 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	cs := tab.Column("count")
 	for ind := 0; ind < tab.RowCount(); ind++ {
 		lvl := lvls.(*Col).Element(ind)
-		cnt := cs.(*Col).ElementInt(ind)
+		cnt, _ := cs.(*Col).ElementInt(ind)
 		if levels != nil && !has(lvl, levels) {
 			lvl = defaultVal
 		}
 
-		if cnt < fuzz {
+		if *cnt < fuzz {
 			lvl = defaultVal
 		}
 
@@ -287,7 +287,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 			toMap[lvl] = nextInt
 			nextInt++
 		}
-		cnts[lvl] += cnt
+		cnts[lvl] += *cnt
 	}
 
 	vec := d.MakeVector(d.DTint, 0)

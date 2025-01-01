@@ -374,7 +374,8 @@ func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if c.DataType() != d.DTint {
 			return &d.FnReturn{Err: fmt.Errorf("fuzz parameter to Cat must be type int")}
 		}
-		fuzz = c.ElementInt(0)
+		f, _ := c.ElementInt(0)
+		fuzz = *f
 	}
 
 	var (
@@ -440,8 +441,11 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 }
 
 func newVector(data any, dt d.DataTypes) *d.Vector {
-	x, e := d.NewVector(data, dt)
-	if e != nil {
+	var (
+		x *d.Vector
+		e error
+	)
+	if x, e = d.NewVector(data, dt); e != nil {
 		panic(e)
 	}
 

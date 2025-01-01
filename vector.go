@@ -152,7 +152,7 @@ func (v *Vector) Element(indx int) any {
 	}
 
 	if indx < 0 || indx >= v.Len() {
-		panic(fmt.Errorf("index out of range"))
+		return nil
 	}
 
 	switch v.dt {
@@ -169,36 +169,40 @@ func (v *Vector) Element(indx int) any {
 	}
 }
 
-func (v *Vector) ElementFloat(indx int) float64 {
+func (v *Vector) ElementFloat(indx int) (*float64, error) {
 	if val, ok := toFloat(v.Element(indx)); ok {
-		return val.(float64)
+		x := val.(float64)
+		return &x, nil
 	}
 
-	panic(fmt.Errorf("element is not float-able"))
+	return nil, fmt.Errorf("element is not float-able")
 }
 
-func (v *Vector) ElementInt(indx int) int {
+func (v *Vector) ElementInt(indx int) (*int, error) {
 	if val, ok := toInt(v.Element(indx)); ok {
-		return val.(int)
+		x := val.(int)
+		return &x, nil
 	}
 
-	panic(fmt.Errorf("element is not int-able"))
+	return nil, fmt.Errorf("element is not int-able")
 }
 
-func (v *Vector) ElementString(indx int) string {
+func (v *Vector) ElementString(indx int) (*string, error) {
 	if x, ok := toString(v.Element(indx)); ok {
-		return x.(string)
+		s := x.(string)
+		return &s, nil
 	}
 
-	return ""
+	return nil, fmt.Errorf("element is not string-able")
 }
 
-func (v *Vector) ElementDate(indx int) time.Time {
+func (v *Vector) ElementDate(indx int) (*time.Time, error) {
 	if val, ok := toDate(v.Element(indx)); ok {
-		return val.(time.Time)
+		date := val.(time.Time)
+		return &date, nil
 	}
 
-	panic(fmt.Errorf("element is not date-able"))
+	return nil, fmt.Errorf("element is not date-able")
 }
 
 func (v *Vector) Len() int {
@@ -341,7 +345,8 @@ func (v *Vector) Copy() *Vector {
 func (v *Vector) Where(indic *Vector) *Vector {
 	outVec := MakeVector(v.VectorType(), 0)
 	for ind := 0; ind < v.Len(); ind++ {
-		if indic.ElementInt(ind) > 0 {
+		i, _ := indic.ElementInt(ind)
+		if *i > 0 {
 			outVec.Append(v.Element(ind))
 		}
 	}

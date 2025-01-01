@@ -359,9 +359,12 @@ func position[C comparable](needle C, haystack []C) int {
 func randomLetters(length int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz"
 
-	randN, err := randUnifInt(len(letters), len(letters))
-	if err != nil {
-		panic(err)
+	var (
+		randN []int64
+		e     error
+	)
+	if randN, e = randUnifInt(len(letters), len(letters)); e != nil {
+		panic(e)
 	}
 
 	name := ""
@@ -396,12 +399,12 @@ func randUnifInt(n, upper int) ([]int64, error) {
 	return outInts, nil
 }
 
-func validName(name string) error {
+func validName(name string) bool {
 	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~ " + `"`
 
 	if strings.ContainsAny(name, illegal) {
-		return fmt.Errorf("invalid name: %s", name)
+		return false
 	}
 
-	return nil
+	return true
 }

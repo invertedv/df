@@ -603,7 +603,7 @@ func TestToCat(t *testing.T) {
 			e = dfx.AppendColumn(coly, true)
 			colx, e = d.Parse(dfx, "sum(int(test1)==int(test))")
 			assert.Nil(t, e)
-			assert.Equal(t, colx.AsColumn().(*m.Col).ElementInt(0), 6)
+			assert.Equal(t, inter(colx.AsColumn().(*m.Col))[0], 6)
 		}
 
 		// try with DTstring
