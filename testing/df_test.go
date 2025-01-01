@@ -10,6 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// slash adds a trailing slash if inStr doesn't end in a slash
+func slash(inStr string) string {
+	if inStr[len(inStr)-1] == '/' {
+		return inStr
+	}
+
+	return inStr + "/"
+}
+
 /*
 	func TestPlotXY(t *testing.T) {
 		dfx := loadData("ch")
@@ -147,7 +156,7 @@ func TestFileSave(t *testing.T) {
 		dfx := loadData(which)
 		f := d.NewFiles()
 
-		fn := d.Slash(os.Getenv("datapath")) + fileName
+		fn := slash(os.Getenv("datapath")) + fileName
 		e := f.Save(fn, dfx)
 		assert.Nil(t, e)
 
@@ -242,7 +251,7 @@ func TestFilesOpen(t *testing.T) {
 	f := d.NewFiles()
 	f.Strict, f.Header = false, false
 	f.EOL = 0
-	e := f.Open(d.Slash(os.Getenv("datapath"))+fileNameW1, fieldNames, fieldTypes, fieldWidths)
+	e := f.Open(slash(os.Getenv("datapath"))+fileNameW1, fieldNames, fieldTypes, fieldWidths)
 	assert.Nil(t, e)
 	df1, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)
@@ -257,7 +266,7 @@ func TestFilesOpen(t *testing.T) {
 	// file has EOL characters
 	f = d.NewFiles()
 	f.Strict, f.Header = false, false
-	e4 := f.Open(d.Slash(os.Getenv("datapath"))+fileNameW2, fieldNames, fieldTypes, fieldWidths)
+	e4 := f.Open(slash(os.Getenv("datapath"))+fileNameW2, fieldNames, fieldTypes, fieldWidths)
 	assert.Nil(t, e4)
 	df2, e5 := m.FileLoad(f)
 	assert.Nil(t, e5)
@@ -272,7 +281,7 @@ func TestFilesOpen(t *testing.T) {
 	// file has EOL characters and a header, but still specify these
 	f = d.NewFiles()
 	f.Strict, f.Header = false, true
-	e8 := f.Open(d.Slash(os.Getenv("datapath"))+fileNameW3, fieldNames, fieldTypes, fieldWidths)
+	e8 := f.Open(slash(os.Getenv("datapath"))+fileNameW3, fieldNames, fieldTypes, fieldWidths)
 	assert.Nil(t, e8)
 	df3, e9 := m.FileLoad(f)
 	assert.Nil(t, e9)
@@ -287,7 +296,7 @@ func TestFilesOpen(t *testing.T) {
 	// file has EOL characters and a header, have it read fieldNames and infer types
 	f = d.NewFiles()
 	f.Strict, f.Header = false, true
-	e12 := f.Open(d.Slash(os.Getenv("datapath"))+fileNameW3, nil, nil, fieldWidths)
+	e12 := f.Open(slash(os.Getenv("datapath"))+fileNameW3, nil, nil, fieldWidths)
 	assert.Nil(t, e12)
 	df4, e13 := m.FileLoad(f)
 	assert.Nil(t, e13)
@@ -303,12 +312,12 @@ func TestFilesOpen(t *testing.T) {
 func TestFilesSave(t *testing.T) {
 	dfx := loadData(mem)
 	fs := d.NewFiles()
-	e0 := fs.Save(d.Slash(os.Getenv("datapath"))+fileName, dfx)
+	e0 := fs.Save(slash(os.Getenv("datapath"))+fileName, dfx)
 	assert.Nil(t, e0)
 
 	f := d.NewFiles()
 	f.Strict = false
-	e := f.Open(d.Slash(os.Getenv("datapath"))+fileName, nil, nil, nil)
+	e := f.Open(slash(os.Getenv("datapath"))+fileName, nil, nil, nil)
 	assert.Nil(t, e)
 	dfy, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)

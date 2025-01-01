@@ -275,7 +275,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	for ind := 0; ind < tab.RowCount(); ind++ {
 		lvl := lvls.(*Col).Element(ind)
 		cnt := cs.(*Col).ElementInt(ind)
-		if levels != nil && !d.Has(lvl, levels) {
+		if levels != nil && !has(lvl, levels) {
 			lvl = defaultVal
 		}
 

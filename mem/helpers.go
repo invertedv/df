@@ -174,3 +174,13 @@ func signature(target [][]d.DataTypes, cols ...*Col) int {
 
 	return -1
 }
+
+func has[C comparable](needle C, haystack []C) bool {
+	for _, straw := range haystack {
+		if needle == straw {
+			return true
+		}
+	}
+
+	return false
+}

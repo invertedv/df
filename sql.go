@@ -274,7 +274,7 @@ func (d *Dialect) Exists(tableName string) bool {
 func (d *Dialect) Ifs(x, y, op string) (string, error) {
 	const ops = ">,>=,<,<=,==,!="
 	op = strings.ReplaceAll(op, " ", "")
-	if !Has(op, strings.Split(ops, ",")) {
+	if !has(op, strings.Split(ops, ",")) {
 		return "", fmt.Errorf("unknown comparison: %s", op)
 	}
 
@@ -645,7 +645,7 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 }
 
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {
-	pos := Position(dt.String(), d.dtTypes)
+	pos := position(dt.String(), d.dtTypes)
 	if pos < 0 {
 		return "", fmt.Errorf("cannot find type %s to map to DB type", dt.String())
 	}

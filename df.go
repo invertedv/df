@@ -292,7 +292,7 @@ func (df *DFcore) Fns() Fns {
 func (df *DFcore) HasColumns(cols ...string) bool {
 	dfCols := df.ColumnNames()
 	for _, c := range cols {
-		if !Has(c, dfCols) {
+		if !has(c, dfCols) {
 			return false
 		}
 	}

@@ -332,8 +332,8 @@ func PrettyPrint(header []string, cols ...any) string {
 	return out
 }
 
-// Slash adds a trailing slash if inStr doesn't end in a slash
-func Slash(inStr string) string {
+// slash adds a trailing slash if inStr doesn't end in a slash
+func slash(inStr string) string {
 	if inStr[len(inStr)-1] == '/' {
 		return inStr
 	}
@@ -341,11 +341,11 @@ func Slash(inStr string) string {
 	return inStr + "/"
 }
 
-func Has[C comparable](needle C, haystack []C) bool {
-	return Position(needle, haystack) >= 0
+func has[C comparable](needle C, haystack []C) bool {
+	return position(needle, haystack) >= 0
 }
 
-func Position[C comparable](needle C, haystack []C) int {
+func position[C comparable](needle C, haystack []C) int {
 	for ind, straw := range haystack {
 		if needle == straw {
 			return ind
