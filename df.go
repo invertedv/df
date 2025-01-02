@@ -6,9 +6,6 @@ import (
 	"strings"
 )
 
-// TODO: make summary functions return a scalar rather than a DF?
-// TODO: separate mem/df.go into df.go and column.go, also for sql
-
 // TODO: think about panic vs error
 // TODO: panic needs error or just string?
 

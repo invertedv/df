@@ -27,7 +27,6 @@ func toFloat(x any) (any, bool) {
 		return xv.Float(), true
 	}
 
-	// TODO: check can this ever be true?
 	if xv.CanInt() {
 		return float64(xv.Int()), true
 	}
@@ -51,7 +50,6 @@ func toInt(x any) (any, bool) {
 		return int(xv.Int()), true
 	}
 
-	// TODO: check can this ever be true?
 	if xv.CanFloat() {
 		return int(xv.Float()), true
 	}
@@ -404,9 +402,5 @@ func randUnifInt(n, upper int) ([]int64, error) {
 func validName(name string) bool {
 	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~ " + `"`
 
-	if strings.ContainsAny(name, illegal) {
-		return false
-	}
-
-	return true
+	return !strings.ContainsAny(name, illegal)
 }

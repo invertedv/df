@@ -14,12 +14,6 @@ import (
 // can load any file to []any
 // can have a GENERIC loader that takes an iter
 
-// TODO: need to make a reader.... and SQL needs an insertRow?? No, if from file must load to MemDF first then DBSave
-
-// All code interacting with files is here
-
-// TODO: don't export all this but have setters
-
 type FileOpt func(f *Files)
 
 func FileEOL(eol byte) FileOpt {
@@ -73,12 +67,15 @@ func FilePeek(linesToPeek int) FileOpt {
 // FileStrict sets the action when a field fails to convert to its expected type.
 // If true, then an error results.
 // If false, the default value is substituted.
+// Default: false
 func FileStrict(strict bool) FileOpt {
 	return func(f *Files) {
 		f.strict = strict
 	}
 }
 
+// FileDefaultInt sets the value to use for fields that fail to convert to integer if strict=false.
+// Default: math.MaxInt
 func FileDefaultInt(deflt int) FileOpt {
 	return func(f *Files) {
 		f.defaultInt = deflt
@@ -130,7 +127,38 @@ type Files struct {
 	rdr       *bufio.Reader
 }
 
-// TODO: need to add check for len(fieldWidths)
+func FileFieldNames(fieldNames []string) FileOpt {
+	for _, fn := range fieldNames {
+		if !validName(fn) {
+			panic(fmt.Errorf("invalid field name: %s", fn))
+		}
+	}
+
+	return func(f *Files) {
+		f.fieldNames = fieldNames
+	}
+}
+
+func FileFieldTypes(fieldTypes []DataTypes) FileOpt {
+	return func(f *Files) {
+		f.fieldTypes = fieldTypes
+	}
+}
+
+func FileFieldWidths(fieldWidths []int) FileOpt {
+	tot := 0
+	for _, fw := range fieldWidths {
+		tot += fw
+		if fw <= 0 {
+			panic(fmt.Errorf("fieldwidths must be positive"))
+		}
+	}
+
+	return func(f *Files) {
+		f.fieldWidths = fieldWidths
+		f.lineWidth = tot
+	}
+}
 
 func NewFiles(opts ...FileOpt) *Files {
 	f := &Files{
@@ -217,7 +245,7 @@ func (f *Files) detect() error {
 	}
 
 	_ = f.Close()
-	return f.Open(f.fileName, f.FieldNames(), f.FieldTypes(), f.FieldWidths())
+	return f.Open(f.fileName) //, f.FieldNames(), f.FieldTypes(), f.FieldWidths())
 }
 
 func (f *Files) Load() ([]*Vector, error) {
@@ -250,27 +278,21 @@ func (f *Files) Load() ([]*Vector, error) {
 	return memData, nil
 }
 
-func (f *Files) Open(fileName string, fieldNames []string, fieldTypes []DataTypes, fieldWidths []int) error {
+func (f *Files) Open(fileName string) error { //, fieldNames []string, fieldTypes []DataTypes, fieldWidths []int) error {
 	var e error
-	if fieldNames != nil && fieldTypes != nil && len(fieldNames) != len(fieldTypes) {
+	if f.fieldNames != nil && f.fieldTypes != nil && len(f.fieldNames) != len(f.fieldTypes) {
 		return fmt.Errorf("fieldNames and fieldTypes not same length in Open")
 	}
 
-	if fieldNames != nil && fieldWidths != nil && len(fieldNames) != len(fieldWidths) {
+	if f.fieldNames != nil && f.fieldWidths != nil && len(f.fieldNames) != len(f.fieldWidths) {
 		return fmt.Errorf("fieldNames and fieldWidths not same length in Open")
 	}
 
-	if fieldTypes != nil && fieldWidths != nil && len(fieldTypes) != len(fieldWidths) {
+	if f.fieldTypes != nil && f.fieldWidths != nil && len(f.fieldTypes) != len(f.fieldWidths) {
 		return fmt.Errorf("fieldTypes and fieldWidths not same length in Open")
 	}
 
-	f.fileName, f.fieldNames = fileName, fieldNames
-	f.fieldTypes, f.fieldWidths = fieldTypes, fieldWidths
-
-	f.lineWidth = 0
-	for _, w := range fieldWidths {
-		f.lineWidth += w
-	}
+	f.fileName = fileName
 
 	if f.file, e = os.Open(fileName); e != nil {
 		return e

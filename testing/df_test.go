@@ -154,14 +154,15 @@ func TestFileSave(t *testing.T) {
 
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		f := d.NewFiles()
+		f1 := d.NewFiles()
 
 		fn := slash(os.Getenv("datapath")) + fileName
-		e := f.Save(fn, dfx)
+		e := f1.Save(fn, dfx)
 		assert.Nil(t, e)
 
 		ct, _ := dfx.ColumnTypes()
-		e1 := f.Open(fn, dfx.ColumnNames(), ct, nil)
+		f := d.NewFiles(d.FileFieldNames(dfx.ColumnNames()), d.FileFieldTypes(ct))
+		e1 := f.Open(fn)
 		assert.Nil(t, e1)
 		dfy, e2 := m.FileLoad(f)
 		assert.Nil(t, e2)
@@ -248,8 +249,9 @@ func TestFilesOpen(t *testing.T) {
 	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
 	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
 	fieldWidths := []int{1, 5, 2, 3, 10, 8}
-	f := d.NewFiles(d.FileEOL(0), d.FileHeader(false), d.FileStrict(false))
-	e := f.Open(slash(os.Getenv("datapath"))+fileNameW1, fieldNames, fieldTypes, fieldWidths)
+	f := d.NewFiles(d.FileEOL(0), d.FileHeader(false), d.FileStrict(false),
+		d.FileFieldNames(fieldNames), d.FileFieldTypes(fieldTypes), d.FileFieldWidths(fieldWidths))
+	e := f.Open(slash(os.Getenv("datapath")) + fileNameW1)
 	assert.Nil(t, e)
 	df1, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)
@@ -262,8 +264,9 @@ func TestFilesOpen(t *testing.T) {
 	}
 
 	// file has eol characters
-	f = d.NewFiles(d.FileHeader(false), d.FileStrict(false))
-	e4 := f.Open(slash(os.Getenv("datapath"))+fileNameW2, fieldNames, fieldTypes, fieldWidths)
+	f = d.NewFiles(d.FileHeader(false), d.FileStrict(false),
+		d.FileFieldNames(fieldNames), d.FileFieldTypes(fieldTypes), d.FileFieldWidths(fieldWidths))
+	e4 := f.Open(slash(os.Getenv("datapath")) + fileNameW2)
 	assert.Nil(t, e4)
 	df2, e5 := m.FileLoad(f)
 	assert.Nil(t, e5)
@@ -276,8 +279,9 @@ func TestFilesOpen(t *testing.T) {
 	}
 
 	// file has eol characters and a header, but still specify these
-	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false))
-	e8 := f.Open(slash(os.Getenv("datapath"))+fileNameW3, fieldNames, fieldTypes, fieldWidths)
+	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false),
+		d.FileFieldNames(fieldNames), d.FileFieldTypes(fieldTypes), d.FileFieldWidths(fieldWidths))
+	e8 := f.Open(slash(os.Getenv("datapath")) + fileNameW3)
 	assert.Nil(t, e8)
 	df3, e9 := m.FileLoad(f)
 	assert.Nil(t, e9)
@@ -290,8 +294,8 @@ func TestFilesOpen(t *testing.T) {
 	}
 
 	// file has eol characters and a header, have it read fieldNames and infer types
-	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false))
-	e12 := f.Open(slash(os.Getenv("datapath"))+fileNameW3, nil, nil, fieldWidths)
+	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false), d.FileFieldWidths(fieldWidths))
+	e12 := f.Open(slash(os.Getenv("datapath")) + fileNameW3)
 	assert.Nil(t, e12)
 	df4, e13 := m.FileLoad(f)
 	assert.Nil(t, e13)
@@ -311,7 +315,7 @@ func TestFilesSave(t *testing.T) {
 	assert.Nil(t, e0)
 
 	f := d.NewFiles(d.FileStrict(false))
-	e := f.Open(slash(os.Getenv("datapath"))+fileName, nil, nil, nil)
+	e := f.Open(slash(os.Getenv("datapath")) + fileName)
 	assert.Nil(t, e)
 	dfy, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)

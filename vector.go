@@ -1,6 +1,5 @@
 package df
 
-// TODO: panic to error, ok vs error
 import (
 	"fmt"
 	"time"
@@ -44,8 +43,6 @@ func MakeVector(dt DataTypes, n int) *Vector {
 func (v *Vector) VectorType() DataTypes {
 	return v.dt
 }
-
-// TODO: return error
 
 func (v *Vector) SetFloat(val float64, indx int) error {
 	if v.VectorType() != DTfloat {
@@ -110,8 +107,6 @@ func (v *Vector) Data() *Vector {
 func (v *Vector) AsAny() any {
 	return v.data
 }
-
-// TODO: return error
 
 func (v *Vector) AsFloat() ([]float64, error) {
 	if xOut, ok := toSlc(v.data, DTfloat); ok {
