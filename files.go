@@ -20,37 +20,105 @@ import (
 
 // TODO: don't export all this but have setters
 
-// Defaults
-var (
-	Sep         = ','
-	EOL         = '\n'
-	StringDelim = '"'
-	DateFormat  = "20060102"
-	FloatFormat = "%.2f"
-	Header      = true
-	Strict      = false
+type FileOpt func(f *Files)
 
-	DefaultInt    = math.MaxInt
-	DefaultFloat  = math.MaxFloat64
-	DefaultDate   = time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
-	DefaultString = ""
-)
+func FileEOL(eol byte) FileOpt {
+	return func(f *Files) {
+		f.eol = eol
+	}
+}
+
+func FileSep(sep byte) FileOpt {
+	return func(f *Files) {
+		f.sep = sep
+	}
+}
+
+func FileStringDelim(delim byte) FileOpt {
+	return func(f *Files) {
+		f.stringDelim = delim
+	}
+}
+
+func FileDateFormat(format string) FileOpt {
+	return func(f *Files) {
+		if has(format, dateFormats) {
+			f.dateFormat = format
+		}
+	}
+}
+
+func FileFloatFormat(format string) FileOpt {
+	return func(f *Files) {
+		if okFltFmt(format) {
+			f.floatFormat = format
+		}
+	}
+}
+
+func FileHeader(hasHeader bool) FileOpt {
+	return func(f *Files) {
+		f.header = hasHeader
+	}
+}
+
+func FilePeek(linesToPeek int) FileOpt {
+	return func(f *Files) {
+		if linesToPeek >= 0 {
+			f.peek = linesToPeek
+		}
+	}
+}
+
+// FileStrict sets the action when a field fails to convert to its expected type.
+// If true, then an error results.
+// If false, the default value is substituted.
+func FileStrict(strict bool) FileOpt {
+	return func(f *Files) {
+		f.strict = strict
+	}
+}
+
+func FileDefaultInt(deflt int) FileOpt {
+	return func(f *Files) {
+		f.defaultInt = deflt
+	}
+}
+
+func FileDefaultFloat(deflt float64) FileOpt {
+	return func(f *Files) {
+		f.defaultFloat = deflt
+	}
+}
+
+func FileDefaultString(deflt string) FileOpt {
+	return func(f *Files) {
+		f.defaultString = deflt
+	}
+}
+
+func FileDefaultDate(year, mon, day int) FileOpt {
+	return func(f *Files) {
+		t := time.Date(year, time.Month(mon), day, 0, 0, 0, 0, time.UTC)
+		f.defaultDate = t
+	}
+}
 
 type Files struct {
-	EOL         byte
-	Sep         byte
-	StringDelim byte
-	DateFormat  string
-	FloatFormat string
+	eol         byte
+	sep         byte
+	stringDelim byte
+	dateFormat  string
+	floatFormat string
 
-	Header bool
-	Peek   int
-	Strict bool
+	header bool
+	peek   int
+	strict bool
 
-	DefaultInt    int
-	DefaultFloat  float64
-	DefaultString string
-	DefaultDate   time.Time
+	defaultInt    int
+	defaultFloat  float64
+	defaultString string
+	defaultDate   time.Time
 
 	fileName    string
 	fieldNames  []string
@@ -63,20 +131,24 @@ type Files struct {
 }
 
 // TODO: need to add check for len(fieldWidths)
-// params DON'T make sense if doing a save...
-func NewFiles() *Files {
+
+func NewFiles(opts ...FileOpt) *Files {
 	f := &Files{
-		EOL:           byte(EOL),
-		Sep:           byte(Sep),
-		StringDelim:   byte(StringDelim),
-		DateFormat:    DateFormat,
-		FloatFormat:   FloatFormat,
-		Header:        Header,
-		Strict:        Strict,
-		DefaultInt:    DefaultInt,
-		DefaultFloat:  DefaultFloat,
-		DefaultDate:   DefaultDate,
-		DefaultString: DefaultString,
+		eol:           byte('\n'),
+		sep:           byte(','),
+		stringDelim:   byte('"'),
+		dateFormat:    "20060102",
+		floatFormat:   "%.2f",
+		header:        true,
+		strict:        false,
+		defaultInt:    math.MaxInt,
+		defaultFloat:  math.MaxFloat64,
+		defaultDate:   time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC),
+		defaultString: "",
+	}
+
+	for _, opt := range opts {
+		opt(f)
 	}
 
 	return f
@@ -135,7 +207,7 @@ func (f *Files) detect() error {
 		}
 
 		rn++
-		if f.Peek > 0 && rn > f.Peek {
+		if f.peek > 0 && rn > f.peek {
 			break
 		}
 	}
@@ -206,12 +278,12 @@ func (f *Files) Open(fileName string, fieldNames []string, fieldTypes []DataType
 
 	f.rdr = bufio.NewReader(f.file)
 
-	if f.FieldNames() == nil && !f.Header {
+	if f.FieldNames() == nil && !f.header {
 		return fmt.Errorf("no field names specified and no header")
 	}
 
 	// skip first line if field names are supplied
-	if f.Header && f.FieldNames() != nil {
+	if f.header && f.FieldNames() != nil {
 		if _, e1 := f.Read(); e1 != nil {
 			return e1
 		}
@@ -270,7 +342,7 @@ func (f *Files) Read() (any, error) {
 		dt := f.FieldTypes()[ind]
 		v := f.smartTrim(fld, dt)
 		if x, ok = toDataType(v, dt); !ok {
-			switch f.Strict {
+			switch f.strict {
 			case true:
 				return nil, fmt.Errorf("conversion failed in Files.Read")
 			case false:
@@ -286,7 +358,7 @@ func (f *Files) Read() (any, error) {
 
 func (f *Files) readFixed() ([]string, error) {
 	adder := 0
-	if f.EOL != 0 {
+	if f.eol != 0 {
 		adder = 1
 	}
 
@@ -324,7 +396,7 @@ func (f *Files) readSep() ([]string, error) {
 		line   string
 		eOrEOF error
 	)
-	if line, eOrEOF = f.rdr.ReadString(f.EOL); (eOrEOF == io.EOF && line == "") || (eOrEOF != nil && eOrEOF != io.EOF) {
+	if line, eOrEOF = f.rdr.ReadString(f.eol); (eOrEOF == io.EOF && line == "") || (eOrEOF != nil && eOrEOF != io.EOF) {
 		return nil, eOrEOF
 	}
 
@@ -376,35 +448,35 @@ func (f *Files) Write(v []any) error {
 		var lx []byte
 		switch d := v[ind].(type) {
 		case float64:
-			lx = []byte(fmt.Sprintf(f.FloatFormat, d))
+			lx = []byte(fmt.Sprintf(f.floatFormat, d))
 		case int:
 			lx = []byte(fmt.Sprintf("%v", d))
 		case time.Time:
-			lx = []byte(d.Format(f.DateFormat))
+			lx = []byte(d.Format(f.dateFormat))
 		case string:
 			lx = []byte(d)
-			if f.StringDelim != 0 {
-				lx = append([]byte{f.StringDelim}, lx...)
-				lx = append(lx, f.StringDelim)
+			if f.stringDelim != 0 {
+				lx = append([]byte{f.stringDelim}, lx...)
+				lx = append(lx, f.stringDelim)
 			}
 		case *float64:
-			lx = []byte(fmt.Sprintf(f.FloatFormat, *d))
+			lx = []byte(fmt.Sprintf(f.floatFormat, *d))
 		case *int:
 			lx = []byte(fmt.Sprintf("%v", *d))
 		case *time.Time:
-			lx = []byte(d.Format(f.DateFormat))
+			lx = []byte(d.Format(f.dateFormat))
 		case *string:
 			lx = []byte(*d)
-			if f.StringDelim != 0 {
-				lx = append([]byte{f.StringDelim}, lx...)
-				lx = append(lx, f.StringDelim)
+			if f.stringDelim != 0 {
+				lx = append([]byte{f.stringDelim}, lx...)
+				lx = append(lx, f.stringDelim)
 			}
 		default:
 			lx = []byte("#err#")
 		}
 		line = append(line, lx...)
 		if ind < len(v)-1 {
-			line = append(line, f.Sep)
+			line = append(line, f.sep)
 		}
 	}
 
@@ -412,18 +484,18 @@ func (f *Files) Write(v []any) error {
 		return e
 	}
 
-	_, e := f.file.Write([]byte{f.EOL})
+	_, e := f.file.Write([]byte{f.eol})
 
 	return e
 }
 
 func (f *Files) writeHeader(fieldNames []string) error {
-	if !f.Header {
+	if !f.header {
 		return nil
 	}
 
 	// TODO: place stringDelim around these?
-	if _, e := f.file.WriteString(strings.Join(fieldNames, string(rune(f.Sep))) + string(rune(f.EOL))); e != nil {
+	if _, e := f.file.WriteString(strings.Join(fieldNames, string(rune(f.sep))) + string(rune(f.eol))); e != nil {
 		return e
 	}
 
@@ -455,20 +527,20 @@ func (f *Files) FieldWidths() []int {
 func (f *Files) defaultValue(dt DataTypes) any {
 	switch dt {
 	case DTint:
-		return f.DefaultInt
+		return f.defaultInt
 	case DTfloat:
-		return f.DefaultFloat
+		return f.defaultFloat
 	case DTdate:
-		return f.DefaultDate
+		return f.defaultDate
 	case DTstring:
-		return f.DefaultString
+		return f.defaultString
 	default:
 		panic(fmt.Errorf("unsupported data type in files"))
 	}
 }
 
 func (f *Files) dropEOL(line string) string {
-	if line[len(line)-1] == f.EOL {
+	if line[len(line)-1] == f.eol {
 		return line[0 : len(line)-1]
 	}
 
@@ -480,24 +552,24 @@ func (f *Files) smartTrim(line string, dt DataTypes) string {
 		return strings.Trim(line, " ")
 	}
 
-	x := strings.Trim(line, string(f.StringDelim)+" ")
+	x := strings.Trim(line, string(f.stringDelim)+" ")
 	return x
 }
 
 func (f *Files) splitSep(line string) []string {
-	if !strings.Contains(line, string(f.StringDelim)) {
-		return strings.Split(line, string(f.Sep))
+	if !strings.Contains(line, string(f.stringDelim)) {
+		return strings.Split(line, string(f.sep))
 	}
 
 	var split []string
 	in := false
 	start := 0
 	for ind := 0; ind < len(line); ind++ {
-		if f.StringDelim != 0 && line[ind] == f.StringDelim {
+		if f.stringDelim != 0 && line[ind] == f.stringDelim {
 			in = !in
 		}
 
-		if !in && line[ind] == f.Sep {
+		if !in && line[ind] == f.sep {
 			split = append(split, line[start:ind])
 			start = ind + 1
 		}
@@ -552,4 +624,16 @@ func maxInt(ints ...int) int {
 	}
 
 	return mx
+}
+
+// TODO: switch to regexp
+func okFltFmt(format string) bool {
+	if format[0:0] != "%" {
+		return false
+	}
+	if format[len(format)-1:] != "f" {
+		return false
+	}
+
+	return true
 }

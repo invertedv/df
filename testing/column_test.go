@@ -291,7 +291,8 @@ func toSlc(xIn any, target d.DataTypes) (any, bool) {
 
 func TestT(t *testing.T) {
 	d1 := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
-	d2 := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	fmt.Println("DATE: ", d1.After(d2))
 	if d1 == d2 {
 		fmt.Println("Dates the same")
 	}

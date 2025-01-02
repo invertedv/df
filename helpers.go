@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+var dateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
+	"Jan 2 2006", "January 2 2006", "2006-01-02"}
+
 // *********** Conversions ***********
 
 func toFloat(x any) (any, bool) {
@@ -93,8 +96,7 @@ func toDate(x any) (any, bool) {
 	}
 
 	if d, ok := x.(string); ok {
-		formats := []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006", "Jan 2 2006", "January 2 2006", "2006-01-02"}
-		for _, fmtx := range formats {
+		for _, fmtx := range dateFormats {
 			if dt, e := time.Parse(fmtx, strings.ReplaceAll(d, "'", "")); e == nil {
 				return dt, true
 			}

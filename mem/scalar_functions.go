@@ -71,7 +71,7 @@ func summaries() d.Fns {
 				return newVector(minMax(true, x[1].([]string), func(a, b string) bool { return a < b }), outType3[2]), nil
 			},
 			func(x ...any) (*d.Vector, error) {
-				return newVector(minMax(true, x[1].([]time.Time), func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 }), outType3[3]), nil
+				return newVector(minMax(true, x[1].([]time.Time), func(a, b time.Time) bool { return a.Before(b) }), outType3[3]), nil
 			},
 		),
 		vector("max", inType3, outType3,
@@ -85,7 +85,7 @@ func summaries() d.Fns {
 				return newVector(minMax(false, x[1].([]string), func(a, b string) bool { return a < b }), outType3[2]), nil
 			},
 			func(x ...any) (*d.Vector, error) {
-				return newVector(minMax(false, x[1].([]time.Time), func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 }), outType3[3]), nil
+				return newVector(minMax(false, x[1].([]time.Time), func(a, b time.Time) bool { return a.Before(b) }), outType3[3]), nil
 			},
 		),
 	}

@@ -244,13 +244,11 @@ func TestFilesOpen(t *testing.T) {
 	dfx := loadData(mem)
 
 	// specify both fieldNames and fieldTypes
-	// file has no EOL characters
+	// file has no eol characters
 	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
 	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
 	fieldWidths := []int{1, 5, 2, 3, 10, 8}
-	f := d.NewFiles()
-	f.Strict, f.Header = false, false
-	f.EOL = 0
+	f := d.NewFiles(d.FileEOL(0), d.FileHeader(false), d.FileStrict(false))
 	e := f.Open(slash(os.Getenv("datapath"))+fileNameW1, fieldNames, fieldTypes, fieldWidths)
 	assert.Nil(t, e)
 	df1, e1 := m.FileLoad(f)
@@ -263,9 +261,8 @@ func TestFilesOpen(t *testing.T) {
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
-	// file has EOL characters
-	f = d.NewFiles()
-	f.Strict, f.Header = false, false
+	// file has eol characters
+	f = d.NewFiles(d.FileHeader(false), d.FileStrict(false))
 	e4 := f.Open(slash(os.Getenv("datapath"))+fileNameW2, fieldNames, fieldTypes, fieldWidths)
 	assert.Nil(t, e4)
 	df2, e5 := m.FileLoad(f)
@@ -278,9 +275,8 @@ func TestFilesOpen(t *testing.T) {
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
-	// file has EOL characters and a header, but still specify these
-	f = d.NewFiles()
-	f.Strict, f.Header = false, true
+	// file has eol characters and a header, but still specify these
+	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false))
 	e8 := f.Open(slash(os.Getenv("datapath"))+fileNameW3, fieldNames, fieldTypes, fieldWidths)
 	assert.Nil(t, e8)
 	df3, e9 := m.FileLoad(f)
@@ -293,9 +289,8 @@ func TestFilesOpen(t *testing.T) {
 		assert.Equal(t, cx.Data(), cy.Data())
 	}
 
-	// file has EOL characters and a header, have it read fieldNames and infer types
-	f = d.NewFiles()
-	f.Strict, f.Header = false, true
+	// file has eol characters and a header, have it read fieldNames and infer types
+	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false))
 	e12 := f.Open(slash(os.Getenv("datapath"))+fileNameW3, nil, nil, fieldWidths)
 	assert.Nil(t, e12)
 	df4, e13 := m.FileLoad(f)
@@ -315,8 +310,7 @@ func TestFilesSave(t *testing.T) {
 	e0 := fs.Save(slash(os.Getenv("datapath"))+fileName, dfx)
 	assert.Nil(t, e0)
 
-	f := d.NewFiles()
-	f.Strict = false
+	f := d.NewFiles(d.FileStrict(false))
 	e := f.Open(slash(os.Getenv("datapath"))+fileName, nil, nil, nil)
 	assert.Nil(t, e)
 	dfy, e1 := m.FileLoad(f)

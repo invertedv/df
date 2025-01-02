@@ -62,12 +62,12 @@ func buildTests() [][]func(x ...any) (*d.Vector, error) {
 		func(a, b string) bool { return a != b },
 	}
 	dateCmp := []func(a, b time.Time) bool{
-		func(a, b time.Time) bool { return a.Sub(b).Seconds() > 0 },
-		func(a, b time.Time) bool { return a.Sub(b).Seconds() < 0 },
-		func(a, b time.Time) bool { return a.Sub(b).Seconds() >= 0 },
-		func(a, b time.Time) bool { return a.Sub(b).Seconds() <= 0 },
-		func(a, b time.Time) bool { return a.Sub(b).Seconds() == 0 },
-		func(a, b time.Time) bool { return a.Sub(b).Seconds() != 0 },
+		func(a, b time.Time) bool { return a.After(b) },
+		func(a, b time.Time) bool { return a.Before(b) },
+		func(a, b time.Time) bool { return a.After(b) || a.Equal(b) },
+		func(a, b time.Time) bool { return a.Before(b) || a.Equal(b) },
+		func(a, b time.Time) bool { return a.Equal(b) },
+		func(a, b time.Time) bool { return !a.Equal(b) },
 	}
 
 	var flts, ints, strs, dts []func(x ...any) (*d.Vector, error)
