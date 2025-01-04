@@ -12,6 +12,26 @@ import (
 	"time"
 )
 
+// TODO: could this be in mem/???
+
+func PrettyPrint(header []string, cols ...any) string {
+	var colsS [][]string
+
+	for ind := 0; ind < len(cols); ind++ {
+		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
+	}
+
+	out := ""
+	for row := 0; row < len(colsS[0]); row++ {
+		for c := 0; c < len(colsS); c++ {
+			out += colsS[c][row]
+		}
+		out += "\n"
+	}
+
+	return out
+}
+
 var dateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
 	"Jan 2 2006", "January 2 2006", "2006-01-02"}
 
@@ -31,6 +51,10 @@ func toFloat(x any) (any, bool) {
 		return float64(xv.Int()), true
 	}
 
+	if xv.CanUint() {
+		return float64(xv.Uint()), true
+	}
+
 	if s, ok := x.(string); ok {
 		if f, e := strconv.ParseFloat(s, 64); e == nil {
 			return f, true
@@ -48,6 +72,10 @@ func toInt(x any) (any, bool) {
 	xv := reflect.ValueOf(x)
 	if xv.CanInt() {
 		return int(xv.Int()), true
+	}
+
+	if xv.CanUint() {
+		return int(xv.Uint()), true
 	}
 
 	if xv.CanFloat() {
@@ -91,6 +119,10 @@ func toDate(x any) (any, bool) {
 	xv := reflect.ValueOf(x)
 	if xv.CanInt() {
 		return toDate(fmt.Sprintf("%d", xv.Int()))
+	}
+
+	if xv.CanUint() {
+		return toDate(fmt.Sprintf("%d", xv.Uint()))
 	}
 
 	if d, ok := x.(string); ok {
@@ -312,24 +344,6 @@ func stringSlice(header string, inVal any) []string {
 	}
 
 	return c
-}
-
-func PrettyPrint(header []string, cols ...any) string {
-	var colsS [][]string
-
-	for ind := 0; ind < len(cols); ind++ {
-		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
-	}
-
-	out := ""
-	for row := 0; row < len(colsS[0]); row++ {
-		for c := 0; c < len(colsS); c++ {
-			out += colsS[c][row]
-		}
-		out += "\n"
-	}
-
-	return out
 }
 
 // slash adds a trailing slash if inStr doesn't end in a slash

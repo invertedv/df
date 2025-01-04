@@ -7,6 +7,8 @@ type Scalar struct {
 	*ColCore
 }
 
+// *********** Methods ***********
+
 func (s *Scalar) AppendRows(col Column) (Column, error) {
 	return nil, fmt.Errorf("cannot append to scalar")
 }

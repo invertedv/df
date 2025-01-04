@@ -271,7 +271,9 @@ func (f *Files) Load() ([]*Vector, error) {
 
 		r := row.([]any)
 		for ind := 0; ind < len(r); ind++ {
-			memData[ind].Append(r[ind])
+			if e := memData[ind].Append(r[ind]); e != nil {
+				return nil, e
+			}
 		}
 	}
 
