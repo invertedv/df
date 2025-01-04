@@ -63,7 +63,7 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
-func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
+func (c *Col) ReplaceX(indicator, replacement d.Column) (d.Column, error) {
 	panicer(indicator, replacement)
 	panic("not implemented")
 	/*
@@ -136,7 +136,7 @@ func (c *Col) String() string {
 		}
 
 		header := []string{"source", "mapped to"}
-		t = t + d.PrettyPrint(header, keys, vals) + "\n"
+		t = t + prettyPrint(header, keys, vals) + "\n"
 	}
 
 	if c.DataType() != d.DTfloat {
@@ -149,7 +149,7 @@ func (c *Col) String() string {
 
 		cxi, _ := cx.Data().AsInt()
 		str, _ := l.Data().AsString()
-		return t + d.PrettyPrint(header, str, cxi)
+		return t + prettyPrint(header, str, cxi)
 	}
 
 	x := make([]float64, c.Len())
@@ -167,7 +167,7 @@ func (c *Col) String() string {
 	vals := []float64{minx, q25, q50, xbar, q75, maxx, n}
 	header := []string{"metric", "value"}
 
-	return t + d.PrettyPrint(header, cats, vals)
+	return t + prettyPrint(header, cats, vals)
 }
 
 // ***************** Helpers *****************

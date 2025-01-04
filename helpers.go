@@ -4,33 +4,12 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"math"
 	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
-
-// TODO: could this be in mem/???
-
-func PrettyPrint(header []string, cols ...any) string {
-	var colsS [][]string
-
-	for ind := 0; ind < len(cols); ind++ {
-		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
-	}
-
-	out := ""
-	for row := 0; row < len(colsS[0]); row++ {
-		for c := 0; c < len(colsS); c++ {
-			out += colsS[c][row]
-		}
-		out += "\n"
-	}
-
-	return out
-}
 
 var dateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
 	"Jan 2 2006", "January 2 2006", "2006-01-02"}
@@ -257,94 +236,6 @@ func toSlc(xIn any, target DataTypes) (any, bool) {
 }
 
 // *********** Other ***********
-func selectFormat(x []float64) string {
-	minX := math.Abs(x[0])
-	maxX := math.Abs(x[0])
-	for _, xv := range x {
-		xva := math.Abs(xv)
-		if xva < minX {
-			minX = xva
-		}
-
-		if xva > maxX {
-			maxX = xva
-		}
-	}
-
-	rangeX := maxX - minX
-	l := math.Log10(rangeX)
-	var dp int
-	switch {
-	case l < -1:
-		dp = int(math.Abs(l)+0.5) + 1
-	case l > 1:
-		dp = 0
-	default:
-		dp = 1
-	}
-
-	format := "%." + fmt.Sprintf("%d", dp) + "f"
-	return format
-}
-
-func stringSlice(header string, inVal any) []string {
-	const pad = 3
-	c := []string{header}
-
-	format := ""
-	n := 0
-	var dt DataTypes
-	switch x := inVal.(type) {
-	case []float64:
-		format = selectFormat(x)
-		n = len(x)
-		dt = DTfloat
-	case []int:
-		format = "%d"
-		n = len(x)
-		dt = DTint
-	case []string:
-		format = "%s"
-		n = len(x)
-		dt = DTstring
-	case []time.Time:
-		n = len(x)
-		dt = DTdate
-	default:
-		panic(fmt.Errorf("unsupported data type"))
-	}
-
-	maxLen := len(header)
-	for ind := 0; ind < n; ind++ {
-		var el string
-		switch x := inVal.(type) {
-		case []float64:
-			el = fmt.Sprintf(format, x[ind])
-		case []int:
-			el = fmt.Sprintf(format, x[ind])
-		case []string:
-			el = x[ind]
-		case []time.Time:
-			el = x[ind].Format("20060102")
-		}
-
-		if l := len(el); l > maxLen {
-			maxLen = l
-		}
-
-		c = append(c, el)
-	}
-
-	for ind, cx := range c {
-		padded := cx + strings.Repeat(" ", maxLen-len(cx)+pad)
-		if dt == DTint || dt == DTfloat {
-			padded = strings.Repeat(" ", maxLen-len(cx)+pad) + cx
-		}
-		c[ind] = padded
-	}
-
-	return c
-}
 
 // slash adds a trailing slash if inStr doesn't end in a slash
 func slash(inStr string) string {

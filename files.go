@@ -14,93 +14,6 @@ import (
 // can load any file to []any
 // can have a GENERIC loader that takes an iter
 
-type FileOpt func(f *Files)
-
-func FileEOL(eol byte) FileOpt {
-	return func(f *Files) {
-		f.eol = eol
-	}
-}
-
-func FileSep(sep byte) FileOpt {
-	return func(f *Files) {
-		f.sep = sep
-	}
-}
-
-func FileStringDelim(delim byte) FileOpt {
-	return func(f *Files) {
-		f.stringDelim = delim
-	}
-}
-
-func FileDateFormat(format string) FileOpt {
-	return func(f *Files) {
-		if has(format, dateFormats) {
-			f.dateFormat = format
-		}
-	}
-}
-
-func FileFloatFormat(format string) FileOpt {
-	return func(f *Files) {
-		if okFltFmt(format) {
-			f.floatFormat = format
-		}
-	}
-}
-
-func FileHeader(hasHeader bool) FileOpt {
-	return func(f *Files) {
-		f.header = hasHeader
-	}
-}
-
-func FilePeek(linesToPeek int) FileOpt {
-	return func(f *Files) {
-		if linesToPeek >= 0 {
-			f.peek = linesToPeek
-		}
-	}
-}
-
-// FileStrict sets the action when a field fails to convert to its expected type.
-// If true, then an error results.
-// If false, the default value is substituted.
-// Default: false
-func FileStrict(strict bool) FileOpt {
-	return func(f *Files) {
-		f.strict = strict
-	}
-}
-
-// FileDefaultInt sets the value to use for fields that fail to convert to integer if strict=false.
-// Default: math.MaxInt
-func FileDefaultInt(deflt int) FileOpt {
-	return func(f *Files) {
-		f.defaultInt = deflt
-	}
-}
-
-func FileDefaultFloat(deflt float64) FileOpt {
-	return func(f *Files) {
-		f.defaultFloat = deflt
-	}
-}
-
-func FileDefaultString(deflt string) FileOpt {
-	return func(f *Files) {
-		f.defaultString = deflt
-	}
-}
-
-func FileDefaultDate(year, mon, day int) FileOpt {
-	return func(f *Files) {
-		t := time.Date(year, time.Month(mon), day, 0, 0, 0, 0, time.UTC)
-		f.defaultDate = t
-	}
-}
-
 type Files struct {
 	eol         byte
 	sep         byte
@@ -125,6 +38,73 @@ type Files struct {
 	lineWidth int
 	file      *os.File
 	rdr       *bufio.Reader
+}
+
+func NewFiles(opts ...FileOpt) *Files {
+	f := &Files{
+		eol:           byte('\n'),
+		sep:           byte(','),
+		stringDelim:   byte('"'),
+		dateFormat:    "20060102",
+		floatFormat:   "%.2f",
+		header:        true,
+		strict:        false,
+		defaultInt:    math.MaxInt,
+		defaultFloat:  math.MaxFloat64,
+		defaultDate:   time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC),
+		defaultString: "",
+	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	return f
+}
+
+// ***************** setters *****************
+
+type FileOpt func(f *Files)
+
+func FileDefaultDate(year, mon, day int) FileOpt {
+	return func(f *Files) {
+		t := time.Date(year, time.Month(mon), day, 0, 0, 0, 0, time.UTC)
+		f.defaultDate = t
+	}
+}
+
+// FileDefaultInt sets the value to use for fields that fail to convert to integer if strict=false.
+// Default: math.MaxInt
+func FileDefaultInt(deflt int) FileOpt {
+	return func(f *Files) {
+		f.defaultInt = deflt
+	}
+}
+
+func FileDefaultFloat(deflt float64) FileOpt {
+	return func(f *Files) {
+		f.defaultFloat = deflt
+	}
+}
+
+func FileDefaultString(deflt string) FileOpt {
+	return func(f *Files) {
+		f.defaultString = deflt
+	}
+}
+
+func FileDateFormat(format string) FileOpt {
+	return func(f *Files) {
+		if has(format, dateFormats) {
+			f.dateFormat = format
+		}
+	}
+}
+
+func FileEOL(eol byte) FileOpt {
+	return func(f *Files) {
+		f.eol = eol
+	}
 }
 
 func FileFieldNames(fieldNames []string) FileOpt {
@@ -160,93 +140,51 @@ func FileFieldWidths(fieldWidths []int) FileOpt {
 	}
 }
 
-func NewFiles(opts ...FileOpt) *Files {
-	f := &Files{
-		eol:           byte('\n'),
-		sep:           byte(','),
-		stringDelim:   byte('"'),
-		dateFormat:    "20060102",
-		floatFormat:   "%.2f",
-		header:        true,
-		strict:        false,
-		defaultInt:    math.MaxInt,
-		defaultFloat:  math.MaxFloat64,
-		defaultDate:   time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC),
-		defaultString: "",
+func FileFloatFormat(format string) FileOpt {
+	return func(f *Files) {
+		if okFltFmt(format) {
+			f.floatFormat = format
+		}
 	}
+}
 
-	for _, opt := range opts {
-		opt(f)
+func FileHeader(hasHeader bool) FileOpt {
+	return func(f *Files) {
+		f.header = hasHeader
 	}
+}
 
-	return f
+func FilePeek(linesToPeek int) FileOpt {
+	return func(f *Files) {
+		if linesToPeek >= 0 {
+			f.peek = linesToPeek
+		}
+	}
+}
+
+func FileSep(sep byte) FileOpt {
+	return func(f *Files) {
+		f.sep = sep
+	}
+}
+
+// FileStrict sets the action when a field fails to convert to its expected type.
+// If true, then an error results.
+// If false, the default value is substituted.
+// Default: false
+func FileStrict(strict bool) FileOpt {
+	return func(f *Files) {
+		f.strict = strict
+	}
+}
+
+func FileStringDelim(delim byte) FileOpt {
+	return func(f *Files) {
+		f.stringDelim = delim
+	}
 }
 
 // ***************** Read Methods *****************
-
-func (f *Files) detect() error {
-	counts := make([]*ctr, 0)
-
-	rn := 0
-	for {
-		var (
-			v    any
-			vals []string
-			e2   error
-		)
-
-		if v, e2 = f.Read(); e2 != nil {
-			if e2 == io.EOF {
-				break
-			}
-
-			return e2
-		}
-
-		vals = v.([]string)
-
-		if len(vals) != len(f.FieldNames()) {
-			return fmt.Errorf("inconsistent # of fields in file")
-		}
-
-		for ind := 0; ind < len(vals); ind++ {
-			var (
-				dt DataTypes
-				e3 error
-			)
-			if _, dt, e3 = bestType(vals[ind]); e3 != nil {
-				return e3
-			}
-
-			if len(counts) < ind+1 {
-				counts = append(counts, &ctr{})
-			}
-
-			switch dt {
-			case DTint:
-				counts[ind].cInt++
-			case DTfloat:
-				counts[ind].cFloat++
-			case DTdate:
-				counts[ind].cDate++
-			default:
-				counts[ind].cString++
-			}
-		}
-
-		rn++
-		if f.peek > 0 && rn > f.peek {
-			break
-		}
-	}
-
-	for ind := 0; ind < len(counts); ind++ {
-		f.fieldTypes = append(f.fieldTypes, counts[ind].max())
-	}
-
-	_ = f.Close()
-	return f.Open(f.fileName) //, f.FieldNames(), f.FieldTypes(), f.FieldWidths())
-}
 
 func (f *Files) Load() ([]*Vector, error) {
 	defer func() { _ = f.Close() }()
@@ -378,6 +316,70 @@ func (f *Files) Read() (any, error) {
 	}
 
 	return out, nil
+}
+
+func (f *Files) detect() error {
+	counts := make([]*ctr, 0)
+
+	rn := 0
+	for {
+		var (
+			v    any
+			vals []string
+			e2   error
+		)
+
+		if v, e2 = f.Read(); e2 != nil {
+			if e2 == io.EOF {
+				break
+			}
+
+			return e2
+		}
+
+		vals = v.([]string)
+
+		if len(vals) != len(f.FieldNames()) {
+			return fmt.Errorf("inconsistent # of fields in file")
+		}
+
+		for ind := 0; ind < len(vals); ind++ {
+			var (
+				dt DataTypes
+				e3 error
+			)
+			if _, dt, e3 = bestType(vals[ind]); e3 != nil {
+				return e3
+			}
+
+			if len(counts) < ind+1 {
+				counts = append(counts, &ctr{})
+			}
+
+			switch dt {
+			case DTint:
+				counts[ind].cInt++
+			case DTfloat:
+				counts[ind].cFloat++
+			case DTdate:
+				counts[ind].cDate++
+			default:
+				counts[ind].cString++
+			}
+		}
+
+		rn++
+		if f.peek > 0 && rn > f.peek {
+			break
+		}
+	}
+
+	for ind := 0; ind < len(counts); ind++ {
+		f.fieldTypes = append(f.fieldTypes, counts[ind].max())
+	}
+
+	_ = f.Close()
+	return f.Open(f.fileName) //, f.FieldNames(), f.FieldTypes(), f.FieldWidths())
 }
 
 func (f *Files) readFixed() ([]string, error) {

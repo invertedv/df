@@ -16,7 +16,7 @@ type Column interface {
 	Copy() Column
 	Data() *Vector
 	Len() int
-	Replace(ind, repl Column) (Column, error)
+	//	Replace(ind, repl Column) (Column, error)
 	String() string
 }
 
