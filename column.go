@@ -34,14 +34,6 @@ type ColCore struct {
 	dep []string
 }
 
-type ColOpt func(c CC)
-
-func ColDataType(dt DataTypes) ColOpt {
-	return func(c CC) {
-		c.Core().dt = dt
-	}
-}
-
 func NewColCore(dt DataTypes, ops ...ColOpt) *ColCore {
 	c := &ColCore{dt: dt}
 
@@ -53,22 +45,13 @@ func NewColCore(dt DataTypes, ops ...ColOpt) *ColCore {
 }
 
 // *********** Setters ***********
-func ColName(name string) ColOpt {
-	return func(c CC) {
-		if validName(name) {
-			c.Core().name = name
-		}
-	}
-}
 
-func colDependencies(dep []string) ColOpt {
-	return func(c CC) {
-		c.Core().dep = dep
-	}
-}
+type ColOpt func(c CC)
 
-func (c *ColCore) Dependencies() []string {
-	return c.dep
+func ColCatCounts(ct CategoryMap) ColOpt {
+	return func(c CC) {
+		c.Core().catCounts = ct
+	}
 }
 
 func ColCatMap(cm CategoryMap) ColOpt {
@@ -77,9 +60,17 @@ func ColCatMap(cm CategoryMap) ColOpt {
 	}
 }
 
-func ColCatCounts(ct CategoryMap) ColOpt {
+func ColDataType(dt DataTypes) ColOpt {
 	return func(c CC) {
-		c.Core().catCounts = ct
+		c.Core().dt = dt
+	}
+}
+
+func ColName(name string) ColOpt {
+	return func(c CC) {
+		if validName(name) {
+			c.Core().name = name
+		}
 	}
 }
 
@@ -89,31 +80,20 @@ func ColRawType(rt DataTypes) ColOpt {
 	}
 }
 
-// *********** Methods ***********
-
-func (c *ColCore) CategoryMap() CategoryMap {
-	return c.catMap
+func colDependencies(dep []string) ColOpt {
+	return func(c CC) {
+		c.Core().dep = dep
+	}
 }
+
+// *********** Methods ***********
 
 func (c *ColCore) CategoryCounts() CategoryMap {
 	return c.catCounts
 }
 
-// Core returns itself. We eed a method to return itself since DFCore struct will need these methods
-func (c *ColCore) Core() *ColCore {
-	return c
-}
-
-func (c *ColCore) RawType() DataTypes {
-	return c.rawType
-}
-
-func (c *ColCore) Name() string {
-	return c.name
-}
-
-func (c *ColCore) DataType() DataTypes {
-	return c.dt
+func (c *ColCore) CategoryMap() CategoryMap {
+	return c.catMap
 }
 
 func (c *ColCore) Copy() *ColCore {
@@ -123,6 +103,27 @@ func (c *ColCore) Copy() *ColCore {
 		ColRawType(c.RawType()),
 		ColCatMap(c.CategoryMap()),
 		ColCatCounts(c.CategoryCounts()))
+}
+
+// Core returns itself. We eed a method to return itself since DFCore struct will need these methods
+func (c *ColCore) Core() *ColCore {
+	return c
+}
+
+func (c *ColCore) DataType() DataTypes {
+	return c.dt
+}
+
+func (c *ColCore) Dependencies() []string {
+	return c.dep
+}
+
+func (c *ColCore) Name() string {
+	return c.name
+}
+
+func (c *ColCore) RawType() DataTypes {
+	return c.rawType
 }
 
 // *********** Category Map ***********

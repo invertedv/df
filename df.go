@@ -9,23 +9,6 @@ import (
 // TODO: think about panic vs error
 // TODO: panic needs error or just string?
 
-type DD interface {
-	Core() *DFcore
-	AppendColumn(col Column, replace bool) error
-	Column(colName string) Column
-	ColumnCount() int
-	ColumnNames() []string
-	ColumnTypes(cols ...string) ([]DataTypes, error)
-	Dialect() *Dialect
-	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
-	DropColumns(colNames ...string) error
-	Fns() Fns
-	KeepColumns(keepColumns ...string) (*DFcore, error)
-	Next() Column
-	First() Column
-	AppendDFcore(df2 *DFcore) (*DFcore, error)
-}
-
 type DF interface {
 	DD
 
@@ -41,12 +24,21 @@ type DF interface {
 	Where(indicator Column) (DF, error)
 }
 
-type DFopt func(df DD)
-
-func DFdialect(d *Dialect) DFopt {
-	return func(df DD) {
-		df.Core().dlct = d
-	}
+type DD interface {
+	Core() *DFcore
+	AppendColumn(col Column, replace bool) error
+	Column(colName string) Column
+	ColumnCount() int
+	ColumnNames() []string
+	ColumnTypes(cols ...string) ([]DataTypes, error)
+	Dialect() *Dialect
+	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
+	DropColumns(colNames ...string) error
+	Fns() Fns
+	KeepColumns(keepColumns ...string) (*DFcore, error)
+	Next() Column
+	First() Column
+	AppendDFcore(df2 *DFcore) (*DFcore, error)
 }
 
 // *********** DFcore ***********
@@ -97,11 +89,29 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 	return &DFcore{head: head, appFuncs: funcs}, nil
 }
 
-// *********** DFcore methods ***********
+// *********** DFcore setters ***********
 
-func (df *DFcore) Dialect() *Dialect {
-	return df.dlct
+type DFopt func(df DD)
+
+func DFdialect(d *Dialect) DFopt {
+	return func(df DD) {
+		df.Core().dlct = d
+	}
 }
+
+func DFappendFn(f Fn) DFopt {
+	return func(df DD) {
+		df.Core().appFuncs = append(df.Core().appFuncs, f)
+	}
+}
+
+func DFsetFns(f Fns) DFopt {
+	return func(df DD) {
+		df.Core().appFuncs = f
+	}
+}
+
+// *********** DFcore methods ***********
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	if df.Column(col.Name()) != nil {
@@ -252,6 +262,10 @@ func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ..
 	return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite)
 }
 
+func (df *DFcore) Dialect() *Dialect {
+	return df.dlct
+}
+
 func (df *DFcore) DropColumns(colNames ...string) error {
 	for _, cName := range colNames {
 		var (
@@ -280,6 +294,11 @@ func (df *DFcore) DropColumns(colNames ...string) error {
 	}
 
 	return nil
+}
+
+func (df *DFcore) First() Column {
+	df.current = df.head
+	return df.head.col
 }
 
 func (df *DFcore) Fns() Fns {
@@ -331,17 +350,7 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	return subsetDF, nil
 }
 
-func (df *DFcore) First() Column {
-	df.current = df.head
-	return df.head.col
-}
-
 func (df *DFcore) Next() Column {
-	//	if reset || df.current == nil {
-	//		df.current = df.head
-	//		return df.current.colf
-	//	}
-
 	if df.current.next == nil {
 		df.current = nil
 		return nil

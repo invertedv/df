@@ -114,7 +114,7 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 		s = "CASE\n"
 		for ind := 0; ind < len(whens); ind++ {
 			when := fmt.Sprintf("WHEN %s THEN %s\n", whens[ind], vals[ind])
-			if strings.ToUpper(whens[ind]) == "ELSE" {
+			if strings.EqualFold(whens[ind], "ELSE") {
 				when = fmt.Sprintf("ELSE %s\n", vals[ind])
 			}
 			s += when
@@ -140,10 +140,6 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr st
 			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
 			return sqlStr, nil
 		}
-		//		if x := Any2Date(fieldName, true); x != nil {
-		//			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.Format("2006-01-02"), dbType)
-		//			return sqlStr, nil
-		//		}
 
 		if fromDT == DTfloat && toDT == DTstring {
 			sqlStr = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
