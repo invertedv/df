@@ -30,7 +30,7 @@ func compare[T float64 | int | string | time.Time](n int, x, y []T, comp func(a,
 		ind2 += inc2
 	}
 
-	// should not fail
+	// will not fail
 	v, _ := d.NewVector(z, d.WhatAmI(z[0]))
 	return v, nil
 }
@@ -136,7 +136,6 @@ func returnCol(data any) *d.FnReturn {
 		e      error
 	)
 
-	// TODO: this may not work
 	if outCol, e = NewCol(data, d.WhatAmI(data)); e != nil {
 		return &d.FnReturn{Err: e}
 	}

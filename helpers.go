@@ -75,6 +75,7 @@ func toString(x any) (any, bool) {
 		return s, true
 	}
 
+	// TODO: improve # decimals choice
 	if f, ok := x.(float64); ok {
 		return fmt.Sprintf("%0.3f", f), true
 	}

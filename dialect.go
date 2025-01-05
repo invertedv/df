@@ -56,11 +56,6 @@ type Dialect struct {
 
 func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	dialect = strings.ToLower(dialect)
-	switch dialect {
-	case ch, ms, pg:
-	default:
-		return nil, fmt.Errorf("unsupported db type: %s", dialect)
-	}
 
 	d := &Dialect{db: db, dialect: dialect, bufSize: 1024}
 
@@ -97,6 +92,12 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	}
 
 	return d, nil
+}
+
+// ***************** Methods *****************
+
+func (d *Dialect) BufSize() int {
+	return d.bufSize
 }
 
 // Case creates a CASE statement.
@@ -218,10 +219,6 @@ func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF) 
 
 func (d *Dialect) DB() *sql.DB {
 	return d.db
-}
-
-func (d *Dialect) BufSize() int {
-	return d.bufSize
 }
 
 func (d *Dialect) DialectName() string {

@@ -86,7 +86,6 @@ func castOps() d.Fns {
 			func(x ...any) (*d.Vector, error) { return newVector(x[1].([]int), d.DTint), nil },
 		),
 		vector("string", inType2, []d.DataTypes{d.DTstring, d.DTstring, d.DTstring, d.DTstring},
-			// TODO: build smarter choice for # decimals
 			func(x ...any) (*d.Vector, error) {
 				return newVector(x[1].([]float64), d.DTfloat).Coerce(d.DTstring)
 			},

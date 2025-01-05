@@ -24,7 +24,6 @@ func inter(c d.Column) []int {
 	return x
 }
 
-// TODO: test min/max for string & date <---------------
 func TestRandom(t *testing.T) {
 	n := 10000 //000
 	x := make([]float64, n)
