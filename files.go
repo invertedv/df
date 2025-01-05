@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -142,7 +143,7 @@ func FileFieldWidths(fieldWidths []int) FileOpt {
 
 func FileFloatFormat(format string) FileOpt {
 	return func(f *Files) {
-		if okFltFmt(format) {
+		if ok, _ := regexp.MatchString("%[0-9]?[0-9]?.[0-9]?[0-9]?f", format); ok {
 			f.floatFormat = format
 		}
 	}
@@ -318,70 +319,6 @@ func (f *Files) Read() (any, error) {
 	return out, nil
 }
 
-func (f *Files) detect() error {
-	counts := make([]*ctr, 0)
-
-	rn := 0
-	for {
-		var (
-			v    any
-			vals []string
-			e2   error
-		)
-
-		if v, e2 = f.Read(); e2 != nil {
-			if e2 == io.EOF {
-				break
-			}
-
-			return e2
-		}
-
-		vals = v.([]string)
-
-		if len(vals) != len(f.FieldNames()) {
-			return fmt.Errorf("inconsistent # of fields in file")
-		}
-
-		for ind := 0; ind < len(vals); ind++ {
-			var (
-				dt DataTypes
-				e3 error
-			)
-			if _, dt, e3 = bestType(vals[ind]); e3 != nil {
-				return e3
-			}
-
-			if len(counts) < ind+1 {
-				counts = append(counts, &ctr{})
-			}
-
-			switch dt {
-			case DTint:
-				counts[ind].cInt++
-			case DTfloat:
-				counts[ind].cFloat++
-			case DTdate:
-				counts[ind].cDate++
-			default:
-				counts[ind].cString++
-			}
-		}
-
-		rn++
-		if f.peek > 0 && rn > f.peek {
-			break
-		}
-	}
-
-	for ind := 0; ind < len(counts); ind++ {
-		f.fieldTypes = append(f.fieldTypes, counts[ind].max())
-	}
-
-	_ = f.Close()
-	return f.Open(f.fileName) //, f.FieldNames(), f.FieldTypes(), f.FieldWidths())
-}
-
 func (f *Files) readFixed() ([]string, error) {
 	adder := 0
 	if f.eol != 0 {
@@ -550,6 +487,8 @@ func (f *Files) FieldWidths() []int {
 	return f.fieldWidths
 }
 
+// ***************** Unexported Methods *****************
+
 func (f *Files) defaultValue(dt DataTypes) any {
 	switch dt {
 	case DTint:
@@ -563,6 +502,70 @@ func (f *Files) defaultValue(dt DataTypes) any {
 	default:
 		panic(fmt.Errorf("unsupported data type in files"))
 	}
+}
+
+func (f *Files) detect() error {
+	counts := make([]*ctr, 0)
+
+	rn := 0
+	for {
+		var (
+			v    any
+			vals []string
+			e2   error
+		)
+
+		if v, e2 = f.Read(); e2 != nil {
+			if e2 == io.EOF {
+				break
+			}
+
+			return e2
+		}
+
+		vals = v.([]string)
+
+		if len(vals) != len(f.FieldNames()) {
+			return fmt.Errorf("inconsistent # of fields in file")
+		}
+
+		for ind := 0; ind < len(vals); ind++ {
+			var (
+				dt DataTypes
+				e3 error
+			)
+			if _, dt, e3 = bestType(vals[ind]); e3 != nil {
+				return e3
+			}
+
+			if len(counts) < ind+1 {
+				counts = append(counts, &ctr{})
+			}
+
+			switch dt {
+			case DTint:
+				counts[ind].cInt++
+			case DTfloat:
+				counts[ind].cFloat++
+			case DTdate:
+				counts[ind].cDate++
+			default:
+				counts[ind].cString++
+			}
+		}
+
+		rn++
+		if f.peek > 0 && rn > f.peek {
+			break
+		}
+	}
+
+	for ind := 0; ind < len(counts); ind++ {
+		f.fieldTypes = append(f.fieldTypes, counts[ind].max())
+	}
+
+	_ = f.Close()
+	return f.Open(f.fileName)
 }
 
 func (f *Files) dropEOL(line string) string {
@@ -650,16 +653,4 @@ func maxInt(ints ...int) int {
 	}
 
 	return mx
-}
-
-// TODO: switch to regexp
-func okFltFmt(format string) bool {
-	if format[0:0] != "%" {
-		return false
-	}
-	if format[len(format)-1:] != "f" {
-		return false
-	}
-
-	return true
 }
