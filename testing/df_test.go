@@ -78,7 +78,8 @@ func TestCheck(t *testing.T) {
 	dfy := loadData(ch)
 	out, e := d.Parse(dfx, "float(x)")
 	assert.Nil(t, e)
-	d.ColName("xx")(out.AsColumn())
+	e0 := d.ColName("xx")(out.AsColumn())
+	assert.Nil(t, e0)
 	e1 := dfx.AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e1)
 	e2 := dfy.AppendColumn(out.AsColumn(), false)
@@ -135,14 +136,16 @@ func TestSQLsave(t *testing.T) {
 					assert.NotNil(t, c1)
 				}
 		*/
-		d.ColName("expected")(c1)
+		ea := d.ColName("expected")(c1)
+		assert.Nil(t, ea)
 
 		// pull back from database
 		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		c2 := dfy.Column(coln)
 		assert.NotNil(t, c2)
-		d.ColName("actual")(c2)
+		ec := d.ColName("actual")(c2)
+		assert.Nil(t, ec)
 
 		// join expected & actual into a dataframe
 		dfb, eb := m.NewDFcol(nil, []*m.Col{c1.(*m.Col), c2.(*m.Col)})
@@ -217,7 +220,8 @@ func TestWhere(t *testing.T) {
 		dfx := loadData(which)
 		indCol, e := d.Parse(dfx, "y==-5 || yy == 16")
 		assert.Nil(t, e)
-		d.ColName("ind")(indCol.AsColumn())
+		e0 := d.ColName("ind")(indCol.AsColumn())
+		assert.Nil(t, e0)
 		e1 := dfx.Core().AppendColumn(indCol.AsColumn(), false)
 		assert.Nil(t, e1)
 		dfOut, e2 := dfx.Where(indCol.AsColumn())

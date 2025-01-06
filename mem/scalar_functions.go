@@ -139,7 +139,7 @@ func qInt(p float64, x []int) int {
 	return int(quantile(p, vFlt))
 }
 
-func minMax[T float64 | int | string | time.Time](min bool, x []T, less func(a, b T) bool) T {
+func minMax[T float64 | int | string | time.Time](wantMin bool, x []T, less func(a, b T) bool) T {
 	minx, maxx := x[0], x[0]
 	for _, xv := range x {
 		if less(xv, minx) {
@@ -150,7 +150,7 @@ func minMax[T float64 | int | string | time.Time](min bool, x []T, less func(a, 
 		}
 	}
 
-	if min {
+	if wantMin {
 		return minx
 	}
 

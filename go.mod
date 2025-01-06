@@ -8,7 +8,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.18.0
 	github.com/MetalBlueberry/go-plotly v0.4.0
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
+//	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
 	gonum.org/v1/gonum v0.12.0
 )
 

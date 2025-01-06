@@ -35,34 +35,21 @@ func compare[T float64 | int | string | time.Time](n int, x, y []T, comp func(a,
 	return v, nil
 }
 
+func gt[T float64 | int | string](a, b T) bool { return a > b }
+func ge[T float64 | int | string](a, b T) bool { return a >= b }
+func lt[T float64 | int | string](a, b T) bool { return a < b }
+func le[T float64 | int | string](a, b T) bool { return a <= b }
+func eq[T float64 | int | string](a, b T) bool { return a == b }
+func ne[T float64 | int | string](a, b T) bool { return a != b }
+
 // buildTests builds suite of comparison function (>, <, >=, <=, ==, !=) for the four
 // core data types (dtFloat, dtInt, dtString,dtDate).
 func buildTests() [][]func(x ...any) (*d.Vector, error) {
+
 	// build "greater than" functions for each type
-	fltCmp := []func(a, b float64) bool{
-		func(a, b float64) bool { return a > b },
-		func(a, b float64) bool { return a < b },
-		func(a, b float64) bool { return a >= b },
-		func(a, b float64) bool { return a <= b },
-		func(a, b float64) bool { return a == b },
-		func(a, b float64) bool { return a != b },
-	}
-	intCmp := []func(a, b int) bool{
-		func(a, b int) bool { return a > b },
-		func(a, b int) bool { return a < b },
-		func(a, b int) bool { return a >= b },
-		func(a, b int) bool { return a <= b },
-		func(a, b int) bool { return a == b },
-		func(a, b int) bool { return a != b },
-	}
-	stringCmp := []func(a, b string) bool{
-		func(a, b string) bool { return a > b },
-		func(a, b string) bool { return a < b },
-		func(a, b string) bool { return a >= b },
-		func(a, b string) bool { return a <= b },
-		func(a, b string) bool { return a == b },
-		func(a, b string) bool { return a != b },
-	}
+	fltCmp := []func(a, b float64) bool{gt[float64], lt[float64], ge[float64], le[float64], eq[float64], ne[float64]}
+	intCmp := []func(a, b int) bool{gt[int], lt[int], ge[int], le[int], eq[int], ne[int]}
+	stringCmp := []func(a, b string) bool{gt[string], lt[string], ge[string], le[string], eq[string], ne[string]}
 	dateCmp := []func(a, b time.Time) bool{
 		func(a, b time.Time) bool { return a.After(b) },
 		func(a, b time.Time) bool { return a.Before(b) },
