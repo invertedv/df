@@ -79,7 +79,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 
 func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) (*DF, error) {
 	if n <= 0 {
-		panic(fmt.Errorf("n must be positive in NewDFseq"))
+		return nil, fmt.Errorf("n must be positive in NewDFseq")
 	}
 
 	if funcs == nil {

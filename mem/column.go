@@ -77,7 +77,7 @@ func toString(x any) (any, bool) {
 
 func (c *Col) String() string {
 	if c.Name() == "" {
-		panic("column has no name")
+		_ = d.ColName("unnamed")(c)
 	}
 
 	t := fmt.Sprintf("column: %s\ntype: %s\n", c.Name(), c.DataType())

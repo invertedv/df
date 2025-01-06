@@ -58,7 +58,7 @@ func (v *Vector) Append(data ...any) error {
 	case DTdate:
 		v.data = append(v.data.([]time.Time), vAdd.([]time.Time)...)
 	default:
-		panic(fmt.Errorf("unknown type in Vector.Append"))
+		return fmt.Errorf("unknown type in Vector.Append")
 	}
 
 	return nil
@@ -79,7 +79,7 @@ func (v *Vector) AppendVector(vAdd *Vector) error {
 	case DTdate:
 		v.data = append(v.data.([]time.Time), vAdd.data.([]time.Time)...)
 	default:
-		panic(fmt.Errorf("unknown type in Vector.Append"))
+		return fmt.Errorf("unknown type in Vector.Append")
 	}
 
 	return nil
@@ -271,7 +271,7 @@ func (v *Vector) Len() int {
 	case DTdate:
 		return len(v.data.([]time.Time))
 	default:
-		panic(fmt.Errorf("unexpected error in Vector.Len"))
+		return 0
 	}
 }
 
