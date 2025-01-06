@@ -10,8 +10,6 @@ import (
 
 // *********** functions which return a vector ***********
 
-// TODO: what happens if try to compare to dtCategorical??
-
 func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
@@ -386,7 +384,7 @@ func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		return &d.FnReturn{Err: e}
 	}
 
-	d.ColRawType(dt)(outCol.(*Col).ColCore)
+	_ = d.ColRawType(dt)(outCol.(*Col).ColCore)
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
@@ -433,7 +431,7 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		return &d.FnReturn{Err: e}
 	}
 
-	d.ColRawType(newData.DataType())(outCol.(*Col).ColCore)
+	_ = d.ColRawType(newData.DataType())(outCol.(*Col).ColCore)
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn

@@ -43,13 +43,7 @@ func (p *Parsed) Which() string {
 }
 
 func Parse(df DF, expr string) (*Parsed, error) {
-	var (
-		ot *opTree
-		e  error
-	)
-	if ot, e = newOpTree(expr, df.Fns()); e != nil {
-		return nil, e
-	}
+	ot := newOpTree(expr, df.Fns())
 
 	if ex := ot.build(); ex != nil {
 		return nil, ex
@@ -124,12 +118,12 @@ func newParsed(value any, dependencies ...string) *Parsed {
 		return p
 	}
 
-	colDependencies(dependencies)(value.(Column).Core())
+	_ = colDependencies(dependencies)(value.(Column).Core())
 	p.col = value.(Column)
 	return p
 }
 
-func newOpTree(expression string, funcs Fns) (*opTree, error) {
+func newOpTree(expression string, funcs Fns) *opTree {
 	expression = strings.ReplaceAll(expression, " ", "")
 	var fns []string
 	for _, fn := range funcs {
@@ -137,7 +131,7 @@ func newOpTree(expression string, funcs Fns) (*opTree, error) {
 	}
 
 	ot := &opTree{expr: expression, funcs: funcs, ops: newOperations(), fnNames: fns}
-	return ot, nil
+	return ot
 }
 
 func newOperations() operations {
@@ -446,13 +440,7 @@ func (ot *opTree) makeFn(fnName string) error {
 			continue
 		}
 
-		var (
-			op *opTree
-			ex error
-		)
-		if op, ex = newOpTree(x[ind], ot.funcs); ex != nil {
-			return ex
-		}
+		op := newOpTree(x[ind], ot.funcs)
 
 		if ex := op.build(); ex != nil {
 			return ex

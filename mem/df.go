@@ -69,7 +69,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	outDF := &DF{DFcore: df, row: -1}
 
 	for _, opt := range opts {
-		if ex := opt(outDF); e != nil {
+		if ex := opt(outDF); ex != nil {
 			return nil, ex
 		}
 	}

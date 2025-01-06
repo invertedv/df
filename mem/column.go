@@ -70,45 +70,6 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
-func (c *Col) ReplaceX(indicator, replacement d.Column) (d.Column, error) {
-	panic("not implemented")
-	/*
-		if c.DataType() != replacement.DataType() {
-			return nil, fmt.Errorf("incompatible columns in Replace")
-		}
-
-		n := d.MaxInt(c.Len(), indicator.Len(), replacement.Len())
-		if (c.Len() > 1 && c.Len() != n) || (indicator.Len() > 1 && indicator.Len() != n) ||
-			(replacement.Len() > 1 && replacement.Len() != n) {
-			return nil, fmt.Errorf("columns not same length in Replacef")
-		}
-
-		if indicator.DataType() != d.DTint {
-			return nil, fmt.Errorf("indicator not type DTint in Replace")
-		}
-
-		data := d.MakeSlice(c.DataType(), 0, nil)
-
-		for ind := 0; ind < n; ind++ {
-			x := c.Element(ind)
-			if indicator.(*Col).Element(ind).(int) > 0 {
-				x = replacement.(*Col).Element(ind)
-			}
-
-			data = d.AppendSlice(data, x, c.DataType())
-		}
-		var (
-			outCol *Col
-			e      error
-		)
-		if outCol, e = NewCol("", data); e != nil {
-			return nil, e
-		}
-
-		return outCol, nil
-	*/
-}
-
 // TODO: get rid of this ... was using d.ToString(x)
 func toString(x any) (any, bool) {
 	return fmt.Sprintf("%v", x), true

@@ -167,6 +167,10 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
 	if d.DialectName() == ch {
+		if d.Exists(tableName) && !overwrite {
+			return fmt.Errorf("table %s exists", tableName)
+		}
+
 		if orderBy == "" {
 			orderBy = fields[0]
 		}

@@ -392,8 +392,8 @@ func (f *Files) Save(fileName string, df DF) error {
 		return e
 	}
 
-	if e = f.writeHeader(df.ColumnNames()); e != nil {
-		return e
+	if ex := f.writeHeader(df.ColumnNames()); ex != nil {
+		return ex
 	}
 
 	for row, eof := df.Iter(true); eof == nil; row, eof = df.Iter(false) {
