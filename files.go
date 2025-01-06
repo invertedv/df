@@ -41,7 +41,7 @@ type Files struct {
 	rdr       *bufio.Reader
 }
 
-func NewFiles(opts ...FileOpt) *Files {
+func NewFiles(opts ...FileOpt) (*Files, error) {
 	f := &Files{
 		eol:           byte('\n'),
 		sep:           byte(','),
@@ -57,115 +57,161 @@ func NewFiles(opts ...FileOpt) *Files {
 	}
 
 	for _, opt := range opts {
-		opt(f)
+		if e := opt(f); e != nil {
+			return nil, e
+		}
 	}
 
-	return f
+	return f, nil
 }
 
 // ***************** setters *****************
 
-type FileOpt func(f *Files)
+type FileOpt func(f *Files) error
 
 func FileDefaultDate(year, mon, day int) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
+		if year < 1900 || year > 2200 {
+			return fmt.Errorf("invalid year in default date: %d", year)
+		}
+
+		if mon < 1 || mon > 12 {
+			return fmt.Errorf("invalid month in default date: %d", mon)
+		}
+
+		if day < 1 || day > 31 {
+			return fmt.Errorf("invalid day in default date: %d", day)
+		}
+
 		t := time.Date(year, time.Month(mon), day, 0, 0, 0, 0, time.UTC)
 		f.defaultDate = t
+
+		return nil
 	}
 }
 
 // FileDefaultInt sets the value to use for fields that fail to convert to integer if strict=false.
 // Default: math.MaxInt
 func FileDefaultInt(deflt int) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.defaultInt = deflt
+
+		return nil
 	}
 }
 
 func FileDefaultFloat(deflt float64) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.defaultFloat = deflt
+
+		return nil
 	}
 }
 
 func FileDefaultString(deflt string) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.defaultString = deflt
+
+		return nil
 	}
 }
 
 func FileDateFormat(format string) FileOpt {
-	return func(f *Files) {
-		if has(format, dateFormats) {
-			f.dateFormat = format
+	return func(f *Files) error {
+		if !has(format, dateFormats) {
+			return fmt.Errorf("invalid date format: %s", format)
 		}
+
+		f.dateFormat = format
+
+		return nil
 	}
 }
 
 func FileEOL(eol byte) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.eol = eol
+
+		return nil
 	}
 }
 
 func FileFieldNames(fieldNames []string) FileOpt {
-	for _, fn := range fieldNames {
-		if !validName(fn) {
-			panic(fmt.Errorf("invalid field name: %s", fn))
+	return func(f *Files) error {
+		for _, fn := range fieldNames {
+			if !validName(fn) {
+				return fmt.Errorf("invalid field name: %s", fn)
+			}
 		}
-	}
 
-	return func(f *Files) {
 		f.fieldNames = fieldNames
+
+		return nil
 	}
 }
 
 func FileFieldTypes(fieldTypes []DataTypes) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.fieldTypes = fieldTypes
+
+		return nil
 	}
 }
 
 func FileFieldWidths(fieldWidths []int) FileOpt {
-	tot := 0
-	for _, fw := range fieldWidths {
-		tot += fw
-		if fw <= 0 {
-			panic(fmt.Errorf("fieldwidths must be positive"))
+	return func(f *Files) error {
+		tot := 0
+		for _, fw := range fieldWidths {
+			tot += fw
+			if fw <= 0 {
+				return fmt.Errorf("fieldwidths must be positive")
+			}
 		}
-	}
 
-	return func(f *Files) {
 		f.fieldWidths = fieldWidths
 		f.lineWidth = tot
+
+		return nil
 	}
 }
 
 func FileFloatFormat(format string) FileOpt {
-	return func(f *Files) {
-		if ok, _ := regexp.MatchString("%[0-9]?[0-9]?.[0-9]?[0-9]?f", format); ok {
-			f.floatFormat = format
+	return func(f *Files) error {
+		if ok, _ := regexp.MatchString("%[0-9]?[0-9]?.[0-9]?[0-9]?f", format); !ok {
+			return fmt.Errorf("invalid float format: %s", format)
 		}
+
+		f.floatFormat = format
+
+		return nil
 	}
 }
 
 func FileHeader(hasHeader bool) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.header = hasHeader
+
+		return nil
 	}
 }
 
 func FilePeek(linesToPeek int) FileOpt {
-	return func(f *Files) {
-		if linesToPeek >= 0 {
-			f.peek = linesToPeek
+	return func(f *Files) error {
+		if linesToPeek < 0 {
+			return fmt.Errorf("file peek value cannot be negative")
 		}
+
+		f.peek = linesToPeek
+
+		return nil
 	}
 }
 
 func FileSep(sep byte) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.sep = sep
+
+		return nil
 	}
 }
 
@@ -174,14 +220,18 @@ func FileSep(sep byte) FileOpt {
 // If false, the default value is substituted.
 // Default: false
 func FileStrict(strict bool) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.strict = strict
+
+		return nil
 	}
 }
 
 func FileStringDelim(delim byte) FileOpt {
-	return func(f *Files) {
+	return func(f *Files) error {
 		f.stringDelim = delim
+
+		return nil
 	}
 }
 

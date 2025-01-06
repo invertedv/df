@@ -1,6 +1,5 @@
 package df
 
-// TODO: implement parent
 import "fmt"
 
 // Column interface defines the methods the columns of DFcore that must be supported
@@ -11,7 +10,6 @@ type Column interface {
 	Copy() Column
 	Data() *Vector
 	Len() int
-	//	Replace(ind, repl Column) (Column, error)
 	String() string
 }
 
@@ -74,6 +72,7 @@ func ColCatMap(cm CategoryMap) ColOpt {
 		}
 
 		c.Core().catMap = cm
+
 		return nil
 	}
 }
@@ -85,6 +84,7 @@ func ColDataType(dt DataTypes) ColOpt {
 		}
 
 		c.Core().dt = dt
+
 		return nil
 	}
 }
@@ -101,12 +101,13 @@ func ColName(name string) ColOpt {
 			}
 		}
 
-		if validName(name) {
-			c.Core().name = name
-			return nil
+		if !validName(name) {
+			return fmt.Errorf("invalid column name %s", name)
 		}
 
-		return fmt.Errorf("invalid column name %s", name)
+		c.Core().name = name
+
+		return nil
 	}
 }
 

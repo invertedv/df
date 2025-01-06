@@ -10,7 +10,7 @@ import (
 // TODO: panic needs error or just string?
 
 type DF interface {
-	DD
+	DC
 
 	AppendDF(df DF) (DF, error)
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
@@ -24,7 +24,7 @@ type DF interface {
 	Where(indicator Column) (DF, error)
 }
 
-type DD interface {
+type DC interface {
 	Core() *DFcore
 	AppendColumn(col Column, replace bool) error
 	Column(colName string) Column
@@ -95,10 +95,10 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 
 // *********** setters ***********
 
-type DFopt func(df DD) error
+type DFopt func(df DC) error
 
 func DFdialect(d *Dialect) DFopt {
-	return func(df DD) error {
+	return func(df DC) error {
 		if df == nil {
 			return fmt.Errorf("nil dataframe to DFdialect")
 		}
@@ -110,7 +110,7 @@ func DFdialect(d *Dialect) DFopt {
 }
 
 func DFappendFn(f Fn) DFopt {
-	return func(df DD) error {
+	return func(df DC) error {
 		if df == nil {
 			return fmt.Errorf("nil dataframe to DFappendFn")
 		}
@@ -122,7 +122,7 @@ func DFappendFn(f Fn) DFopt {
 }
 
 func DFsetFns(f Fns) DFopt {
-	return func(df DD) error {
+	return func(df DC) error {
 		if df == nil {
 			return fmt.Errorf("nil dataframe to DFsetFns")
 		}

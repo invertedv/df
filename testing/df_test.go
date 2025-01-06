@@ -19,29 +19,30 @@ func slash(inStr string) string {
 	return inStr + "/"
 }
 
-/*
-	func TestPlotXY(t *testing.T) {
-		dfx := loadData("ch")
-		e := dfx.Sort(true, "x")
-		assert.Nil(t, e)
-		p := d.NewPlot(d.WithTitle("This Is A Test"), d.WithXlabel("X-Axis"),
-			d.WithYlabel("Y-Axis"), d.WithLegend(true))
-		d.WithSubtitle("(subtitle here)")(p)
-		d.WithXlabel("New X Label")(p)
-		d.WithTitle("What???")(p)
-		d.WithHeight(800)(p)
-		d.WithWidth(800)(p)
-		x := dfx.Column("x")
-		y, _ := dfx.Parse("exp(x)")
-		y.AsColumn().Name("expy")
-		e1 := p.PlotXY(x, y.AsColumn(), "s1", "red")
-		assert.Nil(t, e1)
-		e2 := p.PlotXY(x, x, "s2", "black")
-		assert.Nil(t, e2)
-		//	e3 := p.Show("", "")
-		//	assert.Nil(t, e3)
-	}
-*/
+func TestPlotXY(t *testing.T) {
+	dfx := loadData("mem")
+	e := dfx.Sort(true, "x")
+	assert.Nil(t, e)
+	p := d.NewPlot(d.PlotTitle("This Is A Test"), d.PlotXlabel("X-Axis"),
+		d.PlotYlabel("Y-Axis"), d.PlotLegend(true))
+	_ = d.PlotSubtitle("(subtitle here)")(p)
+	_ = d.PlotXlabel("New X Label")(p)
+	_ = d.PlotTitle("What???")(p)
+	_ = d.PlotHeight(800)(p)
+	_ = d.PlotWidth(800)(p)
+	x := dfx.Column("x")
+	y, _ := d.Parse(dfx, "exp(x)")
+	_ = d.ColName("expy")(y.AsColumn())
+	e1 := p.PlotXY(x, y.AsColumn(), "s1", "red")
+	assert.Nil(t, e1)
+	e2 := p.PlotXY(x, x, "s2", "black")
+	assert.Nil(t, e2)
+	//	e3 := p.Show("", "")
+	//	assert.Nil(t, e3)
+
+	e4 := d.PlotHeight(10)(p)
+	assert.NotNil(t, e4)
+}
 
 /*func TestTypes(t *testing.T) {
 	table := "SELECT * EXCEPT(fhfa_msad, delta) FROM fhfa.msad LIMIT 10"
@@ -161,14 +162,14 @@ func TestFileSave(t *testing.T) {
 
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		f1 := d.NewFiles()
+		f1, _ := d.NewFiles()
 
 		fn := slash(os.Getenv("datapath")) + fileName
 		e := f1.Save(fn, dfx)
 		assert.Nil(t, e)
 
 		ct, _ := dfx.ColumnTypes()
-		f := d.NewFiles(d.FileFieldNames(dfx.ColumnNames()), d.FileFieldTypes(ct))
+		f, _ := d.NewFiles(d.FileFieldNames(dfx.ColumnNames()), d.FileFieldTypes(ct))
 		e1 := f.Open(fn)
 		assert.Nil(t, e1)
 		dfy, e2 := m.FileLoad(f)
@@ -257,7 +258,7 @@ func TestFilesOpen(t *testing.T) {
 	fieldNames := []string{"k", "x", "y", "yy", "z", "dt"}
 	fieldTypes := []d.DataTypes{d.DTint, d.DTfloat, d.DTint, d.DTint, d.DTstring, d.DTdate}
 	fieldWidths := []int{1, 5, 2, 3, 10, 8}
-	f := d.NewFiles(d.FileEOL(0), d.FileHeader(false), d.FileStrict(false),
+	f, _ := d.NewFiles(d.FileEOL(0), d.FileHeader(false), d.FileStrict(false),
 		d.FileFieldNames(fieldNames), d.FileFieldTypes(fieldTypes), d.FileFieldWidths(fieldWidths))
 	e := f.Open(slash(os.Getenv("datapath")) + fileNameW1)
 	assert.Nil(t, e)
@@ -272,7 +273,7 @@ func TestFilesOpen(t *testing.T) {
 	}
 
 	// file has eol characters
-	f = d.NewFiles(d.FileHeader(false), d.FileStrict(false),
+	f, _ = d.NewFiles(d.FileHeader(false), d.FileStrict(false),
 		d.FileFieldNames(fieldNames), d.FileFieldTypes(fieldTypes), d.FileFieldWidths(fieldWidths))
 	e4 := f.Open(slash(os.Getenv("datapath")) + fileNameW2)
 	assert.Nil(t, e4)
@@ -287,7 +288,7 @@ func TestFilesOpen(t *testing.T) {
 	}
 
 	// file has eol characters and a header, but still specify these
-	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false),
+	f, _ = d.NewFiles(d.FileHeader(true), d.FileStrict(false),
 		d.FileFieldNames(fieldNames), d.FileFieldTypes(fieldTypes), d.FileFieldWidths(fieldWidths))
 	e8 := f.Open(slash(os.Getenv("datapath")) + fileNameW3)
 	assert.Nil(t, e8)
@@ -302,7 +303,7 @@ func TestFilesOpen(t *testing.T) {
 	}
 
 	// file has eol characters and a header, have it read fieldNames and infer types
-	f = d.NewFiles(d.FileHeader(true), d.FileStrict(false), d.FileFieldWidths(fieldWidths))
+	f, _ = d.NewFiles(d.FileHeader(true), d.FileStrict(false), d.FileFieldWidths(fieldWidths))
 	e12 := f.Open(slash(os.Getenv("datapath")) + fileNameW3)
 	assert.Nil(t, e12)
 	df4, e13 := m.FileLoad(f)
@@ -318,11 +319,11 @@ func TestFilesOpen(t *testing.T) {
 
 func TestFilesSave(t *testing.T) {
 	dfx := loadData(mem)
-	fs := d.NewFiles()
+	fs, _ := d.NewFiles()
 	e0 := fs.Save(slash(os.Getenv("datapath"))+fileName, dfx)
 	assert.Nil(t, e0)
 
-	f := d.NewFiles(d.FileStrict(false))
+	f, _ := d.NewFiles(d.FileStrict(false))
 	e := f.Open(slash(os.Getenv("datapath")) + fileName)
 	assert.Nil(t, e)
 	dfy, e1 := m.FileLoad(f)

@@ -16,7 +16,7 @@ type Plot struct {
 	Lay *grob.Layout
 }
 
-type PlotOpt func(plot *Plot)
+type PlotOpt func(plot *Plot) error
 
 func NewPlot(opt ...PlotOpt) *Plot {
 	fig := &grob.Fig{}
@@ -32,56 +32,71 @@ func NewPlot(opt ...PlotOpt) *Plot {
 }
 
 func PlotWidth(w float64) PlotOpt {
-	return func(p *Plot) {
-		if w > 25 {
-			p.Lay.Width = w
+	return func(p *Plot) error {
+		if w < 25 {
+			return fmt.Errorf("invalid width: %v", w)
 		}
+
+		p.Lay.Width = w
+		return nil
 	}
 }
 
 func PlotHeight(h float64) PlotOpt {
-	return func(p *Plot) {
-		if h > 25 {
-			p.Lay.Height = h
+	return func(p *Plot) error {
+		if h <= 25 {
+			return fmt.Errorf("invalid height: %v", h)
 		}
+
+		p.Lay.Height = h
+		return nil
 	}
 }
 
 func PlotTitle(title string) PlotOpt {
-	return func(p *Plot) { p.Lay.Title = &grob.LayoutTitle{Text: title} }
+	return func(p *Plot) error {
+		p.Lay.Title = &grob.LayoutTitle{Text: title}
+		return nil
+	}
 }
 
 // add to below x title
 func PlotSubtitle(subTitle string) PlotOpt {
-	return func(p *Plot) {
+	return func(p *Plot) error {
 		if p.Lay.Xaxis == nil {
 			p.Lay.Xaxis = &grob.LayoutXaxis{}
 		}
+
 		if p.Lay.Xaxis.Title == nil {
 			p.Lay.Xaxis.Title = &grob.LayoutXaxisTitle{}
 		}
 
 		xAxis := p.Lay.Xaxis
+
 		var xLabel string
 		if xLabel = xAxis.Title.Text.(string); xLabel != "" {
 			xLabel += "<br>"
 		}
+
 		xAxis.Title.Text = xLabel + subTitle
+		return nil
 	}
 }
 
 func PlotLegend(show bool) PlotOpt {
-	return func(p *Plot) {
+	return func(p *Plot) error {
 		if show {
 			p.Lay.Showlegend = grob.True
 		} else {
 			p.Lay.Showlegend = grob.False
 		}
+
+		return nil
 	}
 }
 
 func PlotXlabel(label string) PlotOpt {
-	return func(p *Plot) {
+	return func(p *Plot) error {
 		if p.Lay.Xaxis == nil {
 			p.Lay.Xaxis = &grob.LayoutXaxis{}
 		}
@@ -100,11 +115,13 @@ func PlotXlabel(label string) PlotOpt {
 		}
 
 		xAxis.Title.Text = label + subTitle
+
+		return nil
 	}
 }
 
 func PlotYlabel(label string) PlotOpt {
-	return func(p *Plot) {
+	return func(p *Plot) error {
 		if p.Lay.Yaxis == nil {
 			p.Lay.Yaxis = &grob.LayoutYaxis{}
 		}
@@ -114,6 +131,8 @@ func PlotYlabel(label string) PlotOpt {
 
 		yAxis := p.Lay.Yaxis
 		yAxis.Title.Text = label
+
+		return nil
 	}
 }
 
