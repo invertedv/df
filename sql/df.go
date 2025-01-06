@@ -1,5 +1,7 @@
 package sql
 
+import d "github.com/invertedv/df"
+
 // TODO: change SQL() to return string
 /*
 import (
@@ -36,13 +38,6 @@ type DF struct {
 	row  []any
 }
 
-type Col struct {
-	sql string // SQL to generate this column
-
-	//	scalarValue any // This is for keeping the actual value of constants rather than SQL version
-
-	*d.ColCore
-}
 
 // ***************** DF - Create *****************
 
@@ -554,13 +549,6 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 
 // ***************** Helpers *****************
 
-func panicer(cols ...d.Column) {
-	for _, c := range cols {
-		if _, ok := c.(*Col); !ok {
-			panic("non sql.*Col argument")
-		}
-	}
-}
 
 func sameSource(s1, s2 any) bool {
 	sql1, sql2 := "No", "Match"
@@ -583,3 +571,11 @@ func sameSource(s1, s2 any) bool {
 	return sql1 == sql2
 }
 */
+
+func panicer(cols ...d.Column) {
+	for _, c := range cols {
+		if _, ok := c.(*Col); !ok {
+			panic("non sql.*Col argument")
+		}
+	}
+}

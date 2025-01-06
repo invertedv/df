@@ -1,12 +1,7 @@
 package df
 
-type CC interface {
-	Core() *ColCore
-	CategoryMap() CategoryMap
-	DataType() DataTypes
-	Dependencies() []string
-	Name() string
-}
+// TODO: implement parent
+import "fmt"
 
 // Column interface defines the methods the columns of DFcore that must be supported
 type Column interface {
@@ -18,6 +13,15 @@ type Column interface {
 	Len() int
 	//	Replace(ind, repl Column) (Column, error)
 	String() string
+}
+
+type CC interface {
+	Core() *ColCore
+	CategoryMap() CategoryMap
+	DataType() DataTypes
+	Dependencies() []string
+	Name() string
+	Parent() *DFcore
 }
 
 // *********** ColCore ***********
@@ -32,57 +36,120 @@ type ColCore struct {
 	rawType   DataTypes
 
 	dep []string
+
+	parent *DFcore
 }
 
-func NewColCore(dt DataTypes, ops ...ColOpt) *ColCore {
+func NewColCore(dt DataTypes, ops ...ColOpt) (*ColCore, error) {
 	c := &ColCore{dt: dt}
 
 	for _, op := range ops {
-		op(c)
+		if e := op(c); e != nil {
+			return nil, e
+		}
 	}
 
-	return c
+	return c, nil
 }
 
 // *********** Setters ***********
 
-type ColOpt func(c CC)
+type ColOpt func(c CC) error
 
 func ColCatCounts(ct CategoryMap) ColOpt {
-	return func(c CC) {
+	return func(c CC) error {
+		if c == nil {
+			return fmt.Errorf("nil column to ColCatCounts")
+		}
+
 		c.Core().catCounts = ct
+		return nil
 	}
 }
 
 func ColCatMap(cm CategoryMap) ColOpt {
-	return func(c CC) {
+	return func(c CC) error {
+		if c == nil {
+			return fmt.Errorf("nil column to ColCatMap")
+		}
+
 		c.Core().catMap = cm
+		return nil
 	}
 }
 
 func ColDataType(dt DataTypes) ColOpt {
-	return func(c CC) {
+	return func(c CC) error {
+		if c == nil {
+			return fmt.Errorf("nil column to ColDataType")
+		}
+
 		c.Core().dt = dt
+		return nil
 	}
 }
 
 func ColName(name string) ColOpt {
-	return func(c CC) {
+	return func(c CC) error {
+		if c == nil {
+			return fmt.Errorf("nil column to ColName")
+		}
+
+		if df := c.Parent(); df != nil {
+			if df.Column(name) != nil {
+				return fmt.Errorf("column name already exists: %s", name)
+			}
+		}
+
 		if validName(name) {
 			c.Core().name = name
+			return nil
 		}
+
+		return fmt.Errorf("invalid column name %s", name)
+	}
+}
+
+func ColParent(df *DFcore) ColOpt {
+	return func(c CC) error {
+		if c == nil {
+			return fmt.Errorf("nil column to ColParent")
+		}
+
+		if c.Name() == "" && df != nil {
+			return fmt.Errorf("column must have a name to assign parent")
+		}
+
+		if df != nil && df.Column(c.Name()) != nil {
+			return fmt.Errorf("cant assign parent: name collision")
+		}
+
+		// can only belong to one DF
+		if c.Parent() != nil {
+			_ = c.Parent().DropColumns(c.Name())
+		}
+
+		c.Core().parent = df
+
+		return nil
 	}
 }
 
 func ColRawType(rt DataTypes) ColOpt {
-	return func(c CC) {
+	return func(c CC) error {
+		if c == nil {
+			return fmt.Errorf("nil column to ColRawType")
+		}
+
 		c.Core().rawType = rt
+		return nil
 	}
 }
 
 func colDependencies(dep []string) ColOpt {
-	return func(c CC) {
+	return func(c CC) error {
 		c.Core().dep = dep
+		return nil
 	}
 }
 
@@ -97,12 +164,15 @@ func (c *ColCore) CategoryMap() CategoryMap {
 }
 
 func (c *ColCore) Copy() *ColCore {
-	return NewColCore(c.DataType(),
+	// don't copy parent
+	cx, _ := NewColCore(c.DataType(),
 		ColName(c.Name()),
 		colDependencies(c.Dependencies()),
 		ColRawType(c.RawType()),
 		ColCatMap(c.CategoryMap()),
 		ColCatCounts(c.CategoryCounts()))
+
+	return cx
 }
 
 // Core returns itself. We eed a method to return itself since DFCore struct will need these methods
@@ -120,6 +190,10 @@ func (c *ColCore) Dependencies() []string {
 
 func (c *ColCore) Name() string {
 	return c.name
+}
+
+func (c *ColCore) Parent() *DFcore {
+	return c.parent
 }
 
 func (c *ColCore) RawType() DataTypes {

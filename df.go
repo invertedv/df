@@ -66,8 +66,11 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
 
+	outDF := &DFcore{appFuncs: funcs}
+
 	var head, priorNode *columnList
 	for ind := 0; ind < len(cols); ind++ {
+		_ = ColParent(outDF)(cols[ind])
 		node := &columnList{
 			col: cols[ind],
 
@@ -86,28 +89,47 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 		}
 	}
 
-	return &DFcore{head: head, appFuncs: funcs}, nil
+	outDF.head = head
+	return outDF, nil
 }
 
 // *********** setters ***********
 
-type DFopt func(df DD)
+type DFopt func(df DD) error
 
 func DFdialect(d *Dialect) DFopt {
-	return func(df DD) {
+	return func(df DD) error {
+		if df == nil {
+			return fmt.Errorf("nil dataframe to DFdialect")
+		}
+
 		df.Core().dlct = d
+
+		return nil
 	}
 }
 
 func DFappendFn(f Fn) DFopt {
-	return func(df DD) {
+	return func(df DD) error {
+		if df == nil {
+			return fmt.Errorf("nil dataframe to DFappendFn")
+		}
+
 		df.Core().appFuncs = append(df.Core().appFuncs, f)
+
+		return nil
 	}
 }
 
 func DFsetFns(f Fns) DFopt {
-	return func(df DD) {
+	return func(df DD) error {
+		if df == nil {
+			return fmt.Errorf("nil dataframe to DFsetFns")
+		}
+
 		df.Core().appFuncs = f
+
+		return nil
 	}
 }
 
@@ -121,6 +143,8 @@ func (df *DFcore) AppendColumn(col Column, replace bool) error {
 			return fmt.Errorf("column %s already exists", col.Name())
 		}
 	}
+
+	_ = ColParent(df)(col)
 
 	// find last column
 	var tail *columnList
@@ -272,10 +296,13 @@ func (df *DFcore) DropColumns(colNames ...string) error {
 			node *columnList
 			e    error
 		)
-
 		if node, e = df.node(cName); e != nil {
-			return fmt.Errorf("column %s not found", cName)
+			return e
 		}
+
+		// make it an orphan
+		// can't use ColParent to do this since it will call DropColumns
+		node.col.Core().parent = nil
 
 		if node == df.head {
 			if df.head.next == nil {

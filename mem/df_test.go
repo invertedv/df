@@ -188,7 +188,7 @@ func TestParser(t *testing.T) {
 }
 
 func TestNewDFseq(t *testing.T) {
-	df := NewDFseq(nil, 5)
+	df, _ := NewDFseq(nil, 5)
 	col := df.Column("seq")
 	assert.NotNil(t, col)
 	assert.Equal(t, []int{0, 1, 2, 3, 4}, inter(col))

@@ -79,10 +79,14 @@ func TestCheck(t *testing.T) {
 	out, e := d.Parse(dfx, "float(x)")
 	assert.Nil(t, e)
 	d.ColName("xx")(out.AsColumn())
-	e1 := dfx.Core().AppendColumn(out.AsColumn(), false)
+	e1 := dfx.AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e1)
-	e2 := dfy.Core().AppendColumn(out.AsColumn(), false)
+	e2 := dfy.AppendColumn(out.AsColumn(), false)
 	assert.Nil(t, e2)
+	c1 := dfy.Column("xx")
+	assert.NotNil(t, c1)
+	c2 := dfx.Column("xx")
+	assert.Nil(t, c2)
 }
 
 func TestString(t *testing.T) {

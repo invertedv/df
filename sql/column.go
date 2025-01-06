@@ -1,23 +1,29 @@
 package sql
 
 /*
+
 import (
 	"fmt"
 
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
 )
+type Col struct {
+	sql string // SQL to generate this column
+	dialect *d.Dialect
+
+	//	scalarValue any // This is for keeping the actual value of constants rather than SQL version
+
+	*d.ColCore
+}
 
 // ***************** Col - Create *****************
 
-func NewColSQL(name string, context *d.Context, dt d.DataTypes, sqlx string) (*Col, error) {
-	if e := d.ValidName(name); e != nil {
-		return nil, e
-	}
-
+func NewColSQL(dt d.DataTypes,dialect *d.Dialect,  sqlx string, opts ...d.ColOpt) (*Col, error) {
 	col := &Col{
 		sql:     sqlx,
-		ColCore: d.NewColCore(dt, d.ColName(name), d.ColContext(context)),
+		dialect: dialect,
+		ColCore: d.NewColCore(dt, opts...),
 	}
 
 	return col, nil
@@ -31,17 +37,19 @@ func (c *Col) AppendRows(col d.Column) (d.Column, error) {
 	if c.DataType() != col.DataType() {
 		return nil, fmt.Errorf("incompatible columns in AppendRows")
 	}
+
 	q1 := c.MakeQuery()
 	cx := col.Copy()
-	cx.Rename(c.Name())
+	d.ColName(c.Name())(cx)
 	q2 := c.MakeQuery()
 
-	if _, e := c.Context().Dialect().Union(q1, q2, cx.Name()); e != nil {
+	if _, e := c.Dialect().Union(q1, q2, cx.Name()); e != nil {
 		return nil, e
 	}
 	outCol := &Col{
 		sql:     "",
-		ColCore: d.NewColCore(c.DataType(), d.ColName(c.Name()), d.ColContext(c.Context())),
+		dialect: c.Dialect(),
+		ColCore: d.NewColCore(c.DataType(), d.ColName(c.Name())),
 	}
 
 	return outCol, nil
@@ -61,7 +69,7 @@ func (c *Col) Core() *d.ColCore {
 	return c.ColCore
 }
 
-func (c *Col) Data() any {
+func (c *Col) Data() *d.Vector {
 	var (
 		df *m.DF
 		e  error
@@ -69,10 +77,12 @@ func (c *Col) Data() any {
 
 	// give it a random name if it does not have one
 	if c.Name() == "" {
-		_ = c.Rename(d.RandomLetters(5))
+//		_ = c.Rename(d.RandomLetters(5))
+		// TODO: fix
+		d.ColName("tempName")(c)
 	}
 
-	if df, e = m.DBLoad(c.MakeQuery(), c.Context().Dialect()); e != nil {
+	if df, e = m.DBLoad(c.MakeQuery(), c.Dialect()); e != nil {
 		panic(e)
 	}
 
@@ -92,12 +102,16 @@ func (c *Col) SQL() any {
 	return c.Name()
 }
 
+func (c *Col) Dialect() *d.Dialect{
+	return c.dialect
+}
+
 func (c *Col) Len() int {
 	var (
 		n  int
 		ex error
 	)
-	if n, ex = c.Context().Dialect().RowCount(c.MakeQuery()); ex != nil {
+	if n, ex = c.Dialect().RowCount(c.MakeQuery()); ex != nil {
 		panic(ex)
 	}
 
@@ -118,7 +132,7 @@ func (c *Col) MakeQuery() string {
 
 	deps := c.Dependencies()
 
-	w := d.RandomLetters(4)
+	w := c.Dialect().WithName()
 	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s AS %s FROM %s", w, df.MakeQuery(deps...), field, c.Name(), w)
 
 	return qry
@@ -126,9 +140,7 @@ func (c *Col) MakeQuery() string {
 
 func (c *Col) Rename(newName string) error {
 	oldName := c.Name()
-	if e := c.Core().Rename(newName); e != nil {
-		return e
-	}
+	d.ColName(newName)(c)
 
 	// if this is just a column pull, need to keep the source name for "AS"
 	if c.sql == "" {

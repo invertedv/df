@@ -42,15 +42,22 @@ func (s *Scalar) String() string {
 	return fmt.Sprintf("%v", s.atomic)
 }
 
-func NewScalar(val any, opts ...ColOpt) *Scalar {
+func NewScalar(val any, opts ...ColOpt) (*Scalar, error) {
 	var dt DataTypes
 	if dt = WhatAmI(val); dt == DTunknown {
-		panic("unsupported data type")
+		return nil, fmt.Errorf("unsupported data type")
 	}
 
-	cc := NewColCore(dt, opts...)
+	var (
+		cc *ColCore
+		e  error
+	)
+	if cc, e = NewColCore(dt, opts...); e != nil {
+		return nil, e
+	}
+
 	return &Scalar{
 		atomic:  val,
 		ColCore: cc,
-	}
+	}, nil
 }

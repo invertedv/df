@@ -89,11 +89,18 @@ func TestRandom(t *testing.T) {
 func TestRename(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
+		e := d.ColName("aa")(dfx.Column("xr"))
+		assert.NotNil(t, e)
+		e = d.ColName("x")(dfx.Column("y"))
+		assert.NotNil(t, e)
 		x1 := dfx.Column("x").Data()
-		d.ColName("xa")(dfx.Column("x"))
-		d.ColName("xb")(dfx.Column("xa"))
+		e = d.ColName("xa")(dfx.Column("x"))
+		assert.Nil(t, e)
+		e = d.ColName("xb")(dfx.Column("xa"))
+		assert.Nil(t, e)
 		assert.Equal(t, x1, dfx.Column("xb").Data())
-
+		e = d.ColName("x=")(dfx.Column("xb"))
+		assert.NotNil(t, e)
 	}
 }
 

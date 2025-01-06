@@ -302,7 +302,7 @@ func (ot *opTree) constant(xIn string) (*Parsed, error) {
 
 	if len(xIn) >= 2 && xIn[0:1] == "'" && xIn[len(xIn)-1:] == "'" {
 		xIn = strings.TrimSuffix(strings.TrimPrefix(xIn, "'"), "'")
-		c := NewScalar(xIn)
+		c, _ := NewScalar(xIn)
 		return newParsed(c), nil
 	}
 
@@ -315,7 +315,7 @@ func (ot *opTree) constant(xIn string) (*Parsed, error) {
 		return nil, fmt.Errorf("cannot interpret %v as a constant", xIn)
 	}
 
-	c := NewScalar(v)
+	c, _ := NewScalar(v)
 	return newParsed(c), nil
 }
 

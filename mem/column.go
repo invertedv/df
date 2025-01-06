@@ -19,9 +19,10 @@ type Col struct {
 func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 	var col *Col
 	if v, ok := data.(*d.Vector); ok {
+		cx, _ := d.NewColCore(v.VectorType())
 		col = &Col{
 			Vector:  v,
-			ColCore: d.NewColCore(v.VectorType()),
+			ColCore: cx,
 		}
 	}
 
@@ -34,14 +35,17 @@ func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 			return nil, e
 		}
 
+		cy, _ := d.NewColCore(dt)
 		col = &Col{
 			Vector:  v,
-			ColCore: d.NewColCore(dt),
+			ColCore: cy,
 		}
 	}
 
 	for _, opt := range opts {
-		opt(col)
+		if e := opt(col); e != nil {
+			return nil, e
+		}
 	}
 
 	return col, nil
@@ -50,7 +54,10 @@ func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 // ***************** Col - Methods *****************
 
 func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
-	panicer(col2)
+	if e := checkType(col2); e != nil {
+		return nil, e
+	}
+
 	return appendRows(c, col2) // NOTE: , c.Name())
 }
 
@@ -64,7 +71,6 @@ func (c *Col) Copy() d.Column {
 }
 
 func (c *Col) ReplaceX(indicator, replacement d.Column) (d.Column, error) {
-	panicer(indicator, replacement)
 	panic("not implemented")
 	/*
 		if c.DataType() != replacement.DataType() {

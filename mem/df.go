@@ -69,13 +69,15 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	outDF := &DF{DFcore: df, row: -1}
 
 	for _, opt := range opts {
-		opt(outDF)
+		if ex := opt(outDF); e != nil {
+			return nil, ex
+		}
 	}
 
 	return outDF, nil
 }
 
-func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) *DF {
+func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) (*DF, error) {
 	if n <= 0 {
 		panic(fmt.Errorf("n must be positive in NewDFseq"))
 	}
@@ -94,10 +96,12 @@ func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) *DF {
 	df, _ := NewDFcol(funcs, []*Col{col})
 
 	for _, opt := range opts {
-		opt(df)
+		if e := opt(df); e != nil {
+			return nil, e
+		}
 	}
 
-	return df
+	return df, nil
 }
 
 func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
@@ -182,7 +186,10 @@ func FileLoad(f *d.Files) (*DF, error) {
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
-	panicer(col)
+	if e := checkType(col); e != nil {
+		return e
+	}
+
 	if f.RowCount() != col.Len() && col.Len() > 1 {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
@@ -193,7 +200,9 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 		// should not fail
 		v, _ := d.NewVector(val, colx.DataType())
 		for ind := 1; ind < f.RowCount(); ind++ {
-			v.Append(val)
+			if e := v.Append(val); e != nil {
+				return e
+			}
 		}
 
 		colx.Vector = v
@@ -304,7 +313,9 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 			mapVal = toMap[defaultVal]
 		}
 
-		vec.Append(mapVal)
+		if e := vec.Append(mapVal); e != nil {
+			return nil, e
+		}
 
 	}
 
@@ -317,9 +328,9 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, e
 	}
 
-	d.ColDataType(d.DTcategorical)(outCol.ColCore)
-	d.ColCatMap(toMap)(outCol.ColCore)
-	d.ColCatCounts(cnts)(outCol.ColCore)
+	_ = d.ColDataType(d.DTcategorical)(outCol.ColCore)
+	_ = d.ColCatMap(toMap)(outCol.ColCore)
+	_ = d.ColCatCounts(cnts)(outCol.ColCore)
 
 	return outCol, nil
 }
@@ -482,7 +493,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	}
 
 	rate = ret.Value().(d.Column)
-	d.ColName("rate")(rate)
+	_ = d.ColName("rate")(rate)
 
 	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
 		return nil, ex1
@@ -492,7 +503,10 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 }
 
 func (f *DF) Where(indicator d.Column) (d.DF, error) {
-	panicer(indicator)
+	if e := checkType(indicator); e != nil {
+		return nil, e
+	}
+
 	if indicator.Len() != f.RowCount() {
 		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), f.RowCount())
 	}
@@ -572,6 +586,7 @@ func makeTable(cols ...*Col) []*Col {
 		}
 
 		_, _ = h.Write(str)
+
 		// increment the counter if that row is already mapped, o.w. add a new row
 		if v, ok := tabMap[h.Sum64()]; ok {
 			v.count++
@@ -595,10 +610,10 @@ func makeTable(cols ...*Col) []*Col {
 
 	for _, v := range tabMap {
 		for c := 0; c < len(cols); c++ {
-			outVecs[c].Append(v.row[c])
+			_ = outVecs[c].Append(v.row[c])
 		}
 
-		outVecs[len(outVecs)-1].Append(v.count)
+		_ = outVecs[len(outVecs)-1].Append(v.count)
 	}
 
 	var (
@@ -625,10 +640,12 @@ func makeTable(cols ...*Col) []*Col {
 	return outCols
 }
 
-func panicer(cols ...d.Column) {
+func checkType(cols ...d.Column) error {
 	for _, c := range cols {
 		if _, ok := c.(*Col); !ok {
-			panic("non-*Col argument")
+			return fmt.Errorf("column is wrong type: need mem/Col")
 		}
 	}
+
+	return nil
 }

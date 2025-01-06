@@ -100,7 +100,7 @@ func loadData(pkg string) d.DF {
 		panic(e2)
 	}
 
-	d.DFdialect(dialect)(df.Core())
+	_ = d.DFdialect(dialect)(df.Core())
 
 	return df
 }
