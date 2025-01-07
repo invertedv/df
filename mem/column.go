@@ -14,8 +14,6 @@ type Col struct {
 	*d.ColCore
 }
 
-// ***************** Col - Create *****************
-
 func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 	var col *Col
 	if v, ok := data.(*d.Vector); ok {
@@ -51,7 +49,7 @@ func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 	return col, nil
 }
 
-// ***************** Col - Methods *****************
+// ***************** Methods *****************
 
 func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
 	if e := checkType(col2); e != nil {

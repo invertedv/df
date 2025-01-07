@@ -657,7 +657,7 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 	return d.dbTypes[pos], nil
 }
 
-// **************** helpers **************
+// **************** Helpers **************
 
 func buildRow(k []reflect.Kind) []any {
 	var ry []any

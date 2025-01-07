@@ -4,8 +4,6 @@ import (
 	"fmt"
 )
 
-//  *********** atomic DataTypes ***********
-
 // DataTypes are the types of data that the package supports
 type DataTypes uint8
 

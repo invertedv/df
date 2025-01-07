@@ -2,8 +2,6 @@ package df
 
 import "fmt"
 
-// *********** Function types ***********
-
 type Fn func(info bool, df DF, inputs ...Column) *FnReturn
 
 type Fns []Fn

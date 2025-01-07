@@ -8,8 +8,6 @@ import (
 	d "github.com/invertedv/df"
 )
 
-// *********** functions which return a vector ***********
-
 func vector(name string, inp [][]d.DataTypes, outp []d.DataTypes, fnx ...any) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {

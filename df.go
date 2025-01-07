@@ -90,7 +90,7 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 	return outDF, nil
 }
 
-// *********** setters ***********
+// *********** Setters ***********
 
 type DFopt func(df DC) error
 
@@ -130,7 +130,7 @@ func DFsetFns(f Fns) DFopt {
 	}
 }
 
-// *********** methods ***********
+// *********** Methods ***********
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	if df.Column(col.Name()) != nil {

@@ -65,7 +65,7 @@ func NewFiles(opts ...FileOpt) (*Files, error) {
 	return f, nil
 }
 
-// ***************** setters *****************
+// ***************** Setters *****************
 
 type FileOpt func(f *Files) error
 
@@ -671,7 +671,7 @@ func (f *Files) splitFixed(b []byte) []string {
 	return out
 }
 
-// ****************** used by detect *********************
+// ****************** Used by detect *********************
 
 type ctr struct {
 	cInt    int

@@ -40,8 +40,6 @@ func StandardFunctions() d.Fns {
 	return fns
 }
 
-// ***************** DF - Create *****************
-
 func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if funcs == nil {
 		funcs = StandardFunctions()
@@ -182,7 +180,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 	return memDF, nil
 }
 
-// ***************** DF - Methods *****************
+// ***************** Methods *****************
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (f *DF) AppendColumn(col d.Column, replace bool) error {

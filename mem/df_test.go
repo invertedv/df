@@ -104,7 +104,7 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
-		{"string(float(1)+.234)", 0, "1.234"},
+		{"string(float(1)+.234)", 0, "1.23400"},
 		{"4+1--1", 0, 6},
 		{"if(y == 1, 2.0, (x))", 0, float64(2)},
 		{"if(y == 1, x, 2.0)", 1, float64(2)},
