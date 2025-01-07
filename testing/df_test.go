@@ -32,8 +32,8 @@ func TestPlotXY(t *testing.T) {
 	_ = d.PlotWidth(800)(p)
 	x := dfx.Column("x")
 	y, _ := d.Parse(dfx, "exp(x)")
-	_ = d.ColName("expy")(y.AsColumn())
-	e1 := p.PlotXY(x, y.AsColumn(), "s1", "red")
+	_ = d.ColName("expy")(y.Column())
+	e1 := p.PlotXY(x, y.Column(), "s1", "red")
 	assert.Nil(t, e1)
 	e2 := p.PlotXY(x, x, "s2", "black")
 	assert.Nil(t, e2)
@@ -79,11 +79,11 @@ func TestCheck(t *testing.T) {
 	dfy := loadData(ch)
 	out, e := d.Parse(dfx, "float(x)")
 	assert.Nil(t, e)
-	e0 := d.ColName("xx")(out.AsColumn())
+	e0 := d.ColName("xx")(out.Column())
 	assert.Nil(t, e0)
-	e1 := dfx.AppendColumn(out.AsColumn(), false)
+	e1 := dfx.AppendColumn(out.Column(), false)
 	assert.Nil(t, e1)
-	e2 := dfy.AppendColumn(out.AsColumn(), false)
+	e2 := dfy.AppendColumn(out.Column(), false)
 	assert.Nil(t, e2)
 	c1 := dfy.Column("xx")
 	assert.NotNil(t, c1)
@@ -153,7 +153,7 @@ func TestSQLsave(t *testing.T) {
 		assert.Nil(t, eb)
 		outx, ep := d.Parse(dfb, "actual==expected")
 		assert.Nil(t, ep)
-		assert.Equal(t, []int{1, 1, 1, 1, 1, 1}, inter(outx.AsColumn()))
+		assert.Equal(t, []int{1, 1, 1, 1, 1, 1}, inter(outx.Column()))
 	}
 }
 
@@ -191,7 +191,7 @@ func TestParse_Table(t *testing.T) {
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "table(y,yy)")
 		assert.Nil(t, e)
-		df1 := out.AsDF()
+		df1 := out.DF()
 		e1 := df1.Sort(false, "count")
 		assert.Nil(t, e1)
 		col := df1.Column("count")
@@ -221,11 +221,11 @@ func TestWhere(t *testing.T) {
 		dfx := loadData(which)
 		indCol, e := d.Parse(dfx, "y==-5 || yy == 16")
 		assert.Nil(t, e)
-		e0 := d.ColName("ind")(indCol.AsColumn())
+		e0 := d.ColName("ind")(indCol.Column())
 		assert.Nil(t, e0)
-		e1 := dfx.Core().AppendColumn(indCol.AsColumn(), false)
+		e1 := dfx.Core().AppendColumn(indCol.Column(), false)
 		assert.Nil(t, e1)
-		dfOut, e2 := dfx.Where(indCol.AsColumn())
+		dfOut, e2 := dfx.Where(indCol.Column())
 		assert.Nil(t, e2)
 		r := dfOut.Column("y")
 		fmt.Println(r.Data())
@@ -235,7 +235,7 @@ func TestWhere(t *testing.T) {
 		// via Parse
 		out, e3 := d.Parse(dfx, "where(y == -5 || yy == 16)")
 		assert.Nil(t, e3)
-		assert.Equal(t, []int{-5, 6}, inter(out.AsDF().Column("y")))
+		assert.Equal(t, []int{-5, 6}, inter(out.DF().Column("y")))
 	}
 }
 

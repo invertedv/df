@@ -22,11 +22,11 @@ func (p *Parsed) Value() any {
 	return nil
 }
 
-func (p *Parsed) AsDF() DF {
+func (p *Parsed) DF() DF {
 	return p.df
 }
 
-func (p *Parsed) AsColumn() Column {
+func (p *Parsed) Column() Column {
 	return p.col
 }
 
@@ -69,7 +69,7 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 		case "DF":
 			return nil, fmt.Errorf("cannot take DF as function input")
 		case "Column":
-			vals = append(vals, inputs[ind].AsColumn())
+			vals = append(vals, inputs[ind].Column())
 		}
 	}
 

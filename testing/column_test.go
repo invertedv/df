@@ -23,39 +23,8 @@ func inter(c d.Column) []int {
 
 	return x
 }
-func toString(x any) (any, bool) {
-	if s, ok := x.(string); ok {
-		return s, true
-	}
-
-	// TODO: improve # decimals choice
-	if f, ok := x.(float64); ok {
-		sd, dec, lf := 6, 5, 1
-		if f != 0 {
-			lf = max(0, int(math.Log10(math.Abs(f)))+1)
-			dec = max(0, sd-lf)
-		}
-
-		format := "%" + fmt.Sprintf("%d.%df", lf, dec)
-		return fmt.Sprintf(format, f), true
-	}
-
-	if i, ok := x.(int); ok {
-		return fmt.Sprintf("%d", i), true
-	}
-
-	if s, ok := x.(time.Time); ok {
-		return s.Format("2006-01-02"), true
-	}
-
-	return nil, false
-}
 
 func TestRandom(t *testing.T) {
-	fmt.Println(toString(-0.000001234567))
-	fmt.Println(toString(-10000000.1))
-	fmt.Println(toString(1000.12))
-	fmt.Println(toString(10.012))
 	n := 10000 //000
 	x := make([]float64, n)
 	y := make([]float64, n)
@@ -95,7 +64,7 @@ func TestRandom(t *testing.T) {
 	//	outCol, ep := d.Parse(df, "dot(y,y)")
 	assert.Nil(t, ep)
 
-	fmt.Println("value ", outCol.AsColumn().(*m.Col).Element(0))
+	fmt.Println("value ", outCol.Column().(*m.Col).Element(0))
 	t1 := time.Since(tx).Seconds()
 	fmt.Println(t1, " seconds")
 	tx = time.Now()
@@ -120,6 +89,7 @@ func TestRandom(t *testing.T) {
 func TestRename(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
+		fmt.Println(dfx.Column("x").Data())
 		e := d.ColName("aa")(dfx.Column("xr"))
 		assert.NotNil(t, e)
 		e = d.ColName("x")(dfx.Column("y"))
@@ -140,7 +110,7 @@ func TestRowNumber(t *testing.T) {
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "rowNumber()")
 		assert.Nil(t, e)
-		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, inter(out.AsColumn()))
+		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, inter(out.Column()))
 	}
 }
 
@@ -149,21 +119,21 @@ func TestReplace(t *testing.T) {
 		dfx := loadData(which)
 		indCol, e0 := d.Parse(dfx, "y==-5")
 		assert.Nil(t, e0)
-		d.ColName("ind")(indCol.AsColumn())
-		e := dfx.Core().AppendColumn(indCol.AsColumn(), false)
+		d.ColName("ind")(indCol.Column())
+		e := dfx.Core().AppendColumn(indCol.Column(), false)
 		assert.Nil(t, e)
 		coly := dfx.Column("y")
 		assert.NotNil(t, coly)
 		colyy := dfx.Column("yy")
 		assert.NotNil(t, colyy)
-		//		colR, e3 := coly.Replace(indCol.AsColumn(), colyy)
+		//		colR, e3 := coly.Replace(indCol.Column(), colyy)
 		//		assert.Nil(t, e3)
 		//		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, colR.Data())
 
 		// via Parse
 		out, e4 := d.Parse(dfx, "if(y==-5,yy,y)")
 		assert.Nil(t, e4)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, inter(out.AsColumn()))
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, inter(out.Column()))
 	}
 }
 
@@ -287,13 +257,13 @@ func TestParser(t *testing.T) {
 			fmt.Println(eqn)
 			xOut, e := d.Parse(dfx, eqn)
 			assert.Nil(t, e)
-			result := xOut.AsColumn().Data()
-			switch xOut.AsColumn().DataType() {
+			result := xOut.Column().Data()
+			switch xOut.Column().DataType() {
 			case d.DTfloat:
 				xv, _ := result.AsFloat()
 				assert.InEpsilon(t, x[ind][2].(float64), xv[x[ind][1].(int)], .001)
 			case d.DTint:
-				assert.Equal(t, x[ind][2], inter(xOut.AsColumn())[x[ind][1].(int)])
+				assert.Equal(t, x[ind][2], inter(xOut.Column())[x[ind][1].(int)])
 			case d.DTstring:
 				xv, _ := result.AsString()
 				assert.Equal(t, x[ind][2], xv[x[ind][1].(int)])
@@ -315,52 +285,52 @@ func TestToCat(t *testing.T) {
 
 		colx, e := d.Parse(dfx, "date(z)")
 		assert.Nil(t, e)
-		col := colx.AsColumn()
+		col := colx.Column()
 		d.ColName("dt1")(col)
 		e = dfx.Core().AppendColumn(col, false)
 		assert.Nil(t, e)
 
 		//		colx, e = dfx.Parse("1")
-		//		col = colx.AsColumn()
+		//		col = colx.Column()
 		//		e = col.Rename("howdy")
 		//		e = dfx.AppendColumn(col, false)
 		// try with DTint
 		colx, e = d.Parse(dfx, "cat(y)")
 		assert.Nil(t, e)
-		d.ColName("test")(colx.AsColumn())
-		result := colx.AsColumn()
+		d.ColName("test")(colx.Column())
+		result := colx.Column()
 		expected := []int{1, 0, 4, 1, 2, 3}
 		assert.Equal(t, expected, inter(result))
 
 		if which == "mem" {
-			e = dfx.AppendColumn(colx.AsColumn(), true)
+			e = dfx.AppendColumn(colx.Column(), true)
 			assert.Nil(t, e)
-			coly := colx.AsColumn().Copy()
+			coly := colx.Column().Copy()
 			d.ColName("test1")(coly)
 			e = dfx.AppendColumn(coly, true)
 			colx, e = d.Parse(dfx, "sum(int(test1)==int(test))")
 			assert.Nil(t, e)
-			assert.Equal(t, inter(colx.AsColumn().(*m.Col))[0], 6)
+			assert.Equal(t, inter(colx.Column().(*m.Col))[0], 6)
 		}
 
 		// try with DTstring
 		colx, e = d.Parse(dfx, "cat(z)")
 		assert.Nil(t, e)
-		result = colx.AsColumn()
+		result = colx.Column()
 		expected = []int{3, 0, 1, 1, 4, 2}
 		assert.Equal(t, expected, inter(result))
 
 		// try with DTdate
 		colx, e = d.Parse(dfx, "cat(dt1)")
 		assert.Nil(t, e)
-		result = colx.AsColumn()
+		result = colx.Column()
 		expected = []int{3, 0, 1, 1, 4, 2}
 		assert.Equal(t, expected, inter(result))
 
 		// try with fuzz > 1
 		colx, e = d.Parse(dfx, "cat(y, 2)")
 		assert.Nil(t, e)
-		result = colx.AsColumn()
+		result = colx.Column()
 		expected = []int{0, -1, -1, 0, -1, -1}
 		assert.Equal(t, expected, inter(result))
 
@@ -376,7 +346,7 @@ func TestApplyCat(t *testing.T) {
 
 		r, e := d.Parse(dfx, "cat(y)")
 		assert.Nil(t, e)
-		sx := r.AsColumn()
+		sx := r.Column()
 		d.ColName("caty")(sx)
 		e1 := dfx.Core().AppendColumn(sx, false)
 		assert.Nil(t, e1)
@@ -386,18 +356,18 @@ func TestApplyCat(t *testing.T) {
 
 		// -5 maps to 0 so all new values map to 0
 		expected := []int{1, 0, 0, 1, 0, 0}
-		assert.Equal(t, expected, inter(r2.AsColumn()))
+		assert.Equal(t, expected, inter(r2.Column()))
 
 		// try with fuzz > 1
 		r3, e3 := d.Parse(dfx, "cat(y,2)")
 		assert.Nil(t, e3)
-		d.ColName("caty2")(r3.AsColumn())
-		e4 := dfx.Core().AppendColumn(r3.AsColumn(), false)
+		d.ColName("caty2")(r3.Column())
+		e4 := dfx.Core().AppendColumn(r3.Column(), false)
 		assert.Nil(t, e4)
 
 		r5, e5 := d.Parse(dfx, "applyCat(yy,caty2,-5)")
 		assert.Nil(t, e5)
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, inter(r5.AsColumn()))
+		assert.Equal(t, expected, inter(r5.Column()))
 	}
 }

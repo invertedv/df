@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-// TODO: move stringer from mem/*Col to here?
-
 type Vector struct {
 	dt DataTypes
 
@@ -94,7 +92,7 @@ func (v *Vector) AsDate() ([]time.Time, error) {
 		return xOut.([]time.Time), nil
 	}
 
-	return nil, fmt.Errorf("cannot convert to Vector.AsDate")
+	return nil, fmt.Errorf("cannot convert to Vector to []Date")
 }
 
 func (v *Vector) AsFloat() ([]float64, error) {
@@ -102,7 +100,7 @@ func (v *Vector) AsFloat() ([]float64, error) {
 		return xOut.([]float64), nil
 	}
 
-	return nil, fmt.Errorf("cannot convert to Vector.AsFloat")
+	return nil, fmt.Errorf("cannot convert to Vector to []Float")
 }
 
 func (v *Vector) AsInt() ([]int, error) {
@@ -110,7 +108,7 @@ func (v *Vector) AsInt() ([]int, error) {
 		return xOut.([]int), nil
 	}
 
-	return nil, fmt.Errorf("cannot convert to Vector.AsInt")
+	return nil, fmt.Errorf("cannot convert to Vector to []Int")
 }
 
 func (v *Vector) AsString() ([]string, error) {
@@ -118,7 +116,7 @@ func (v *Vector) AsString() ([]string, error) {
 		return xOut.([]string), nil
 	}
 
-	return nil, fmt.Errorf("cannot convert to Vector.AsString")
+	return nil, fmt.Errorf("cannot convert to Vector to []String")
 }
 
 func (v *Vector) Coerce(to DataTypes) (*Vector, error) {
@@ -344,6 +342,20 @@ func (v *Vector) SetString(val string, indx int) error {
 	v.data.([]string)[indx] = val
 
 	return nil
+}
+
+func (v *Vector) String() string {
+	s := fmt.Sprintf("type: %v\nlength: %d\n\nElements:\n", v.VectorType(), v.Len())
+	for ind := 0; ind < min(5, v.Len()); ind++ {
+		v, _ := v.ElementString(ind)
+		s += fmt.Sprintf("%s\n", *v)
+	}
+
+	if v.Len() > 5 {
+		s += ".\n.\n.\n"
+	}
+
+	return s
 }
 
 func (v *Vector) Swap(i, j int) {

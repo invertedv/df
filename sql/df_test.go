@@ -84,12 +84,12 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 func TestRowNumber(t *testing.T) {
 	dfx := testDF()
 	out, e := dfx.Parse("rowNumber()")
-	q := out.AsColumn().(*Col).MakeQuery()
+	q := out.Column().(*Col).MakeQuery()
 	fmt.Println(q)
 	assert.Nil(t, e)
-	out.AsColumn().Rename("rn")
-	//	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.AsColumn(), -1))
-	fmt.Println(out.AsColumn().Data())
+	out.Column().Rename("rn")
+	//	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.Column(), -1))
+	fmt.Println(out.Column().Data())
 }
 
 func TestNewDFseq(t *testing.T) {
@@ -114,13 +114,13 @@ func TestWhere(t *testing.T) {
 
 	out, e := dfx.Parse("y == 1 || z == '20060310'")
 	assert.Nil(t, e)
-	result := checker(dfx, "test", out.AsColumn(), -1)
+	result := checker(dfx, "test", out.Column(), -1)
 	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, result)
 
 	expr := "where(y == 1)"
 	out, e = dfx.Parse(expr)
 	assert.Nil(t, e)
-	outDF := out.AsDF().(*DF)
+	outDF := out.DF().(*DF)
 	fmt.Println(outDF.MakeQuery())
 	e = outDF.Context().Dialect().Save("testing.where", "", true, outDF)
 	assert.Nil(t, e)
@@ -213,7 +213,7 @@ func TestParser(t *testing.T) {
 		fmt.Println(eqn)
 		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
-		result := checker(dfx, "test", xOut.AsColumn(), x[ind][1].(int))
+		result := checker(dfx, "test", xOut.Column(), x[ind][1].(int))
 
 		if d.WhatAmI(result) == d.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
@@ -249,7 +249,7 @@ func TestParserS(t *testing.T) {
 		fmt.Println(eqn)
 		xOut, ex := dfx.Parse(eqn)
 		assert.Nil(t, ex)
-		col := xOut.AsColumn()
+		col := xOut.Column()
 		col.Rename("test")
 		var (
 			dfNew *DF
@@ -287,9 +287,9 @@ func TestSQLdf_Table(t *testing.T) {
 	dfx := testDF()
 	dfTable, e := dfx.Parse("table(y,yy)")
 	assert.Nil(t, e)
-	e = dfTable.AsDF().Sort(true, "count")
+	e = dfTable.DF().Sort(true, "count")
 	assert.Nil(t, e)
-	outCol := checker(dfTable.AsDF(), "count", nil, -1)
+	outCol := checker(dfTable.DF(), "count", nil, -1)
 	assert.Equal(t, []int{1, 1, 1, 1, 2}, outCol)
 }
 
@@ -318,7 +318,7 @@ func TestSQLdf_AppendDF(t *testing.T) {
 	var c *d.Parsed
 	c, e = dfx.Parse("exp(x)")
 	assert.Nil(t, e)
-	col := c.AsColumn()
+	col := c.Column()
 	col.Rename("newCol")
 	e = dfx.AppendColumn(col, false)
 	assert.Nil(t, e)
@@ -330,14 +330,14 @@ func TestMemCol_Replace(t *testing.T) {
 	dfx := testDF()
 	indCol, e0 := dfx.Parse("y==-5")
 	assert.Nil(t, e0)
-	indCol.AsColumn().Rename("ind")
-	e3 := dfx.AppendColumn(indCol.AsColumn(), false)
+	indCol.Column().Rename("ind")
+	e3 := dfx.AppendColumn(indCol.Column(), false)
 	assert.Nil(t, e3)
 	coly := dfx.Column("y")
 	assert.NotNil(t, coly)
 	colyy := dfx.Column("yy")
 	assert.NotNil(t, colyy)
-	colR, e2 := coly.(*Col).Replace(indCol.AsColumn(), colyy)
+	colR, e2 := coly.(*Col).Replace(indCol.Column(), colyy)
 	assert.Nil(t, e2)
 	assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, checker(dfx, "rep", colR, -1))
 }
@@ -348,7 +348,7 @@ func TestCat(t *testing.T) {
 
 	r, e := dfx.Parse("cat(y, 1)")
 	assert.Nil(t, e)
-	s := r.AsColumn()
+	s := r.Column()
 	s.Rename("caty")
 	//	fmt.Println(s)
 	e = dfx.AppendColumn(s, false)
@@ -359,13 +359,13 @@ func TestCat(t *testing.T) {
 	fmt.Println(s)
 	r, e = dfx.Parse("int(caty)")
 	assert.Nil(t, e)
-	r.AsColumn().Rename("test")
-	fmt.Println(r.AsColumn())
+	r.Column().Rename("test")
+	fmt.Println(r.Column())
 	//	fmt.Println(dfx)
 
 	//	r, e = dfx.Parse("cat(z)")
 	//	assert.Nil(t, e)
-	//	s = r.AsColumn()
+	//	s = r.Column()
 	//	s.Name("catz")
 	//	e = dfx.AppendColumn(s, false)
 	//	assert.Nil(t, e)
@@ -392,14 +392,14 @@ func TestApplyCat(t *testing.T) {
 	dfx := testDF()
 	r, e := dfx.Parse("cat(y)")
 	assert.Nil(t, e)
-	s := r.AsColumn()
+	s := r.Column()
 	s.Rename("caty")
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
 
 	r, e = dfx.Parse("applyCat(yy, caty, -5)")
 	assert.Nil(t, e)
-	s = r.AsColumn()
+	s = r.Column()
 	s.Rename("catyy")
 	e = dfx.AppendColumn(s, false)
 	assert.Nil(t, e)
