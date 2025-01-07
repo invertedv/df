@@ -67,7 +67,7 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 
 	var head, priorNode *columnList
 	for ind := 0; ind < len(cols); ind++ {
-		_ = ColParent(outDF)(cols[ind])
+		//		_ = ColParent(outDF)(cols[ind])
 		node := &columnList{
 			col: cols[ind],
 
@@ -141,7 +141,7 @@ func (df *DFcore) AppendColumn(col Column, replace bool) error {
 		}
 	}
 
-	_ = ColParent(df)(col)
+	//	_ = ColParent(df)(col)
 
 	// find last column
 	var tail *columnList
@@ -190,6 +190,10 @@ func (df *DFcore) AppendDFcore(df2 *DFcore) (*DFcore, error) {
 }
 
 func (df *DFcore) Column(colName string) Column {
+	if df.head == nil {
+		return nil
+	}
+
 	for h := df.head; h != nil; h = h.next {
 		if (h.col).Name() == colName {
 			return h.col

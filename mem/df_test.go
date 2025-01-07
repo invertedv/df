@@ -34,7 +34,7 @@ func testDF() *DF {
 
 func checker(df d.DF, colName string, col d.Column, indx int) any {
 	if col != nil {
-		d.ColName(colName)(col)
+		_ = d.ColName(colName)(col)
 		if e := df.AppendColumn(col, true); e != nil {
 			panic(e)
 		}

@@ -20,7 +20,7 @@ type CC interface {
 	DataType() DataTypes
 	Dependencies() []string
 	Name() string
-	Parent() *DFcore
+	Parent() DF
 }
 
 // *********** ColCore ***********
@@ -36,7 +36,7 @@ type ColCore struct {
 
 	dep []string
 
-	parent *DFcore
+	parent DF
 }
 
 func NewColCore(dt DataTypes, ops ...ColOpt) (*ColCore, error) {
@@ -112,7 +112,7 @@ func ColName(name string) ColOpt {
 	}
 }
 
-func ColParent(df *DFcore) ColOpt {
+func ColParent(df DF) ColOpt {
 	return func(c CC) error {
 		if c == nil {
 			return fmt.Errorf("nil column to ColParent")
@@ -122,7 +122,8 @@ func ColParent(df *DFcore) ColOpt {
 			return fmt.Errorf("column must have a name to assign parent")
 		}
 
-		if df != nil && df.Column(c.Name()) != nil {
+		// A column with this name already exists in df and is not the column we're assigning the parent to
+		if df != nil && df.Column(c.Name()) != nil && df.Column(c.Name()) != c {
 			return fmt.Errorf("cant assign parent: name collision")
 		}
 
@@ -194,7 +195,7 @@ func (c *ColCore) Name() string {
 	return c.name
 }
 
-func (c *ColCore) Parent() *DFcore {
+func (c *ColCore) Parent() DF {
 	return c.parent
 }
 

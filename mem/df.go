@@ -72,6 +72,10 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 		}
 	}
 
+	if e := outDF.SetParent(); e != nil {
+		return nil, e
+	}
+
 	return outDF, nil
 }
 
@@ -208,6 +212,11 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 
 	if ex := f.DFcore.AppendColumn(colx, replace); ex != nil {
 		return ex
+	}
+
+	// need to wait til end to assign in case DFcore.AppendColumn needed to drop the column
+	if e := d.ColParent(f)(col); e != nil {
+		return e
 	}
 
 	return nil
@@ -401,6 +410,16 @@ func (f *DF) MakeQuery(colNames ...string) string {
 
 func (f *DF) RowCount() int {
 	return f.First().Len()
+}
+
+func (f *DF) SetParent() error {
+	for c := f.First(); c != nil; c = f.Next() {
+		if e := d.ColParent(f)(c); e != nil {
+			return e
+		}
+	}
+
+	return nil
 }
 
 func (f *DF) Sort(ascending bool, cols ...string) error {
