@@ -23,8 +23,39 @@ func inter(c d.Column) []int {
 
 	return x
 }
+func toString(x any) (any, bool) {
+	if s, ok := x.(string); ok {
+		return s, true
+	}
+
+	// TODO: improve # decimals choice
+	if f, ok := x.(float64); ok {
+		sd, dec, lf := 6, 5, 1
+		if f != 0 {
+			lf = max(0, int(math.Log10(math.Abs(f)))+1)
+			dec = max(0, sd-lf)
+		}
+
+		format := "%" + fmt.Sprintf("%d.%df", lf, dec)
+		return fmt.Sprintf(format, f), true
+	}
+
+	if i, ok := x.(int); ok {
+		return fmt.Sprintf("%d", i), true
+	}
+
+	if s, ok := x.(time.Time); ok {
+		return s.Format("2006-01-02"), true
+	}
+
+	return nil, false
+}
 
 func TestRandom(t *testing.T) {
+	fmt.Println(toString(-0.000001234567))
+	fmt.Println(toString(-10000000.1))
+	fmt.Println(toString(1000.12))
+	fmt.Println(toString(10.012))
 	n := 10000 //000
 	x := make([]float64, n)
 	y := make([]float64, n)

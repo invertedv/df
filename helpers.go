@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -75,9 +76,15 @@ func toString(x any) (any, bool) {
 		return s, true
 	}
 
-	// TODO: improve # decimals choice
 	if f, ok := x.(float64); ok {
-		return fmt.Sprintf("%0.3f", f), true
+		sd, dec, lf := 6, 5, 1
+		if f != 0 {
+			lf = max(0, int(math.Log10(math.Abs(f)))+1)
+			dec = max(0, sd-lf)
+		}
+
+		format := "%" + fmt.Sprintf("%d.%df", lf, dec)
+		return fmt.Sprintf(format, f), true
 	}
 
 	if i, ok := x.(int); ok {

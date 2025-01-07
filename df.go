@@ -6,9 +6,6 @@ import (
 	"strings"
 )
 
-// TODO: think about panic vs error
-// TODO: panic needs error or just string?
-
 type DF interface {
 	DC
 

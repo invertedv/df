@@ -2,7 +2,7 @@ package df
 
 import "fmt"
 
-// Column interface defines the methods the columns of DFcore that must be supported
+// Column interface defines the methods the columns
 type Column interface {
 	CC
 
@@ -13,6 +13,7 @@ type Column interface {
 	String() string
 }
 
+// CC interface defines the methods of ColCore
 type CC interface {
 	Core() *ColCore
 	CategoryMap() CategoryMap
