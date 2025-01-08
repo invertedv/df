@@ -70,6 +70,7 @@ func testDF() *DF {
 
 func checker(df d.DF, colName string, col d.Column, indx int) any {
 	if col != nil {
+		// TODO: Wait: should not need this
 		_ = df.DropColumns(colName)
 		if e := d.ColName(colName)(col); e != nil {
 			panic(e)

@@ -142,7 +142,7 @@ func ColParent(df DF) ColOpt {
 		}
 
 		// can only belong to one DF
-		if c.Parent() != nil {
+		if c.Parent() != nil && c.Parent() != df {
 			_ = c.Parent().DropColumns(c.Name())
 		}
 

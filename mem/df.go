@@ -216,7 +216,7 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	}
 
 	// need to wait til end to assign in case DFcore.AppendColumn needed to drop the column
-	if e := d.ColParent(f)(col); e != nil {
+	if e := d.ColParent(f)(colx); e != nil {
 		return e
 	}
 

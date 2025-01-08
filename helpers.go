@@ -12,6 +12,75 @@ import (
 	"time"
 )
 
+func Has[C comparable](needle C, haystack []C) bool {
+	return position(needle, haystack) >= 0
+}
+
+func PrettyPrint(header []string, cols ...any) string {
+	var colsS [][]string
+
+	for ind := 0; ind < len(cols); ind++ {
+		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
+	}
+
+	out := ""
+	for row := 0; row < len(colsS[0]); row++ {
+		for c := 0; c < len(colsS); c++ {
+			out += colsS[c][row]
+		}
+		out += "\n"
+	}
+
+	return out
+}
+
+// randomLetters generates a string of length "length" by randomly choosing from a-z
+func RandomLetters(length int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyz"
+
+	var (
+		randN []int64
+		e     error
+	)
+	if randN, e = randUnifInt(len(letters), len(letters)); e != nil {
+		panic(e)
+	}
+
+	name := ""
+	for ind := 0; ind < length; ind++ {
+		name += letters[randN[ind] : randN[ind]+1]
+	}
+
+	return name
+}
+
+func ToDataType(x any, dt DataTypes) (any, bool) {
+	switch dt {
+	case DTfloat:
+		if v, ok := toFloat(x); ok {
+			return v.(float64), true
+		}
+	case DTint:
+		if v, ok := toInt(x); ok {
+			return v.(int), true
+		}
+	case DTdate:
+		if v, ok := toDate(x); ok {
+			return v.(time.Time), true
+		}
+	case DTstring:
+		if v, ok := toString(x); ok {
+			return v.(string), true
+		}
+	case DTany:
+		return x, true
+	}
+
+	return nil, false
+}
+
+// ***************** Not exported *****************
+
 var dateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
 	"Jan 2 2006", "January 2 2006", "2006-01-02"}
 
@@ -118,32 +187,6 @@ func toDate(x any) (any, bool) {
 				return dt, true
 			}
 		}
-	}
-
-	return nil, false
-}
-
-// TODO: fix
-func ToDataType(x any, dt DataTypes) (any, bool) {
-	switch dt {
-	case DTfloat:
-		if v, ok := toFloat(x); ok {
-			return v.(float64), true
-		}
-	case DTint:
-		if v, ok := toInt(x); ok {
-			return v.(int), true
-		}
-	case DTdate:
-		if v, ok := toDate(x); ok {
-			return v.(time.Time), true
-		}
-	case DTstring:
-		if v, ok := toString(x); ok {
-			return v.(string), true
-		}
-	case DTany:
-		return x, true
 	}
 
 	return nil, false
@@ -280,10 +323,6 @@ func slash(inStr string) string {
 	return inStr + "/"
 }
 
-func Has[C comparable](needle C, haystack []C) bool {
-	return position(needle, haystack) >= 0
-}
-
 func position[C comparable](needle C, haystack []C) int {
 	for ind, straw := range haystack {
 		if needle == straw {
@@ -292,26 +331,6 @@ func position[C comparable](needle C, haystack []C) int {
 	}
 
 	return -1
-}
-
-// randomLetters generates a string of length "length" by randomly choosing from a-z
-func RandomLetters(length int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyz"
-
-	var (
-		randN []int64
-		e     error
-	)
-	if randN, e = randUnifInt(len(letters), len(letters)); e != nil {
-		panic(e)
-	}
-
-	name := ""
-	for ind := 0; ind < length; ind++ {
-		name += letters[randN[ind] : randN[ind]+1]
-	}
-
-	return name
 }
 
 // randUnifInt generates a slice whose elements are random U[0,upper) int64's
@@ -342,24 +361,6 @@ func validName(name string) bool {
 	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~ " + `"`
 
 	return !strings.ContainsAny(name, illegal)
-}
-
-func PrettyPrint(header []string, cols ...any) string {
-	var colsS [][]string
-
-	for ind := 0; ind < len(cols); ind++ {
-		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
-	}
-
-	out := ""
-	for row := 0; row < len(colsS[0]); row++ {
-		for c := 0; c < len(colsS); c++ {
-			out += colsS[c][row]
-		}
-		out += "\n"
-	}
-
-	return out
 }
 
 func stringSlice(header string, inVal any) []string {
