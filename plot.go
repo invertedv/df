@@ -206,5 +206,5 @@ func (p *Plot) Save(fileName, format string) error {
 // tempFile produces a random temp file name in the system's tmp location.
 // The file has extension "ext". The file name begins with "tmp" has length 3 + length.
 func tempFile(ext string, length int) string {
-	return slash(os.TempDir()) + "tmp" + randomLetters(length) + "." + ext
+	return slash(os.TempDir()) + "tmp" + RandomLetters(length) + "." + ext
 }

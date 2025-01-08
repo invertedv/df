@@ -15,6 +15,7 @@ type DF interface {
 	Iter(reset bool) (row []any, err error)
 	MakeQuery(colNames ...string) string
 	RowCount() int
+	SetParent() error
 	Sort(ascending bool, keys ...string) error
 	String() string
 	Table(sortByRows bool, cols ...string) (DF, error)
@@ -22,20 +23,20 @@ type DF interface {
 }
 
 type DC interface {
-	Core() *DFcore
+	AppendDFcore(df2 *DFcore) (*DFcore, error)
 	AppendColumn(col Column, replace bool) error
 	Column(colName string) Column
 	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
-	Dialect() *Dialect
+	Core() *DFcore
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
+	Dialect() *Dialect
 	DropColumns(colNames ...string) error
+	First() Column
 	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next() Column
-	First() Column
-	AppendDFcore(df2 *DFcore) (*DFcore, error)
 }
 
 // *********** DFcore ***********
@@ -58,6 +59,7 @@ type columnList struct {
 	next  *columnList
 }
 
+// TODO: change to cols as slice and opts as ...
 func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
@@ -67,7 +69,6 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 
 	var head, priorNode *columnList
 	for ind := 0; ind < len(cols); ind++ {
-		//		_ = ColParent(outDF)(cols[ind])
 		node := &columnList{
 			col: cols[ind],
 
@@ -140,8 +141,6 @@ func (df *DFcore) AppendColumn(col Column, replace bool) error {
 			return fmt.Errorf("column %s already exists", col.Name())
 		}
 	}
-
-	//	_ = ColParent(df)(col)
 
 	// find last column
 	var tail *columnList
@@ -254,6 +253,7 @@ func (df *DFcore) Copy() *DFcore {
 	var outDF *DFcore
 
 	outDF, _ = NewDF(df.Fns(), cols...)
+	_ = DFdialect(df.Dialect())(outDF)
 
 	return outDF
 }
@@ -336,7 +336,7 @@ func (df *DFcore) Fns() Fns {
 func (df *DFcore) HasColumns(cols ...string) bool {
 	dfCols := df.ColumnNames()
 	for _, c := range cols {
-		if !has(c, dfCols) {
+		if !Has(c, dfCols) {
 			return false
 		}
 	}

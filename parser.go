@@ -53,6 +53,12 @@ func Parse(df DF, expr string) (*Parsed, error) {
 		return nil, ex
 	}
 
+	// Assign parent and dialect
+	if ot.value.col != nil {
+		_ = ColParent(df)(ot.value.col)
+		_ = ColDialect(df.Dialect())(ot.value.col)
+	}
+
 	return ot.value, nil
 }
 
@@ -589,7 +595,7 @@ func mapOp(op string) string {
 
 func nodupAppend(x []string, xadd ...string) []string {
 	for _, xa := range xadd {
-		if !has(xa, x) {
+		if !Has(xa, x) {
 			x = append(x, xa)
 		}
 	}

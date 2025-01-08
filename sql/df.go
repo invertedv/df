@@ -3,7 +3,7 @@ package sql
 import d "github.com/invertedv/df"
 
 // TODO: change SQL() to return string
-/*
+
 import (
 	"database/sql"
 	"fmt"
@@ -12,9 +12,12 @@ import (
 	"strings"
 
 	m "github.com/invertedv/df/mem"
-
-	d "github.com/invertedv/df"
 )
+
+func StandardFunctions() d.Fns {
+	return d.Fns{abs, add, and, applyCat, divide, dot, eq, exp, ge, gt, ifs, le, log, lt, mean,
+		multiply, ne, neg, not, or, rowNumber, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
+}
 
 // TODO: make mem work like this
 
@@ -38,10 +41,9 @@ type DF struct {
 	row  []any
 }
 
-
 // ***************** DF - Create *****************
 
-func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
+func NewDFcol(funcs d.Fns, dlct *d.Dialect, cols ...*Col) (*DF, error) {
 	for ind := 1; ind < len(cols); ind++ {
 		if !sameSource(cols[ind-1], cols[ind]) {
 			return nil, fmt.Errorf("incompatible columns in NewDFcol %s %s", cols[ind-1].Name(), cols[ind].Name())
@@ -62,10 +64,8 @@ func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 	//	}
 	// TODO: fix runs ??
 
-	r := cols[0].Context().Self()
-	_ = r
 	df := &DF{
-		sourceSQL: cols[0].Context().Self().MakeQuery(), // TODO: check
+		sourceSQL: cols[0].Parent().MakeQuery(), // TODO: check
 		orderBy:   "",
 		where:     "",
 		DFcore:    nil,
@@ -84,27 +84,35 @@ func NewDFcol(funcs d.Fns, context *d.Context, cols ...*Col) (*DF, error) {
 		return nil, e
 	}
 
-	// TODO: think about: should SetContext copy context?
-	ctx := d.NewContext(context.Dialect(), df, context.Unassigned()...)
-	tmp.SetContext(ctx)
-
 	df.DFcore = tmp
+
+	_ = d.DFdialect(dlct)(df)
+
+	if ex := df.SetParent(); ex != nil {
+		return nil, ex
+	}
 
 	return df, nil
 }
 
-func NewDFseq(funcs d.Fns, context *d.Context, n int) *DF {
+func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 	if funcs == nil {
 		funcs = StandardFunctions()
 	}
 
-	dlct := context.Dialect()
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
 
+	var (
+		cc *d.ColCore
+		e  error
+	)
+	if cc, e = d.NewColCore(d.DTint, d.ColName("seq")); e != nil {
+		return nil, e
+	}
+
 	col := &Col{
-		sql: "",
-		//		scalarValue: nil,
-		ColCore: d.NewColCore(d.DTint, d.ColName("seq")),
+		sql:     "",
+		ColCore: cc,
 	}
 
 	dfc, ex := d.NewDF(funcs, col)
@@ -122,14 +130,18 @@ func NewDFseq(funcs d.Fns, context *d.Context, n int) *DF {
 		rows: nil,
 		row:  nil,
 	}
-	ctx := d.NewContext(context.Dialect(), df)
-	df.SetContext(ctx)
 
-	return df
+	_ = d.DFdialect(dlct)(df)
+
+	if ey := df.SetParent(); ey != nil {
+		return nil, ey
+	}
+
+	return df, nil
 }
 
 // TODO: needs runDF, fns as parameters...
-func DBload(query string, context *d.Context) (*DF, error) {
+func DBload(query string, dlct *d.Dialect) (*DF, error) {
 	var (
 		e        error
 		colTypes []d.DataTypes
@@ -137,11 +149,7 @@ func DBload(query string, context *d.Context) (*DF, error) {
 		cols     []d.Column
 	)
 
-	dlct := context.Dialect()
-	if dlct == nil {
-		return nil, fmt.Errorf("no DB defined in Context for NewSQLdf")
-	}
-	if colNames, colTypes, _, e = context.Dialect().Types(query); e != nil {
+	if colNames, colTypes, _, e = dlct.Types(query); e != nil {
 		return nil, e
 	}
 
@@ -150,9 +158,17 @@ func DBload(query string, context *d.Context) (*DF, error) {
 	}
 
 	for ind := 0; ind < len(colTypes); ind++ {
+		var (
+			cc *d.ColCore
+			e1 error
+		)
+		if cc, e1 = d.NewColCore(colTypes[ind], d.ColName(colNames[ind])); e1 != nil {
+			return nil, e1
+		}
+
 		sqlCol := &Col{
 			sql:     "",
-			ColCore: d.NewColCore(colTypes[ind], d.ColName(colNames[ind])),
+			ColCore: cc,
 		}
 
 		cols = append(cols, sqlCol)
@@ -165,7 +181,12 @@ func DBload(query string, context *d.Context) (*DF, error) {
 	}
 	// TODO: think about: should SetContext copy context?
 	df.DFcore = tmp
-	df.SetContext(d.NewContext(dlct, df))
+
+	_ = d.DFdialect(dlct)(df)
+
+	if ex := df.SetParent(); ex != nil {
+		return nil, ex
+	}
 
 	return df, nil
 }
@@ -182,6 +203,7 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	return f.Core().AppendColumn(col, replace)
 }
 
+// TODO: think about this and ways it could fail
 func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 	n1 := f.ColumnNames()
 
@@ -189,7 +211,7 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 		return nil, fmt.Errorf("dataframes cannot be appended")
 	}
 
-	for c := f.Next(true); c != nil; c = f.Next(false) {
+	for c := f.First(); c != nil; c = f.Next() {
 		var cNew d.Column
 		if cNew = dfNew.Column(c.Name()); c == nil {
 			return nil, fmt.Errorf("missing column %s in AppendDF", c.Name())
@@ -204,7 +226,7 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 		sqlx string
 		e    error
 	)
-	if sqlx, e = f.Context().Dialect().Union(f.MakeQuery(), dfNew.(*DF).MakeQuery(), n1...); e != nil {
+	if sqlx, e = f.Dialect().Union(f.MakeQuery(), dfNew.(*DF).MakeQuery(), n1...); e != nil {
 		return nil, e
 	}
 
@@ -212,13 +234,15 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 		dfOut *DF
 		eOut  error
 	)
-	ctx := d.NewContext(f.Context().Dialect(), nil, nil)
-
-	if dfOut, eOut = DBload(sqlx, ctx); eOut != nil {
+	if dfOut, eOut = DBload(sqlx, f.Dialect()); eOut != nil {
 		return nil, eOut
 	}
 
-	dfOut.Context().SetSelf(dfOut)
+	_ = d.DFdialect(f.Dialect())(dfOut)
+
+	if ex := dfOut.SetParent(); ex != nil {
+		return nil, ex
+	}
 
 	return dfOut, nil
 }
@@ -261,7 +285,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		mDF *m.DF
 		e1  error
 	)
-	if mDF, e1 = m.DBLoad(x, f.Context().Dialect()); e1 != nil {
+	if mDF, e1 = m.DBLoad(x, f.Dialect()); e1 != nil {
 		return nil, e1
 	}
 
@@ -290,7 +314,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 			outVal = -1
 		}
 
-		if levels != nil && !d.In(val, levels) {
+		if levels != nil && !d.Has(val, levels) {
 			if v, ok := toMap[defaultVal]; ok {
 				outVal = v
 			}
@@ -306,7 +330,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 
 		cnts[catVal] += ct
 
-		whens = append(whens, fmt.Sprintf("%s = %s", cn, f.Context().Dialect().ToString(val)))
+		whens = append(whens, fmt.Sprintf("%s = %s", cn, f.Dialect().ToString(val)))
 		equalTo = append(equalTo, fmt.Sprintf("%d", outVal))
 		if outVal == caseNo {
 			caseNo++
@@ -320,14 +344,14 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		sql1 string
 		ex   error
 	)
-	if sql1, ex = f.Context().Dialect().Case(whens, equalTo); ex != nil {
+	if sql1, ex = f.Dialect().Case(whens, equalTo); ex != nil {
 		return nil, ex
 	}
 
-	outCol, _ := NewColSQL("", f.Context(), d.DTcategorical, sql1)
-	d.ColRawType(col.DataType())(outCol.Core())
-	d.ColCatCounts(cnts)(outCol.Core())
-	d.ColCatMap(toMap)(outCol.Core())
+	outCol, _ := NewColSQL(d.DTcategorical, f.Dialect(), sql1)
+	_ = d.ColRawType(col.DataType())(outCol.Core())
+	_ = d.ColCatCounts(cnts)(outCol.Core())
+	_ = d.ColCatMap(toMap)(outCol.Core())
 
 	return outCol, nil
 }
@@ -342,8 +366,8 @@ func (f *DF) Copy() d.DF {
 		DFcore:    dfCore,
 	}
 
-	ctx := d.NewContext(f.Context().Dialect(), dfNew)
-	dfNew.SetContext(ctx)
+	_ = dfNew.SetParent()
+
 	return dfNew
 }
 
@@ -356,7 +380,7 @@ func (f *DF) Iter(reset bool) (row []any, err error) {
 	if reset {
 		qry := f.MakeQuery()
 		var e error
-		f.rows, f.row, _, e = f.Context().Dialect().Rows(qry)
+		f.rows, f.row, _, e = f.Dialect().Rows(qry)
 		if e != nil {
 			_ = f.rows.Close()
 			return nil, e
@@ -390,7 +414,7 @@ func (f *DF) MakeQuery(colNames ...string) string {
 
 		var field string
 		field = cx.Name()
-		if fn := cx.(*Col).SQL().(string); fn != "" {
+		if fn := cx.(*Col).SQL(); fn != "" {
 			field = fmt.Sprintf("%s AS %s", fn, cx.Name())
 		}
 
@@ -419,11 +443,23 @@ func (f *DF) RowCount() int {
 		rowCount int
 		e        error
 	)
-	if rowCount, e = f.Context().Dialect().RowCount(f.MakeQuery()); e != nil {
+	if rowCount, e = f.Dialect().RowCount(f.MakeQuery()); e != nil {
 		panic(e)
 	}
 
 	return rowCount
+}
+
+func (f *DF) SetParent() error {
+	for c := f.First(); c != nil; c = f.Next() {
+		if e := d.ColParent(f)(c); e != nil {
+			return e
+		}
+
+		_ = d.ColDialect(f.Dialect())(c)
+	}
+
+	return nil
 }
 
 func (f *DF) Sort(ascending bool, keys ...string) error {
@@ -450,7 +486,7 @@ func (f *DF) SourceSQL() string {
 
 func (f *DF) String() string {
 	var sx string
-	for c := f.Next(true); c != nil; c = f.Next(false) {
+	for c := f.First(); c != nil; c = f.Next() {
 		sx += c.String() + "\n"
 	}
 
@@ -479,14 +515,14 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		cf string
 		ex error
 	)
-	if cf, ex = f.Context().Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
+	if cf, ex = f.Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
 		return nil, ex
 	}
 
-	count, _ := NewColSQL("count", f.Context(), d.DTint, "count(*)")
+	count, _ := NewColSQL(d.DTint, f.Dialect(), "count(*)", d.ColName("count"))
 
 	rateSQL := fmt.Sprintf(cf, f.MakeQuery())
-	rate, _ := NewColSQL("rate", f.Context(), d.DTfloat, rateSQL)
+	rate, _ := NewColSQL(d.DTfloat, f.Dialect(), rateSQL, d.ColName("rate"))
 
 	var (
 		dfc *d.DFcore
@@ -520,8 +556,11 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		return nil, e1
 	}
 
-	ctx := d.NewContext(f.Context().Dialect(), outDF)
-	outDF.SetContext(ctx)
+	_ = d.DFdialect(f.Dialect())(outDF)
+
+	if ex := outDF.SetParent(); ex != nil {
+		return nil, ex
+	}
 
 	return outDF, nil
 }
@@ -539,16 +578,15 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 		return nil, fmt.Errorf("where column must be type DTint")
 	}
 
-	dfNew.where = fmt.Sprintf("%s > 0", col.(*Col).SQL().(string))
+	dfNew.where = fmt.Sprintf("%s > 0", col.(*Col).SQL())
 	if dfNew.where != "" {
-		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*Col).SQL().(string))
+		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*Col).SQL())
 	}
 
 	return dfNew, nil
 }
 
 // ***************** Helpers *****************
-
 
 func sameSource(s1, s2 any) bool {
 	sql1, sql2 := "No", "Match"
@@ -557,7 +595,7 @@ func sameSource(s1, s2 any) bool {
 	}
 
 	if c1, ok := s1.(*Col); ok {
-		sql1 = c1.Context().Self().(*DF).SourceSQL()
+		sql1 = c1.Parent().(*DF).SourceSQL()
 	}
 
 	if df2, ok := s2.(*DF); ok {
@@ -565,12 +603,11 @@ func sameSource(s1, s2 any) bool {
 	}
 
 	if c2, ok := s2.(*Col); ok {
-		sql2 = c2.Context().Self().(*DF).SourceSQL()
+		sql2 = c2.Parent().(*DF).SourceSQL()
 	}
 
 	return sql1 == sql2
 }
-*/
 
 func panicer(cols ...d.Column) {
 	for _, c := range cols {

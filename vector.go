@@ -344,7 +344,7 @@ func (v *Vector) SetString(val string, indx int) error {
 	return nil
 }
 
-func (v *Vector) String() string {
+func (v *Vector) StringX() string {
 	s := fmt.Sprintf("type: %v\nlength: %d\n\nElements:\n", v.VectorType(), v.Len())
 	for ind := 0; ind < min(5, v.Len()); ind++ {
 		v, _ := v.ElementString(ind)

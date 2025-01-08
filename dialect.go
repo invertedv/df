@@ -271,7 +271,7 @@ func (d *Dialect) Exists(tableName string) bool {
 func (d *Dialect) Ifs(x, y, op string) (string, error) {
 	const ops = ">,>=,<,<=,==,!="
 	op = strings.ReplaceAll(op, " ", "")
-	if !has(op, strings.Split(ops, ",")) {
+	if !Has(op, strings.Split(ops, ",")) {
 		return "", fmt.Errorf("unknown comparison: %s", op)
 	}
 
@@ -459,7 +459,7 @@ func (d *Dialect) Min(col string) string {
 
 func (d *Dialect) WithName() string {
 	const wLen = 4
-	return randomLetters(wLen)
+	return RandomLetters(wLen)
 }
 
 func (d *Dialect) Quantile(col string, q float64) string {

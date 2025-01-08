@@ -68,6 +68,10 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
+//func (c *Col) Rename(newName string) error {
+//	return d.ColName(newName)(c)
+//}
+
 // TODO: get rid of this ... was using d.ToString(x)
 func toString(x any) (any, bool) {
 	return fmt.Sprintf("%v", x), true
@@ -101,7 +105,7 @@ func (c *Col) String() string {
 		}
 
 		header := []string{"source", "mapped to"}
-		t = t + prettyPrint(header, keys, vals) + "\n"
+		t = t + d.PrettyPrint(header, keys, vals) + "\n"
 	}
 
 	if c.DataType() != d.DTfloat {
@@ -114,7 +118,7 @@ func (c *Col) String() string {
 
 		cxi, _ := cx.Data().AsInt()
 		str, _ := l.Data().AsString()
-		return t + prettyPrint(header, str, cxi)
+		return t + d.PrettyPrint(header, str, cxi)
 	}
 
 	x := make([]float64, c.Len())
@@ -132,7 +136,7 @@ func (c *Col) String() string {
 	vals := []float64{minx, q25, q50, xbar, q75, maxx, n}
 	header := []string{"metric", "value"}
 
-	return t + prettyPrint(header, cats, vals)
+	return t + d.PrettyPrint(header, cats, vals)
 }
 
 // ***************** Helpers *****************

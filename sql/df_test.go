@@ -1,6 +1,19 @@
 package sql
 
-/*
+import (
+	"database/sql"
+	"fmt"
+	"math"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	d "github.com/invertedv/df"
+	m "github.com/invertedv/df/mem"
+	"github.com/stretchr/testify/assert"
+)
+
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
 func newConnect(host, user, password string) (db *sql.DB, err error) {
@@ -48,7 +61,7 @@ func testDF() *DF {
 		df *DF
 		e2 error
 	)
-	if df, e2 = DBload("SELECT * FROM testing.d1", d.NewContext(dialect, nil, nil)); e2 != nil {
+	if df, e2 = DBload("SELECT * FROM testing.d1", dialect); e2 != nil {
 		panic(e2)
 	}
 
@@ -57,20 +70,24 @@ func testDF() *DF {
 
 func checker(df d.DF, colName string, col d.Column, indx int) any {
 	if col != nil {
-		col.Rename(colName)
+		_ = df.DropColumns(colName)
+		if e := d.ColName(colName)(col); e != nil {
+			panic(e)
+		}
+
 		if e := df.AppendColumn(col, true); e != nil {
 			panic(e)
 		}
 	}
 	q := df.(*DF).MakeQuery()
-	memDF, e1 := m.DBLoad(q, df.(*DF).Context().Dialect())
+	memDF, e1 := m.DBLoad(q, df.Dialect())
 	if e1 != nil {
 		panic(e1)
 	}
 
 	if colRet := memDF.Column(colName); colRet != nil {
 		if indx < 0 {
-			return colRet.Data()
+			return colRet.Data().AsAny()
 		}
 
 		if x := colRet.(*m.Col).Element(indx); x != nil {
@@ -83,21 +100,22 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 
 func TestRowNumber(t *testing.T) {
 	dfx := testDF()
-	out, e := dfx.Parse("rowNumber()")
+	out, e := d.Parse(dfx, "rowNumber()")
 	q := out.Column().(*Col).MakeQuery()
 	fmt.Println(q)
 	assert.Nil(t, e)
-	out.Column().Rename("rn")
+	_ = d.ColName("rn")(out.Column())
 	//	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.Column(), -1))
 	fmt.Println(out.Column().Data())
 }
 
 func TestNewDFseq(t *testing.T) {
 	dfx := testDF()
-	df := NewDFseq(nil, dfx.Context(), 5)
+	df, e := NewDFseq(nil, dfx.Dialect(), 5)
+	assert.Nil(t, e)
 	col := df.Column("seq")
 	assert.NotNil(t, col)
-	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
+	assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data().AsAny())
 }
 
 func TestSQLcol_Data(t *testing.T) {
@@ -105,26 +123,42 @@ func TestSQLcol_Data(t *testing.T) {
 	dfx := testDF()
 	c := dfx.Column(coln)
 	assert.NotNil(t, c)
-	fmt.Println(c.Data())
+	fmt.Println(c.Data().AsAny())
 }
 
 func TestWhere(t *testing.T) {
 	dfx := testDF()
-	defer func() { _ = dfx.Context().Dialect().DB().Close() }()
+	defer func() { _ = dfx.Dialect().DB().Close() }()
 
-	out, e := dfx.Parse("y == 1 || z == '20060310'")
+	out, e := d.Parse(dfx, "y == 1 || z == '20060310'")
 	assert.Nil(t, e)
 	result := checker(dfx, "test", out.Column(), -1)
 	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, result)
 
 	expr := "where(y == 1)"
-	out, e = dfx.Parse(expr)
+	out, e = d.Parse(dfx, expr)
 	assert.Nil(t, e)
 	outDF := out.DF().(*DF)
 	fmt.Println(outDF.MakeQuery())
-	e = outDF.Context().Dialect().Save("testing.where", "", true, outDF)
+	e = outDF.Dialect().Save("testing.where", "", true, outDF)
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.RowCount())
+}
+
+func TestRename(t *testing.T) {
+	dfx := testDF()
+	c := dfx.Column("x")
+	e := d.ColName("yyz")(c)
+	assert.Nil(t, e)
+	out, ex := d.Parse(dfx, "1*y")
+	assert.Nil(t, ex)
+	e = d.ColName("z2")(out.Column())
+	assert.Nil(t, e)
+	e = d.ColName("zz")(out.Column())
+	assert.Nil(t, e)
+	d1 := out.Column().Data().AsAny()
+	d2 := dfx.Column("y").Data().AsAny()
+	assert.Equal(t, d1, d2)
 }
 
 func TestParser(t *testing.T) {
@@ -211,7 +245,7 @@ func TestParser(t *testing.T) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
-		xOut, ex := dfx.Parse(eqn)
+		xOut, ex := d.Parse(dfx, eqn)
 		assert.Nil(t, ex)
 		result := checker(dfx, "test", xOut.Column(), x[ind][1].(int))
 

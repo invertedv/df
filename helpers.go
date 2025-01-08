@@ -123,6 +123,32 @@ func toDate(x any) (any, bool) {
 	return nil, false
 }
 
+// TODO: fix
+func ToDataType(x any, dt DataTypes) (any, bool) {
+	switch dt {
+	case DTfloat:
+		if v, ok := toFloat(x); ok {
+			return v.(float64), true
+		}
+	case DTint:
+		if v, ok := toInt(x); ok {
+			return v.(int), true
+		}
+	case DTdate:
+		if v, ok := toDate(x); ok {
+			return v.(time.Time), true
+		}
+	case DTstring:
+		if v, ok := toString(x); ok {
+			return v.(string), true
+		}
+	case DTany:
+		return x, true
+	}
+
+	return nil, false
+}
+
 func toDataType(x any, dt DataTypes) (any, bool) {
 	switch dt {
 	case DTfloat:
@@ -254,7 +280,7 @@ func slash(inStr string) string {
 	return inStr + "/"
 }
 
-func has[C comparable](needle C, haystack []C) bool {
+func Has[C comparable](needle C, haystack []C) bool {
 	return position(needle, haystack) >= 0
 }
 
@@ -269,7 +295,7 @@ func position[C comparable](needle C, haystack []C) int {
 }
 
 // randomLetters generates a string of length "length" by randomly choosing from a-z
-func randomLetters(length int) string {
+func RandomLetters(length int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz"
 
 	var (
@@ -316,4 +342,111 @@ func validName(name string) bool {
 	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~ " + `"`
 
 	return !strings.ContainsAny(name, illegal)
+}
+
+func PrettyPrint(header []string, cols ...any) string {
+	var colsS [][]string
+
+	for ind := 0; ind < len(cols); ind++ {
+		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
+	}
+
+	out := ""
+	for row := 0; row < len(colsS[0]); row++ {
+		for c := 0; c < len(colsS); c++ {
+			out += colsS[c][row]
+		}
+		out += "\n"
+	}
+
+	return out
+}
+
+func stringSlice(header string, inVal any) []string {
+	const pad = 3
+	c := []string{header}
+
+	format := ""
+	n := 0
+	var dt DataTypes
+	switch x := inVal.(type) {
+	case []float64:
+		format = selectFormat(x)
+		n = len(x)
+		dt = DTfloat
+	case []int:
+		format = "%d"
+		n = len(x)
+		dt = DTint
+	case []string:
+		format = "%s"
+		n = len(x)
+		dt = DTstring
+	case []time.Time:
+		n = len(x)
+		dt = DTdate
+	default:
+		panic(fmt.Errorf("unsupported data type"))
+	}
+
+	maxLen := len(header)
+	for ind := 0; ind < n; ind++ {
+		var el string
+		switch x := inVal.(type) {
+		case []float64:
+			el = fmt.Sprintf(format, x[ind])
+		case []int:
+			el = fmt.Sprintf(format, x[ind])
+		case []string:
+			el = x[ind]
+		case []time.Time:
+			el = x[ind].Format("20060102")
+		}
+
+		if l := len(el); l > maxLen {
+			maxLen = l
+		}
+
+		c = append(c, el)
+	}
+
+	for ind, cx := range c {
+		padded := cx + strings.Repeat(" ", maxLen-len(cx)+pad)
+		if dt == DTint || dt == DTfloat {
+			padded = strings.Repeat(" ", maxLen-len(cx)+pad) + cx
+		}
+		c[ind] = padded
+	}
+
+	return c
+}
+
+func selectFormat(x []float64) string {
+	minX := math.Abs(x[0])
+	maxX := math.Abs(x[0])
+	for _, xv := range x {
+		xva := math.Abs(xv)
+		if xva < minX {
+			minX = xva
+		}
+
+		if xva > maxX {
+			maxX = xva
+		}
+	}
+
+	rangeX := maxX - minX
+	l := math.Log10(rangeX)
+	var dp int
+	switch {
+	case l < -1:
+		dp = int(math.Abs(l)+0.5) + 1
+	case l > 1:
+		dp = 0
+	default:
+		dp = 1
+	}
+
+	format := "%." + fmt.Sprintf("%d", dp) + "f"
+	return format
 }

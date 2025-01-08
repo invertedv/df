@@ -40,6 +40,7 @@ func StandardFunctions() d.Fns {
 	return fns
 }
 
+// TODO: should this return DF interface?
 func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if funcs == nil {
 		funcs = StandardFunctions()
@@ -72,8 +73,8 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 		}
 	}
 
-	if e := outDF.SetParent(); e != nil {
-		return nil, e
+	if ex := outDF.SetParent(); ex != nil {
+		return nil, ex
 	}
 
 	return outDF, nil
@@ -291,7 +292,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	for ind := 0; ind < tab.RowCount(); ind++ {
 		lvl := lvls.(*Col).Element(ind)
 		cnt, _ := cs.(*Col).ElementInt(ind)
-		if levels != nil && !has(lvl, levels) {
+		if levels != nil && !d.Has(lvl, levels) {
 			lvl = defaultVal
 		}
 

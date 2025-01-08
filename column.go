@@ -2,6 +2,8 @@ package df
 
 import "fmt"
 
+// TODO: add dialect to ColCore to match DFcore
+
 // Column interface defines the methods the columns
 type Column interface {
 	CC
@@ -10,6 +12,8 @@ type Column interface {
 	Copy() Column
 	Data() *Vector
 	Len() int
+	// Rename is needed bc sql/column needs to do more work than just rename
+	//	Rename(newName string) error
 	String() string
 }
 
@@ -19,6 +23,7 @@ type CC interface {
 	CategoryMap() CategoryMap
 	DataType() DataTypes
 	Dependencies() []string
+	Dialect() *Dialect
 	Name() string
 	Parent() DF
 }
@@ -36,6 +41,7 @@ type ColCore struct {
 
 	dep []string
 
+	dlct   *Dialect
 	parent DF
 }
 
@@ -90,6 +96,13 @@ func ColDataType(dt DataTypes) ColOpt {
 	}
 }
 
+func ColDialect(dlct *Dialect) ColOpt {
+	return func(c CC) error {
+		c.Core().dlct = dlct
+		return nil
+	}
+}
+
 func ColName(name string) ColOpt {
 	return func(c CC) error {
 		if c == nil {
@@ -118,9 +131,10 @@ func ColParent(df DF) ColOpt {
 			return fmt.Errorf("nil column to ColParent")
 		}
 
-		if c.Name() == "" && df != nil {
-			return fmt.Errorf("column must have a name to assign parent")
-		}
+		// TODO: think about this
+		//		if c.Name() == "" && df != nil {
+		//			return fmt.Errorf("column must have a name to assign parent")
+		//		}
 
 		// A column with this name already exists in df and is not the column we're assigning the parent to
 		if df != nil && df.Column(c.Name()) != nil && df.Column(c.Name()) != c {
@@ -190,6 +204,8 @@ func (c *ColCore) DataType() DataTypes {
 func (c *ColCore) Dependencies() []string {
 	return c.dep
 }
+
+func (c *ColCore) Dialect() *Dialect { return c.dlct }
 
 func (c *ColCore) Name() string {
 	return c.name
