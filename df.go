@@ -59,8 +59,7 @@ type columnList struct {
 	next  *columnList
 }
 
-// TODO: change to cols as slice and opts as ...
-func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
+func NewDF(funcs Fns, cols []Column, opts ...DFopt) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -88,6 +87,13 @@ func NewDF(funcs Fns, cols ...Column) (df *DFcore, err error) {
 	}
 
 	outDF.head = head
+
+	for _, opt := range opts {
+		if e := opt(outDF); e != nil {
+			return nil, e
+		}
+	}
+
 	return outDF, nil
 }
 
@@ -185,7 +191,7 @@ func (df *DFcore) AppendDFcore(df2 *DFcore) (*DFcore, error) {
 		cols = append(cols, nc)
 	}
 
-	return NewDF(df.Fns(), cols...)
+	return NewDF(df.Fns(), cols)
 }
 
 func (df *DFcore) Column(colName string) Column {
@@ -252,7 +258,7 @@ func (df *DFcore) Copy() *DFcore {
 
 	var outDF *DFcore
 
-	outDF, _ = NewDF(df.Fns(), cols...)
+	outDF, _ = NewDF(df.Fns(), cols)
 	_ = DFdialect(df.Dialect())(outDF)
 
 	return outDF

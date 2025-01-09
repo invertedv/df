@@ -268,7 +268,6 @@ func TestParser(t *testing.T) {
 	fmt.Println("# tests: ", cnt)
 }
 
-/*
 func TestParserS(t *testing.T) {
 	dfx := testDF()
 
@@ -282,18 +281,30 @@ func TestParserS(t *testing.T) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
-		xOut, ex := dfx.Parse(eqn)
+		xOut, ex := d.Parse(dfx, eqn)
 		assert.Nil(t, ex)
 		col := xOut.Column()
-		col.Rename("test")
+		_ = d.ColName("test")(col)
 		var (
 			dfNew *DF
 			e     error
 		)
+
+		data := col.Data().AsAny()
+		fmt.Println(data)
+
+		xOut, ex = d.Parse(dfx, "dot(x,x)")
+		data = xOut.Column().Data().AsAny()
+		fmt.Println(data)
+
+		xOut, ex = d.Parse(dfx, "exp(x)")
+		data = xOut.Column().Data().AsAny()
+		fmt.Println(data)
+		return
 		ez := dfx.AppendColumn(col, true)
 		assert.NotNil(t, ez)
 
-		dfNew, e = NewDFcol(nil, nil, dfx.Context(), col.(*Col))
+		dfNew, e = NewDFcol(nil, dfx.Dialect(), col.(*Col))
 		assert.Nil(t, e)
 		indx := x[ind][1].(int)
 
@@ -315,7 +326,8 @@ func TestParserS(t *testing.T) {
 	}
 
 	fmt.Println("# tests: ", cnt)
-}*/
+}
+
 /*
 // TODO: implement SORT
 func TestSQLdf_Table(t *testing.T) {

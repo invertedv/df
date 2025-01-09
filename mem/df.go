@@ -61,7 +61,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 		e  error
 	)
 
-	if df, e = d.NewDF(funcs, cc...); e != nil {
+	if df, e = d.NewDF(funcs, cc); e != nil {
 		return nil, e
 	}
 

@@ -14,21 +14,25 @@ import (
 
 // All code interacting with a database is here
 
+// TODO: make a clickhouse directory
 var (
-	//go:embed skeletons/chCreate.txt
+	//go:embed skeletons/clickhouse/create.txt
 	chCreate string
 
-	//go:embed skeletons/chTypes.txt
+	//go:embed skeletons/clickhouse/types.txt
 	chTypes string
 
-	//go:embed skeletons/chFields.txt
+	//go:embed skeletons/clickhouse/fields.txt
 	chFields string
 
-	//go:embed skeletons/chDropIf.txt
+	//go:embed skeletons/clickhouse/dropIf.txt
 	chDropIf string
 
-	//go:embed skeletons/chInsert.xt
+	//go:embed skeletons/clickhouse/insert.txt
 	chInsert string
+
+	//go:embed skeletons/clickhouse/chFunctions.txt
+	chFunctions string
 )
 
 const (
@@ -52,6 +56,15 @@ type Dialect struct {
 	fields string
 
 	bufSize int // in MB
+
+	functions []*fnSpec
+}
+
+type fnSpec struct {
+	Name    string
+	SQL     string
+	Inputs  [][]DataTypes
+	Outputs []DataTypes
 }
 
 func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
@@ -64,6 +77,7 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	case ch:
 		d.create, d.fields, d.dropIf, d.insert = chCreate, chFields, chDropIf, chInsert
 		types = chTypes
+		d.functions = loadFunctions(chFunctions)
 	case pg:
 		d.create = ""
 	case ms:
@@ -266,6 +280,10 @@ func (d *Dialect) Exists(tableName string) bool {
 	}
 
 	return false
+}
+
+func (d *Dialect) Functions() []*fnSpec {
+	return d.functions
 }
 
 func (d *Dialect) Ifs(x, y, op string) (string, error) {
@@ -768,4 +786,49 @@ func castKind(r any, k reflect.Kind) any {
 	}
 
 	return out
+}
+
+func loadFunctions(fns string) []*fnSpec {
+	var m []*fnSpec
+	specs := strings.Split(fns, "\n")
+	for _, spec := range specs {
+		details := strings.Split(spec, ":")
+		if len(details) != 4 {
+			continue
+		}
+
+		s := &fnSpec{
+			Name:    details[0],
+			SQL:     details[1],
+			Inputs:  parseInputs(details[2]),
+			Outputs: parseOutputs(details[3]),
+		}
+
+		m = append(m, s)
+	}
+
+	return m
+}
+
+func parseInputs(inp string) [][]DataTypes {
+	var outDT [][]DataTypes
+	dts := strings.Split(inp, "{")
+	for ind := 1; ind < len(dts); ind++ {
+		s := strings.ReplaceAll(dts[ind], "},", "")
+		s = strings.ReplaceAll(s, "}", "")
+		outDT = append(outDT, parseOutputs(s))
+	}
+
+	return outDT
+}
+
+func parseOutputs(outp string) []DataTypes {
+	var outDT []DataTypes
+
+	outs := strings.Split(outp, ",")
+	for ind := 0; ind < len(outs); ind++ {
+		outDT = append(outDT, DTFromString(outs[ind]))
+	}
+
+	return outDT
 }

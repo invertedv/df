@@ -1,0 +1,4 @@
+sum:sum(%s):{DTint},{DTfloat}:DTint,DTfloat
+mean:avg(%s):{DTint},{DTfloat}:DTfloat,DTfloat
+dot:sum(%s*%s):{DTfloat,DTfloat},{DTint,DTint}:DTfloat,DTfloat
+exp:exp(%s):{DTfloat}:{DTfloat}

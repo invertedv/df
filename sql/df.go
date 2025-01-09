@@ -1,9 +1,5 @@
 package sql
 
-import d "github.com/invertedv/df"
-
-// TODO: change SQL() to return string
-
 import (
 	"database/sql"
 	"fmt"
@@ -11,12 +7,20 @@ import (
 	"maps"
 	"strings"
 
+	d "github.com/invertedv/df"
+
+	// TODO: change SQL() to return string
+
 	m "github.com/invertedv/df/mem"
 )
 
-func StandardFunctions() d.Fns {
-	return d.Fns{abs, add, and, applyCat, divide, dot, eq, exp, ge, gt, ifs, le, log, lt, mean,
-		multiply, ne, neg, not, or, rowNumber, sortDF, sum, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
+func StandardFunctions(dlct *d.Dialect) d.Fns {
+	fns := d.Fns{abs, add, and, applyCat, divide, eq, ge, gt, ifs, le, log, lt,
+		multiply, ne, neg, not, or, rowNumber, sortDF, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
+
+	fns = append(fns, summary2(dlct)...)
+
+	return fns
 }
 
 // TODO: make mem work like this
@@ -55,7 +59,7 @@ func NewDFcol(funcs d.Fns, dlct *d.Dialect, cols ...*Col) (*DF, error) {
 	}
 
 	if funcs == nil {
-		funcs = StandardFunctions()
+		funcs = StandardFunctions(dlct)
 	}
 
 	// HERE
@@ -80,7 +84,7 @@ func NewDFcol(funcs d.Fns, dlct *d.Dialect, cols ...*Col) (*DF, error) {
 		tmp *d.DFcore
 		e   error
 	)
-	if tmp, e = d.NewDF(funcs, cstd...); e != nil {
+	if tmp, e = d.NewDF(funcs, cstd); e != nil {
 		return nil, e
 	}
 
@@ -97,7 +101,7 @@ func NewDFcol(funcs d.Fns, dlct *d.Dialect, cols ...*Col) (*DF, error) {
 
 func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 	if funcs == nil {
-		funcs = StandardFunctions()
+		funcs = StandardFunctions(dlct)
 	}
 
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
@@ -115,7 +119,7 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 		ColCore: cc,
 	}
 
-	dfc, ex := d.NewDF(funcs, col)
+	dfc, ex := d.NewDF(funcs, []d.Column{col})
 	if ex != nil {
 		panic(ex)
 	}
@@ -176,7 +180,7 @@ func DBload(query string, dlct *d.Dialect) (*DF, error) {
 
 	var tmp *d.DFcore
 	// TODO: fix runs
-	if tmp, e = d.NewDF(StandardFunctions(), cols...); e != nil {
+	if tmp, e = d.NewDF(StandardFunctions(dlct), cols); e != nil {
 		return nil, e
 	}
 	// TODO: think about: should SetContext copy context?
@@ -198,6 +202,10 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 
 	if !sameSource(f, col) {
 		return fmt.Errorf("added column not from same source")
+	}
+
+	if f.RowCount() != col.Len() {
+		return fmt.Errorf("added column has differing # of rows")
 	}
 
 	return f.Core().AppendColumn(col, replace)
