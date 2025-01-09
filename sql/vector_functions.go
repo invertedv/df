@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+
 	d "github.com/invertedv/df"
 )
 
@@ -24,7 +25,7 @@ func getNames(startInd int, cols ...d.Column) ([]string, error) {
 
 // ***************** Functions that take no parameters *****************
 
-func rowNumber(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func rowNumberX(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return fnGen("rowNumber", "", nil, []d.DataTypes{d.DTint}, info, df)
 	}

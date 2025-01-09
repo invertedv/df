@@ -1,4 +1,6 @@
-sum:sum(%s):{DTint},{DTfloat}:DTint,DTfloat
-mean:avg(%s):{DTint},{DTfloat}:DTfloat,DTfloat
-dot:sum(%s*%s):{DTfloat,DTfloat},{DTint,DTint}:DTfloat,DTfloat
-exp:exp(%s):{DTfloat}:{DTfloat}
+add:(%s+%s):{int,int},{float,float}:int,float
+sum:sum(%s):{int},{float}:int,float
+mean:avg(%s):{int},{float}:float,float
+dot:sum(%s*%s):{float,float},{int,int}:float,float
+exp:exp(%s):{float}:float
+rowNumber:toInt32(rowNumberInBlock())::int

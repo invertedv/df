@@ -15,8 +15,8 @@ import (
 )
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
-	fns := d.Fns{abs, add, and, applyCat, divide, eq, ge, gt, ifs, le, log, lt,
-		multiply, ne, neg, not, or, rowNumber, sortDF, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
+	fns := d.Fns{abs, and, applyCat, divide, eq, ge, gt, ifs, le, log, lt,
+		multiply, ne, neg, not, or, sortDF, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
 
 	fns = append(fns, summary2(dlct)...)
 

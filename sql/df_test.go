@@ -107,7 +107,7 @@ func TestRowNumber(t *testing.T) {
 	assert.Nil(t, e)
 	_ = d.ColName("rn")(out.Column())
 	//	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, checker(dfx, "rn", out.Column(), -1))
-	fmt.Println(out.Column().Data())
+	fmt.Println(out.Column().Data().AsAny())
 }
 
 func TestNewDFseq(t *testing.T) {

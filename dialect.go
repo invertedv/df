@@ -827,7 +827,7 @@ func parseOutputs(outp string) []DataTypes {
 
 	outs := strings.Split(outp, ",")
 	for ind := 0; ind < len(outs); ind++ {
-		outDT = append(outDT, DTFromString(outs[ind]))
+		outDT = append(outDT, DTFromString("DT"+outs[ind]))
 	}
 
 	return outDT
