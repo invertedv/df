@@ -81,7 +81,7 @@ func ToDataType(x any, dt DataTypes) (any, bool) {
 
 // ***************** Not exported *****************
 
-var dateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
+var DateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
 	"Jan 2 2006", "January 2 2006", "2006-01-02"}
 
 // *********** Conversions ***********
@@ -182,7 +182,7 @@ func toDate(x any) (any, bool) {
 	}
 
 	if d, ok := x.(string); ok {
-		for _, fmtx := range dateFormats {
+		for _, fmtx := range DateFormats {
 			if dt, e := time.Parse(fmtx, strings.ReplaceAll(d, "'", "")); e == nil {
 				return dt, true
 			}

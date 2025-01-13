@@ -118,7 +118,7 @@ func FileDefaultString(deflt string) FileOpt {
 
 func FileDateFormat(format string) FileOpt {
 	return func(f *Files) error {
-		if !Has(format, dateFormats) {
+		if !Has(format, DateFormats) {
 			return fmt.Errorf("invalid date format: %s", format)
 		}
 

@@ -71,22 +71,39 @@ func inter(c d.Column) []int {
 }
 
 func TestRowNumber(t *testing.T) {
-	n := 100000000
-	x := make([]float64, n)
+	n := 10000 //0000
+	x1 := make([]float64, n)
+	x2 := make([]float64, n)
+	x3 := make([]int, n)
+	x4 := make([]int, n)
+	x5 := make([]string, n)
 	for ind := 0; ind < n; ind++ {
-		x[ind] = float64(ind)
+		x1[ind] = float64(ind+1) + 0.123456
+		x2[ind] = float64(-ind)
+		x3[ind] = ind
+		x4[ind] = 0
+		x5[ind] = "20201231"
 	}
-	v, _ := d.NewVector(x, d.DTfloat)
-	c, _ := NewCol(v, d.DTint, d.ColName("x"))
-	df, _ := NewDFcol(nil, []*Col{c})
+	v1, _ := d.NewVector(x1, d.DTfloat)
+	v2, _ := d.NewVector(x2, d.DTfloat)
+	v3, _ := d.NewVector(x3, d.DTint)
+	v4, _ := d.NewVector(x4, d.DTint)
+	v5, _ := d.NewVector(x5, d.DTstring)
+	a1, _ := NewCol(v1, d.DTfloat, d.ColName("a1"))
+	a2, _ := NewCol(v2, d.DTfloat, d.ColName("a2"))
+	a3, _ := NewCol(v3, d.DTint, d.ColName("a3"))
+	a4, _ := NewCol(v4, d.DTint, d.ColName("a4"))
+	a5, _ := NewCol(v5, d.DTstring, d.ColName("a5"))
+	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
 	fns := b()
-	fn := fns.Get("rner")
+	fn := fns.Get("date")
 	tx := time.Now()
-	fnOut := fn(false, df)
+	fnOut := fn(false, df, a5)
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 	fmt.Println("element 3: ", fnOut.Value.(*Col).Element(2))
 	tx = time.Now()
-	out, _ := d.Parse(df, "exp(x)")
+	out1, _ := d.Parse(df, "string(a1)")
+	_ = out1
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 
 	_ = fnOut

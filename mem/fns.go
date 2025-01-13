@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,10 +32,24 @@ var (
 	functions string
 )
 
-// Leanring: converting output from any to <type> takes a long time
+// Learning: converting output from any to <type> takes a long time
+
+// TODO: add error return?
 
 func adder[T float64 | int](a, b T) T {
 	return a + b
+}
+
+func suber[T float64 | int](a, b T) T { return a - b }
+
+func multer[T float64 | int](a, b T) T { return a * b }
+
+func diver[T float64 | int](a, b T) T {
+	if b != 0 {
+		return a / b
+	}
+
+	return 0
 }
 
 func ander(a, b int) int {
@@ -43,6 +58,18 @@ func ander(a, b int) int {
 	}
 
 	return 0
+}
+
+func orer(a, b int) int {
+	if a > 0 || b > 0 {
+		return 1
+	}
+
+	return 0
+}
+
+func noter(a int) int {
+	return 1 - a
 }
 
 func rner(ind int) int {
@@ -65,26 +92,55 @@ func toInt(a bool) int {
 	return 0
 }
 
-func gter[T FrameTypes](a, b T) int {
-	var x any = a
-	var y any = b
-
-	switch v := x.(type) {
+func greater(a, b any) bool {
+	switch v := a.(type) {
 	case float64:
-		return toInt(v > y.(float64))
+		return v > b.(float64)
 	case int:
-		return toInt(v > y.(int))
+		return v > b.(int)
 	case string:
-		return toInt(v > y.(string))
+		return v > b.(string)
 	case time.Time:
-		return toInt(v.After(y.(time.Time)))
+		return v.After(b.(time.Time))
 	}
 
-	return 0
+	return false
 }
 
-func GetOutType(fn any) d.DataTypes {
-	switch reflect.TypeOf(fn).Out(0).Kind() {
+func gter[T FrameTypes](a, b T) int {
+	return toInt(greater(a, b))
+}
+
+func lter[T FrameTypes](a, b T) int {
+	return toInt(greater(b, a))
+}
+
+func geer[T FrameTypes](a, b T) int {
+	return toInt(!greater(b, a))
+}
+
+func leer[T FrameTypes](a, b T) int {
+	return toInt(!greater(a, b))
+}
+
+func eqer[T FrameTypes](a, b T) int {
+	return toInt(a == b)
+}
+
+func neer[T FrameTypes](a, b T) int {
+	return toInt(a != b)
+}
+
+func ifer[T FrameTypes](a int, b, c T) T {
+	if a == 1 {
+		return b
+	}
+
+	return c
+}
+
+func GetKind(fn reflect.Type) d.DataTypes {
+	switch fn.Kind() {
 	case reflect.Float64:
 		return d.DTfloat
 	case reflect.Int:
@@ -98,15 +154,97 @@ func GetOutType(fn any) d.DataTypes {
 	}
 }
 
-// add input sigs
-func fnToUse(fns []any, targOut d.DataTypes) any {
+func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 	for _, fn := range fns {
-		if GetOutType(fn) == targOut {
-			return fn
+		rfn := reflect.TypeOf(fn)
+		ok := true
+		for ind := 0; ind < rfn.NumIn(); ind++ {
+			if GetKind(rfn.In(ind)) != targetIns[ind] {
+				ok = false
+				break
+			}
+			if ok && GetKind(rfn.Out(0)) == targOut {
+				return fn
+			}
 		}
 	}
 
 	return nil
+}
+
+func floater[T float64 | int | string](x T) float64 {
+	var xx any = x
+	switch v := xx.(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	case string:
+		xo, e := strconv.ParseFloat(v, 64)
+		if e == nil {
+			return xo
+		}
+
+		return 0
+	}
+
+	return 0
+}
+
+func inTer[T float64 | int | string](x T) int {
+	var xx any = x
+	switch v := xx.(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case string:
+		xo, e := strconv.ParseInt(v, 10, 64)
+		if e == nil {
+			return int(xo)
+		}
+
+		return 0
+	}
+
+	return 0
+}
+
+func stringer[T FrameTypes](x T) string {
+	var xx any = x
+	switch v := xx.(type) {
+	case float64:
+		return fmt.Sprintf("%v", v)
+	case int:
+		return fmt.Sprintf("%d", v)
+	case string:
+		return v
+	case time.Time:
+		return v.Format("20060102")
+	}
+
+	return ""
+}
+
+func dater[T int | string | time.Time](x T) time.Time {
+	var xx any = x
+	switch v := xx.(type) {
+	case int:
+		vs := fmt.Sprintf("%d", v)
+		return dater(vs)
+	case string:
+		for _, fmtx := range d.DateFormats {
+			dt, e := time.Parse(fmtx, strings.ReplaceAll(v, "'", ""))
+			if e == nil {
+				return dt
+			}
+		}
+		return time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+	case time.Time:
+		return v
+	}
+
+	return time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
 }
 
 func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
@@ -172,10 +310,51 @@ func wrap2[T, S FrameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col)
 	return v, nil
 }
 
+func wrap3[T, S, R FrameTypes](fn any, n int, outType d.DataTypes, col1, col2, col3 *Col) (*d.Vector, error) {
+	inData1 := col1.Data().AsAny().([]T)
+	inData2 := col2.Data().AsAny().([]S)
+	inData3 := col3.Data().AsAny().([]R)
+	v := d.MakeVector(outType, n)
+	for ind := 0; ind < n; ind++ {
+		switch outType {
+		case d.DTfloat:
+			v.SetAny(fn.(func(x T, y S, z R) float64)(inData1[ind], inData2[ind], inData3[ind]), ind)
+		case d.DTint:
+			v.SetAny(fn.(func(x T, y S, z R) int)(inData1[ind], inData2[ind], inData3[ind]), ind)
+		case d.DTstring:
+			v.SetAny(fn.(func(x T, y S, z R) string)(inData1[ind], inData2[ind], inData3[ind]), ind)
+		case d.DTdate:
+			v.SetAny(fn.(func(x T, y S, z R) time.Time)(inData1[ind], inData2[ind], inData3[ind]), ind)
+		default:
+			return nil, fmt.Errorf("failed")
+		}
+	}
+
+	return v, nil
+}
+
 func b() d.Fns {
 	specs := loadFunctions(functions)
-	fns := []any{rner, adder[float64], adder[int], abser[float64], abser[int], ander, math.Exp,
-		gter[float64], gter[int], gter[string]}
+	fns := []any{rner,
+		floater[float64], floater[int], floater[string],
+		inTer[float64], inTer[int], inTer[string],
+		stringer[float64], stringer[int], stringer[string], stringer[time.Time],
+		dater[int], dater[string], dater[time.Time],
+		adder[float64], adder[int],
+		suber[float64], suber[int],
+		multer[float64], multer[int],
+		diver[float64], diver[int],
+		abser[float64], abser[int],
+		ander, orer, noter,
+		math.Exp, math.Log,
+		gter[float64], gter[int], gter[string], gter[time.Time],
+		lter[float64], lter[int], lter[string], lter[time.Time],
+		geer[float64], geer[int], geer[string], geer[time.Time],
+		leer[float64], leer[int], leer[string], leer[time.Time],
+		eqer[float64], eqer[int], eqer[string], eqer[time.Time],
+		neer[float64], neer[int], neer[string], neer[time.Time],
+		ifer[float64], ifer[int], ifer[string], ifer[time.Time],
+	}
 
 	for _, spec := range specs {
 		for _, fn := range fns {
@@ -209,7 +388,7 @@ func b() d.Fns {
 				if ind < 0 {
 					panic("no signature")
 				}
-				fnUse = fnToUse(spec.Fns, spec.Outputs[ind])
+				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
 			}
 
 			var oas *d.Vector
@@ -271,6 +450,17 @@ func b() d.Fns {
 				case "DTdateDTstring":
 					oas, _ = wrap2[time.Time, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				}
+			case 3:
+				switch fmt.Sprintf("%s%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1], spec.Inputs[ind][2]) {
+				case "DTintDTfloatDTfloat":
+					oas, _ = wrap3[int, float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+				case "DTintDTintDTint":
+					oas, _ = wrap3[int, int, int](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+				case "DTintDTstringDTstring":
+					oas, _ = wrap3[int, string, string](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+				case "DTintDTdateDTdate":
+					oas, _ = wrap3[int, time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+				}
 			}
 
 			return returnCol(oas)
@@ -278,8 +468,6 @@ func b() d.Fns {
 
 		outFns = append(outFns, fn)
 	}
-
-	fmt.Println("done")
 
 	return outFns
 }
