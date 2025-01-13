@@ -45,12 +45,42 @@ func ander(a, b int) int {
 	return 0
 }
 
+func rner(ind int) int {
+	return ind
+}
+
 func abser[T float64 | int](a T) T {
 	if a >= 0 {
 		return a
 	}
 
 	return -a
+}
+
+func toInt(a bool) int {
+	if a {
+		return 1
+	}
+
+	return 0
+}
+
+func gter[T FrameTypes](a, b T) int {
+	var x any = a
+	var y any = b
+
+	switch v := x.(type) {
+	case float64:
+		return toInt(v > y.(float64))
+	case int:
+		return toInt(v > y.(int))
+	case string:
+		return toInt(v > y.(string))
+	case time.Time:
+		return toInt(v.After(y.(time.Time)))
+	}
+
+	return 0
 }
 
 func GetOutType(fn any) d.DataTypes {
@@ -99,10 +129,6 @@ func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
 	return v, nil
 }
 
-func wrap1a[T FrameTypes](example T, fn any) {
-	fmt.Println(example)
-}
-
 func wrap1[T FrameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vector, error) {
 	inData := col.Data().AsAny().([]T)
 	v := d.MakeVector(outType, n)
@@ -148,7 +174,8 @@ func wrap2[T, S FrameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col)
 
 func b() d.Fns {
 	specs := loadFunctions(functions)
-	fns := []any{adder[float64], adder[int], abser[float64], abser[int], ander, math.Exp}
+	fns := []any{rner, adder[float64], adder[int], abser[float64], abser[int], ander, math.Exp,
+		gter[float64], gter[int], gter[string]}
 
 	for _, spec := range specs {
 		for _, fn := range fns {
@@ -185,17 +212,13 @@ func b() d.Fns {
 				fnUse = fnToUse(spec.Fns, spec.Outputs[ind])
 			}
 
-			fnsx := []any{wrap1a[int], wrap1a[float64]}
-			for _, fn := range fnsx {
-				a := reflect.TypeOf(fn).In(0).Kind()
-
-				if a == reflect.Int {
-
-				}
-				_ = a
-			}
 			var oas *d.Vector
-			switch reflect.TypeOf(fnUse).NumIn() {
+			//switch reflect.TypeOf(fnUse).NumIn() {
+			lenx := 0
+			if spec.Inputs != nil {
+				lenx = len(spec.Inputs[ind])
+			}
+			switch lenx {
 			case 0:
 				oas, _ = wrap0(fnUse, spec.Outputs[ind], n)
 			case 1:
@@ -289,7 +312,9 @@ func parseInputs(inp string) [][]d.DataTypes {
 	for ind := 1; ind < len(dts); ind++ {
 		s := strings.ReplaceAll(dts[ind], "},", "")
 		s = strings.ReplaceAll(s, "}", "")
-		outDT = append(outDT, parseOutputs(s))
+		if s != "" {
+			outDT = append(outDT, parseOutputs(s))
+		}
 	}
 
 	return outDT

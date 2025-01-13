@@ -1,5 +1,7 @@
+rner:github.com/invertedv/df/mem.rner:{}:int
 abser:github.com/invertedv/df/mem.abser[...]:{int},{float}:int,float
 adder:github.com/invertedv/df/mem.adder[...]:{int,int},{float,float}:int,float
 expx:github.com/invertedv/df/mem.exp:{float}:float
 exp:math.Exp:{float}:float
 ander:github.com/invertedv/df/mem.ander:{int,int}:int
+gter:github.com/invertedv/df/mem.gter[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int
