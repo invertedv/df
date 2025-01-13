@@ -288,6 +288,19 @@ func (v *Vector) Less(i, j int) bool {
 	}
 }
 
+func (v *Vector) SetAny(val any, ind int) {
+	switch x := val.(type) {
+	case float64:
+		v.data.([]float64)[ind] = x
+	case int:
+		v.data.([]int)[ind] = x
+	case string:
+		v.data.([]string)[ind] = x
+	case time.Time:
+		v.data.([]time.Time)[ind] = x
+	}
+}
+
 func (v *Vector) SetDate(val time.Time, indx int) error {
 	if v.VectorType() != DTdate {
 		return fmt.Errorf("vector isn't DTdate")

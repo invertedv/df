@@ -71,6 +71,25 @@ func inter(c d.Column) []int {
 }
 
 func TestRowNumber(t *testing.T) {
+	n := 100000000
+	x := make([]float64, n)
+	for ind := 0; ind < n; ind++ {
+		x[ind] = float64(ind)
+	}
+	v, _ := d.NewVector(x, d.DTfloat)
+	c, _ := NewCol(v, d.DTint, d.ColName("x"))
+	df, _ := NewDFcol(nil, []*Col{c})
+	fns := b()
+	fn := fns.Get("exp")
+	tx := time.Now()
+	fnOut := fn(false, df, c)
+	fmt.Println(time.Since(tx).Seconds(), " seconds")
+	fmt.Println("element 3: ", fnOut.Value.(*Col).Element(2))
+	tx = time.Now()
+	out, _ := d.Parse(df, "exp(x)")
+	fmt.Println(time.Since(tx).Seconds(), " seconds")
+
+	_ = fnOut
 	dfx := testDF()
 	out, e := d.Parse(dfx, "rowNumber()")
 	assert.Nil(t, e)

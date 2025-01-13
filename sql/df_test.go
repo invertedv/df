@@ -122,6 +122,7 @@ func TestNewDFseq(t *testing.T) {
 func TestSQLcol_Data(t *testing.T) {
 	const coln = "x"
 	dfx := testDF()
+
 	c := dfx.Column(coln)
 	assert.NotNil(t, c)
 	fmt.Println(c.Data().AsAny())

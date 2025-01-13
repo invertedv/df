@@ -253,7 +253,8 @@ func WhatAmI(val any) DataTypes {
 }
 
 func toSlc(xIn any, target DataTypes) (any, bool) {
-	typSlc := []reflect.Type{reflect.TypeOf([]float64{}), reflect.TypeOf([]int{}), reflect.TypeOf([]string{""}), reflect.TypeOf([]time.Time{})}
+	// TODO: HERE removed "" from string
+	typSlc := []reflect.Type{reflect.TypeOf([]float64{}), reflect.TypeOf([]int{}), reflect.TypeOf([]string{}), reflect.TypeOf([]time.Time{})}
 	toFns := []func(a any) (any, bool){toFloat, toInt, toString, toDate}
 
 	x := reflect.ValueOf(xIn)
