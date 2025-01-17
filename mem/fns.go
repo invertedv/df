@@ -13,6 +13,9 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// TODO: add error return?
+// TODO: what about summary functions?
+
 type FrameTypes interface {
 	float64 | int | string | time.Time
 }
@@ -34,57 +37,55 @@ var (
 
 // Learning: converting output from any to <type> takes a long time
 
-// TODO: add error return?
-
-func adder[T float64 | int](a, b T) T {
-	return a + b
+func adder[T float64 | int](a, b T) (T, error) {
+	return a + b, nil
 }
 
-func suber[T float64 | int](a, b T) T { return a - b }
+func suber[T float64 | int](a, b T) (T, error) { return a - b, nil }
 
-func multer[T float64 | int](a, b T) T { return a * b }
+func multer[T float64 | int](a, b T) (T, error) { return a * b, nil }
 
-func diver[T float64 | int](a, b T) T {
+func diver[T float64 | int](a, b T) (T, error) {
 	if b != 0 {
-		return a / b
+		return a / b, nil
 	}
 
-	return 0
+	return 0, fmt.Errorf("divide by 0")
 }
 
-func ander(a, b int) int {
+func ander(a, b int) (int, error) {
 	if a > 0 && b > 0 {
-		return 1
+		return 1, nil
 	}
 
-	return 0
+	return 0, nil
 }
 
-func orer(a, b int) int {
+func orer(a, b int) (int, error) {
 	if a > 0 || b > 0 {
-		return 1
+		return 1, nil
 	}
 
-	return 0
+	return 0, nil
 }
 
-func noter(a int) int {
-	return 1 - a
+func noter(a int) (int, error) {
+	return 1 - a, nil
 }
 
-func rner(ind int) int {
-	return ind
+func rner(ind int) (int, error) {
+	return ind, nil
 }
 
-func abser[T float64 | int](a T) T {
+func abser[T float64 | int](a T) (T, error) {
 	if a >= 0 {
-		return a
+		return a, nil
 	}
 
-	return -a
+	return -a, nil
 }
 
-func toInt(a bool) int {
+func bToI(a bool) int {
 	if a {
 		return 1
 	}
@@ -108,35 +109,51 @@ func greater(a, b any) bool {
 }
 
 func gter[T FrameTypes](a, b T) int {
-	return toInt(greater(a, b))
+	return bToI(greater(a, b))
 }
 
-func lter[T FrameTypes](a, b T) int {
-	return toInt(greater(b, a))
+func lter[T FrameTypes](a, b T) (int, error) {
+	return bToI(greater(b, a)), nil
 }
 
-func geer[T FrameTypes](a, b T) int {
-	return toInt(!greater(b, a))
+func geer[T FrameTypes](a, b T) (int, error) {
+	return bToI(!greater(b, a)), nil
 }
 
-func leer[T FrameTypes](a, b T) int {
-	return toInt(!greater(a, b))
+func leer[T FrameTypes](a, b T) (int, error) {
+	return bToI(!greater(a, b)), nil
 }
 
-func eqer[T FrameTypes](a, b T) int {
-	return toInt(a == b)
+func eqer[T FrameTypes](a, b T) (int, error) {
+	return bToI(a == b), nil
 }
 
-func neer[T FrameTypes](a, b T) int {
-	return toInt(a != b)
+func neer[T FrameTypes](a, b T) (int, error) {
+	return bToI(a != b), nil
 }
 
-func ifer[T FrameTypes](a int, b, c T) T {
+func ifer[T FrameTypes](a int, b, c T) (T, error) {
 	if a == 1 {
-		return b
+		return b, nil
 	}
 
-	return c
+	return c, nil
+}
+
+func isInfer(x float64) (int, error) {
+	if math.IsInf(x, 0) || math.IsInf(x, 1) {
+		return 1, nil
+	}
+
+	return 0, nil
+}
+
+func isNaNer(x float64) (int, error) {
+	if math.IsNaN(x) {
+		return 1, nil
+	}
+
+	return 0, nil
 }
 
 func GetKind(fn reflect.Type) d.DataTypes {
@@ -172,61 +189,59 @@ func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 	return nil
 }
 
-func floater[T float64 | int | string](x T) float64 {
+func floater[T float64 | int | string](x T) (float64, error) {
 	var xx any = x
 	switch v := xx.(type) {
 	case float64:
-		return v
+		return v, nil
 	case int:
-		return float64(v)
+		return float64(v), nil
 	case string:
-		xo, e := strconv.ParseFloat(v, 64)
-		if e == nil {
-			return xo
-		}
-
-		return 0
+		return strconv.ParseFloat(v, 64)
 	}
 
-	return 0
+	return 0, fmt.Errorf("cannot convert to float")
 }
 
-func inTer[T float64 | int | string](x T) int {
+func inTer[T float64 | int | string](x T) (int, error) {
 	var xx any = x
 	switch v := xx.(type) {
 	case float64:
-		return int(v)
+		return int(v), nil
 	case int:
-		return v
+		return v, nil
 	case string:
-		xo, e := strconv.ParseInt(v, 10, 64)
-		if e == nil {
-			return int(xo)
+		var (
+			xo int64
+			e  error
+		)
+		if xo, e = strconv.ParseInt(v, 10, 64); e != nil {
+			return 0, e
 		}
 
-		return 0
+		return int(xo), nil
 	}
 
-	return 0
+	return 0, fmt.Errorf("cannot convert to int")
 }
 
-func stringer[T FrameTypes](x T) string {
+func stringer[T FrameTypes](x T) (string, error) {
 	var xx any = x
 	switch v := xx.(type) {
 	case float64:
-		return fmt.Sprintf("%v", v)
+		return fmt.Sprintf("%v", v), nil
 	case int:
-		return fmt.Sprintf("%d", v)
+		return fmt.Sprintf("%d", v), nil
 	case string:
-		return v
+		return v, nil
 	case time.Time:
-		return v.Format("20060102")
+		return v.Format("20060102"), nil
 	}
 
-	return ""
+	return "", fmt.Errorf("cannot convert to string")
 }
 
-func dater[T int | string | time.Time](x T) time.Time {
+func dater[T int | string | time.Time](x T) (time.Time, error) {
 	var xx any = x
 	switch v := xx.(type) {
 	case int:
@@ -234,17 +249,16 @@ func dater[T int | string | time.Time](x T) time.Time {
 		return dater(vs)
 	case string:
 		for _, fmtx := range d.DateFormats {
-			dt, e := time.Parse(fmtx, strings.ReplaceAll(v, "'", ""))
-			if e == nil {
-				return dt
-			}
+			return time.Parse(fmtx, strings.ReplaceAll(v, "'", ""))
 		}
-		return time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+
+		return time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC), nil
 	case time.Time:
-		return v
+		return v, nil
 	}
 
-	return time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC)
+	return time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC),
+		fmt.Errorf("cannot convert to date")
 }
 
 func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
@@ -252,15 +266,31 @@ func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
 	for ind := 0; ind < n; ind++ {
 		switch outType {
 		case d.DTfloat:
-			v.SetAny(fn.(func(int) float64)(ind), ind)
+			x, e := fn.(func(int) (float64, error))(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTint:
-			v.SetAny(fn.(func(int) int)(ind), ind)
+			x, e := fn.(func(int) (int, error))(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTstring:
-			v.SetAny(fn.(func(int) string)(ind), ind)
+			x, e := fn.(func(int) (string, error))(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTdate:
-			v.SetAny(fn.(func(int) time.Time)(ind), ind)
+			x, e := fn.(func(int) (time.Time, error))(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		default:
-			return nil, fmt.Errorf("failed")
+			return nil, fmt.Errorf("wrap0 failed")
 		}
 	}
 
@@ -273,15 +303,31 @@ func wrap1[T FrameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vecto
 	for ind := 0; ind < n; ind++ {
 		switch outType {
 		case d.DTfloat:
-			v.SetAny(fn.(func(x T) float64)(inData[ind]), ind)
+			x, e := fn.(func(x T) (float64, error))(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTint:
-			v.SetAny(fn.(func(x T) int)(inData[ind]), ind)
+			x, e := fn.(func(x T) (int, error))(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTstring:
-			v.SetAny(fn.(func(x T) string)(inData[ind]), ind)
+			x, e := fn.(func(x T) (string, error))(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTdate:
-			v.SetAny(fn.(func(x T) time.Time)(inData[ind]), ind)
+			x, e := fn.(func(x T) (time.Time, error))(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		default:
-			return nil, fmt.Errorf("failed")
+			return nil, fmt.Errorf("wrap1 failed")
 		}
 	}
 
@@ -295,13 +341,29 @@ func wrap2[T, S FrameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col)
 	for ind := 0; ind < n; ind++ {
 		switch outType {
 		case d.DTfloat:
-			v.SetAny(fn.(func(x T, y S) float64)(inData1[ind], inData2[ind]), ind)
+			x, e := fn.(func(x T, y S) (float64, error))(inData1[ind], inData2[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTint:
-			v.SetAny(fn.(func(x T, y S) int)(inData1[ind], inData2[ind]), ind)
+			x, e := fn.(func(x T, y S) (int, error))(inData1[ind], inData2[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTstring:
-			v.SetAny(fn.(func(x T, y S) string)(inData1[ind], inData2[ind]), ind)
+			x, e := fn.(func(x T, y S) (string, error))(inData1[ind], inData2[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTdate:
-			v.SetAny(fn.(func(x T, y S) time.Time)(inData1[ind], inData2[ind]), ind)
+			x, e := fn.(func(x T, y S) (time.Time, error))(inData1[ind], inData2[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		default:
 			return nil, fmt.Errorf("failed")
 		}
@@ -318,13 +380,29 @@ func wrap3[T, S, R FrameTypes](fn any, n int, outType d.DataTypes, col1, col2, c
 	for ind := 0; ind < n; ind++ {
 		switch outType {
 		case d.DTfloat:
-			v.SetAny(fn.(func(x T, y S, z R) float64)(inData1[ind], inData2[ind], inData3[ind]), ind)
+			x, e := fn.(func(x T, y S, z R) (float64, error))(inData1[ind], inData2[ind], inData3[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTint:
-			v.SetAny(fn.(func(x T, y S, z R) int)(inData1[ind], inData2[ind], inData3[ind]), ind)
+			x, e := fn.(func(x T, y S, z R) (int, error))(inData1[ind], inData2[ind], inData3[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTstring:
-			v.SetAny(fn.(func(x T, y S, z R) string)(inData1[ind], inData2[ind], inData3[ind]), ind)
+			x, e := fn.(func(x T, y S, z R) (string, error))(inData1[ind], inData2[ind], inData3[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		case d.DTdate:
-			v.SetAny(fn.(func(x T, y S, z R) time.Time)(inData1[ind], inData2[ind], inData3[ind]), ind)
+			x, e := fn.(func(x T, y S, z R) (time.Time, error))(inData1[ind], inData2[ind], inData3[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
 		default:
 			return nil, fmt.Errorf("failed")
 		}
@@ -336,6 +414,7 @@ func wrap3[T, S, R FrameTypes](fn any, n int, outType d.DataTypes, col1, col2, c
 func b() d.Fns {
 	specs := loadFunctions(functions)
 	fns := []any{rner,
+		isInfer, isNaNer,
 		floater[float64], floater[int], floater[string],
 		inTer[float64], inTer[int], inTer[string],
 		stringer[float64], stringer[int], stringer[string], stringer[time.Time],
@@ -391,7 +470,10 @@ func b() d.Fns {
 				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
 			}
 
-			var oas *d.Vector
+			var (
+				oas *d.Vector
+				e   error
+			)
 			//switch reflect.TypeOf(fnUse).NumIn() {
 			lenx := 0
 			if spec.Inputs != nil {
@@ -403,64 +485,68 @@ func b() d.Fns {
 			case 1:
 				switch spec.Inputs[ind][0] {
 				case d.DTfloat:
-					oas, _ = wrap1[float64](fnUse, n, spec.Outputs[ind], col[0])
+					oas, e = wrap1[float64](fnUse, n, spec.Outputs[ind], col[0])
 				case d.DTint:
-					oas, _ = wrap1[int](fnUse, n, spec.Outputs[ind], col[0])
+					oas, e = wrap1[int](fnUse, n, spec.Outputs[ind], col[0])
 				case d.DTstring:
-					oas, _ = wrap1[string](fnUse, n, spec.Outputs[ind], col[0])
+					oas, e = wrap1[string](fnUse, n, spec.Outputs[ind], col[0])
 				case d.DTdate:
-					oas, _ = wrap1[time.Time](fnUse, n, spec.Outputs[ind], col[0])
+					oas, e = wrap1[time.Time](fnUse, n, spec.Outputs[ind], col[0])
 				}
 			case 2:
 				switch fmt.Sprintf("%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1]) {
 				case "DTfloatDTfloat":
-					oas, _ = wrap2[float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTintDTint":
-					oas, _ = wrap2[int, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTstringDTstring":
-					oas, _ = wrap2[string, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTdateDTdate":
-					oas, _ = wrap2[time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTfloatDTint":
-					oas, _ = wrap2[float64, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTfloatDTstring":
-					oas, _ = wrap2[float64, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTfloatDTdate":
-					oas, _ = wrap2[float64, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTintDTfloat":
-					oas, _ = wrap2[int, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTintDTstring":
-					oas, _ = wrap2[int, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTintDTdate":
-					oas, _ = wrap2[int, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTstringDTfloat":
-					oas, _ = wrap2[string, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTstringDTint":
-					oas, _ = wrap2[string, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTstringDTdate":
-					oas, _ = wrap2[string, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTdateDTfloat":
-					oas, _ = wrap2[time.Time, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTdateDTint":
-					oas, _ = wrap2[time.Time, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTdateDTstring":
-					oas, _ = wrap2[time.Time, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				}
 			case 3:
 				switch fmt.Sprintf("%s%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1], spec.Inputs[ind][2]) {
 				case "DTintDTfloatDTfloat":
-					oas, _ = wrap3[int, float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				case "DTintDTintDTint":
-					oas, _ = wrap3[int, int, int](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, int, int](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				case "DTintDTstringDTstring":
-					oas, _ = wrap3[int, string, string](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, string, string](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				case "DTintDTdateDTdate":
-					oas, _ = wrap3[int, time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				}
+			}
+
+			if e != nil {
+				return &d.FnReturn{Err: e}
 			}
 
 			return returnCol(oas)

@@ -1,3 +1,5 @@
+isInf:github.com/invertedv/df/mem.isInfer:{float}:int
+isNaN:github.com/invertedv/df/mem.isNaNer:{float}:int
 float:github.com/invertedv/df/mem.floater[...]:{float},{int},{string}:float,float,float
 int:github.com/invertedv/df/mem.inTer[...]:{float},{int},{string}:int,int,int
 string:github.com/invertedv/df/mem.stringer[...]:{float},{int},{string},{date}:string,string,string,string
