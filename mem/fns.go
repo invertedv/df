@@ -10,11 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"gonum.org/v1/gonum/stat"
+
 	d "github.com/invertedv/df"
 )
 
-// TODO: add error return?
 // TODO: what about summary functions?
+// TODO: handle arrays of length 1 in bigger data frames
+// TODO: fix up wrap3
 
 type FrameTypes interface {
 	float64 | int | string | time.Time
@@ -37,9 +40,7 @@ var (
 
 // Learning: converting output from any to <type> takes a long time
 
-func adder[T float64 | int](a, b T) (T, error) {
-	return a + b, nil
-}
+func adder[T float64 | int](a, b T) (T, error) { return a + b, nil }
 
 func suber[T float64 | int](a, b T) (T, error) { return a - b, nil }
 
@@ -166,6 +167,8 @@ func GetKind(fn reflect.Type) d.DataTypes {
 		return d.DTstring
 	case reflect.Struct:
 		return d.DTdate
+	case reflect.Slice:
+		return GetKind(fn.Elem())
 	default:
 		return d.DTunknown
 	}
@@ -297,35 +300,64 @@ func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
 	return v, nil
 }
 
+func meaner[T float64 | int](x []T) (float64, error) {
+	var xx any = x
+	switch v := xx.(type) {
+	case []float64:
+		return stat.Mean(v, nil), nil
+	case []int:
+		// TODO: use summer after I write it
+		mn := 0
+		for _, val := range v {
+			mn += val
+		}
+		return float64(mn) / float64(len(v)), nil
+	}
+
+	return 0, fmt.Errorf("error in mean")
+}
+
 func wrap1[T FrameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vector, error) {
 	inData := col.Data().AsAny().([]T)
-	v := d.MakeVector(outType, n)
+	var v *d.Vector
 	for ind := 0; ind < n; ind++ {
-		switch outType {
-		case d.DTfloat:
-			x, e := fn.(func(x T) (float64, error))(inData[ind])
+		switch fnx := fn.(type) {
+		case func(x T) (float64, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
-		case d.DTint:
-			x, e := fn.(func(x T) (int, error))(inData[ind])
+		case func(x T) (int, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
-		case d.DTstring:
-			x, e := fn.(func(x T) (string, error))(inData[ind])
+		case func(x T) (string, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
-		case d.DTdate:
-			x, e := fn.(func(x T) (time.Time, error))(inData[ind])
+		case func(x T) (time.Time, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
+		case func(x []T) (float64, error):
+			v = d.MakeVector(outType, 1)
+			x, e := fnx(inData)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+			return v, nil
 		default:
 			return nil, fmt.Errorf("wrap1 failed")
 		}
@@ -337,33 +369,45 @@ func wrap1[T FrameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vecto
 func wrap2[T, S FrameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col) (*d.Vector, error) {
 	inData1 := col1.Data().AsAny().([]T)
 	inData2 := col2.Data().AsAny().([]S)
-	v := d.MakeVector(outType, n)
+	var v *d.Vector
 	for ind := 0; ind < n; ind++ {
-		switch outType {
-		case d.DTfloat:
-			x, e := fn.(func(x T, y S) (float64, error))(inData1[ind], inData2[ind])
+		switch fnx := fn.(type) {
+		case func(x T, y S) (float64, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData1[ind], inData2[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
-		case d.DTint:
-			x, e := fn.(func(x T, y S) (int, error))(inData1[ind], inData2[ind])
+		case func(x T, y S) (int, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData1[ind], inData2[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
-		case d.DTstring:
-			x, e := fn.(func(x T, y S) (string, error))(inData1[ind], inData2[ind])
+		case func(x T, y S) (string, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData1[ind], inData2[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
-		case d.DTdate:
-			x, e := fn.(func(x T, y S) (time.Time, error))(inData1[ind], inData2[ind])
+		case func(x T, y S) (time.Time, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData1[ind], inData2[ind])
 			if e != nil {
 				return nil, e
 			}
 			v.SetAny(x, ind)
+		case func(x []T, y []S) (float64, error):
+			v = d.MakeVector(outType, n)
+			x, e := fnx(inData1, inData2)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+			return v, nil
 		default:
 			return nil, fmt.Errorf("failed")
 		}
@@ -433,6 +477,7 @@ func b() d.Fns {
 		eqer[float64], eqer[int], eqer[string], eqer[time.Time],
 		neer[float64], neer[int], neer[string], neer[time.Time],
 		ifer[float64], ifer[int], ifer[string], ifer[time.Time],
+		meaner[float64], meaner[int],
 	}
 
 	for _, spec := range specs {
@@ -479,6 +524,7 @@ func b() d.Fns {
 			if spec.Inputs != nil {
 				lenx = len(spec.Inputs[ind])
 			}
+
 			switch lenx {
 			case 0:
 				oas, _ = wrap0(fnUse, spec.Outputs[ind], n)

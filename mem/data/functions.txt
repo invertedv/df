@@ -1,3 +1,4 @@
+mean:github.com/invertedv/df/mem.meaner[...]:{float},{int}:float,float
 isInf:github.com/invertedv/df/mem.isInfer:{float}:int
 isNaN:github.com/invertedv/df/mem.isNaNer:{float}:int
 float:github.com/invertedv/df/mem.floater[...]:{float},{int},{string}:float,float,float

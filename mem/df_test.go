@@ -71,7 +71,7 @@ func inter(c d.Column) []int {
 }
 
 func TestRowNumber(t *testing.T) {
-	n := 1000 //00000
+	n := 100000000
 	x1 := make([]float64, n)
 	x2 := make([]float64, n)
 	x3 := make([]int, n)
@@ -96,13 +96,13 @@ func TestRowNumber(t *testing.T) {
 	a5, _ := NewCol(v5, d.DTstring, d.ColName("a5"))
 	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
 	fns := b()
-	fn := fns.Get("div")
+	fn := fns.Get("mean")
 	tx := time.Now()
-	fnOut := fn(false, df, a1, a1)
+	fnOut := fn(false, df, a3)
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
-	fmt.Println("element 3: ", fnOut.Value.(*Col).Element(2))
+	fmt.Println("element 1: ", fnOut.Value.(*Col).Element(0))
 	tx = time.Now()
-	out1, _ := d.Parse(df, "a1+a2")
+	out1, _ := d.Parse(df, "mean(a1)")
 	_ = out1
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 
