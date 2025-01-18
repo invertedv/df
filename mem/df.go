@@ -506,7 +506,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		ex   error
 	)
 
-	if ret, ex = d.Parse(outDF, expr); ex != nil || ret.Which() != "Column" {
+	if ret, ex = d.Parse(outDF, expr); ex != nil || ret.Which() != d.RTcolumn {
 		return nil, ex
 	}
 

@@ -25,8 +25,21 @@ type FnReturn struct {
 
 	Varying bool
 
+	RT ReturnTypes // TODO: add to dialect file
+
 	Err error
 }
+
+type ReturnTypes rune
+
+const (
+	RTscalar    ReturnTypes = 'S'
+	RTcolumn    ReturnTypes = 'C'
+	RTdataFrame ReturnTypes = 'D'
+	RTnone                  = 'N'
+)
+
+//go:generate stringer -type=ReturnTypes
 
 func RunDFfn(fn Fn, df DF, inputs []Column) (any, error) {
 	info := fn(true, nil)

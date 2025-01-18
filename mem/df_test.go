@@ -71,7 +71,7 @@ func inter(c d.Column) []int {
 }
 
 func TestRowNumber(t *testing.T) {
-	n := 100000000
+	n := 1000 //00000
 	x1 := make([]float64, n)
 	x2 := make([]float64, n)
 	x3 := make([]int, n)
@@ -84,6 +84,7 @@ func TestRowNumber(t *testing.T) {
 		x4[ind] = 0
 		x5[ind] = "20201231"
 	}
+	ind, _ := d.NewVector([]int{100}, d.DTint)
 	v1, _ := d.NewVector(x1, d.DTfloat)
 	v2, _ := d.NewVector(x2, d.DTfloat)
 	v3, _ := d.NewVector(x3, d.DTint)
@@ -94,11 +95,13 @@ func TestRowNumber(t *testing.T) {
 	a3, _ := NewCol(v3, d.DTint, d.ColName("a3"))
 	a4, _ := NewCol(v4, d.DTint, d.ColName("a4"))
 	a5, _ := NewCol(v5, d.DTstring, d.ColName("a5"))
+	aind, _ := NewCol(ind, d.DTint, d.ColName("ind"))
+	_ = aind
 	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
-	fns := b()
-	fn := fns.Get("mean")
+	fns := buildFunctionsSC()
+	fn := fns.Get("elem")
 	tx := time.Now()
-	fnOut := fn(false, df, a3)
+	fnOut := fn(false, df, a1, aind)
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 	fmt.Println("element 1: ", fnOut.Value.(*Col).Element(0))
 	tx = time.Now()

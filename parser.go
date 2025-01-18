@@ -30,16 +30,16 @@ func (p *Parsed) Column() Column {
 	return p.col
 }
 
-func (p *Parsed) Which() string {
+func (p *Parsed) Which() ReturnTypes {
 	if p.df != nil {
-		return "DF"
+		return 'D'
 	}
 
 	if p.col != nil {
-		return "Column"
+		return 'C'
 	}
 
-	return "nil"
+	return 'N'
 }
 
 func Parse(df DF, expr string) (*Parsed, error) {
@@ -72,9 +72,9 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 	var vals []Column
 	for ind := 0; ind < len(inputs); ind++ {
 		switch inputs[ind].Which() {
-		case "DF":
+		case RTdataFrame:
 			return nil, fmt.Errorf("cannot take DF as function input")
-		case "Column":
+		case RTcolumn:
 			vals = append(vals, inputs[ind].Column())
 		}
 	}
