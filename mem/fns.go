@@ -16,6 +16,7 @@ import (
 )
 
 // TODO: remove github... from functions.txt
+// TODO: move function string specs parser up a level??
 
 type FrameTypes interface {
 	float64 | int | string | time.Time
@@ -486,7 +487,7 @@ func wrap3[T, S, R FrameTypes](fn any, n int, outType d.DataTypes, col1, col2, c
 }
 
 func buildFunctionsSC() d.Fns {
-	specs := loadFunctions(functions)
+	specs := d.LoadFunctions(functions)
 	fns := []any{rner,
 		isInfer, isNaNer,
 		floater[float64], floater[int], floater[string],
@@ -516,11 +517,11 @@ func buildFunctionsSC() d.Fns {
 		for _, fn := range fns {
 			fc := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
 			fnname := fc.Name()
-			if fnname != spec.fnName {
+			if fnname != spec.FnDetail {
 				continue
 			}
 
-			spec.fns = append(spec.fns, fn)
+			spec.Fns = append(spec.Fns, fn)
 		}
 	}
 
@@ -528,26 +529,26 @@ func buildFunctionsSC() d.Fns {
 	for _, spec := range specs {
 		fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 			if info {
-				return &d.FnReturn{Name: spec.name, Inputs: spec.inputs, Output: spec.outputs, RT: spec.rt}
+				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs, RT: spec.RT}
 			}
 
-			fnUse := spec.fns[0]
+			fnUse := spec.Fns[0]
 
 			var (
 				col []*Col
 				ind int
 			)
 			n := df.RowCount()
-			if spec.inputs != nil {
+			if spec.Inputs != nil {
 				col, n = parameters(inputs...)
-				ind = signature(spec.inputs, col...)
+				ind = signature(spec.Inputs, col...)
 				if ind < 0 {
 					panic("no signature")
 				}
-				fnUse = fnToUse(spec.fns, spec.inputs[ind], spec.outputs[ind])
+				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
 			}
 
-			if spec.rt == d.RTscalar {
+			if spec.RT == d.RTscalar {
 				n = 1
 			}
 
@@ -557,73 +558,73 @@ func buildFunctionsSC() d.Fns {
 			)
 
 			lenx := 0
-			if spec.inputs != nil {
-				lenx = len(spec.inputs[ind])
+			if spec.Inputs != nil {
+				lenx = len(spec.Inputs[ind])
 			}
 
 			switch lenx {
 			case 0:
-				oas, _ = wrap0(fnUse, spec.outputs[ind], n)
+				oas, _ = wrap0(fnUse, spec.Outputs[ind], n)
 			case 1:
-				switch spec.inputs[ind][0] {
+				switch spec.Inputs[ind][0] {
 				case d.DTfloat:
-					oas, e = wrap1[float64](fnUse, n, spec.outputs[ind], col[0])
+					oas, e = wrap1[float64](fnUse, n, spec.Outputs[ind], col[0])
 				case d.DTint:
-					oas, e = wrap1[int](fnUse, n, spec.outputs[ind], col[0])
+					oas, e = wrap1[int](fnUse, n, spec.Outputs[ind], col[0])
 				case d.DTstring:
-					oas, e = wrap1[string](fnUse, n, spec.outputs[ind], col[0])
+					oas, e = wrap1[string](fnUse, n, spec.Outputs[ind], col[0])
 				case d.DTdate:
-					oas, e = wrap1[time.Time](fnUse, n, spec.outputs[ind], col[0])
+					oas, e = wrap1[time.Time](fnUse, n, spec.Outputs[ind], col[0])
 				}
 			case 2:
-				switch fmt.Sprintf("%s%s", spec.inputs[ind][0], spec.inputs[ind][1]) {
+				switch fmt.Sprintf("%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1]) {
 				case "DTfloatDTfloat":
-					oas, e = wrap2[float64, float64](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTintDTint":
-					oas, e = wrap2[int, int](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTstringDTstring":
-					oas, e = wrap2[string, string](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTdateDTdate":
-					oas, e = wrap2[time.Time, time.Time](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTfloatDTint":
-					oas, e = wrap2[float64, int](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTfloatDTstring":
-					oas, e = wrap2[float64, string](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTfloatDTdate":
-					oas, e = wrap2[float64, time.Time](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[float64, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTintDTfloat":
-					oas, e = wrap2[int, float64](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTintDTstring":
-					oas, e = wrap2[int, string](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTintDTdate":
-					oas, e = wrap2[int, time.Time](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[int, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTstringDTfloat":
-					oas, e = wrap2[string, float64](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTstringDTint":
-					oas, e = wrap2[string, int](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTstringDTdate":
-					oas, e = wrap2[string, time.Time](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[string, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
 
 				case "DTdateDTfloat":
-					oas, e = wrap2[time.Time, float64](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTdateDTint":
-					oas, e = wrap2[time.Time, int](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				case "DTdateDTstring":
-					oas, e = wrap2[time.Time, string](fnUse, n, spec.outputs[ind], col[0], col[1])
+					oas, e = wrap2[time.Time, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
 				}
 			case 3:
-				switch fmt.Sprintf("%s%s%s", spec.inputs[ind][0], spec.inputs[ind][1], spec.inputs[ind][2]) {
+				switch fmt.Sprintf("%s%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1], spec.Inputs[ind][2]) {
 				case "DTintDTfloatDTfloat":
-					oas, e = wrap3[int, float64, float64](fnUse, n, spec.outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				case "DTintDTintDTint":
-					oas, e = wrap3[int, int, int](fnUse, n, spec.outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, int, int](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				case "DTintDTstringDTstring":
-					oas, e = wrap3[int, string, string](fnUse, n, spec.outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, string, string](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				case "DTintDTdateDTdate":
-					oas, e = wrap3[int, time.Time, time.Time](fnUse, n, spec.outputs[ind], col[0], col[1], col[2])
+					oas, e = wrap3[int, time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
 				}
 			}
 
@@ -641,64 +642,3 @@ func buildFunctionsSC() d.Fns {
 }
 
 // ************ read specs file ************
-
-type fnSpec struct {
-	name    string
-	fnName  string
-	inputs  [][]d.DataTypes
-	outputs []d.DataTypes
-	rt      d.ReturnTypes
-	fns     []any
-}
-
-type fMap map[string]*fnSpec
-
-func loadFunctions(fns string) fMap {
-	m := make(fMap)
-	specs := strings.Split(fns, "\n")
-	for _, spec := range specs {
-		details := strings.Split(spec, ":")
-		if len(details) != 5 {
-			continue
-		}
-
-		rt := rune(details[4][0])
-
-		s := &fnSpec{
-			name:    details[0],
-			fnName:  details[1],
-			inputs:  parseInputs(details[2]),
-			outputs: parseOutputs(details[3]),
-			rt:      d.ReturnTypes(rt),
-		}
-
-		m[s.name] = s
-	}
-
-	return m
-}
-
-func parseInputs(inp string) [][]d.DataTypes {
-	var outDT [][]d.DataTypes
-	dts := strings.Split(inp, "{")
-	for ind := 1; ind < len(dts); ind++ {
-		s := strings.ReplaceAll(dts[ind], "},", "")
-		s = strings.ReplaceAll(s, "}", "")
-		if s != "" {
-			outDT = append(outDT, parseOutputs(s))
-		}
-	}
-
-	return outDT
-}
-
-func parseOutputs(outp string) []d.DataTypes {
-	var outDT []d.DataTypes
-
-	outs := strings.Split(outp, ",")
-	for ind := 0; ind < len(outs); ind++ {
-		outDT = append(outDT, d.DTFromString("DT"+outs[ind]))
-	}
-
-	return outDT
-}

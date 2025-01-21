@@ -209,9 +209,9 @@ func toStringX(x any) string {
 }
 
 func (c *Col) String() string {
-	if c.Name() == "" {
-		panic("column has no name")
-	}
+	//	if c.Name() == "" {
+	//		panic("column has no name")
+	//	}
 
 	t := fmt.Sprintf("column: %s\ntype: %s\n", c.Name(), c.DataType())
 

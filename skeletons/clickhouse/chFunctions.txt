@@ -1,6 +1,22 @@
-add:(%s+%s):{int,int},{float,float}:int,float
-sum:sum(%s):{int},{float}:int,float
-mean:avg(%s):{int},{float}:float,float
-dot:sum(%s*%s):{float,float},{int,int}:float,float
-exp:exp(%s):{float}:float
-rowNumber:toInt32(rowNumberInBlock())::int
+add:(%s + %s):{int,int},{float,float}:int,float:C
+subtract:(%s - %s):{int,int},{float,float}:int,float:C
+multiply:(%s * %s):{int,int},{float,float}:int,float:C
+divide:(%s / %s):{int,int},{float,float}:int,float:C
+sum:sum(%s):{int},{float}:int,float:S
+mean:avg(%s):{int},{float}:float,float:S
+dot:sum(%s*%s):{float,float},{int,int}:float,float:S
+exp:exp(%s):{float}:float:C
+log:log(%s):{float}:float:C
+abs:abs(%s):{float},{int}:float,int:C
+rowNumber:toInt32(rowNumberInBlock())::int:C
+eq:(%s == %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+ne:(%s != %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+gt:(%s > %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+ge:(%s >= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+lt:(%s < %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+le:(%s <= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+neg:(- %s):{float},{int}:float,int:C
+and:and(%s,%s):{int,int}:int:C
+or:or(%s,%s):{int,int}:int:C
+not:not(%s):{int}:int:C
+if:if(%s>0,%s,%s):{int,float,float},{int,int,int},{int,string,string},{int,date,date}:float,int,string,date:C

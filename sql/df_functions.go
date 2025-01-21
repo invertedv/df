@@ -16,7 +16,7 @@ func where(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		outDF d.DF
 		e     error
 	)
-	outDF, e = df.Where(inputs[0].(d.Column))
+	outDF, e = df.Where(inputs[0])
 
 	return &d.FnReturn{Value: outDF, Err: e}
 }

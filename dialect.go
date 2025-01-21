@@ -57,7 +57,7 @@ type Dialect struct {
 
 	bufSize int // in MB
 
-	functions []*fnSpec
+	functions Fmap
 }
 
 type fnSpec struct {
@@ -65,6 +65,7 @@ type fnSpec struct {
 	SQL     string
 	Inputs  [][]DataTypes
 	Outputs []DataTypes
+	RT      ReturnTypes
 }
 
 func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
@@ -77,7 +78,7 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	case ch:
 		d.create, d.fields, d.dropIf, d.insert = chCreate, chFields, chDropIf, chInsert
 		types = chTypes
-		d.functions = loadFunctions(chFunctions)
+		d.functions = LoadFunctions(chFunctions)
 	case pg:
 		d.create = ""
 	case ms:
@@ -282,7 +283,7 @@ func (d *Dialect) Exists(tableName string) bool {
 	return false
 }
 
-func (d *Dialect) Functions() []*fnSpec {
+func (d *Dialect) Functions() Fmap {
 	return d.functions
 }
 
@@ -786,49 +787,4 @@ func castKind(r any, k reflect.Kind) any {
 	}
 
 	return out
-}
-
-func loadFunctions(fns string) []*fnSpec {
-	var m []*fnSpec
-	specs := strings.Split(fns, "\n")
-	for _, spec := range specs {
-		details := strings.Split(spec, ":")
-		if len(details) != 4 {
-			continue
-		}
-
-		s := &fnSpec{
-			Name:    details[0],
-			SQL:     details[1],
-			Inputs:  parseInputs(details[2]),
-			Outputs: parseOutputs(details[3]),
-		}
-
-		m = append(m, s)
-	}
-
-	return m
-}
-
-func parseInputs(inp string) [][]DataTypes {
-	var outDT [][]DataTypes
-	dts := strings.Split(inp, "{")
-	for ind := 1; ind < len(dts); ind++ {
-		s := strings.ReplaceAll(dts[ind], "},", "")
-		s = strings.ReplaceAll(s, "}", "")
-		outDT = append(outDT, parseOutputs(s))
-	}
-
-	return outDT
-}
-
-func parseOutputs(outp string) []DataTypes {
-	var outDT []DataTypes
-
-	outs := strings.Split(outp, ",")
-	for ind := 0; ind < len(outs); ind++ {
-		outDT = append(outDT, DTFromString("DT"+outs[ind]))
-	}
-
-	return outDT
 }

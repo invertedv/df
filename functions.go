@@ -1,6 +1,9 @@
 package df
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Fn func(info bool, df DF, inputs ...Column) *FnReturn
 
@@ -90,4 +93,67 @@ func okParams(cols []Column, inputs [][]DataTypes, outputs []DataTypes) (ok bool
 	}
 
 	return false, DTunknown
+}
+
+// *********
+
+type FnSpec struct {
+	Name     string
+	FnDetail string
+	Inputs   [][]DataTypes
+	Outputs  []DataTypes
+	RT       ReturnTypes
+	Fns      []any
+}
+
+type Fmap map[string]*FnSpec
+
+func LoadFunctions(fns string) Fmap {
+	m := make(Fmap)
+	specs := strings.Split(fns, "\n")
+	for _, spec := range specs {
+		details := strings.Split(spec, ":")
+		if len(details) != 5 {
+			continue
+		}
+
+		rt := rune(details[4][0])
+
+		s := &FnSpec{
+			Name:     details[0],
+			FnDetail: details[1],
+			Inputs:   parseInputs1(details[2]),
+			Outputs:  parseOutputs1(details[3]),
+			RT:       ReturnTypes(rt),
+		}
+
+		m[s.Name] = s
+	}
+
+	return m
+}
+
+func parseInputs1(inp string) [][]DataTypes {
+	var outDT [][]DataTypes
+	dts := strings.Split(inp, "{")
+	for ind := 1; ind < len(dts); ind++ {
+		s := strings.ReplaceAll(dts[ind], "},", "")
+		s = strings.ReplaceAll(s, "}", "")
+		if s != "" {
+			outDT = append(outDT, parseOutputs1(s))
+		}
+	}
+
+	return outDT
+}
+
+func parseOutputs1(outp string) []DataTypes {
+	var outDT []DataTypes
+
+	outs := strings.Split(outp, ",")
+	for ind := 0; ind < len(outs); ind++ {
+		outDT = append(outDT, DTFromString("DT"+outs[ind]))
+	}
+
+	return outDT
 }

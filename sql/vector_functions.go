@@ -6,6 +6,60 @@ import (
 	d "github.com/invertedv/df"
 )
 
+func fnDefs(dlct *d.Dialect) d.Fns {
+	var fns d.Fns
+	for _, v := range dlct.Functions() {
+		fns = append(fns,
+			buildFn(v.Name, v.FnDetail, v.Inputs, v.Outputs))
+	}
+
+	return fns
+}
+
+func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
+	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
+		}
+
+		sqls := getSQL(df, inputs...)
+		dts := getDataTypes(df, inputs...)
+
+		var sa []any
+		for j := 0; j < len(sqls); j++ {
+			sa = append(sa, sqls[j])
+		}
+
+		sqlOut := fmt.Sprintf(sql, sa...)
+
+		outType := outp[0]
+		// output type
+		for ind := 0; ind < len(inp); ind++ {
+			ok := true
+			for j := 0; j < len(dts); j++ {
+				if dts[j] != inp[ind][j] {
+					ok = false
+					break
+				}
+			}
+
+			if ok {
+				outType = outp[ind]
+				break
+			}
+		}
+
+		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
+
+		_ = d.ColParent(df)(outCol)
+		_ = d.ColDialect(df.Dialect())(outCol)
+
+		return &d.FnReturn{Value: outCol}
+	}
+
+	return fn
+}
+
 // ////////  Standard Fns
 
 // getNames returns the names of the input Columns starting with startInd element
@@ -21,17 +75,6 @@ func getNames(startInd int, cols ...d.Column) ([]string, error) {
 	}
 
 	return colNames, nil
-}
-
-// ***************** Functions that take no parameters *****************
-
-func rowNumberX(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	if info {
-		return fnGen("rowNumber", "", nil, []d.DataTypes{d.DTint}, info, df)
-	}
-	sqlx := df.Dialect().RowNumber()
-	//	return fnGen("gt", "(%s > %s)", "", inps, outp, info, context, inputs...)
-	return fnGen("rowNumber", sqlx, nil, []d.DataTypes{d.DTint}, info, df)
 }
 
 // ***************** categorical Operations *****************
@@ -123,129 +166,6 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
-}
-
-// ***************** arithmetic operations *****************
-
-func arithmetic(op, name string, info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat, d.DTfloat},
-			{d.DTint, d.DTint}, {d.DTstring, d.DTfloat}, {d.DTstring, d.DTint}},
-			Output: []d.DataTypes{d.DTfloat, d.DTint, d.DTfloat, d.DTint}}
-	}
-	sqls := getSQL(df, inputs...)
-	dts := getDataTypes(df, inputs...)
-
-	// The parentheses are required based on how the parser works.
-	sql := fmt.Sprintf("(%s %s %s)", sqls[0], op, sqls[1])
-	var dtOut d.DataTypes
-	dtOut = d.DTint
-
-	if dts[0] == d.DTfloat || dts[1] == d.DTfloat {
-		dtOut = d.DTfloat
-	}
-
-	outCol, _ := NewColSQL(dtOut, df.Dialect(), sql)
-
-	return &d.FnReturn{Value: outCol}
-}
-
-func add(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return arithmetic("+", "add", info, df, inputs...)
-}
-
-func subtract(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return arithmetic("-", "subtract", info, df, inputs...)
-}
-
-func multiply(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return arithmetic("*", "multiply", info, df, inputs...)
-}
-
-func divide(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return arithmetic("/", "divide", info, df, inputs...)
-}
-
-// ***************** logical operations *****************
-
-func gt(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
-	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return fnGen("gt", "(%s > %s)", inps, outp, info, df, inputs...)
-}
-
-func ge(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
-	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return fnGen("ge", "(%s >= %s)", inps, outp, info, df, inputs...)
-}
-
-func lt(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
-	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return fnGen("lt", "(%s < %s)", inps, outp, info, df, inputs...)
-}
-
-func le(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
-	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return fnGen("le", "(%s <= %s)", inps, outp, info, df, inputs...)
-}
-
-func eq(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
-	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return fnGen("eq", "(%s == %s)", inps, outp, info, df, inputs...)
-}
-
-func ne(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTfloat, d.DTfloat}, {d.DTint, d.DTint}, {d.DTstring, d.DTstring}, {d.DTdate, d.DTdate}}
-	outp := []d.DataTypes{d.DTint, d.DTint, d.DTint, d.DTint}
-	return fnGen("ne", "(%s != %s)", inps, outp, info, df, inputs...)
-}
-
-func and(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
-	outp := []d.DataTypes{d.DTint}
-	return fnGen("and", "and(%s,%s)", inps, outp, info, df, inputs...)
-}
-
-func or(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTint, d.DTint}}
-	outp := []d.DataTypes{d.DTint}
-	return fnGen("or", "or(%s, %s)", inps, outp, info, df, inputs...)
-}
-
-func not(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inps := [][]d.DataTypes{{d.DTint}}
-	outp := []d.DataTypes{d.DTint}
-	return fnGen("not", "not(%s)", inps, outp, info, df, inputs...)
-}
-
-func ifs(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	inp := [][]d.DataTypes{{d.DTint, d.DTfloat, d.DTfloat},
-		{d.DTint, d.DTint, d.DTint}, {d.DTint, d.DTdate, d.DTdate}, {d.DTint, d.DTstring, d.DTstring}}
-	outp := []d.DataTypes{d.DTfloat, d.DTint, d.DTdate, d.DTstring}
-	return fnGen("if", "if(%s>0,%s,%s)", inp, outp, info, df, inputs...)
-}
-
-// ***************** math operations *****************
-
-func exp(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return fnGen("exp", "exp(%s)", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, df, inputs...)
-}
-
-func log(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return fnGen("log", "log(%s)", [][]d.DataTypes{{d.DTfloat}}, []d.DataTypes{d.DTfloat}, info, df, inputs...)
-}
-
-func abs(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return fnGen("abs", "abs(%s)", [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint},
-		info, df, inputs...)
-}
-
-func neg(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-	return fnGen("neg", "-%s", [][]d.DataTypes{{d.DTfloat}, {d.DTint}}, []d.DataTypes{d.DTfloat, d.DTint}, info, df, inputs...)
 }
 
 // ***************** type conversions *****************
@@ -370,5 +290,6 @@ func fnGen(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, info bool,
 	_ = d.ColParent(df)(outCol)
 	_ = d.ColDialect(df.Dialect())(outCol)
 
+	fmt.Println(name)
 	return &d.FnReturn{Value: outCol}
 }

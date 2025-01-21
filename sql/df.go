@@ -15,10 +15,10 @@ import (
 )
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
-	fns := d.Fns{abs, and, applyCat, divide, eq, ge, gt, ifs, le, log, lt,
-		multiply, ne, neg, not, or, sortDF, subtract, table, toCat, toDate, toFloat, toInt, toString, where}
+	fns := d.Fns{applyCat,
+		sortDF, table, toCat, toDate, toFloat, toInt, toString, where}
 
-	fns = append(fns, summary2(dlct)...)
+	fns = append(fns, fnDefs(dlct)...)
 
 	return fns
 }

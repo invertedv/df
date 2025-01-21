@@ -167,6 +167,7 @@ func TestParser(t *testing.T) {
 	dfx := testDF()
 
 	x := [][]any{
+		{"!(y>=1) && y>=1", 0, 0},
 		{"float((3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0)))", 0, 42.0},
 		{"int(abs(-5))", 0, 5},
 		{"z=='abc'", 0, 0},
@@ -180,7 +181,6 @@ func TestParser(t *testing.T) {
 		{"if(y == 1, 2.0, (x))", 0, float64(2)},
 		{"if(y == 1, 2.0, (x))", 1, float64(-2)},
 		{"4+1--1", 0, int(6)},
-		{"!(y>=1) && y>=1", 0, 0},
 		{"exp(x-1.0)", 0, 1.0},
 		{"abs(x)", 0, 1.0},
 		{"abs(y)", 1, 5},
@@ -249,8 +249,8 @@ func TestParser(t *testing.T) {
 		fmt.Println(eqn)
 		xOut, ex := d.Parse(dfx, eqn)
 		assert.Nil(t, ex)
+		fmt.Println(xOut.Column().Data().AsAny())
 		result := checker(dfx, "test", xOut.Column(), x[ind][1].(int))
-
 		if d.WhatAmI(result) == d.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
 			continue
