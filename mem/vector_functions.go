@@ -27,7 +27,8 @@ var (
 	functions string
 )
 
-func funcs() []any {
+// each function here must have an entry in functions.txt
+func rawFuncs() []any {
 	fns := []any{rowNumberFn,
 		isInfFn, isNaNfn,
 		floatFn[float64], floatFn[int], floatFn[string],
@@ -65,7 +66,7 @@ func funcs() []any {
 
 func vectorFunctions() d.Fns {
 	specs := d.LoadFunctions(functions)
-	fns := funcs()
+	fns := rawFuncs()
 
 	for _, spec := range specs {
 		for _, fn := range fns {
@@ -139,6 +140,42 @@ func vectorFunctions() d.Fns {
 	}
 
 	return outFns
+}
+
+func GetKind(fn reflect.Type) d.DataTypes {
+	switch fn.Kind() {
+	case reflect.Float64:
+		return d.DTfloat
+	case reflect.Int:
+		return d.DTint
+	case reflect.String:
+		return d.DTstring
+	case reflect.Struct:
+		return d.DTdate
+	case reflect.Slice:
+		return GetKind(fn.Elem())
+	default:
+		return d.DTunknown
+	}
+}
+
+func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
+	for _, fn := range fns {
+		rfn := reflect.TypeOf(fn)
+		ok := true
+		for ind := 0; ind < rfn.NumIn(); ind++ {
+			if GetKind(rfn.In(ind)) != targetIns[ind] {
+				ok = false
+				break
+			}
+		}
+
+		if ok && GetKind(rfn.Out(0)) == targOut {
+			return fn
+		}
+	}
+
+	return nil
 }
 
 func case1(ins d.DataTypes, fnUse any, n int, output d.DataTypes, in *Col) (*d.Vector, error) {
@@ -224,6 +261,284 @@ func case3(ins string, fnUse any, n int, output d.DataTypes, in1, in2, in3 *Col)
 	}
 
 	return oas, e
+}
+
+func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
+	v := d.MakeVector(outType, n)
+	for ind := 0; ind < n; ind++ {
+		switch fnx := fn.(type) {
+		case func(i int) float64:
+			v.SetAny(fnx(ind), ind)
+		case func(i int) int:
+			v.SetAny(fnx(ind), ind)
+		case func(i int) string:
+			v.SetAny(fnx(ind), ind)
+		case func(i int) time.Time:
+			v.SetAny(fnx(ind), ind)
+		case func(i int) (float64, error):
+			x, e := fnx(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
+		case func(i int) (int, error):
+			x, e := fn.(func(int) (int, error))(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
+		case func(i int) (string, error):
+			x, e := fn.(func(int) (int, error))(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
+		case func(i int) (time.Time, error):
+			x, e := fn.(func(int) (int, error))(ind)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, ind)
+		default:
+			return nil, fmt.Errorf("wrap0 failed")
+		}
+	}
+
+	return v, nil
+}
+
+func wrap1[T frameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vector, error) {
+	inData := col.Data().AsAny().([]T)
+	inc, ind := 1, 0
+	if n == 1 {
+		inc = 0
+	}
+
+	v := d.MakeVector(outType, n)
+	for indx := 0; indx < n; indx++ {
+		switch fnx := fn.(type) {
+		case func(x T) float64:
+			v.SetAny(fnx(inData[ind]), indx)
+		case func(x T) int:
+			v.SetAny(fnx(inData[ind]), indx)
+		case func(x T) string:
+			v.SetAny(fnx(inData[ind]), indx)
+		case func(x T) time.Time:
+			v.SetAny(fnx(inData[ind]), indx)
+		case func(x []T) float64:
+			v.SetAny(fnx(inData), indx)
+		case func(x []T) int:
+			v.SetAny(fnx(inData), indx)
+		case func(x []T) string:
+			v.SetAny(fnx(inData), indx)
+		case func(x []T) time.Time:
+			v.SetAny(fnx(inData), indx)
+		case func(x T) (float64, error):
+			x, e := fnx(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T) (int, error):
+			x, e := fnx(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T) (string, error):
+			x, e := fnx(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T) (time.Time, error):
+			x, e := fnx(inData[ind])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x []T) (float64, error):
+			x, e := fnx(inData)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+		case func(x []T) (int, error):
+			x, e := fnx(inData)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+		case func(x []T) (string, error):
+			x, e := fnx(inData)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+		case func(x []T) (time.Time, error):
+			x, e := fnx(inData)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+		default:
+			return nil, fmt.Errorf("wrap1 failed")
+		}
+
+		ind += inc
+	}
+
+	return v, nil
+}
+
+func wrap2[T, S frameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col) (*d.Vector, error) {
+	inData1 := col1.Data().AsAny().([]T)
+	inData2 := col2.Data().AsAny().([]S)
+
+	inc1, inc2, ind1, ind2 := 1, 1, 0, 0
+	if len(inData1) == 1 {
+		inc1 = 0
+	}
+	if len(inData2) == 1 {
+		inc2 = 0
+	}
+
+	v := d.MakeVector(outType, n)
+	for indx := 0; indx < n; indx++ {
+		switch fnx := fn.(type) {
+		case func(x T, y S) float64:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
+		case func(x T, y S) int:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
+		case func(x T, y S) string:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
+		case func(x T, y S) time.Time:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
+		case func(x []T, y []S) float64:
+			v.SetAny(fnx(inData1, inData2), indx)
+		case func(x T, y S) (float64, error):
+			x, e := fnx(inData1[ind1], inData2[ind2])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T, y S) (int, error):
+			x, e := fnx(inData1[ind1], inData2[ind2])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T, y S) (string, error):
+			x, e := fnx(inData1[ind1], inData2[ind2])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T, y S) (time.Time, error):
+			x, e := fnx(inData1[ind1], inData2[ind2])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x []T, y []S) (float64, error):
+			x, e := fnx(inData1, inData2)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+			return v, nil
+		case func(x []T, y []S) (int, error):
+			x, e := fnx(inData1, inData2)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+			return v, nil
+		case func(x []T, y []S) (string, error):
+			x, e := fnx(inData1, inData2)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+			return v, nil
+		case func(x []T, y []S) (time.Time, error):
+			x, e := fnx(inData1, inData2)
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, 0)
+			return v, nil
+		default:
+			return nil, fmt.Errorf("wrap2 failed")
+		}
+
+		ind1 += inc1
+		ind2 += inc2
+	}
+
+	return v, nil
+}
+
+func wrap3[T, S, R frameTypes](fn any, n int, outType d.DataTypes, col1, col2, col3 *Col) (*d.Vector, error) {
+	inData1 := col1.Data().AsAny().([]T)
+	inData2 := col2.Data().AsAny().([]S)
+	inData3 := col3.Data().AsAny().([]R)
+	v := d.MakeVector(outType, n)
+
+	inc1, inc2, inc3, ind1, ind2, ind3 := 1, 1, 1, 0, 0, 0
+	if len(inData1) == 1 {
+		inc1 = 0
+	}
+	if len(inData2) == 1 {
+		inc2 = 0
+	}
+	if len(inData3) == 1 {
+		inc3 = 0
+	}
+	for indx := 0; indx < n; indx++ {
+		switch fnx := fn.(type) {
+		case func(x T, y S, z R) float64:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
+		case func(x T, y S, z R) int:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
+		case func(x T, y S, z R) string:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
+		case func(x T, y S, z R) time.Time:
+			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
+		case func(x T, y S, z R) (float64, error):
+			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T, y S, z R) (int, error):
+			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T, y S, z R) (string, error):
+			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		case func(x T, y S, z R) (time.Time, error):
+			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
+			if e != nil {
+				return nil, e
+			}
+			v.SetAny(x, indx)
+		default:
+			return nil, fmt.Errorf("wrap3 failed")
+		}
+
+		ind1 += inc1
+		ind2 += inc2
+		ind3 += inc3
+	}
+
+	return v, nil
 }
 
 func elemFn[T frameTypes](x []T, ind []int) (T, error) {
@@ -492,320 +807,6 @@ func meanFn[T float64 | int](x []T) (float64, error) {
 	}
 
 	return 0, fmt.Errorf("error in mean")
-}
-
-func GetKind(fn reflect.Type) d.DataTypes {
-	switch fn.Kind() {
-	case reflect.Float64:
-		return d.DTfloat
-	case reflect.Int:
-		return d.DTint
-	case reflect.String:
-		return d.DTstring
-	case reflect.Struct:
-		return d.DTdate
-	case reflect.Slice:
-		return GetKind(fn.Elem())
-	default:
-		return d.DTunknown
-	}
-}
-
-func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
-	for _, fn := range fns {
-		rfn := reflect.TypeOf(fn)
-		ok := true
-		for ind := 0; ind < rfn.NumIn(); ind++ {
-			if GetKind(rfn.In(ind)) != targetIns[ind] {
-				ok = false
-				break
-			}
-		}
-
-		if ok && GetKind(rfn.Out(0)) == targOut {
-			return fn
-		}
-	}
-
-	return nil
-}
-
-func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
-	v := d.MakeVector(outType, n)
-	for ind := 0; ind < n; ind++ {
-		switch fnx := fn.(type) {
-		case func(i int) float64:
-			v.SetAny(fnx(ind), ind)
-		case func(i int) int:
-			v.SetAny(fnx(ind), ind)
-		case func(i int) string:
-			v.SetAny(fnx(ind), ind)
-		case func(i int) time.Time:
-			v.SetAny(fnx(ind), ind)
-		case func(i int) (float64, error):
-			x, e := fnx(ind)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, ind)
-		case func(i int) (int, error):
-			x, e := fn.(func(int) (int, error))(ind)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, ind)
-		case func(i int) (string, error):
-			x, e := fn.(func(int) (int, error))(ind)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, ind)
-		case func(i int) (time.Time, error):
-			x, e := fn.(func(int) (int, error))(ind)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, ind)
-		default:
-			return nil, fmt.Errorf("wrap0 failed")
-		}
-	}
-
-	return v, nil
-}
-
-func wrap1[T frameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vector, error) {
-	inData := col.Data().AsAny().([]T)
-	inc, ind := 1, 0
-	if n == 1 {
-		inc = 0
-	}
-
-	v := d.MakeVector(outType, n)
-	for indx := 0; indx < n; indx++ {
-		switch fnx := fn.(type) {
-		case func(x T) float64:
-			v.SetAny(fnx(inData[ind]), indx)
-		case func(x T) int:
-			v.SetAny(fnx(inData[ind]), indx)
-		case func(x T) string:
-			v.SetAny(fnx(inData[ind]), indx)
-		case func(x T) time.Time:
-			v.SetAny(fnx(inData[ind]), indx)
-		case func(x []T) float64:
-			v.SetAny(fnx(inData), indx)
-		case func(x []T) int:
-			v.SetAny(fnx(inData), indx)
-		case func(x []T) string:
-			v.SetAny(fnx(inData), indx)
-		case func(x []T) time.Time:
-			v.SetAny(fnx(inData), indx)
-		case func(x T) (float64, error):
-			x, e := fnx(inData[ind])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T) (int, error):
-			x, e := fnx(inData[ind])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T) (string, error):
-			x, e := fnx(inData[ind])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T) (time.Time, error):
-			x, e := fnx(inData[ind])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x []T) (float64, error):
-			x, e := fnx(inData)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-		case func(x []T) (int, error):
-			x, e := fnx(inData)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-		case func(x []T) (string, error):
-			x, e := fnx(inData)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-		case func(x []T) (time.Time, error):
-			x, e := fnx(inData)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-		default:
-			return nil, fmt.Errorf("wrap1 failed")
-		}
-
-		ind += inc
-	}
-
-	return v, nil
-}
-
-func wrap2[T, S frameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col) (*d.Vector, error) {
-	inData1 := col1.Data().AsAny().([]T)
-	inData2 := col2.Data().AsAny().([]S)
-
-	inc1, inc2, ind1, ind2 := 1, 1, 0, 0
-	if len(inData1) == 1 {
-		inc1 = 0
-	}
-	if len(inData2) == 1 {
-		inc2 = 0
-	}
-
-	v := d.MakeVector(outType, n)
-	for indx := 0; indx < n; indx++ {
-		switch fnx := fn.(type) {
-		case func(x T, y S) float64:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
-		case func(x T, y S) int:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
-		case func(x T, y S) string:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
-		case func(x T, y S) time.Time:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
-		case func(x []T, y []S) float64:
-			v.SetAny(fnx(inData1, inData2), indx)
-		case func(x T, y S) (float64, error):
-			x, e := fnx(inData1[ind1], inData2[ind2])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T, y S) (int, error):
-			x, e := fnx(inData1[ind1], inData2[ind2])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T, y S) (string, error):
-			x, e := fnx(inData1[ind1], inData2[ind2])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T, y S) (time.Time, error):
-			x, e := fnx(inData1[ind1], inData2[ind2])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x []T, y []S) (float64, error):
-			x, e := fnx(inData1, inData2)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-			return v, nil
-		case func(x []T, y []S) (int, error):
-			x, e := fnx(inData1, inData2)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-			return v, nil
-		case func(x []T, y []S) (string, error):
-			x, e := fnx(inData1, inData2)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-			return v, nil
-		case func(x []T, y []S) (time.Time, error):
-			x, e := fnx(inData1, inData2)
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, 0)
-			return v, nil
-		default:
-			return nil, fmt.Errorf("failed")
-		}
-
-		ind1 += inc1
-		ind2 += inc2
-	}
-
-	return v, nil
-}
-
-func wrap3[T, S, R frameTypes](fn any, n int, outType d.DataTypes, col1, col2, col3 *Col) (*d.Vector, error) {
-	inData1 := col1.Data().AsAny().([]T)
-	inData2 := col2.Data().AsAny().([]S)
-	inData3 := col3.Data().AsAny().([]R)
-	v := d.MakeVector(outType, n)
-
-	inc1, inc2, inc3, ind1, ind2, ind3 := 1, 1, 1, 0, 0, 0
-	if len(inData1) == 1 {
-		inc1 = 0
-	}
-	if len(inData2) == 1 {
-		inc2 = 0
-	}
-	if len(inData3) == 1 {
-		inc3 = 0
-	}
-	for indx := 0; indx < n; indx++ {
-		switch fnx := fn.(type) {
-		case func(x T, y S, z R) float64:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
-		case func(x T, y S, z R) int:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
-		case func(x T, y S, z R) string:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
-		case func(x T, y S, z R) time.Time:
-			v.SetAny(fnx(inData1[ind1], inData2[ind2], inData3[ind3]), indx)
-		case func(x T, y S, z R) (float64, error):
-			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T, y S, z R) (int, error):
-			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T, y S, z R) (string, error):
-			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		case func(x T, y S, z R) (time.Time, error):
-			x, e := fnx(inData1[ind1], inData2[ind2], inData3[ind3])
-			if e != nil {
-				return nil, e
-			}
-			v.SetAny(x, indx)
-		default:
-			return nil, fmt.Errorf("failed")
-		}
-
-		ind1 += inc1
-		ind2 += inc2
-		ind3 += inc3
-	}
-
-	return v, nil
 }
 
 // ***************** Categorical Operations *****************
