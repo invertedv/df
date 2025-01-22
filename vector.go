@@ -27,8 +27,8 @@ func MakeVector(dt DataTypes, n int) *Vector {
 	switch dt {
 	case DTfloat:
 		return &Vector{dt: dt, data: make([]float64, n)}
-	case DTint:
-		return &Vector{dt: dt, data: make([]int, n)}
+	case DTint, DTcategorical:
+		return &Vector{dt: DTint, data: make([]int, n)}
 	case DTstring:
 		return &Vector{dt: dt, data: make([]string, n)}
 	case DTdate:

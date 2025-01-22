@@ -147,7 +147,12 @@ func signature(target [][]d.DataTypes, cols ...*Col) int {
 	for j := 0; j < len(target); j++ {
 		ind := j
 		for k := 0; k < len(target[j]); k++ {
-			if target[j][k] != cols[k].DataType() {
+			trg := cols[k].DataType()
+			if trg == d.DTcategorical {
+				trg = d.DTint
+			}
+
+			if target[j][k] != trg {
 				ind = -1
 				break
 			}

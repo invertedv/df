@@ -4,15 +4,15 @@ sum:github.com/invertedv/df/mem.sumer[...]:{float},{int}:float,int:S
 isInf:github.com/invertedv/df/mem.isInfer:{float}:int:C
 isNaN:github.com/invertedv/df/mem.isNaNer:{float}:int:C
 float:github.com/invertedv/df/mem.floater[...]:{float},{int},{string}:float,float,float:C
-int:github.com/invertedv/df/mem.inTer[...]:{float},{int},{string}:int,int,int:C
+int:github.com/invertedv/df/mem.inTer[...]:{float},{int},{string},{categorical}:int,int,int,int:C
 string:github.com/invertedv/df/mem.stringer[...]:{float},{int},{string},{date}:string,string,string,string:C
 date:github.com/invertedv/df/mem.dater[...]:{int},{string},{date}:date,date,date:C
-rn:github.com/invertedv/df/mem.rner:{}:int:C
+rowNumber:github.com/invertedv/df/mem.rner:{}:int:C
 abs:github.com/invertedv/df/mem.abser[...]:{int},{float}:int,float:C
 add:github.com/invertedv/df/mem.adder[...]:{int,int},{float,float}:int,float:C
-sub:github.com/invertedv/df/mem.suber[...]:{int,int},{float,float}:int,float:C
-mult:github.com/invertedv/df/mem.multer[...]:{int,int},{float,float}:int,float:C
-div:github.com/invertedv/df/mem.diver[...]:{int,int},{float,float}:int,float:C
+subtract:github.com/invertedv/df/mem.suber[...]:{int,int},{float,float}:int,float:C
+multiply:github.com/invertedv/df/mem.multer[...]:{int,int},{float,float}:int,float:C
+divide:github.com/invertedv/df/mem.diver[...]:{int,int},{float,float}:int,float:C
 exp:math.Exp:{float}:float:C
 log:math.Log:{float}:float:C
 and:github.com/invertedv/df/mem.ander:{int,int}:int:C
@@ -25,3 +25,4 @@ le:github.com/invertedv/df/mem.leer[...]:{float,float},{int,int},{string,string}
 eq:github.com/invertedv/df/mem.eqer[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
 ne:github.com/invertedv/df/mem.neer[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
 if:github.com/invertedv/df/mem.ifer[...]:{int,float,float},{int,int,int},{int,string,string},{int,date,date}:float,int,string,date:C
+neg:github.com/invertedv/df/mem.neger[...]:{float},{int}:float,int:C
