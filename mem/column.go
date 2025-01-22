@@ -109,7 +109,8 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		tab, _ := NewDFcol(nil, makeTable(c))
+		tabx := makeTable(c)
+		tab, _ := NewDFcol(nil, tabx)
 		_ = tab.Sort(false, "count")
 		l := tab.Column(c.Name())
 		cx := tab.Column("count")

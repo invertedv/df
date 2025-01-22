@@ -26,18 +26,6 @@ func StandardFunctions() d.Fns {
 	fns := d.Fns{sortDF, table, where, toCat, applyCat}
 	fns = append(fns, buildFunctionsSC()...)
 
-	// vector returns
-	//	fns = append(fns, comparisons()...)
-	//	fns = append(fns, mathOps()...)
-	//	fns = append(fns, logicalOps()...)
-	//	fns = append(fns, mathFuncs()...)
-	//	fns = append(fns, otherVectors()...)
-	//	fns = append(fns, castOps()...)
-	//	fns = append(fns, toCat, applyCat)
-
-	// scalar returns
-	//	fns = append(fns, summaries()...)
-
 	return fns
 }
 
@@ -639,14 +627,21 @@ func makeTable(cols ...*Col) []*Col {
 		outCols []*Col
 	)
 
+	ok := true
 	for c := 0; c <= len(cols); c++ {
 		var (
 			col *Col
 			e   error
 		)
 		name := "count"
+		// is count a name of one of the columns?
+		if !ok {
+			name = "cOuNt"
+		}
 		if c < len(cols) {
-			name = cols[c].Name()
+			if name = cols[c].Name(); name == "count" {
+				ok = false
+			}
 		}
 
 		if col, e = NewCol(outVecs[c], outVecs[c].VectorType(), d.ColName(name)); e != nil {

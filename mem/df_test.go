@@ -98,18 +98,11 @@ func TestRowNumber(t *testing.T) {
 	aind, _ := NewCol(ind, d.DTint, d.ColName("ind"))
 	_ = aind
 	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
-	fns := buildFunctionsSC()
-	fn := fns.Get("elem")
 	tx := time.Now()
-	fnOut := fn(false, df, a1, aind)
-	fmt.Println(time.Since(tx).Seconds(), " seconds")
-	fmt.Println("element 1: ", fnOut.Value.(*Col).Element(0))
-	tx = time.Now()
-	out1, _ := d.Parse(df, "mean(a1)")
+	out1, _ := d.Parse(df, "a1*a2")
 	_ = out1
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 
-	_ = fnOut
 	dfx := testDF()
 	out, e := d.Parse(dfx, "rowNumber()")
 	assert.Nil(t, e)
@@ -139,8 +132,7 @@ func TestParse_Table(t *testing.T) {
 
 func TestParser(t *testing.T) {
 	dfx := testDF()
-	eqn := "date(z)"
-	colx, e := d.Parse(dfx, eqn)
+	colx, e := d.Parse(dfx, "date(z)")
 	assert.Nil(t, e)
 	col := colx.Column()
 	d.ColName("dt")(col)
@@ -148,6 +140,21 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"min(x)", 0, -2.0},
+		{"min(y)", 0, -5},
+		{"min(z)", 0, "20000101"},
+		{"min(dt)", 0, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{"max(x)", 0, 3.5},
+		{"max(y)", 0, 6},
+		{"max(z)", 0, "20230915"},
+		{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
+		{"lq(x)", 0, -1.0},
+		{"uq(x)", 0, 2.5},
+		{"median(y)", 0, 1.0},
+		{"isNaN(x)", 0, 0},
+		{"isInf(x)", 0, 0},
+		{"quantile(x,.5)", 0, 1.0},
+		{"median(x)", 0, 1.0},
 		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
 		{"y>=1 && y>=1 && dt > date(20221231)", 0, 0},
