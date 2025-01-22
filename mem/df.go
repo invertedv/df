@@ -24,7 +24,7 @@ type DF struct {
 func StandardFunctions() d.Fns {
 	// DF returns
 	fns := d.Fns{sortDF, table, where, toCat, applyCat}
-	fns = append(fns, buildFunctionsSC()...)
+	fns = append(fns, vectorFunctions()...)
 
 	return fns
 }

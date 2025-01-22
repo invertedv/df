@@ -1,5 +1,7 @@
 package df
 
+// Learning: converting output from any to <type> takes a long time
+
 import (
 	_ "embed"
 	"fmt"
@@ -16,7 +18,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
-type FrameTypes interface {
+type frameTypes interface {
 	float64 | int | string | time.Time
 }
 
@@ -25,8 +27,7 @@ var (
 	functions string
 )
 
-func buildFunctionsSC() d.Fns {
-	specs := d.LoadFunctions(functions)
+func funcs() []any {
 	fns := []any{rowNumberFn,
 		isInfFn, isNaNfn,
 		floatFn[float64], floatFn[int], floatFn[string],
@@ -58,6 +59,13 @@ func buildFunctionsSC() d.Fns {
 		meanFn[float64], meanFn[int],
 		sumFn[float64], sumFn[int],
 	}
+
+	return fns
+}
+
+func vectorFunctions() d.Fns {
+	specs := d.LoadFunctions(functions)
+	fns := funcs()
 
 	for _, spec := range specs {
 		for _, fn := range fns {
@@ -112,66 +120,12 @@ func buildFunctionsSC() d.Fns {
 			case 0:
 				oas, _ = wrap0(fnUse, spec.Outputs[ind], n)
 			case 1:
-				switch spec.Inputs[ind][0] {
-				case d.DTfloat:
-					oas, e = wrap1[float64](fnUse, n, spec.Outputs[ind], col[0])
-				case d.DTint:
-					oas, e = wrap1[int](fnUse, n, spec.Outputs[ind], col[0])
-				case d.DTstring:
-					oas, e = wrap1[string](fnUse, n, spec.Outputs[ind], col[0])
-				case d.DTdate:
-					oas, e = wrap1[time.Time](fnUse, n, spec.Outputs[ind], col[0])
-				}
+				oas, e = case1(spec.Inputs[ind][0], fnUse, n, spec.Outputs[ind], col[0])
 			case 2:
-				switch fmt.Sprintf("%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1]) {
-				case "DTfloatDTfloat":
-					oas, e = wrap2[float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTintDTint":
-					oas, e = wrap2[int, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTstringDTstring":
-					oas, e = wrap2[string, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTdateDTdate":
-					oas, e = wrap2[time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
-
-				case "DTfloatDTint":
-					oas, e = wrap2[float64, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTfloatDTstring":
-					oas, e = wrap2[float64, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTfloatDTdate":
-					oas, e = wrap2[float64, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
-
-				case "DTintDTfloat":
-					oas, e = wrap2[int, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTintDTstring":
-					oas, e = wrap2[int, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTintDTdate":
-					oas, e = wrap2[int, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
-
-				case "DTstringDTfloat":
-					oas, e = wrap2[string, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTstringDTint":
-					oas, e = wrap2[string, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTstringDTdate":
-					oas, e = wrap2[string, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1])
-
-				case "DTdateDTfloat":
-					oas, e = wrap2[time.Time, float64](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTdateDTint":
-					oas, e = wrap2[time.Time, int](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				case "DTdateDTstring":
-					oas, e = wrap2[time.Time, string](fnUse, n, spec.Outputs[ind], col[0], col[1])
-				}
+				oas, e = case2(fmt.Sprintf("%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1]), fnUse, n, spec.Outputs[ind], col[0], col[1])
 			case 3:
-				switch fmt.Sprintf("%s%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1], spec.Inputs[ind][2]) {
-				case "DTintDTfloatDTfloat":
-					oas, e = wrap3[int, float64, float64](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
-				case "DTintDTintDTint":
-					oas, e = wrap3[int, int, int](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
-				case "DTintDTstringDTstring":
-					oas, e = wrap3[int, string, string](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
-				case "DTintDTdateDTdate":
-					oas, e = wrap3[int, time.Time, time.Time](fnUse, n, spec.Outputs[ind], col[0], col[1], col[2])
-				}
+				oas, e = case3(fmt.Sprintf("%s%s%s", spec.Inputs[ind][0], spec.Inputs[ind][1], spec.Inputs[ind][2]), fnUse, n,
+					spec.Outputs[ind], col[0], col[1], col[2])
 			}
 
 			if e != nil {
@@ -187,15 +141,98 @@ func buildFunctionsSC() d.Fns {
 	return outFns
 }
 
-func elemFn[T FrameTypes](x []T, ind []int) (T, error) {
+func case1(ins d.DataTypes, fnUse any, n int, output d.DataTypes, in *Col) (*d.Vector, error) {
+	var (
+		oas *d.Vector
+		e   error
+	)
+	switch ins {
+	case d.DTfloat:
+		oas, e = wrap1[float64](fnUse, n, output, in)
+	case d.DTint:
+		oas, e = wrap1[int](fnUse, n, output, in)
+	case d.DTstring:
+		oas, e = wrap1[string](fnUse, n, output, in)
+	case d.DTdate:
+		oas, e = wrap1[time.Time](fnUse, n, output, in)
+	}
+
+	return oas, e
+}
+
+func case2(ins string, fnUse any, n int, output d.DataTypes, in1, in2 *Col) (*d.Vector, error) {
+	var (
+		oas *d.Vector
+		e   error
+	)
+	switch ins {
+	case "DTfloatDTfloat":
+		oas, e = wrap2[float64, float64](fnUse, n, output, in1, in2)
+	case "DTintDTint":
+		oas, e = wrap2[int, int](fnUse, n, output, in1, in2)
+	case "DTstringDTstring":
+		oas, e = wrap2[string, string](fnUse, n, output, in1, in2)
+	case "DTdateDTdate":
+		oas, e = wrap2[time.Time, time.Time](fnUse, n, output, in1, in2)
+
+	case "DTfloatDTint":
+		oas, e = wrap2[float64, int](fnUse, n, output, in1, in2)
+	case "DTfloatDTstring":
+		oas, e = wrap2[float64, string](fnUse, n, output, in1, in2)
+	case "DTfloatDTdate":
+		oas, e = wrap2[float64, time.Time](fnUse, n, output, in1, in2)
+
+	case "DTintDTfloat":
+		oas, e = wrap2[int, float64](fnUse, n, output, in1, in2)
+	case "DTintDTstring":
+		oas, e = wrap2[int, string](fnUse, n, output, in1, in2)
+	case "DTintDTdate":
+		oas, e = wrap2[int, time.Time](fnUse, n, output, in1, in2)
+
+	case "DTstringDTfloat":
+		oas, e = wrap2[string, float64](fnUse, n, output, in1, in2)
+	case "DTstringDTint":
+		oas, e = wrap2[string, int](fnUse, n, output, in1, in2)
+	case "DTstringDTdate":
+		oas, e = wrap2[string, time.Time](fnUse, n, output, in1, in2)
+
+	case "DTdateDTfloat":
+		oas, e = wrap2[time.Time, float64](fnUse, n, output, in1, in2)
+	case "DTdateDTint":
+		oas, e = wrap2[time.Time, int](fnUse, n, output, in1, in2)
+	case "DTdateDTstring":
+		oas, e = wrap2[time.Time, string](fnUse, n, output, in1, in2)
+	}
+
+	return oas, e
+}
+
+func case3(ins string, fnUse any, n int, output d.DataTypes, in1, in2, in3 *Col) (*d.Vector, error) {
+	var (
+		oas *d.Vector
+		e   error
+	)
+	switch ins {
+	case "DTintDTfloatDTfloat":
+		oas, e = wrap3[int, float64, float64](fnUse, n, output, in1, in2, in3)
+	case "DTintDTintDTint":
+		oas, e = wrap3[int, int, int](fnUse, n, output, in1, in2, in3)
+	case "DTintDTstringDTstring":
+		oas, e = wrap3[int, string, string](fnUse, n, output, in1, in2, in3)
+	case "DTintDTdateDTdate":
+		oas, e = wrap3[int, time.Time, time.Time](fnUse, n, output, in1, in2, in3)
+	}
+
+	return oas, e
+}
+
+func elemFn[T frameTypes](x []T, ind []int) (T, error) {
 	if ind[0] < 0 || ind[0] > len(x) {
 		return x[0], fmt.Errorf("index out of range")
 	}
 
 	return x[ind[0]], nil
 }
-
-// Learning: converting output from any to <type> takes a long time
 
 func quantileFn[T float64 | int](x []T, p []float64) float64 {
 	var y any = x
@@ -230,7 +267,7 @@ func uqFn[T float64 | int](a []T) float64 {
 	return quantileFn[T](a, []float64{0.75})
 }
 
-func maxFn[T FrameTypes](a []T) T {
+func maxFn[T frameTypes](a []T) T {
 	maxVal := a[0]
 	for _, val := range a {
 		if greater(val, maxVal) {
@@ -241,7 +278,7 @@ func maxFn[T FrameTypes](a []T) T {
 	return maxVal
 }
 
-func minFn[T FrameTypes](a []T) T {
+func minFn[T frameTypes](a []T) T {
 	minVal := a[0]
 	for _, val := range a {
 		if greater(minVal, val) {
@@ -325,19 +362,19 @@ func greater(a, b any) bool {
 	return false
 }
 
-func gtFn[T FrameTypes](a, b T) int { return bToI(greater(a, b)) }
+func gtFn[T frameTypes](a, b T) int { return bToI(greater(a, b)) }
 
-func ltFn[T FrameTypes](a, b T) int { return bToI(greater(b, a)) }
+func ltFn[T frameTypes](a, b T) int { return bToI(greater(b, a)) }
 
-func geFn[T FrameTypes](a, b T) int { return bToI(!greater(b, a)) }
+func geFn[T frameTypes](a, b T) int { return bToI(!greater(b, a)) }
 
-func leFn[T FrameTypes](a, b T) int { return bToI(!greater(a, b)) }
+func leFn[T frameTypes](a, b T) int { return bToI(!greater(a, b)) }
 
-func eqFn[T FrameTypes](a, b T) int { return bToI(a == b) }
+func eqFn[T frameTypes](a, b T) int { return bToI(a == b) }
 
-func neFn[T FrameTypes](a, b T) int { return bToI(a != b) }
+func neFn[T frameTypes](a, b T) int { return bToI(a != b) }
 
-func ifFn[T FrameTypes](a int, b, c T) T {
+func ifFn[T frameTypes](a int, b, c T) T {
 	if a == 1 {
 		return b
 	}
@@ -397,7 +434,7 @@ func intFn[T float64 | int | string](x T) (int, error) {
 	return 0, fmt.Errorf("cannot convert to int")
 }
 
-func stringFn[T FrameTypes](x T) (string, error) {
+func stringFn[T frameTypes](x T) (string, error) {
 	var xx any = x
 	switch v := xx.(type) {
 	case float64:
@@ -537,7 +574,7 @@ func wrap0(fn any, outType d.DataTypes, n int) (*d.Vector, error) {
 	return v, nil
 }
 
-func wrap1[T FrameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vector, error) {
+func wrap1[T frameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vector, error) {
 	inData := col.Data().AsAny().([]T)
 	inc, ind := 1, 0
 	if n == 1 {
@@ -621,7 +658,7 @@ func wrap1[T FrameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vecto
 	return v, nil
 }
 
-func wrap2[T, S FrameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col) (*d.Vector, error) {
+func wrap2[T, S frameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col) (*d.Vector, error) {
 	inData1 := col1.Data().AsAny().([]T)
 	inData2 := col2.Data().AsAny().([]S)
 
@@ -709,7 +746,7 @@ func wrap2[T, S FrameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col)
 	return v, nil
 }
 
-func wrap3[T, S, R FrameTypes](fn any, n int, outType d.DataTypes, col1, col2, col3 *Col) (*d.Vector, error) {
+func wrap3[T, S, R frameTypes](fn any, n int, outType d.DataTypes, col1, col2, col3 *Col) (*d.Vector, error) {
 	inData1 := col1.Data().AsAny().([]T)
 	inData2 := col2.Data().AsAny().([]S)
 	inData3 := col3.Data().AsAny().([]R)
