@@ -23,8 +23,9 @@ func TestPlotXY(t *testing.T) {
 	dfx := loadData("mem")
 	e := dfx.Sort(true, "x")
 	assert.Nil(t, e)
-	p := d.NewPlot(d.PlotTitle("This Is A Test"), d.PlotXlabel("X-Axis"),
+	p, e0 := d.NewPlot(d.PlotTitle("This Is A Test"), d.PlotXlabel("X-Axis"),
 		d.PlotYlabel("Y-Axis"), d.PlotLegend(true))
+	assert.Nil(t, e0)
 	_ = d.PlotSubtitle("(subtitle here)")(p)
 	_ = d.PlotXlabel("New X Label")(p)
 	_ = d.PlotTitle("What???")(p)

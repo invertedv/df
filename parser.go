@@ -43,7 +43,15 @@ func (p *Parsed) Which() ReturnTypes {
 }
 
 func Parse(df DF, expr string) (*Parsed, error) {
-	ot := newOpTree(expr, df.Fns())
+	var left string
+	right := expr
+
+	if indx := strings.Index(expr, ":="); indx > 0 {
+		left = expr[:indx]
+		right = expr[indx+2:]
+	}
+
+	ot := newOpTree(right, df.Fns())
 
 	if ex := ot.build(); ex != nil {
 		return nil, ex
@@ -59,7 +67,19 @@ func Parse(df DF, expr string) (*Parsed, error) {
 		_ = ColDialect(df.Dialect())(ot.value.col)
 	}
 
-	return ot.value, nil
+	if left == "" || ot.value.Column() == nil {
+		return ot.value, nil
+	}
+
+	if e := ColName(strings.ReplaceAll(left, " ", ""))(ot.value.Column()); e != nil {
+		return nil, e
+	}
+
+	if e := df.AppendColumn(ot.value.Column(), true); e != nil {
+		return nil, e
+	}
+
+	return nil, nil
 }
 
 func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {

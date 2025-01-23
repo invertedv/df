@@ -18,17 +18,19 @@ type Plot struct {
 
 type PlotOpt func(plot *Plot) error
 
-func NewPlot(opt ...PlotOpt) *Plot {
+func NewPlot(opt ...PlotOpt) (*Plot, error) {
 	fig := &grob.Fig{}
 	lay := &grob.Layout{}
 	fig.Layout = lay
 	p := &Plot{Fig: fig, Lay: lay}
 
 	for _, o := range opt {
-		o(p)
+		if e := o(p); e != nil {
+			return nil, e
+		}
 	}
 
-	return p
+	return p, nil
 }
 
 func PlotWidth(w float64) PlotOpt {

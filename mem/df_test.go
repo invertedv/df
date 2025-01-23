@@ -99,8 +99,8 @@ func TestRowNumber(t *testing.T) {
 	_ = aind
 	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
 	tx := time.Now()
-	out1, _ := d.Parse(df, "a1*a2")
-	_ = out1
+	_, e := d.Parse(df, "hello:=a1*a2")
+	assert.Nil(t, e)
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 
 	dfx := testDF()
