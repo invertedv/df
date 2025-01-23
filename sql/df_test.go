@@ -300,8 +300,7 @@ func TestParserS(t *testing.T) {
 
 		xOut, ex = d.Parse(dfx, "exp(x)")
 		data = xOut.Column().Data().AsAny()
-		fmt.Println(data)
-		return
+
 		ez := dfx.AppendColumn(col, true)
 		assert.NotNil(t, ez)
 

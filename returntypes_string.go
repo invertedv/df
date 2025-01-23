@@ -11,11 +11,13 @@ func _() {
 	_ = x[RTscalar-83]
 	_ = x[RTcolumn-67]
 	_ = x[RTdataFrame-68]
+	_ = x[RTplot-80]
 }
 
 const (
 	_ReturnTypes_name_0 = "RTcolumnRTdataFrame"
-	_ReturnTypes_name_1 = "RTscalar"
+	_ReturnTypes_name_1 = "RTplot"
+	_ReturnTypes_name_2 = "RTscalar"
 )
 
 var (
@@ -27,8 +29,10 @@ func (i ReturnTypes) String() string {
 	case 67 <= i && i <= 68:
 		i -= 67
 		return _ReturnTypes_name_0[_ReturnTypes_index_0[i]:_ReturnTypes_index_0[i+1]]
-	case i == 83:
+	case i == 80:
 		return _ReturnTypes_name_1
+	case i == 83:
+		return _ReturnTypes_name_2
 	default:
 		return "ReturnTypes(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

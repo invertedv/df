@@ -138,23 +138,8 @@ func PlotYlabel(label string) PlotOpt {
 	}
 }
 
-func (p *Plot) PlotXY(x, y Column, seriesName, color string) error {
-	if x.DataType() != DTfloat || y.DataType() != DTfloat {
-		return fmt.Errorf("xy plots require floats")
-	}
-
-	var (
-		xv, yv []float64
-		e      error
-	)
-	if xv, e = x.Data().AsFloat(); e != nil {
-		return e
-	}
-	if yv, e = y.Data().AsFloat(); e != nil {
-		return e
-	}
-
-	tr := &grob.Scatter{Name: seriesName, X: xv, Y: yv,
+func (p *Plot) PlotXY(x, y []float64, seriesName, color string) error {
+	tr := &grob.Scatter{Name: seriesName, X: x, Y: y,
 		Mode: grob.ScatterModeLines, Line: &grob.ScatterLine{Color: color}}
 
 	p.Fig.AddTraces(tr)

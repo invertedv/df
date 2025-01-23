@@ -39,6 +39,7 @@ const (
 	RTscalar    ReturnTypes = 'S'
 	RTcolumn    ReturnTypes = 'C'
 	RTdataFrame ReturnTypes = 'D'
+	RTplot      ReturnTypes = 'P'
 	RTnone                  = 'N'
 )
 

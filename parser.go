@@ -6,8 +6,9 @@ import (
 )
 
 type Parsed struct {
-	col Column
-	df  DF
+	col  Column
+	df   DF
+	plot *Plot
 }
 
 func (p *Parsed) Value() any {
@@ -17,6 +18,10 @@ func (p *Parsed) Value() any {
 
 	if p.col != nil {
 		return p.col
+	}
+
+	if p.plot != nil {
+		return p.plot
 	}
 
 	return nil
@@ -30,16 +35,22 @@ func (p *Parsed) Column() Column {
 	return p.col
 }
 
+func (p *Parsed) Plot() *Plot { return p.plot }
+
 func (p *Parsed) Which() ReturnTypes {
 	if p.df != nil {
-		return 'D'
+		return RTdataFrame
 	}
 
 	if p.col != nil {
-		return 'C'
+		return RTcolumn
 	}
 
-	return 'N'
+	if p.plot != nil {
+		return RTplot
+	}
+
+	return RTnone
 }
 
 func Parse(df DF, expr string) (*Parsed, error) {
@@ -144,9 +155,18 @@ func newParsed(value any, dependencies ...string) *Parsed {
 		return p
 	}
 
-	_ = colDependencies(dependencies)(value.(Column).Core())
-	p.col = value.(Column)
-	return p
+	if col, ok := value.(Column); ok {
+		_ = colDependencies(dependencies)(col) //(value.(Column).Core())
+		p.col = col
+		return p
+	}
+
+	if plt, ok := value.(*Plot); ok {
+		p.plot = plt
+		return p
+	}
+
+	return nil
 }
 
 func newOpTree(expression string, funcs Fns) *opTree {

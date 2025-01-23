@@ -27,6 +27,21 @@ var (
 	functions string
 )
 
+func plotFn(x, y []float64) (*d.Plot, error) {
+	plt, _ := d.NewPlot()
+	if e := plt.PlotXY(x, y, "", "black"); e != nil {
+		return nil, e
+	}
+
+	return plt, nil
+}
+
+func printFn[T frameTypes](a []T) {
+	fmt.Println(a[0])
+}
+
+//func plotTitle(title []string)
+
 // each function here must have an entry in functions.txt
 func rawFuncs() []any {
 	fns := []any{rowNumberFn,
@@ -59,6 +74,8 @@ func rawFuncs() []any {
 		uqFn[float64], uqFn[int],
 		meanFn[float64], meanFn[int],
 		sumFn[float64], sumFn[int],
+		plotFn,
+		printFn[float64], printFn[int], printFn[string], printFn[time.Time],
 	}
 
 	return fns
@@ -100,15 +117,16 @@ func vectorFunctions() d.Fns {
 				if ind < 0 {
 					panic("no signature")
 				}
-				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
+				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.RT, spec.Outputs[ind])
 			}
 
-			if spec.RT == d.RTscalar {
+			// scalar and plot returns take the whole vector as inputs
+			if spec.RT == d.RTscalar || spec.RT == d.RTnone || spec.RT == d.RTplot {
 				n = 1
 			}
 
 			var (
-				oas *d.Vector
+				oas any
 				e   error
 			)
 
@@ -159,7 +177,7 @@ func GetKind(fn reflect.Type) d.DataTypes {
 	}
 }
 
-func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
+func fnToUse(fns []any, targetIns []d.DataTypes, retType d.ReturnTypes, targOut d.DataTypes) any {
 	for _, fn := range fns {
 		rfn := reflect.TypeOf(fn)
 		ok := true
@@ -170,7 +188,15 @@ func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 			}
 		}
 
-		if ok && GetKind(rfn.Out(0)) == targOut {
+		if ok && retType == d.RTplot && rfn.Out(0).Kind() == reflect.Pointer {
+			return fn
+		}
+
+		if ok && rfn.NumOut() == 0 && targOut == d.DTnil {
+			return fn
+		}
+
+		if ok && rfn.NumOut() > 0 && GetKind(rfn.Out(0)) == targOut {
 			return fn
 		}
 	}
@@ -197,9 +223,9 @@ func case1(ins d.DataTypes, fnUse any, n int, output d.DataTypes, in *Col) (*d.V
 	return oas, e
 }
 
-func case2(ins string, fnUse any, n int, output d.DataTypes, in1, in2 *Col) (*d.Vector, error) {
+func case2(ins string, fnUse any, n int, output d.DataTypes, in1, in2 *Col) (any, error) {
 	var (
-		oas *d.Vector
+		oas any
 		e   error
 	)
 	switch ins {
@@ -314,9 +340,15 @@ func wrap1[T frameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vecto
 		inc = 0
 	}
 
-	v := d.MakeVector(outType, n)
+	var v *d.Vector
+	if outType != d.DTnil {
+		v = d.MakeVector(outType, n)
+	}
+
 	for indx := 0; indx < n; indx++ {
 		switch fnx := fn.(type) {
+		case func(x []T):
+			fnx(inData)
 		case func(x T) float64:
 			v.SetAny(fnx(inData[ind]), indx)
 		case func(x T) int:
@@ -391,7 +423,7 @@ func wrap1[T frameTypes](fn any, n int, outType d.DataTypes, col *Col) (*d.Vecto
 	return v, nil
 }
 
-func wrap2[T, S frameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col) (*d.Vector, error) {
+func wrap2[T, S frameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col) (any, error) {
 	inData1 := col1.Data().AsAny().([]T)
 	inData2 := col2.Data().AsAny().([]S)
 
@@ -403,9 +435,16 @@ func wrap2[T, S frameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col)
 		inc2 = 0
 	}
 
-	v := d.MakeVector(outType, n)
+	var v *d.Vector
+	if outType != d.DTnil {
+		v = d.MakeVector(outType, n)
+	}
 	for indx := 0; indx < n; indx++ {
 		switch fnx := fn.(type) {
+		case func(x T, y S):
+			fnx(inData1[ind1], inData2[ind2])
+		case func(x []T, y []S):
+			fnx(inData1, inData2)
 		case func(x T, y S) float64:
 			v.SetAny(fnx(inData1[ind1], inData2[ind2]), indx)
 		case func(x T, y S) int:
@@ -468,6 +507,8 @@ func wrap2[T, S frameTypes](fn any, n int, outType d.DataTypes, col1, col2 *Col)
 			}
 			v.SetAny(x, 0)
 			return v, nil
+		case func(x []T, y []S) (*d.Plot, error):
+			return fnx(inData1, inData2)
 		default:
 			return nil, fmt.Errorf("wrap2 failed")
 		}

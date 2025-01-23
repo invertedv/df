@@ -32,8 +32,22 @@ func returnCol(data any) *d.FnReturn {
 		e      error
 	)
 
-	if outCol, e = NewCol(data, d.WhatAmI(data)); e != nil {
-		return &d.FnReturn{Err: e}
+	if data == nil {
+		return &d.FnReturn{}
+	}
+
+	if px, ok := data.(*d.Plot); ok {
+		return &d.FnReturn{Value: px}
+	}
+
+	if dx, ok := data.(*d.Vector); ok {
+		if dx == nil {
+			return &d.FnReturn{}
+		}
+
+		if outCol, e = NewCol(dx, d.WhatAmI(data)); e != nil {
+			return &d.FnReturn{Err: e}
+		}
 	}
 
 	return &d.FnReturn{Value: outCol}

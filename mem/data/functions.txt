@@ -32,3 +32,5 @@ lq:github.com/invertedv/df/mem.lqFn[...]:{float},{int}:float,float:S
 uq:github.com/invertedv/df/mem.uqFn[...]:{float},{int}:float,float:S
 max:github.com/invertedv/df/mem.maxFn[...]:{float},{int},{string},{date}:float,int,string,date:S
 min:github.com/invertedv/df/mem.minFn[...]:{float},{int},{string},{date}:float,int,string,date:S
+plot:github.com/invertedv/df/mem.plotFn:{float,float}:nil:P
+print:github.com/invertedv/df/mem.printFn[...]:{float},{int},{string},{date}:nil,nil,nil,nil:N
