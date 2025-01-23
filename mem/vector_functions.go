@@ -649,7 +649,9 @@ func negFn[T float64 | int](a T) T {
 	return -a
 }
 
-func addFn[T float64 | int](a, b T) T { return a + b }
+func addFn[T float64 | int](a, b T) T {
+	return a + b
+}
 
 func subtractFn[T float64 | int](a, b T) T { return a - b }
 

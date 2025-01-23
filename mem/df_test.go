@@ -70,6 +70,52 @@ func inter(c d.Column) []int {
 	return x
 }
 
+// TODO: add ReturnTypes here!
+// TODO: make all functions return error
+func dofn1[T, S float64 | int](a []T, out []S, fn any) {
+	fnx := fn.(func(a T) S)
+	for ind := 0; ind < len(a); ind++ {
+		out[ind] = fnx(a[ind])
+	}
+
+}
+
+func dofn2[T, S, U float64 | int](a []T, b []S, out []U, fn any) {
+	fnx := fn.(func(a T, b S) U)
+	for ind := 0; ind < len(a); ind++ {
+		out[ind] = fnx(a[ind], b[ind])
+	}
+
+}
+
+func a1[T float64 | int](a []T, b, out any, fn any, dto d.DataTypes, dtb ...d.DataTypes) {
+	if dtb == nil {
+		switch dto {
+		case d.DTfloat:
+			dofn1[T, float64](a, out.([]float64), fn)
+		case d.DTint:
+			dofn1[T, int](a, out.([]int), fn)
+		}
+		return
+	}
+
+	switch dtb[0] {
+	case d.DTfloat:
+		a2[T, float64](a, b.([]float64), out, fn, dto)
+	case d.DTint:
+		a2[T, int](a, b.([]int), out, fn, dto)
+	}
+}
+
+func a2[T, S float64 | int](a []T, b []S, out any, fn any, dto d.DataTypes) {
+	switch dto {
+	case d.DTfloat:
+		dofn2[T, S, float64](a, b, out.([]float64), fn)
+	case d.DTint:
+		dofn2[T, S, int](a, b, out.([]int), fn)
+	}
+}
+
 func TestRowNumber(t *testing.T) {
 	n := 100 //000000
 	x1 := make([]float64, n)
@@ -84,6 +130,20 @@ func TestRowNumber(t *testing.T) {
 		x4[ind] = 0
 		x5[ind] = "20201231"
 	}
+
+	za := make([]float64, n)
+	zz := make([]int, n)
+	t0 := time.Now()
+	a1[float64](x1, x2, za, math.Exp, d.DTfloat)
+	a1[int](x3, x4, zz, addFn[int], d.DTint, d.DTint)
+	fmt.Println("time: ", time.Since(t0).Seconds())
+
+	t0 = time.Now()
+	for ind := 0; ind < n; ind++ {
+		zz[ind] = x3[ind] + x4[ind]
+	}
+	fmt.Println("time: ", time.Since(t0).Seconds())
+
 	ind, _ := d.NewVector([]int{100}, d.DTint)
 	v1, _ := d.NewVector(x1, d.DTfloat)
 	v2, _ := d.NewVector(x2, d.DTfloat)
@@ -98,16 +158,13 @@ func TestRowNumber(t *testing.T) {
 	aind, _ := NewCol(ind, d.DTint, d.ColName("ind"))
 	_ = aind
 	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
-	d.Parse(df, "print(a1)")
-	d.Parse(df, "print(a3)")
-	d.Parse(df, "print(a5)")
 	tx := time.Now()
-	plt, e := d.Parse(df, "plot(a1,a2)")
+	plt, e := d.Parse(df, "a1+a2")
 	//	plt.Plot().Show("", "")
 	_ = plt
 	assert.Nil(t, e)
-	_, e = d.Parse(df, "hello:=a1*a2")
-	assert.Nil(t, e)
+	//	_, e = d.Parse(df, "hello:=a1*a2")
+	//	assert.Nil(t, e)
 	fmt.Println(time.Since(tx).Seconds(), " seconds")
 
 	dfx := testDF()
