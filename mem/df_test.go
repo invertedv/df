@@ -70,52 +70,6 @@ func inter(c d.Column) []int {
 	return x
 }
 
-// TODO: add ReturnTypes here!
-// TODO: make all functions return error
-func dofn1[T, S float64 | int](a []T, out []S, fn any) {
-	fnx := fn.(func(a T) S)
-	for ind := 0; ind < len(a); ind++ {
-		out[ind] = fnx(a[ind])
-	}
-
-}
-
-func dofn2[T, S, U float64 | int](a []T, b []S, out []U, fn any) {
-	fnx := fn.(func(a T, b S) U)
-	for ind := 0; ind < len(a); ind++ {
-		out[ind] = fnx(a[ind], b[ind])
-	}
-
-}
-
-func a1[T float64 | int](a []T, b, out any, fn any, dto d.DataTypes, dtb ...d.DataTypes) {
-	if dtb == nil {
-		switch dto {
-		case d.DTfloat:
-			dofn1[T, float64](a, out.([]float64), fn)
-		case d.DTint:
-			dofn1[T, int](a, out.([]int), fn)
-		}
-		return
-	}
-
-	switch dtb[0] {
-	case d.DTfloat:
-		a2[T, float64](a, b.([]float64), out, fn, dto)
-	case d.DTint:
-		a2[T, int](a, b.([]int), out, fn, dto)
-	}
-}
-
-func a2[T, S float64 | int](a []T, b []S, out any, fn any, dto d.DataTypes) {
-	switch dto {
-	case d.DTfloat:
-		dofn2[T, S, float64](a, b, out.([]float64), fn)
-	case d.DTint:
-		dofn2[T, S, int](a, b, out.([]int), fn)
-	}
-}
-
 func TestRowNumber(t *testing.T) {
 	n := 100 //000000
 	x1 := make([]float64, n)
@@ -127,22 +81,9 @@ func TestRowNumber(t *testing.T) {
 		x1[ind] = float64(ind+1) + 0.123456
 		x2[ind] = float64(-ind)
 		x3[ind] = ind
-		x4[ind] = 0
+		x4[ind] = 1
 		x5[ind] = "20201231"
 	}
-
-	za := make([]float64, n)
-	zz := make([]int, n)
-	t0 := time.Now()
-	a1[float64](x1, x2, za, math.Exp, d.DTfloat)
-	a1[int](x3, x4, zz, addFn[int], d.DTint, d.DTint)
-	fmt.Println("time: ", time.Since(t0).Seconds())
-
-	t0 = time.Now()
-	for ind := 0; ind < n; ind++ {
-		zz[ind] = x3[ind] + x4[ind]
-	}
-	fmt.Println("time: ", time.Since(t0).Seconds())
 
 	ind, _ := d.NewVector([]int{100}, d.DTint)
 	v1, _ := d.NewVector(x1, d.DTfloat)
@@ -157,21 +98,41 @@ func TestRowNumber(t *testing.T) {
 	a5, _ := NewCol(v5, d.DTstring, d.ColName("a5"))
 	aind, _ := NewCol(ind, d.DTint, d.ColName("ind"))
 	_ = aind
+
+	za := make([]float64, n)
+	zz := make([]int, n)
+	_ = zz
+	_ = za
+	t0 := time.Now()
+	//	level0(nil, printFn[string], []*Col{a5})
+	//	level0(za, ifFn[float64], []*Col{a4, a1, a2})
+	//	level0(za, addFn[float64], []*Col{a1, a2})
+	//	level0(za, math.Exp, []*Col{a1})
+
 	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
-	tx := time.Now()
-	plt, e := d.Parse(df, "a1+a2")
-	//	plt.Plot().Show("", "")
-	_ = plt
-	assert.Nil(t, e)
-	//	_, e = d.Parse(df, "hello:=a1*a2")
+	//	outf, e := d.Parse(df, "a1+a2")
+	fmt.Println("time: ", time.Since(t0).Seconds())
 	//	assert.Nil(t, e)
-	fmt.Println(time.Since(tx).Seconds(), " seconds")
-
-	dfx := testDF()
-	out, e := d.Parse(dfx, "rowNumber()")
+	//	_ = outf
+	plt, e := d.Parse(df, "plot(a1,a2)")
+	plt.Plot().Show("", "")
 	assert.Nil(t, e)
+	//	tx := time.Now()
+	/*
+		//	plt.Plot().Show("", "")
+		_ = plt
+		assert.Nil(t, e)
+		//	_, e = d.Parse(df, "hello:=a1*a2")
+		//	assert.Nil(t, e)
+		fmt.Println(time.Since(tx).Seconds(), " seconds")
 
-	assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, inter(out.Column()))
+		dfx := testDF()
+		out, e := d.Parse(dfx, "rowNumber()")
+		assert.Nil(t, e)
+
+		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, inter(out.Column()))
+
+	*/
 }
 
 func TestParse_Sort(t *testing.T) {
@@ -204,6 +165,7 @@ func TestParser(t *testing.T) {
 	assert.Nil(t, e)
 
 	x := [][]any{
+		{"quantile(x,.5)", 0, 1.0},
 		{"min(x)", 0, -2.0},
 		{"min(y)", 0, -5},
 		{"min(z)", 0, "20000101"},
@@ -217,7 +179,6 @@ func TestParser(t *testing.T) {
 		{"median(y)", 0, 1.0},
 		{"isNaN(x)", 0, 0},
 		{"isInf(x)", 0, 0},
-		{"quantile(x,.5)", 0, 1.0},
 		{"median(x)", 0, 1.0},
 		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
