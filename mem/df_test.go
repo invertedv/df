@@ -114,9 +114,15 @@ func TestRowNumber(t *testing.T) {
 	fmt.Println("time: ", time.Since(t0).Seconds())
 	//	assert.Nil(t, e)
 	//	_ = outf
-	plt, e := d.Parse(df, "plot(a1,a2)")
-	plt.Plot().Show("", "")
+	plt, e := d.Parse(df, "p1:=plot(a1,a2)")
+	_ = plt
+	assert.Nil(t, plt)
+	//plt.Plot().Show("", "")
 	assert.Nil(t, e)
+	_, e = d.Parse(df, "title(p1,'Testing')")
+	assert.Nil(t, e)
+
+	df.Plot("p1").Show("", "")
 	//	tx := time.Now()
 	/*
 		//	plt.Plot().Show("", "")

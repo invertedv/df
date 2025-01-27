@@ -17,6 +17,7 @@ const (
 	DTdate
 	DTnil
 	DTdf
+	DTplot
 	DTany // keep as last entry
 )
 

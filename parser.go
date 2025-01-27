@@ -60,6 +60,7 @@ func Parse(df DF, expr string) (*Parsed, error) {
 	if indx := strings.Index(expr, ":="); indx > 0 {
 		left = expr[:indx]
 		right = expr[indx+2:]
+		left = strings.ReplaceAll(left, " ", "")
 	}
 
 	ot := newOpTree(right, df.Fns())
@@ -78,15 +79,21 @@ func Parse(df DF, expr string) (*Parsed, error) {
 		_ = ColDialect(df.Dialect())(ot.value.col)
 	}
 
-	if left == "" || ot.value.Column() == nil {
+	if left == "" || ot.value.DF() != nil {
 		return ot.value, nil
 	}
 
-	if e := ColName(strings.ReplaceAll(left, " ", ""))(ot.value.Column()); e != nil {
-		return nil, e
+	if ot.value.Column() != nil {
+		if e := ColName(left)(ot.value.Column()); e != nil {
+			return nil, e
+		}
+
+		if e := df.AppendColumn(ot.value.Column(), true); e != nil {
+			return nil, e
+		}
 	}
 
-	if e := df.AppendColumn(ot.value.Column(), true); e != nil {
+	if e := df.AppendPlot(ot.value.Plot(), left, true); e != nil {
 		return nil, e
 	}
 
@@ -100,13 +107,15 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
 	}
 
-	var vals []Column
+	var vals []any
 	for ind := 0; ind < len(inputs); ind++ {
 		switch inputs[ind].Which() {
 		case RTdataFrame:
 			return nil, fmt.Errorf("cannot take DF as function input")
 		case RTcolumn:
 			vals = append(vals, inputs[ind].Column())
+		case RTplot:
+			vals = append(vals, inputs[ind].Plot())
 		}
 	}
 
@@ -263,10 +272,17 @@ func (ot *opTree) eval(df DF) error {
 			return nil
 		}
 
+		if p := df.Plot(ot.expr); p != nil {
+			// TODO: need dependencies?
+			ot.value = newParsed(p)
+			return nil
+		}
+
 		var e error
 		if ot.value, e = ot.constant(ot.expr); e != nil {
 			return e
 		}
+
 		return nil
 	}
 

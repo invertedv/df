@@ -17,7 +17,7 @@ func fnDefs(dlct *d.Dialect) d.Fns {
 }
 
 func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
-	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+	fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		if info {
 			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 		}
@@ -63,7 +63,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 // ////////  Standard Fns
 
 // getNames returns the names of the input Columns starting with startInd element
-func getNames(startInd int, cols ...d.Column) ([]string, error) {
+func getNames(startInd int, cols ...any) ([]string, error) {
 	var colNames []string
 	for ind := startInd; ind < len(cols); ind++ {
 		var cn string
@@ -79,7 +79,7 @@ func getNames(startInd int, cols ...d.Column) ([]string, error) {
 
 // ***************** categorical Operations *****************
 
-func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
 			Output:  []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical},
@@ -122,7 +122,7 @@ func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	return &d.FnReturn{Value: outCol}
 }
 
-func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
 			{d.DTstring, d.DTcategorical, d.DTstring}, {d.DTdate, d.DTcategorical, d.DTdate}},
@@ -169,7 +169,7 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 }
 
 // ***************** type conversions *****************
-func cast(name string, out d.DataTypes, info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func cast(name string, out d.DataTypes, info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTdate}, {d.DTstring}, {d.DTcategorical}},
 			Output: []d.DataTypes{out, out, out, out, out}}
@@ -192,19 +192,19 @@ func cast(name string, out d.DataTypes, info bool, df d.DF, inputs ...d.Column) 
 	return &d.FnReturn{Value: outCol}
 }
 
-func toFloat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func toFloat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	return cast("float", d.DTfloat, info, df, inputs...)
 }
 
-func toInt(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func toInt(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	return cast("int", d.DTint, info, df, inputs...)
 }
 
-func toDate(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func toDate(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	return cast("date", d.DTdate, info, df, inputs...)
 }
 
-func toString(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func toString(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	return cast("string", d.DTstring, info, df, inputs...)
 }
 
@@ -234,7 +234,7 @@ func toCol(df d.DF, x any) *Col {
 	panic("can't make column")
 }
 
-func getSQL(df d.DF, inputs ...d.Column) []string {
+func getSQL(df d.DF, inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
 		sOut = append(sOut, toCol(df, inputs[ind]).SQL())
@@ -243,7 +243,7 @@ func getSQL(df d.DF, inputs ...d.Column) []string {
 	return sOut
 }
 
-func getDataTypes(df d.DF, inputs ...d.Column) []d.DataTypes {
+func getDataTypes(df d.DF, inputs ...any) []d.DataTypes {
 	var sOut []d.DataTypes
 	for ind := 0; ind < len(inputs); ind++ {
 		sOut = append(sOut, toCol(df, inputs[ind]).DataType())
@@ -252,7 +252,7 @@ func getDataTypes(df d.DF, inputs ...d.Column) []d.DataTypes {
 	return sOut
 }
 
-func fnGen(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func fnGen(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
 	}

@@ -19,7 +19,7 @@ import (
 )
 
 type frameTypes interface {
-	float64 | int | string | time.Time
+	float64 | int | string | time.Time | *d.Plot
 }
 
 var (
@@ -34,6 +34,10 @@ func plotFn(x, y []float64) (*d.Plot, error) {
 	}
 
 	return plt, nil
+}
+
+func plotTitleFn(plot []*d.Plot, title []string) {
+	_ = d.PlotTitle(title[0])(plot[0])
 }
 
 func printFn[T frameTypes](a []T) {
@@ -74,7 +78,7 @@ func rawFuncs() []any {
 		uqFn[float64], uqFn[int],
 		meanFn[float64], meanFn[int],
 		sumFn[float64], sumFn[int],
-		plotFn,
+		plotFn, plotTitleFn,
 		printFn[float64], printFn[int], printFn[string], printFn[time.Time],
 	}
 
@@ -99,28 +103,26 @@ func vectorFunctions() d.Fns {
 
 	var outFns d.Fns
 	for _, spec := range specs {
-		fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+		fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
 			if info {
 				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs, RT: spec.RT}
 			}
 
 			fnUse := spec.Fns[0]
 
-			var (
-				col []*Col
-				ind int
-			)
+			var ind int
+
 			n := df.RowCount()
 			if spec.Inputs != nil {
-				col, n = parameters(inputs...)
-				ind = signature(spec.Inputs, col...)
+				n = loopDim(inputs...)
+				ind = signature(spec.Inputs, inputs)
 				if ind < 0 {
 					panic("no signature")
 				}
 				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.RT, spec.Outputs[ind])
 			}
 
-			// scalar and plot returns take the whole vector as inputs
+			// scalar, nil and plot returns take the whole vector as inputs
 			if spec.RT == d.RTscalar || spec.RT == d.RTnone || spec.RT == d.RTplot {
 				n = 1
 			}
@@ -137,12 +139,7 @@ func vectorFunctions() d.Fns {
 				oas = make([]*d.Plot, 1)
 			}
 
-			var cols []*Col
-			for indx := 0; indx < len(inputs); indx++ {
-				cols = append(cols, toCol(inputs[indx]))
-			}
-
-			if e := level0(oas, fnUse, cols); e != nil {
+			if e := level0(oas, fnUse, inputs); e != nil {
 				return &d.FnReturn{Err: e}
 			}
 
@@ -161,6 +158,12 @@ func vectorFunctions() d.Fns {
 
 func GetKind(fn reflect.Type) d.DataTypes {
 	switch fn.Kind() {
+	case reflect.Pointer:
+		if fn == reflect.TypeOf(&d.Plot{}) {
+			return d.DTplot
+		}
+
+		return d.DTunknown
 	case reflect.Float64:
 		return d.DTfloat
 	case reflect.Int:
@@ -168,7 +171,11 @@ func GetKind(fn reflect.Type) d.DataTypes {
 	case reflect.String:
 		return d.DTstring
 	case reflect.Struct:
-		return d.DTdate
+		if fn == reflect.TypeOf(time.Time{}) {
+			return d.DTdate
+		}
+
+		return d.DTunknown
 	case reflect.Slice:
 		return GetKind(fn.Elem())
 	default:
@@ -187,7 +194,7 @@ func fnToUse(fns []any, targetIns []d.DataTypes, retType d.ReturnTypes, targOut 
 			}
 		}
 
-		if ok && retType == d.RTplot && rfn.Out(0).Kind() == reflect.Pointer {
+		if ok && retType == d.RTplot && rfn.Out(0) == reflect.TypeOf(&d.Plot{}) {
 			return fn
 		}
 
@@ -477,7 +484,7 @@ func meanFn[T float64 | int](x []T) (float64, error) {
 
 // ***************** Categorical Operations *****************
 
-func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
 			Output:  []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical},
@@ -520,7 +527,7 @@ func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 // - vector with cats
 // - default if new category
 // TODO: should the default be an existing category?
-func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
 			{d.DTstring, d.DTcategorical, d.DTstring}, {d.DTdate, d.DTcategorical, d.DTdate}},
@@ -560,18 +567,6 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
-}
-
-func newVector(data any, dt d.DataTypes) *d.Vector {
-	var (
-		x *d.Vector
-		e error
-	)
-	if x, e = d.NewVector(data, dt); e != nil {
-		panic(e)
-	}
-
-	return x
 }
 
 // **************** run a function ****************
@@ -625,7 +620,7 @@ func dofn1[T frameTypes, S frameTypes | any](a []T, out []S, fn any) error {
 	return nil
 }
 
-func dofn2[T, S frameTypes, U frameTypes | any | *d.Plot](a []T, b []S, out []U, fn any) error {
+func dofn2[T, S frameTypes, U frameTypes | any](a []T, b []S, out []U, fn any) error {
 	indx1, incr1, indx2, incr2 := 0, increment(len(a)), 0, increment(len(b))
 	switch fnx := fn.(type) {
 	case func(a T, b S) U:
@@ -686,19 +681,28 @@ func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V,
 	return nil
 }
 
-func splitCol(cols []*Col) (*Col, []*Col) {
+func splitCol(cols []any) (any, []any) {
 	if cols == nil {
 		return nil, nil
 	}
+	col0 := cols[0]
 
-	if len(cols) == 1 {
-		return cols[0], nil
+	if _, ok := col0.(*d.Scalar); ok {
+		col0 = toCol(col0)
 	}
 
-	return cols[0], cols[1:]
+	if p, ok := col0.(*d.Plot); ok {
+		col0 = []*d.Plot{p}
+	}
+
+	if len(cols) == 1 {
+		return col0, nil
+	}
+
+	return col0, cols[1:]
 }
 
-func level0(out, fn any, cols []*Col) error {
+func level0(out, fn any, cols []any) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
@@ -709,26 +713,35 @@ func level0(out, fn any, cols []*Col) error {
 			return dofn0[string](outx, fn)
 		case []time.Time:
 			return dofn0[time.Time](outx, fn)
+		case nil:
+			return dofn0[any](nil, fn)
+		case []*d.Plot:
+			return dofn0[*d.Plot](outx, fn)
 		}
 	}
 
 	col0, colsRemain := splitCol(cols)
 
-	switch col0.DataType() {
-	case d.DTfloat:
-		return level1[float64](cols[0].AsAny().([]float64), out, fn, colsRemain)
-	case d.DTint:
-		return level1[int](cols[0].AsAny().([]int), out, fn, colsRemain)
-	case d.DTstring:
-		return level1[string](cols[0].AsAny().([]string), out, fn, colsRemain)
-	case d.DTdate:
-		return level1[time.Time](cols[0].AsAny().([]time.Time), out, fn, colsRemain)
+	switch v := col0.(type) {
+	case []*d.Plot:
+		return level1[*d.Plot](v, out, fn, colsRemain)
+	case *Col:
+		switch v.DataType() {
+		case d.DTfloat:
+			return level1[float64](v.AsAny().([]float64), out, fn, colsRemain)
+		case d.DTint:
+			return level1[int](v.AsAny().([]int), out, fn, colsRemain)
+		case d.DTstring:
+			return level1[string](v.AsAny().([]string), out, fn, colsRemain)
+		case d.DTdate:
+			return level1[time.Time](v.AsAny().([]time.Time), out, fn, colsRemain)
+		}
 	}
 
 	return nil
 }
 
-func level1[T frameTypes](a []T, out any, fn any, cols []*Col) error {
+func level1[T frameTypes](a []T, out, fn any, cols []any) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
@@ -741,26 +754,33 @@ func level1[T frameTypes](a []T, out any, fn any, cols []*Col) error {
 			return dofn1[T, time.Time](a, outx, fn)
 		case nil:
 			return dofn1[T, any](a, nil, fn)
+		case []*d.Plot:
+			return dofn1[T, *d.Plot](a, outx, fn)
 		}
 	}
 
 	col0, colsRemain := splitCol(cols)
 
-	switch col0.DataType() {
-	case d.DTfloat:
-		return level2[T, float64](a, cols[0].AsAny().([]float64), out, fn, colsRemain)
-	case d.DTint:
-		return level2[T, int](a, cols[0].AsAny().([]int), out, fn, colsRemain)
-	case d.DTstring:
-		return level2[T, string](a, cols[0].AsAny().([]string), out, fn, colsRemain)
-	case d.DTdate:
-		return level2[T, time.Time](a, cols[0].AsAny().([]time.Time), out, fn, colsRemain)
+	switch v := col0.(type) {
+	case []*d.Plot:
+		return level2[T, *d.Plot](a, v, out, fn, colsRemain)
+	case *Col:
+		switch v.DataType() {
+		case d.DTfloat:
+			return level2[T, float64](a, v.AsAny().([]float64), out, fn, colsRemain)
+		case d.DTint:
+			return level2[T, int](a, v.AsAny().([]int), out, fn, colsRemain)
+		case d.DTstring:
+			return level2[T, string](a, v.AsAny().([]string), out, fn, colsRemain)
+		case d.DTdate:
+			return level2[T, time.Time](a, v.AsAny().([]time.Time), out, fn, colsRemain)
+		}
 	}
 
 	return nil
 }
 
-func level2[T, S frameTypes](a []T, b []S, out any, fn any, cols []*Col) error {
+func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []any) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
@@ -780,21 +800,26 @@ func level2[T, S frameTypes](a []T, b []S, out any, fn any, cols []*Col) error {
 
 	col0, colsRemain := splitCol(cols)
 
-	switch col0.DataType() {
-	case d.DTfloat:
-		return level3[T, S, float64](a, b, cols[0].AsAny().([]float64), out, fn, colsRemain)
-	case d.DTint:
-		return level3[T, S, int](a, b, cols[0].AsAny().([]int), out, fn, colsRemain)
-	case d.DTstring:
-		return level3[T, S, string](a, b, cols[0].AsAny().([]string), out, fn, colsRemain)
-	case d.DTdate:
-		return level3[T, S, time.Time](a, b, cols[0].AsAny().([]time.Time), out, fn, colsRemain)
+	switch v := col0.(type) {
+	case []*d.Plot:
+		return level3[T, S, *d.Plot](a, b, v, out, fn, colsRemain)
+	case *Col:
+		switch v.DataType() {
+		case d.DTfloat:
+			return level3[T, S, float64](a, b, v.AsAny().([]float64), out, fn, colsRemain)
+		case d.DTint:
+			return level3[T, S, int](a, b, v.AsAny().([]int), out, fn, colsRemain)
+		case d.DTstring:
+			return level3[T, S, string](a, b, v.AsAny().([]string), out, fn, colsRemain)
+		case d.DTdate:
+			return level3[T, S, time.Time](a, b, v.AsAny().([]time.Time), out, fn, colsRemain)
+		}
 	}
 
 	return nil
 }
 
-func level3[T, S, U frameTypes](a []T, b []S, c []U, out any, fn any, cols []*Col) error {
+func level3[T, S, U frameTypes](a []T, b []S, c []U, out, fn any, cols []any) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
@@ -807,6 +832,8 @@ func level3[T, S, U frameTypes](a []T, b []S, c []U, out any, fn any, cols []*Co
 			return dofn3[T, S, U, time.Time](a, b, c, outx, fn)
 		case nil:
 			return dofn3[T, S, U, any](a, b, nil, nil, fn)
+		case []*d.Plot:
+			return dofn3[T, S, U, *d.Plot](a, b, c, outx, fn)
 		}
 	}
 

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type Fn func(info bool, df DF, inputs ...Column) *FnReturn
+type Fn func(info bool, df DF, inputs ...any) *FnReturn
 
 type Fns []Fn
 
@@ -45,7 +45,7 @@ const (
 
 //go:generate stringer -type=ReturnTypes
 
-func RunDFfn(fn Fn, df DF, inputs []Column) (any, error) {
+func RunDFfn(fn Fn, df DF, inputs []any) (any, error) {
 	info := fn(true, nil)
 	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {
 		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
@@ -55,26 +55,19 @@ func RunDFfn(fn Fn, df DF, inputs []Column) (any, error) {
 		return nil, fmt.Errorf("need at least %d arguments to %s", len(inputs), info.Name)
 	}
 
-	var inps []Column
-
-	for j := 0; j < len(inputs); j++ {
-		col := inputs[j]
-		inps = append(inps, col)
-	}
-
-	if ok, _ := okParams(inps, info.Inputs, info.Output); !ok {
+	if ok, _ := okParams(inputs, info.Inputs, info.Output); !ok {
 		return nil, fmt.Errorf("bad parameters to %s", info.Name)
 	}
 
 	var fnR *FnReturn
-	if fnR = fn(false, df, inps...); fnR.Err != nil {
+	if fnR = fn(false, df, inputs...); fnR.Err != nil {
 		return nil, fnR.Err
 	}
 
 	return fnR.Value, nil
 }
 
-func okParams(cols []Column, inputs [][]DataTypes, outputs []DataTypes) (ok bool, outType DataTypes) {
+func okParams(cols []any, inputs [][]DataTypes, outputs []DataTypes) (ok bool, outType DataTypes) {
 	if inputs == nil {
 		return true, outputs[0]
 	}
@@ -82,7 +75,12 @@ func okParams(cols []Column, inputs [][]DataTypes, outputs []DataTypes) (ok bool
 	for j := 0; j < len(inputs); j++ {
 		ok = true
 		for k := 0; k < len(inputs[j]); k++ {
-			if inputs[j][k] != DTany && cols[k].DataType() != inputs[j][k] {
+			if _, isPlot := cols[k].(*Plot); isPlot && inputs[j][k] != DTplot {
+				ok = false
+				break
+			}
+
+			if _, isCol := cols[k].(Column); isCol && inputs[j][k] != DTany && cols[k].(Column).DataType() != inputs[j][k] {
 				ok = false
 				break
 			}

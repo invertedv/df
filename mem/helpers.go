@@ -54,7 +54,7 @@ func returnCol(data any) *d.FnReturn {
 }
 
 // getNames returns the names of the input Columns starting with startInd element
-func getNames(startInd int, cols ...d.Column) ([]string, error) {
+func getNames(startInd int, cols ...any) ([]string, error) {
 	var colNames []string
 	for ind := startInd; ind < len(cols); ind++ {
 		var cn string
@@ -68,25 +68,32 @@ func getNames(startInd int, cols ...d.Column) ([]string, error) {
 	return colNames, nil
 }
 
-func parameters(inputs ...d.Column) (cols []*Col, n int) {
-	n = 1
+func loopDim(inputs ...any) int {
+	n := 1
 	for j := 0; j < len(inputs); j++ {
-		cx := toCol(inputs[j])
-		cols = append(cols, cx)
-
-		if nn := cx.Len(); nn > n {
-			n = nn
+		if col, isCol := inputs[j].(*Col); isCol {
+			if nn := col.Len(); nn > n {
+				n = nn
+			}
 		}
 	}
 
-	return cols, n
+	return n
 }
 
-func signature(target [][]d.DataTypes, cols ...*Col) int {
+func signature(target [][]d.DataTypes, cols []any) int {
 	for j := 0; j < len(target); j++ {
 		ind := j
 		for k := 0; k < len(target[j]); k++ {
-			trg := cols[k].DataType()
+			var trg d.DataTypes
+			if col, ok := cols[k].(d.Column); ok {
+				trg = col.DataType()
+			}
+
+			if _, ok := cols[k].(*d.Plot); ok {
+				trg = d.DTplot
+			}
+
 			if trg == d.DTcategorical {
 				trg = d.DTint
 			}

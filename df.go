@@ -23,8 +23,9 @@ type DF interface {
 }
 
 type DC interface {
-	AppendDFcore(df2 *DFcore) (*DFcore, error)
 	AppendColumn(col Column, replace bool) error
+	AppendDFcore(df2 *DFcore) (*DFcore, error)
+	AppendPlot(plot *Plot, plotName string, replace bool) error
 	Column(colName string) Column
 	ColumnCount() int
 	ColumnNames() []string
@@ -33,10 +34,12 @@ type DC interface {
 	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	Dialect() *Dialect
 	DropColumns(colNames ...string) error
+	DropPlots(plotNames ...string) error
 	First() Column
 	Fns() Fns
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next() Column
+	Plot(plotName string) *Plot
 }
 
 // *********** DFcore ***********
@@ -50,6 +53,8 @@ type DFcore struct {
 	current *columnList
 
 	dlct *Dialect
+
+	plots map[string]*Plot
 }
 
 type columnList struct {
@@ -64,7 +69,7 @@ func NewDF(funcs Fns, cols []Column, opts ...DFopt) (df *DFcore, err error) {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
 
-	outDF := &DFcore{appFuncs: funcs}
+	outDF := &DFcore{appFuncs: funcs, plots: make(map[string]*Plot)}
 
 	var head, priorNode *columnList
 	for ind := 0; ind < len(cols); ind++ {
@@ -140,11 +145,12 @@ func DFsetFns(f Fns) DFopt {
 // *********** Methods ***********
 
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
-	if df.Column(col.Name()) != nil {
+	if df.Column(col.Name()) != nil || df.Plot(col.Name()) != nil {
 		if replace {
 			_ = df.DropColumns(col.Name())
+			_ = df.DropPlots(col.Name())
 		} else {
-			return fmt.Errorf("column %s already exists", col.Name())
+			return fmt.Errorf("column/plot %s already exists", col.Name())
 		}
 	}
 
@@ -160,6 +166,25 @@ func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	}
 
 	tail.next = dfl
+
+	return nil
+}
+
+func (df *DFcore) AppendPlot(plot *Plot, plotName string, replace bool) error {
+	if df.Column(plotName) != nil || df.Plot(plotName) != nil {
+		if replace {
+			_ = df.DropColumns(plotName)
+			_ = df.DropPlots(plotName)
+		} else {
+			return fmt.Errorf("column/plot %s already exists", plotName)
+		}
+	}
+
+	if !validName(plotName) {
+		return fmt.Errorf("invalid plot name: %s", plotName)
+	}
+
+	df.plots[plotName] = plot
 
 	return nil
 }
@@ -330,6 +355,19 @@ func (df *DFcore) DropColumns(colNames ...string) error {
 	return nil
 }
 
+func (df *DFcore) DropPlots(plotNames ...string) error {
+	for _, plotName := range plotNames {
+		if _, ok := df.plots[plotName]; ok {
+			delete(df.plots, plotName)
+			return nil
+		}
+
+		return fmt.Errorf("plot %s not found", plotName)
+	}
+
+	return nil
+}
+
 func (df *DFcore) First() Column {
 	df.current = df.head
 	return df.head.col
@@ -392,6 +430,14 @@ func (df *DFcore) Next() Column {
 
 	df.current = df.current.next
 	return df.current.col
+}
+
+func (df *DFcore) Plot(plotName string) *Plot {
+	if plot, ok := df.plots[plotName]; ok {
+		return plot
+	}
+
+	return nil
 }
 
 func (df *DFcore) node(colName string) (node *columnList, err error) {

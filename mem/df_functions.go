@@ -2,7 +2,7 @@ package df
 
 import d "github.com/invertedv/df"
 
-func where(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func where(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "where", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTdf}}
 	}
@@ -11,12 +11,12 @@ func where(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		outDF d.DF
 		e     error
 	)
-	outDF, e = df.Where(inputs[0])
+	outDF, e = df.Where(inputs[0].(d.Column))
 
 	return &d.FnReturn{Value: outDF, Err: e}
 }
 
-func sortDF(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func sortDF(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
 			Output: []d.DataTypes{d.DTnil}, Varying: true}
@@ -40,7 +40,7 @@ func sortDF(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	return &d.FnReturn{Err: df.Sort(ascending, colNames...)}
 }
 
-func table(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+func table(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "table", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},
 			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, Varying: true}
