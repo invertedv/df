@@ -44,8 +44,6 @@ func printFn[T frameTypes](a []T) {
 	fmt.Println(a[0])
 }
 
-//func plotTitle(title []string)
-
 // each function here must have an entry in functions.txt
 func rawFuncs() []any {
 	fns := []any{rowNumberFn,
@@ -183,6 +181,8 @@ func GetKind(fn reflect.Type) d.DataTypes {
 	}
 }
 
+// fnToUse chooses the element of fns (slice of functions) that matches the pattern of inputs in targetIns and
+// output of targOut.
 func fnToUse(fns []any, targetIns []d.DataTypes, retType d.ReturnTypes, targOut d.DataTypes) any {
 	for _, fn := range fns {
 		rfn := reflect.TypeOf(fn)
@@ -589,15 +589,16 @@ func dofn0[T frameTypes | any](out []T, fn any) error {
 
 func dofn1[T frameTypes, S frameTypes | any](a []T, out []S, fn any) error {
 	indx, incr := 0, increment(len(a))
+	n := max(len(a), len(out))
 	switch fnx := fn.(type) {
 	case func(T) S:
-		for ind := 0; ind < len(a); ind++ {
+		for ind := 0; ind < n; ind++ {
 			out[ind] = fnx(a[indx])
 			indx += incr
 		}
 	case func(T) (S, error):
 		var e error
-		for ind := 0; ind < len(a); ind++ {
+		for ind := 0; ind < n; ind++ {
 			if out[ind], e = fnx(a[indx]); e != nil {
 				return e
 			}
@@ -612,7 +613,6 @@ func dofn1[T frameTypes, S frameTypes | any](a []T, out []S, fn any) error {
 		return e
 	case func([]T):
 		fnx(a)
-
 	default:
 		return fmt.Errorf("unsupported function signature in  dofn1")
 	}
@@ -622,16 +622,17 @@ func dofn1[T frameTypes, S frameTypes | any](a []T, out []S, fn any) error {
 
 func dofn2[T, S frameTypes, U frameTypes | any](a []T, b []S, out []U, fn any) error {
 	indx1, incr1, indx2, incr2 := 0, increment(len(a)), 0, increment(len(b))
+	n := max(len(a), len(b), len(out))
 	switch fnx := fn.(type) {
 	case func(a T, b S) U:
-		for ind := 0; ind < len(a); ind++ {
+		for ind := 0; ind < n; ind++ {
 			out[ind] = fnx(a[indx1], b[indx2])
 			indx1 += incr1
 			indx2 += incr2
 		}
 	case func(a T, b S) (U, error):
 		var e error
-		for ind := 0; ind < len(a); ind++ {
+		for ind := 0; ind < n; ind++ {
 			if out[ind], e = fnx(a[indx1], b[indx2]); e != nil {
 				return e
 			}
@@ -656,9 +657,10 @@ func dofn2[T, S frameTypes, U frameTypes | any](a []T, b []S, out []U, fn any) e
 
 func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V, fn any) error {
 	indx1, incr1, indx2, incr2, indx3, incr3 := 0, increment(len(a)), 0, increment(len(b)), 0, increment(len(c))
+	n := max(len(a), len(b), len(c), len(out))
 	switch fnx := fn.(type) {
 	case func(a T, b S, C U) V:
-		for ind := 0; ind < len(a); ind++ {
+		for ind := 0; ind < n; ind++ {
 			out[ind] = fnx(a[indx1], b[indx2], c[indx3])
 			indx1 += incr1
 			indx2 += incr2
@@ -666,7 +668,7 @@ func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V,
 		}
 	case func(a T, b S, c U) (V, error):
 		var e error
-		for ind := 0; ind < len(a); ind++ {
+		for ind := 0; ind < n; ind++ {
 			if out[ind], e = fnx(a[indx1], b[indx2], c[indx3]); e != nil {
 				return e
 			}
