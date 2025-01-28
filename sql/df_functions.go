@@ -1,8 +1,9 @@
 package sql
 
 import (
-	d "github.com/invertedv/df"
 	"strings"
+
+	d "github.com/invertedv/df"
 )
 
 // ***************** Functions that return a data frame *****************

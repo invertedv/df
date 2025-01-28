@@ -16,8 +16,7 @@ import (
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
 	fns := d.Fns{applyCat,
-		sortDF, table, toCat, toDate, toFloat, toInt, toString, where}
-
+		sortDF, table, toCat, where}
 	fns = append(fns, fnDefs(dlct)...)
 
 	return fns

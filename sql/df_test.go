@@ -11,12 +11,13 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
+	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
 
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
-func newConnect(host, user, password string) (db *sql.DB, err error) {
+func newConnectCH(host, user, password string) (db *sql.DB, err error) {
 	db = clickhouse.OpenDB(
 		&clickhouse.Options{
 			Addr: []string{host + ":9000"},
@@ -35,17 +36,40 @@ func newConnect(host, user, password string) (db *sql.DB, err error) {
 	return db, db.Ping()
 }
 
+func newConnectPG(host, user, password, dbName string) (db *sql.DB, err error) {
+	connectionStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", user, password, dbName)
+	db, err = sql.Open("postgres", connectionStr)
+
+	rows, err := db.Query("SELECT z from d1;")
+	if err != nil {
+		panic(err)
+	}
+
+	for rows.Next() {
+		var version string
+		rows.Scan(&version)
+		fmt.Println(version)
+	}
+
+	rows.Close()
+	return db, db.Ping()
+}
+
 func testDF() *DF {
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
+	dbName := os.Getenv("db")
+
+	db1, ex1 := newConnectPG(host, user, password, dbName)
+	_, _ = db1, ex1
 
 	var (
 		db *sql.DB
 		e  error
 	)
 
-	if db, e = newConnect(host, user, password); e != nil {
+	if db, e = newConnectCH(host, user, password); e != nil {
 		panic(e)
 	}
 
@@ -163,12 +187,20 @@ func TestRename(t *testing.T) {
 	assert.Equal(t, d1, d2)
 }
 
+func TestCast(t *testing.T) {
+	dfx := testDF()
+	out, e := d.Parse(dfx, "string(23)")
+	assert.Nil(t, e)
+	_ = out
+	//fmt.Println(dfx.Column("test").(*Col).SQL())
+}
+
 func TestParser(t *testing.T) {
 	dfx := testDF()
 
 	x := [][]any{
-		{"!(y>=1) && y>=1", 0, 0},
 		{"float((3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0)))", 0, 42.0},
+		{"!(y>=1) && y>=1", 0, 0},
 		{"int(abs(-5))", 0, 5},
 		{"z=='abc'", 0, 0},
 		{"dt != date(20221231)", 0, 0},

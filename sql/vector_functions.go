@@ -168,46 +168,6 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	return outFn
 }
 
-// ***************** type conversions *****************
-func cast(name string, out d.DataTypes, info bool, df d.DF, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTdate}, {d.DTstring}, {d.DTcategorical}},
-			Output: []d.DataTypes{out, out, out, out, out}}
-	}
-	// TODO: make a col var
-	inp := toCol(df, inputs[0]).SQL()
-	dt := toCol(df, inputs[0]).DataType()
-
-	var (
-		sql string
-		e   error
-	)
-
-	if sql, e = df.Dialect().CastField(inp, dt, out); e != nil {
-		return &d.FnReturn{Err: e}
-	}
-
-	outCol, _ := NewColSQL(out, df.Dialect(), sql)
-
-	return &d.FnReturn{Value: outCol}
-}
-
-func toFloat(info bool, df d.DF, inputs ...any) *d.FnReturn {
-	return cast("float", d.DTfloat, info, df, inputs...)
-}
-
-func toInt(info bool, df d.DF, inputs ...any) *d.FnReturn {
-	return cast("int", d.DTint, info, df, inputs...)
-}
-
-func toDate(info bool, df d.DF, inputs ...any) *d.FnReturn {
-	return cast("date", d.DTdate, info, df, inputs...)
-}
-
-func toString(info bool, df d.DF, inputs ...any) *d.FnReturn {
-	return cast("string", d.DTstring, info, df, inputs...)
-}
-
 // ***************** Helpers *****************
 
 func toCol(df d.DF, x any) *Col {

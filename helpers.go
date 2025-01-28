@@ -218,16 +218,16 @@ func toDataType(x any, dt DataTypes) (any, bool) {
 }
 
 func bestType(xIn any) (xOut any, dt DataTypes, err error) {
-	if x, ok := toDate(xIn); ok {
-		return x.(time.Time), DTdate, nil
-	}
-
 	if x, ok := toInt(xIn); ok {
 		return x.(int), DTint, nil
 	}
 
 	if x, ok := toFloat(xIn); ok {
 		return x.(float64), DTfloat, nil
+	}
+
+	if x, ok := toDate(xIn); ok {
+		return x.(time.Time), DTdate, nil
 	}
 
 	if x, ok := toString(xIn); ok {
@@ -247,6 +247,10 @@ func WhatAmI(val any) DataTypes {
 		return DTstring
 	case time.Time, []time.Time:
 		return DTdate
+	case *Plot:
+		return DTplot
+	case DF:
+		return DTdf
 	default:
 		return DTunknown
 	}

@@ -88,16 +88,11 @@ func Parse(df DF, expr string) (*Parsed, error) {
 			return nil, e
 		}
 
-		if e := df.AppendColumn(ot.value.Column(), true); e != nil {
-			return nil, e
-		}
+		return nil, df.AppendColumn(ot.value.Column(), true)
 	}
 
-	if e := df.AppendPlot(ot.value.Plot(), left, true); e != nil {
-		return nil, e
-	}
+	return nil, df.AppendPlot(ot.value.Plot(), left, true)
 
-	return nil, nil
 }
 
 func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {

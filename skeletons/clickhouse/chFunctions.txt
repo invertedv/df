@@ -20,3 +20,7 @@ and:and(%s,%s):{int,int}:int:C
 or:or(%s,%s):{int,int}:int:C
 not:not(%s):{int}:int:C
 if:if(%s>0,%s,%s):{int,float,float},{int,int,int},{int,string,string},{int,date,date}:float,int,string,date:C
+date:cast(toString(%s) AS date):{int},{string},{date}:date,date,date:C
+float:toFloat64(%s):{float},{int},{string}:float,float,float:C
+int:toInt32(%s):{float},{int},{string}:int,int,int:C
+string:toString(%s):{float},{int},{string},{date}:string,string,string,string:C
