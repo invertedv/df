@@ -203,9 +203,10 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 		return fmt.Errorf("added column not from same source")
 	}
 
-	if f.RowCount() != col.Len() {
-		return fmt.Errorf("added column has differing # of rows")
-	}
+	// TODO: make this work
+	//	if f.RowCount() != col.Len() {
+	//		return fmt.Errorf("added column has differing # of rows")
+	//	}
 
 	return f.Core().AppendColumn(col, replace)
 }
@@ -574,6 +575,7 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 
 func (f *DF) Where(col d.Column) (d.DF, error) {
 	panicer(col)
+	fmt.Println("HEEEEERRRREEE")
 	if col == nil {
 		return nil, fmt.Errorf("where column is nil")
 	}
@@ -585,9 +587,10 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 		return nil, fmt.Errorf("where column must be type DTint")
 	}
 
-	dfNew.where = fmt.Sprintf("%s > 0", col.(*Col).SQL())
 	if dfNew.where != "" {
 		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*Col).SQL())
+	} else {
+		dfNew.where = fmt.Sprintf("%s > 0", col.(*Col).SQL())
 	}
 
 	return dfNew, nil

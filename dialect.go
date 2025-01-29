@@ -18,26 +18,38 @@ import (
 var (
 	//go:embed skeletons/clickhouse/create.txt
 	chCreate string
+	//go:embed skeletons/postgres/create.txt
+	pgCreate string
 
 	//go:embed skeletons/clickhouse/types.txt
 	chTypes string
+	//go:embed skeletons/postgres/types.txt
+	pgTypes string
 
 	//go:embed skeletons/clickhouse/fields.txt
 	chFields string
+	//go:embed skeletons/postgres/fields.txt
+	pgFields string
 
 	//go:embed skeletons/clickhouse/dropIf.txt
 	chDropIf string
+	//go:embed skeletons/postgres/dropif.txt
+	pgDropIf string
 
 	//go:embed skeletons/clickhouse/insert.txt
 	chInsert string
+	//go:embed skeletons/postgres/insert.txt
+	pgInsert string
 
-	//go:embed skeletons/clickhouse/chFunctions.txt
+	//go:embed skeletons/clickhouse/functions.txt
 	chFunctions string
+	//go:embed skeletons/postgres/functions.txt
+	pgFunctions string
 )
 
 const (
 	ch = "clickhouse"
-	pg = "postgress"
+	pg = "postgres"
 	ms = "mysql"
 )
 
@@ -80,7 +92,9 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 		types = chTypes
 		d.functions = LoadFunctions(chFunctions)
 	case pg:
-		d.create = ""
+		d.create, d.fields, d.dropIf, d.insert = pgCreate, pgFields, pgDropIf, pgInsert
+		types = pgTypes
+		d.functions = LoadFunctions(pgFunctions)
 	case ms:
 		d.create = ""
 	default:
@@ -125,7 +139,7 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 
 	var s string
 	e := fmt.Errorf("unsupported db dialect")
-	if d.DialectName() == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		e = nil
 		s = "CASE\n"
 		for ind := 0; ind < len(whens); ind++ {
@@ -150,7 +164,7 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr st
 		return "", e
 	}
 
-	if d.dialect == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		// is this a constant?
 		if x, ok := toDate(fieldName); ok {
 			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
@@ -181,7 +195,7 @@ func (d *Dialect) Count() string {
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {
 	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
-	if d.DialectName() == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		if d.Exists(tableName) && !overwrite {
 			return fmt.Errorf("table %s exists", tableName)
 		}
@@ -190,7 +204,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 			orderBy = fields[0]
 		}
 
-		create := strings.Replace(d.create, "?TableName", tableName, 1)
+		create := strings.ReplaceAll(d.create, "?TableName", tableName)
 		create = strings.Replace(create, "?OrderBy", orderBy, 1)
 
 		var flds []string
@@ -224,16 +238,19 @@ func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF) 
 
 	cols := df.ColumnNames()
 
-	noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
-	if orderBy != "" && !df.Core().HasColumns(strings.Split(noDesc, ",")...) {
-		return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
+	if d.DialectName() == ch || d.DialectName() == pg {
+		noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
+		if orderBy != "" && !df.Core().HasColumns(strings.Split(noDesc, ",")...) {
+			return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
+		}
+
+		if dts, e = df.ColumnTypes(cols...); e != nil {
+			return e
+		}
+		return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite)
 	}
 
-	if dts, e = df.ColumnTypes(cols...); e != nil {
-		return e
-	}
-
-	return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite)
+	return fmt.Errorf("unknown error")
 }
 
 func (d *Dialect) DB() *sql.DB {
@@ -249,20 +266,21 @@ func (d *Dialect) DropTable(tableName string) error {
 		return nil
 	}
 
-	qry := fmt.Sprintf("DROP TABLE %s", tableName)
+	qry := strings.ReplaceAll(d.dropIf, "?TableName", tableName)
 	_, e := d.DB().Exec(qry)
 
 	return e
 }
 
 func (d *Dialect) Exists(tableName string) bool {
+	var (
+		res *sql.Rows
+		e   error
+	)
+
 	if d.DialectName() == ch {
 		qry := fmt.Sprintf("EXISTS TABLE %s", tableName)
 
-		var (
-			res *sql.Rows
-			e   error
-		)
 		if res, e = d.DB().Query(qry); e != nil {
 			panic(e)
 		}
@@ -280,6 +298,23 @@ func (d *Dialect) Exists(tableName string) bool {
 		}
 	}
 
+	if d.DialectName() == pg {
+		qry := fmt.Sprintf("SELECT to_regclass('%s')", tableName)
+		if res, e = d.DB().Query(qry); e != nil {
+			panic(e)
+		}
+
+		res.Next()
+		var exist any
+		if ex := res.Scan(&exist); ex != nil {
+			panic(ex)
+		}
+
+		if exist != nil {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -287,6 +322,7 @@ func (d *Dialect) Functions() Fmap {
 	return d.functions
 }
 
+// TODO: delete
 func (d *Dialect) Ifs(x, y, op string) (string, error) {
 	const ops = ">,>=,<,<=,==,!="
 	op = strings.ReplaceAll(op, " ", "")
@@ -305,7 +341,7 @@ func (d *Dialect) Ifs(x, y, op string) (string, error) {
 func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	e := fmt.Errorf("db not implemented")
 
-	if d.DialectName() == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		qry := strings.Replace(d.insert, "?TableName", tableName, 1)
 		qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)
 		qry = strings.Replace(qry, "?Fields", fields, 1)
@@ -319,7 +355,7 @@ func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 func (d *Dialect) InsertValues(tableName string, values []byte) error {
 	e := fmt.Errorf("db not implemented")
 
-	if d.DialectName() == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		qry := fmt.Sprintf("INSERT INTO %s VALUES ", tableName) + string(values)
 		_, e = d.db.Exec(qry)
 	}
@@ -493,7 +529,7 @@ func (d *Dialect) Quantile(col string, q float64) string {
 }
 
 func (d *Dialect) Quote() string {
-	if d.dialect == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		return "'"
 	}
 
@@ -514,6 +550,7 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 	return n, nil
 }
 
+// TODO delete
 func (d *Dialect) RowNumber() string {
 	if d.DialectName() == ch {
 		return "toInt32(rowNumberInBlock())"
@@ -587,6 +624,7 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {
 	return d.IterSave(tableName, df)
 }
 
+// TODO: is this used?
 func (d *Dialect) Seq(n int) string {
 	if n <= 0 {
 		return ""
@@ -594,6 +632,10 @@ func (d *Dialect) Seq(n int) string {
 
 	if d.DialectName() == ch {
 		return fmt.Sprintf("toInt32(arrayJoin(range(0,%d)))", n)
+	}
+
+	if d.DialectName() == pg {
+		return fmt.Sprintf("generate_series(0,%d)", n-1)
 	}
 
 	panic(fmt.Errorf("unsupported dialect for Seq"))
@@ -605,7 +647,7 @@ func (d *Dialect) SetBufSize(mb int) {
 
 // ToString returns a string version of val that can be placed into SQL
 func (d *Dialect) ToString(val any) string {
-	if d.DialectName() == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		var (
 			xv any
 			ok bool
@@ -643,6 +685,7 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		return nil, nil, nil, err
 	}
 
+	// TODO: if k is interface, it means the field is nullable...account for this?
 	for ind := 0; ind < len(types); ind++ {
 		fieldNames = append(fieldNames, types[ind].Name())
 
@@ -658,7 +701,7 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 	e := fmt.Errorf("no implemention of Union for %s", d.DialectName())
 	var sqlx string
 
-	if d.DialectName() == ch {
+	if d.DialectName() == ch || d.DialectName() == pg {
 		cols := strings.Join(colNames, ",")
 		sqlx = fmt.Sprintf("SELECT %s FROM (%s) UNION ALL (%s)", cols, table1, table2)
 		e = nil
@@ -744,7 +787,7 @@ func kindToDataTypes(k reflect.Kind) DataTypes {
 	case reflect.Struct:
 		dt = DTdate
 	case reflect.Ptr:
-		panic(fmt.Errorf("field is nullable - not supported"))
+		panic(fmt.Errorf("pointer type"))
 	default:
 		panic(fmt.Errorf("unsupported db field type: %v", k))
 	}

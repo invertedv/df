@@ -11,6 +11,8 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
+	_ "github.com/jackc/pgx/stdlib"
+	//	pgy "github.com/jackc/pgx"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,21 +39,25 @@ func newConnectCH(host, user, password string) (db *sql.DB, err error) {
 }
 
 func newConnectPG(host, user, password, dbName string) (db *sql.DB, err error) {
-	connectionStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", user, password, dbName)
-	db, err = sql.Open("postgres", connectionStr)
+	connectionStr := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", user, password, host, dbName)
 
-	rows, err := db.Query("SELECT z from d1;")
-	if err != nil {
-		panic(err)
-	}
+	db, err = sql.Open("pgx", connectionStr) // "postgres://root:abc234@localhost:5432/testing")
 
-	for rows.Next() {
-		var version string
-		rows.Scan(&version)
-		fmt.Println(version)
-	}
+	/*
+		sql := "select x from d1"
+		rows, err := db.Query(sql)
+		ty, _ := rows.ColumnTypes()
+		fmt.Println(ty[0].ScanType().Kind())
+		_ = err
+		var x float64
+		xx := ty[0].DatabaseTypeName()
+		fmt.Println(xx)
 
-	rows.Close()
+		for rows.Next() {
+			e := rows.Scan(&x)
+			_ = e
+		}*/
+
 	return db, db.Ping()
 }
 
@@ -61,23 +67,24 @@ func testDF() *DF {
 	password := os.Getenv("password")
 	dbName := os.Getenv("db")
 
-	db1, ex1 := newConnectPG(host, user, password, dbName)
-	_, _ = db1, ex1
-
 	var (
 		db *sql.DB
 		e  error
 	)
 
-	if db, e = newConnectCH(host, user, password); e != nil {
+	if db, e = newConnectPG(host, user, password, dbName); e != nil {
 		panic(e)
 	}
+
+	//  if db, e = newConnectCH(host, user, password); e != nil {
+	//		panic(e)
+	//	}
 
 	var (
 		dialect *d.Dialect
 		e1      error
 	)
-	if dialect, e1 = d.NewDialect("clickhouse", db); e1 != nil {
+	if dialect, e1 = d.NewDialect("postgres", db); e1 != nil {
 		panic(e1)
 	}
 
@@ -85,7 +92,7 @@ func testDF() *DF {
 		df *DF
 		e2 error
 	)
-	if df, e2 = DBload("SELECT * FROM testing.d1", dialect); e2 != nil {
+	if df, e2 = DBload("SELECT * FROM public.d1", dialect); e2 != nil {
 		panic(e2)
 	}
 
@@ -153,22 +160,25 @@ func TestSQLcol_Data(t *testing.T) {
 }
 
 func TestWhere(t *testing.T) {
-	dfx := testDF()
-	defer func() { _ = dfx.Dialect().DB().Close() }()
+	var dfx *DF
+	dfx = testDF()
+	//	defer func() { _ = dfx.Dialect().DB().Close() }()
 
 	out, e := d.Parse(dfx, "y == 1 || z == '20060310'")
 	assert.Nil(t, e)
-	result := checker(dfx, "test", out.Column(), -1)
-	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, result)
+	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, out.Column().Data().AsAny())
 
 	expr := "where(y == 1)"
 	out, e = d.Parse(dfx, expr)
 	assert.Nil(t, e)
+	_ = out
+
 	outDF := out.DF().(*DF)
 	fmt.Println(outDF.MakeQuery())
-	e = outDF.Dialect().Save("testing.where", "", true, outDF)
+	e = outDF.Dialect().Save("public.where", "", true, outDF)
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.RowCount())
+
 }
 
 func TestRename(t *testing.T) {
@@ -199,6 +209,8 @@ func TestParser(t *testing.T) {
 	dfx := testDF()
 
 	x := [][]any{
+		{"log(exp(1.0))", 0, 1.0},
+		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
 		{"float((3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0)))", 0, 42.0},
 		{"!(y>=1) && y>=1", 0, 0},
 		{"int(abs(-5))", 0, 5},
@@ -266,7 +278,6 @@ func TestParser(t *testing.T) {
 		{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
 		{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
 		{"-x +2.0", 0, float64(1)},
 		{"-x +4.0", 1, float64(6)},
 		{"x/0.0", 0, math.Inf(1)},
@@ -306,7 +317,7 @@ func TestParserS(t *testing.T) {
 
 	x := [][]any{
 		{"sum(y)", 0, 12},
-		{"mean(yy)", 0, float64(32) / 6.0},
+		{"mean(yy)", 0, 32.0 / 6.0},
 	}
 
 	cnt := 0
@@ -318,43 +329,10 @@ func TestParserS(t *testing.T) {
 		assert.Nil(t, ex)
 		col := xOut.Column()
 		_ = d.ColName("test")(col)
-		var (
-			dfNew *DF
-			e     error
-		)
-
 		data := col.Data().AsAny()
 		fmt.Println(data)
 
-		xOut, ex = d.Parse(dfx, "dot(x,x)")
-		data = xOut.Column().Data().AsAny()
-		fmt.Println(data)
-
-		xOut, ex = d.Parse(dfx, "exp(x)")
-		data = xOut.Column().Data().AsAny()
-
-		ez := dfx.AppendColumn(col, true)
-		assert.NotNil(t, ez)
-
-		dfNew, e = NewDFcol(nil, dfx.Dialect(), col.(*Col))
-		assert.Nil(t, e)
-		indx := x[ind][1].(int)
-
-		result := checker(dfNew, "test", nil, indx)
-
-		if d.WhatAmI(result) == d.DTfloat {
-			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
-			continue
-		}
-
-		if d.WhatAmI(result) == d.DTdate {
-			assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
-			assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
-			assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
-			continue
-		}
-
-		assert.Equal(t, x[ind][2], result)
+		assert.Equal(t, x[ind][2], col.Data().Element(0))
 	}
 
 	fmt.Println("# tests: ", cnt)

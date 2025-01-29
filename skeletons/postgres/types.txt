@@ -1,0 +1,5 @@
+DTstring,text
+DTint,integer
+DTfloat,double precision
+DTdate,date
+DTcategorical,integer

@@ -1,0 +1,5 @@
+CREATE TABLE ?TableName
+(
+  ?fields,
+  CONSTRAINT pkey PRIMARY KEY (?OrderBy)
+)

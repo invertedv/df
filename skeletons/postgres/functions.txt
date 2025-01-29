@@ -1,0 +1,26 @@
+add:(%s + %s):{int,int},{float,float}:int,float:C
+subtract:(%s - %s):{int,int},{float,float}:int,float:C
+multiply:(%s * %s):{int,int},{float,float}:int,float:C
+divide:(%s / %s):{int,int},{float,float}:int,float:C
+sum:sum(%s):{int},{float}:int,float:S
+mean:avg(%s):{int},{float}:float,float:S
+dot:sum(%s*%s):{float,float},{int,int}:float,float:S
+exp:exp(%s):{float}:float:C
+log:ln(%s):{float}:float:C
+abs:abs(%s):{float},{int}:float,int:C
+rowNumber:cast(row_number() over () as integer)::int:C
+eq:cast((%s = %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+ne:cast((%s != %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+gt:cast((%s > %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+ge:cast((%s >= %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+lt:cast((%s < %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+le:cast((%s <= %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
+neg:(- %s):{float},{int}:float,int:C
+and:cast((%s =1 and %s = 1) AS integer):{int,int}:int:C
+or:cast((%s = 1 or %s = 1) AS integer):{int,int}:int:C
+not:cast(not(%s = 1) AS integer):{int}:int:C
+if:case when %s>0 then %s else %s end:{int,float,float},{int,int,int},{int,string,string},{int,date,date}:float,int,string,date:C
+date:cast(cast(%s as varchar(256)) AS date):{int},{string},{date}:date,date,date:C
+float:cast(%s as double precision):{float},{int},{string}:float,float,float:C
+int:cast(floor(%s) as integer):{float},{int},{string}:int,int,int:C
+string:cast(%s as text):{float},{int},{string},{date}:string,string,string,string:C
