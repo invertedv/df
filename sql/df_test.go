@@ -17,6 +17,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	pg = "postgres"
+	ch = "clickhouse"
+)
+
+var which = pg
+
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
 func newConnectCH(host, user, password string) (db *sql.DB, err error) {
@@ -61,7 +68,7 @@ func newConnectPG(host, user, password, dbName string) (db *sql.DB, err error) {
 	return db, db.Ping()
 }
 
-func testDF() *DF {
+func testDF(which string) *DF {
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
@@ -72,19 +79,26 @@ func testDF() *DF {
 		e  error
 	)
 
-	if db, e = newConnectPG(host, user, password, dbName); e != nil {
-		panic(e)
+	var table string
+	if which == pg {
+		if db, e = newConnectPG(host, user, password, dbName); e != nil {
+			panic(e)
+		}
+		table = "public.d1"
 	}
 
-	//	if db, e = newConnectCH(host, user, password); e != nil {
-	//		panic(e)
-	//	}
+	if which == ch {
+		if db, e = newConnectCH(host, user, password); e != nil {
+			panic(e)
+		}
+		table = "testing.d1"
+	}
 
 	var (
 		dialect *d.Dialect
 		e1      error
 	)
-	if dialect, e1 = d.NewDialect("postgres", db); e1 != nil {
+	if dialect, e1 = d.NewDialect(which, db); e1 != nil {
 		panic(e1)
 	}
 
@@ -92,7 +106,8 @@ func testDF() *DF {
 		df *DF
 		e2 error
 	)
-	if df, e2 = DBload("SELECT * FROM public.d1", dialect); e2 != nil {
+	qry := fmt.Sprintf("SELECT * FROM %s", table)
+	if df, e2 = DBload(qry, dialect); e2 != nil {
 		panic(e2)
 	}
 
@@ -131,7 +146,7 @@ func checker(df d.DF, colName string, col d.Column, indx int) any {
 }
 
 func TestRowNumber(t *testing.T) {
-	dfx := testDF()
+	dfx := testDF(which)
 	out, e := d.Parse(dfx, "rowNumber()")
 	q := out.Column().(*Col).MakeQuery()
 	fmt.Println(q)
@@ -142,7 +157,7 @@ func TestRowNumber(t *testing.T) {
 }
 
 func TestNewDFseq(t *testing.T) {
-	dfx := testDF()
+	dfx := testDF(which)
 	df, e := NewDFseq(nil, dfx.Dialect(), 5)
 	assert.Nil(t, e)
 	col := df.Column("seq")
@@ -152,7 +167,7 @@ func TestNewDFseq(t *testing.T) {
 
 func TestSQLcol_Data(t *testing.T) {
 	const coln = "x"
-	dfx := testDF()
+	dfx := testDF(which)
 
 	c := dfx.Column(coln)
 	assert.NotNil(t, c)
@@ -161,7 +176,7 @@ func TestSQLcol_Data(t *testing.T) {
 
 func TestWhere(t *testing.T) {
 	var dfx *DF
-	dfx = testDF()
+	dfx = testDF(which)
 	//	defer func() { _ = dfx.Dialect().DB().Close() }()
 
 	out, e := d.Parse(dfx, "y == 1 || z == '20060310'")
@@ -177,14 +192,18 @@ func TestWhere(t *testing.T) {
 
 	outDF := out.DF().(*DF)
 	fmt.Println(outDF.MakeQuery())
-	e = outDF.Dialect().Save("public.where", "", true, outDF)
+	tablex := "public.where"
+	if which == ch {
+		tablex = "testing.where"
+	}
+	e = outDF.Dialect().Save(tablex, "", true, outDF)
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.RowCount())
 
 }
 
 func TestRename(t *testing.T) {
-	dfx := testDF()
+	dfx := testDF(which)
 	c := dfx.Column("x")
 	e := d.ColName("yyz")(c)
 	assert.Nil(t, e)
@@ -200,7 +219,7 @@ func TestRename(t *testing.T) {
 }
 
 func TestCast(t *testing.T) {
-	dfx := testDF()
+	dfx := testDF(which)
 	out, e := d.Parse(dfx, "string(23)")
 	assert.Nil(t, e)
 	_ = out
@@ -208,7 +227,7 @@ func TestCast(t *testing.T) {
 }
 
 func TestParser(t *testing.T) {
-	dfx := testDF()
+	dfx := testDF(which)
 
 	x := [][]any{
 		{"log(exp(1.0))", 0, 1.0},
@@ -315,7 +334,7 @@ func TestParser(t *testing.T) {
 }
 
 func TestParserS(t *testing.T) {
-	dfx := testDF()
+	dfx := testDF(which)
 
 	x := [][]any{
 		{"sum(y)", 0, 12},
