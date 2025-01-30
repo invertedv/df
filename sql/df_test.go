@@ -76,7 +76,7 @@ func testDF() *DF {
 		panic(e)
 	}
 
-	//  if db, e = newConnectCH(host, user, password); e != nil {
+	//	if db, e = newConnectCH(host, user, password); e != nil {
 	//		panic(e)
 	//	}
 
@@ -166,6 +166,8 @@ func TestWhere(t *testing.T) {
 
 	out, e := d.Parse(dfx, "y == 1 || z == '20060310'")
 	assert.Nil(t, e)
+	result := checker(dfx, "test", out.Column(), -1)
+	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, result)
 	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, out.Column().Data().AsAny())
 
 	expr := "where(y == 1)"

@@ -204,9 +204,9 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	}
 
 	// TODO: make this work
-	//	if f.RowCount() != col.Len() {
-	//		return fmt.Errorf("added column has differing # of rows")
-	//	}
+	if f.RowCount() != col.Len() {
+		return fmt.Errorf("added column has differing # of rows")
+	}
 
 	return f.Core().AppendColumn(col, replace)
 }
@@ -575,7 +575,6 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 
 func (f *DF) Where(col d.Column) (d.DF, error) {
 	panicer(col)
-	fmt.Println("HEEEEERRRREEE")
 	if col == nil {
 		return nil, fmt.Errorf("where column is nil")
 	}
