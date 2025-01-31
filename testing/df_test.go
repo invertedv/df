@@ -101,6 +101,8 @@ func TestString(t *testing.T) {
 */
 func TestSQLsave(t *testing.T) {
 	const coln = "x"
+	owner := os.Getenv("user")
+	tablespace := os.Getenv("tablespace")
 
 	for _, which := range pkgs() {
 		dfx := loadData(which)
@@ -108,15 +110,18 @@ func TestSQLsave(t *testing.T) {
 
 		// save to a table
 		var outTable string
+		var options []string
 		switch which {
 		case ch:
 			outTable = outTableCH
 		case pg:
 			outTable = outTablePG
+			options = []string{"?Owner:" + owner, "?TableSpace:" + tablespace}
 		case mem:
 			outTable = outTablePG
+			options = []string{"?Owner:" + owner, "?TableSpace:" + tablespace}
 		}
-		e := dlct.Save(outTable, "k,yy", true, dfx)
+		e := dlct.Save(outTable, "k,yy", true, dfx, options...)
 		assert.Nil(t, e)
 		c1 := dfx.Column(coln)
 		assert.NotNil(t, c1)

@@ -192,7 +192,7 @@ func (d *Dialect) Count() string {
 	return sqlx
 }
 
-func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool) error {
+func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool, options ...string) error {
 	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
 	if d.DialectName() == ch || d.DialectName() == pg {
@@ -226,6 +226,18 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 		}
 
 		create = strings.Replace(create, "?fields", strings.Join(flds, ","), 1)
+		for _, opt := range options {
+			kv := strings.Split(opt, ":")
+			if len(kv) != 2 {
+				return fmt.Errorf("invalid option in Dialect.Create: %s", opt)
+			}
+
+			create = strings.ReplaceAll(create, kv[0], kv[1])
+		}
+
+		if strings.Contains(create, "?") {
+			return fmt.Errorf("create still has placeholders: %s", create)
+		}
 
 		_, e = d.db.Exec(create)
 	}
@@ -233,7 +245,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	return e
 }
 
-func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF) error {
+func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF, options ...string) error {
 	var (
 		e   error
 		dts []DataTypes
@@ -250,7 +262,7 @@ func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF) 
 		if dts, e = df.ColumnTypes(cols...); e != nil {
 			return e
 		}
-		return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite)
+		return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite, options...)
 	}
 
 	return fmt.Errorf("unknown error")
@@ -605,19 +617,20 @@ func (d *Dialect) Summary(qry, col string) ([]float64, error) {
 	return []float64{vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN}, nil
 }
 
-func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF) error {
+func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF, options ...string) error {
 	exists := d.Exists(tableName)
+	if exists && !overwrite {
+		return fmt.Errorf("table %s exists", tableName)
+	}
 
-	if overwrite || !exists {
-		if exists {
-			if e := d.DropTable(tableName); e != nil {
-				return e
-			}
-		}
-
-		if e := d.CreateTable(tableName, orderBy, overwrite, df); e != nil {
+	if exists {
+		if e := d.DropTable(tableName); e != nil {
 			return e
 		}
+	}
+
+	if e := d.CreateTable(tableName, orderBy, overwrite, df, options...); e != nil {
+		return e
 	}
 
 	if qry := df.MakeQuery(); qry != "" {
