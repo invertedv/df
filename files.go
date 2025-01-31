@@ -584,7 +584,7 @@ func (f *Files) detect() error {
 				dt DataTypes
 				e3 error
 			)
-			if _, dt, e3 = bestType(vals[ind]); e3 != nil {
+			if _, dt, e3 = bestType(vals[ind], true); e3 != nil {
 				return e3
 			}
 

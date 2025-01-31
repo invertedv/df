@@ -2,12 +2,14 @@ package testing
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
+	_ "github.com/jackc/pgx/stdlib"
 )
 
 // CONSIDER making .Data fetch the data for sql....
@@ -16,9 +18,12 @@ const (
 	fileNameW1 = "testFW.txt"
 	fileNameW2 = "testFW1.txt"
 	fileNameW3 = "testFW2.txt"
-	inTable    = "testing.d1"
-	outTable   = "testing.test"
+	inTableCH  = "testing.d1"
+	inTablePG  = "d1"
+	outTableCH = "testing.test"
+	outTablePG = "public.test"
 
+	pg  = "postgres"
 	ch  = "clickhouse"
 	mem = "mem"
 )
@@ -31,7 +36,7 @@ const (
 
 // list of packages to test
 func pkgs() []string {
-	return []string{mem, ch} //, ch}
+	return []string{pg, mem, ch}
 }
 
 // NewConnect established a new connection to ClickHouse.
@@ -58,39 +63,58 @@ func newConnectCH(host, user, password string) *sql.DB {
 	return db
 }
 
+func newConnectPG(host, user, password, dbName string) *sql.DB {
+	connectionStr := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", user, password, host, dbName)
+	var (
+		db *sql.DB
+		e  error
+	)
+	if db, e = sql.Open("pgx", connectionStr); e != nil {
+		panic(e)
+	}
+
+	if e := db.Ping(); e != nil {
+		panic(e)
+	}
+	return db
+}
+
 func loadData(pkg string) d.DF {
-	const table = "SELECT * FROM " + inTable
-	var db *sql.DB
+	var (
+		table string
+		db    *sql.DB
+	)
 
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
+	dbName := os.Getenv("db")
 
+	var dialectName string
 	switch pkg {
-	case ch, mem:
+	case mem:
+		db = newConnectPG(host, user, password, dbName)
+		dialectName = pg
+		table = "SELECT * FROM " + inTablePG
+	case ch:
 		db = newConnectCH(host, user, password)
+		dialectName = ch
+		table = "SELECT * FROM " + inTableCH
+	case pg:
+		db = newConnectPG(host, user, password, dbName)
+		dialectName = pg
+		table = "SELECT * FROM " + inTablePG
 	default:
-		panic("unsupported database")
+		panic("unsupported data source")
 	}
 
 	var (
 		dialect *d.Dialect
 		e       error
 	)
-	if dialect, e = d.NewDialect("clickhouse", db); e != nil {
+	if dialect, e = d.NewDialect(dialectName, db); e != nil {
 		panic(e)
 	}
-
-	/*if pkg != mem {
-		var (
-			df *s.DF
-			e1 error
-		)
-		if df, e1 = s.DBload(table, ctx); e1 != nil {
-			panic(e1)
-		}
-		return df
-	}*/
 
 	var (
 		df *m.DF

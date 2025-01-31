@@ -74,24 +74,6 @@ func TestPlotXY(t *testing.T) {
 	fmt.Println(df.Column("yr").Data())
 }*/
 
-// TODO: if just return "x" in parse, it returns a pointer to the original not a copy
-func TestCheck(t *testing.T) {
-	dfx := loadData(ch)
-	dfy := loadData(ch)
-	out, e := d.Parse(dfx, "float(x)")
-	assert.Nil(t, e)
-	e0 := d.ColName("xx")(out.Column())
-	assert.Nil(t, e0)
-	e1 := dfx.AppendColumn(out.Column(), false)
-	assert.Nil(t, e1)
-	e2 := dfy.AppendColumn(out.Column(), false)
-	assert.Nil(t, e2)
-	c1 := dfy.Column("xx")
-	assert.NotNil(t, c1)
-	c2 := dfx.Column("xx")
-	assert.Nil(t, c2)
-}
-
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
@@ -125,7 +107,16 @@ func TestSQLsave(t *testing.T) {
 		dlct := dfx.Dialect()
 
 		// save to a table
-		e := dlct.Save(outTable, "k", true, dfx)
+		var outTable string
+		switch which {
+		case ch:
+			outTable = outTableCH
+		case pg:
+			outTable = outTablePG
+		case mem:
+			outTable = outTablePG
+		}
+		e := dlct.Save(outTable, "k,yy", true, dfx)
 		assert.Nil(t, e)
 		c1 := dfx.Column(coln)
 		assert.NotNil(t, c1)

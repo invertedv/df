@@ -206,6 +206,9 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 
 		create := strings.ReplaceAll(d.create, "?TableName", tableName)
 		create = strings.Replace(create, "?OrderBy", orderBy, 1)
+		if d.DialectName() == pg {
+			create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
+		}
 
 		var flds []string
 		for ind := 0; ind < len(fields); ind++ {
@@ -217,8 +220,8 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 				return ex
 			}
 
-			field := strings.Replace(d.fields, "?Field", fields[ind], 1)
-			field = strings.Replace(field, "?Type", dbType, 1)
+			field := strings.ReplaceAll(d.fields, "?Field", fields[ind])
+			field = strings.ReplaceAll(field, "?Type", dbType)
 			flds = append(flds, field)
 		}
 

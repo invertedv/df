@@ -1,5 +1,9 @@
 CREATE TABLE ?TableName
 (
-  ?fields,
-  CONSTRAINT pkey PRIMARY KEY (?OrderBy)
-)
+  ?fields
+);
+CREATE INDEX IF NOT EXISTS ?IndexName
+    ON ?TableName USING btree
+    (?OrderBy)
+    WITH (deduplicate_items=True);
+--    TABLESPACE pg_default;

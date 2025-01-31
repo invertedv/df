@@ -217,7 +217,13 @@ func toDataType(x any, dt DataTypes) (any, bool) {
 	return nil, false
 }
 
-func bestType(xIn any) (xOut any, dt DataTypes, err error) {
+func bestType(xIn any, dtFirst bool) (xOut any, dt DataTypes, err error) {
+	if dtFirst {
+		if x, ok := toDate(xIn); ok {
+			return x.(time.Time), DTdate, nil
+		}
+	}
+
 	if x, ok := toInt(xIn); ok {
 		return x.(int), DTint, nil
 	}
@@ -226,8 +232,10 @@ func bestType(xIn any) (xOut any, dt DataTypes, err error) {
 		return x.(float64), DTfloat, nil
 	}
 
-	if x, ok := toDate(xIn); ok {
-		return x.(time.Time), DTdate, nil
+	if !dtFirst {
+		if x, ok := toDate(xIn); ok {
+			return x.(time.Time), DTdate, nil
+		}
 	}
 
 	if x, ok := toString(xIn); ok {

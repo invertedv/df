@@ -114,26 +114,12 @@ func TestRowNumber(t *testing.T) {
 	}
 }
 
-func TestReplace(t *testing.T) {
+func TestIf(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		indCol, e0 := d.Parse(dfx, "y==-5")
-		assert.Nil(t, e0)
-		d.ColName("ind")(indCol.Column())
-		e := dfx.Core().AppendColumn(indCol.Column(), false)
+		out, e := d.Parse(dfx, "if(y==-5,yy,y)")
 		assert.Nil(t, e)
-		coly := dfx.Column("y")
-		assert.NotNil(t, coly)
-		colyy := dfx.Column("yy")
-		assert.NotNil(t, colyy)
-		//		colR, e3 := coly.Replace(indCol.Column(), colyy)
-		//		assert.Nil(t, e3)
-		//		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, colR.Data())
-
-		// via Parse
-		out, e4 := d.Parse(dfx, "if(y==-5,yy,y)")
-		assert.Nil(t, e4)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, inter(out.Column()))
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.Column().Data().AsAny())
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
 	_ "github.com/jackc/pgx/stdlib"
+
 	//	pgy "github.com/jackc/pgx"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ const (
 	ch = "clickhouse"
 )
 
-var which = pg
+var which = ch
 
 // NewConnect established a new connection to ClickHouse.
 // host is IP address (assumes port 9000), memory is max_memory_usage
@@ -48,22 +49,9 @@ func newConnectCH(host, user, password string) (db *sql.DB, err error) {
 func newConnectPG(host, user, password, dbName string) (db *sql.DB, err error) {
 	connectionStr := fmt.Sprintf("postgres://%s:%s@%s:5432/%s", user, password, host, dbName)
 
-	db, err = sql.Open("pgx", connectionStr) // "postgres://root:abc234@localhost:5432/testing")
-
-	/*
-		sql := "select x from d1"
-		rows, err := db.Query(sql)
-		ty, _ := rows.ColumnTypes()
-		fmt.Println(ty[0].ScanType().Kind())
-		_ = err
-		var x float64
-		xx := ty[0].DatabaseTypeName()
-		fmt.Println(xx)
-
-		for rows.Next() {
-			e := rows.Scan(&x)
-			_ = e
-		}*/
+	if db, err = sql.Open("pgx", connectionStr); err != nil {
+		return nil, err
+	}
 
 	return db, db.Ping()
 }
@@ -79,19 +67,19 @@ func testDF(which string) *DF {
 		e  error
 	)
 
-	var table string
+	var tablex string
 	if which == pg {
 		if db, e = newConnectPG(host, user, password, dbName); e != nil {
 			panic(e)
 		}
-		table = "public.d1"
+		tablex = "public.d1"
 	}
 
 	if which == ch {
 		if db, e = newConnectCH(host, user, password); e != nil {
 			panic(e)
 		}
-		table = "testing.d1"
+		tablex = "testing.d1"
 	}
 
 	var (
@@ -106,7 +94,7 @@ func testDF(which string) *DF {
 		df *DF
 		e2 error
 	)
-	qry := fmt.Sprintf("SELECT * FROM %s", table)
+	qry := fmt.Sprintf("SELECT * FROM %s", tablex)
 	if df, e2 = DBload(qry, dialect); e2 != nil {
 		panic(e2)
 	}
@@ -230,6 +218,7 @@ func TestParser(t *testing.T) {
 	dfx := testDF(which)
 
 	x := [][]any{
+		{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
 		{"log(exp(1.0))", 0, 1.0},
 		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
 		{"float((3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0)))", 0, 42.0},
@@ -250,7 +239,6 @@ func TestParser(t *testing.T) {
 		{"abs(x)", 0, 1.0},
 		{"abs(y)", 1, 5},
 		{"(x/0.1)*float(y+100)", 0, 1010.0},
-		{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
 		{"dt != date(20221231)", 1, 1},
 		{"dt == date(20221231)", 0, 1},
 		{"dt == date(20221231)", 1, 0},
@@ -314,13 +302,14 @@ func TestParser(t *testing.T) {
 		xOut, ex := d.Parse(dfx, eqn)
 		assert.Nil(t, ex)
 		fmt.Println(xOut.Column().Data().AsAny())
-		result := checker(dfx, "test", xOut.Column(), x[ind][1].(int))
+		result := xOut.Column().Data().Element(x[ind][1].(int))
 		if d.WhatAmI(result) == d.DTfloat {
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
 			continue
 		}
 
 		if d.WhatAmI(result) == d.DTdate {
+			fmt.Println(result.(time.Time).Format("20060102"))
 			assert.Equal(t, result.(time.Time).Year(), x[ind][2].(time.Time).Year())
 			assert.Equal(t, result.(time.Time).Month(), x[ind][2].(time.Time).Month())
 			assert.Equal(t, result.(time.Time).Day(), x[ind][2].(time.Time).Day())
