@@ -9,6 +9,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
+	s "github.com/invertedv/df/sql"
 	_ "github.com/jackc/pgx/stdlib"
 )
 
@@ -36,7 +37,7 @@ const (
 
 // list of packages to test
 func pkgs() []string {
-	return []string{pg, mem, ch}
+	return []string{pg, mem, ch} //, mem}
 }
 
 // NewConnect established a new connection to ClickHouse.
@@ -117,14 +118,22 @@ func loadData(pkg string) d.DF {
 	}
 
 	var (
-		df *m.DF
+		df d.DF
 		e2 error
 	)
-	if df, e2 = m.DBLoad(table, dialect); e2 != nil {
-		panic(e2)
+	if pkg == mem {
+		if df, e2 = m.DBLoad(table, dialect); e2 != nil {
+			panic(e2)
+		}
+
+		_ = d.DFdialect(dialect)(df.Core())
+
+		return df
 	}
 
-	_ = d.DFdialect(dialect)(df.Core())
+	if df, e2 = s.DBload(table, dialect); e2 != nil {
+		panic(e2)
+	}
 
 	return df
 }

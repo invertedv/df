@@ -9,8 +9,7 @@ import (
 
 	d "github.com/invertedv/df"
 
-	// TODO: change SQL() to return string
-
+	// TOOD: add rate to table and make it so this: x/su
 	m "github.com/invertedv/df/mem"
 )
 
@@ -45,8 +44,8 @@ type DF struct {
 }
 
 // ***************** DF - Create *****************
-
-func NewDFcol(funcs d.Fns, dlct *d.Dialect, cols ...*Col) (*DF, error) {
+// TODO: need to give this the same signature as the mem version
+func NewDFcol(funcs d.Fns, dlct *d.Dialect, qry string, cols ...*Col) (*DF, error) {
 	for ind := 1; ind < len(cols); ind++ {
 		if !sameSource(cols[ind-1], cols[ind]) {
 			return nil, fmt.Errorf("incompatible columns in NewDFcol %s %s", cols[ind-1].Name(), cols[ind].Name())
@@ -68,7 +67,7 @@ func NewDFcol(funcs d.Fns, dlct *d.Dialect, cols ...*Col) (*DF, error) {
 	// TODO: fix runs ??
 
 	df := &DF{
-		sourceSQL: cols[0].Parent().MakeQuery(), // TODO: check
+		sourceSQL: qry, // TODO: check
 		orderBy:   "",
 		where:     "",
 		DFcore:    nil,
@@ -204,10 +203,12 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	}
 
 	// TODO: make this work
-	if f.RowCount() != col.Len() {
-		return fmt.Errorf("added column has differing # of rows")
-	}
+	//	if f.RowCount() != col.Len() {
+	//		return fmt.Errorf("added column has differing # of rows")
+	//	}
 
+	_ = d.ColParent(f)(col)
+	_ = d.ColDialect(f.Dialect())(col)
 	return f.Core().AppendColumn(col, replace)
 }
 
@@ -422,7 +423,7 @@ func (f *DF) MakeQuery(colNames ...string) string {
 
 		var field string
 		field = cx.Name()
-		if fn := cx.(*Col).SQL(); fn != "" {
+		if fn := cx.(*Col).SQL(); fn != cx.Name() {
 			field = fmt.Sprintf("%s AS %s", fn, cx.Name())
 		}
 
@@ -502,75 +503,41 @@ func (f *DF) String() string {
 }
 
 func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
-	var names []string
-
-	for ind := 0; ind < len(cols); ind++ {
-		var c d.Column
-		if c = f.Column(cols[ind]); c == nil {
-			return nil, fmt.Errorf("missing column %s", cols[ind])
-		}
-
-		dt := c.DataType()
-		if dt != d.DTstring && dt != d.DTint && dt != d.DTdate && dt != d.DTcategorical {
-			return nil, fmt.Errorf("cannot make table with type float")
-		}
-
-		names = append(names, c.Name())
-	}
-
-	// this requires a cast o.w. it's nullable
-	var (
-		cf string
-		ex error
-	)
-	if cf, ex = f.Dialect().CastField("count(*) / (SELECT count(*) FROM (%s))", d.DTfloat, d.DTfloat); ex != nil {
-		return nil, ex
-	}
-
-	count, _ := NewColSQL(d.DTint, f.Dialect(), "count(*)", d.ColName("count"))
-
-	rateSQL := fmt.Sprintf(cf, f.MakeQuery())
-	rate, _ := NewColSQL(d.DTfloat, f.Dialect(), rateSQL, d.ColName("rate"))
-
-	var (
-		dfc *d.DFcore
-		e   error
-	)
-	if dfc, e = f.KeepColumns(names...); e != nil {
+	dfOut := f.Copy().(*DF)
+	var e error
+	if dfOut.DFcore, e = dfOut.KeepColumns(cols...); e != nil {
 		return nil, e
 	}
+	dfOut.groupBy = strings.Join(cols, ",")
+	var (
+		count *Col
+		e1    error
+	)
 
-	outDF := &DF{
-		sourceSQL: f.sourceSQL,
-		orderBy:   "",
-		where:     f.where,
-		groupBy:   "",
-		DFcore:    dfc,
-		rows:      nil,
-		row:       nil,
-	}
-
-	outDF.groupBy = strings.Join(names, ",")
-	outDF.orderBy = "count DESC"
-	if sortByRows {
-		outDF.orderBy = outDF.groupBy
-	}
-
-	if e1 := outDF.AppendColumn(count, false); e1 != nil {
+	if count, e1 = NewColSQL(d.DTint, f.Dialect(), "count(*)",
+		d.ColName("count"),
+		d.ColReturnType(d.RTscalar),
+		d.ColParent(dfOut)); e != nil {
 		return nil, e1
 	}
 
-	if e1 := outDF.AppendColumn(rate, false); e1 != nil {
-		return nil, e1
+	if e2 := dfOut.AppendColumn(count, true); e2 != nil {
+		return nil, e2
 	}
 
-	_ = d.DFdialect(f.Dialect())(outDF)
+	//	sqlx := fmt.Sprintf("1.0*count(*)/(WITH aa AS (%s) SELECT count(*) FROM aa)", f.SourceSQL())
+	//	if count, e1 = NewColSQL(d.DTfloat, f.Dialect(), sqlx,
+	//		d.ColName("rate"),
+	//		d.ColReturnType(d.RTscalar),
+	//		d.ColParent(dfOut)); e != nil {
+	//		return nil, e1
+	//	}
 
-	if ex := outDF.SetParent(); ex != nil {
-		return nil, ex
-	}
+	//	if e2 := dfOut.AppendColumn(count, true); e2 != nil {
+	//		return nil, e2
+	//	}
 
-	return outDF, nil
+	return dfOut, nil
 }
 
 func (f *DF) Where(col d.Column) (d.DF, error) {
@@ -599,23 +566,28 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 
 func sameSource(s1, s2 any) bool {
 	sql1, sql2 := "No", "Match"
+	grp1, grp2 := "", ""
 	if df1, ok := s1.(*DF); ok {
 		sql1 = df1.SourceSQL()
+		grp1 = df1.groupBy
 	}
 
 	if c1, ok := s1.(*Col); ok {
 		sql1 = c1.Parent().(*DF).SourceSQL()
+		grp1 = c1.Parent().(*DF).groupBy
 	}
 
 	if df2, ok := s2.(*DF); ok {
 		sql2 = df2.SourceSQL()
+		grp2 = df2.groupBy
 	}
 
 	if c2, ok := s2.(*Col); ok {
 		sql2 = c2.Parent().(*DF).SourceSQL()
+		grp2 = c2.Parent().(*DF).groupBy
 	}
 
-	return sql1 == sql2
+	return sql1 == sql2 && grp1 == grp2
 }
 
 func panicer(cols ...d.Column) {

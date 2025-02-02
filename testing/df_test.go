@@ -123,34 +123,9 @@ func TestSQLsave(t *testing.T) {
 		}
 		e := dlct.Save(outTable, "k,yy", true, dfx, options...)
 		assert.Nil(t, e)
-		c1 := dfx.Column(coln)
-		assert.NotNil(t, c1)
-
-		// if this is sql, populate a mem DF to get values
-		/*		if which != mem {
-					dfz, ez := m.DBLoad(c1.(*s.Col).MakeQuery(), dfx.Context().Dialect())
-					assert.Nil(t, ez)
-					c1 = dfz.Column(coln)
-					assert.NotNil(t, c1)
-				}
-		*/
-		ea := d.ColName("expected")(c1)
-		assert.Nil(t, ea)
-
-		// pull back from database
 		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
-		c2 := dfy.Column(coln)
-		assert.NotNil(t, c2)
-		ec := d.ColName("actual")(c2)
-		assert.Nil(t, ec)
-
-		// join expected & actual into a dataframe
-		dfb, eb := m.NewDFcol(nil, []*m.Col{c1.(*m.Col), c2.(*m.Col)})
-		assert.Nil(t, eb)
-		outx, ep := d.Parse(dfb, "actual==expected")
-		assert.Nil(t, ep)
-		assert.Equal(t, []int{1, 1, 1, 1, 1, 1}, inter(outx.Column()))
+		assert.Equal(t, dfy.Column(coln).Data().AsAny(), dfx.Column(coln).Data().AsAny())
 	}
 }
 
@@ -189,11 +164,16 @@ func TestParse_Table(t *testing.T) {
 		out, e := d.Parse(dfx, "table(y,yy)")
 		assert.Nil(t, e)
 		df1 := out.DF()
+		n := df1.ColumnNames()
+		_ = n
 		e1 := df1.Sort(false, "count")
 		assert.Nil(t, e1)
-		col := df1.Column("count")
+		colx := df1.Column("count")
+		qq := df1.MakeQuery()
+		_ = qq
+		col := colx.Data().AsAny()
 		assert.NotNil(t, col)
-		assert.Equal(t, []int{2, 1, 1, 1, 1}, inter(col))
+		assert.Equal(t, []int{2, 1, 1, 1, 1}, col)
 
 		_, e3 := d.Parse(dfx, "table(x)")
 		assert.NotNil(t, e3)
@@ -241,6 +221,8 @@ func TestAppendDF(t *testing.T) {
 		dfx := loadData(which)
 		dfy := loadData(which)
 		dfOut, e := dfx.AppendDF(dfy)
+		q := dfOut.MakeQuery()
+		_ = q
 		assert.Nil(t, e)
 		exp := dfx.RowCount() + dfy.RowCount()
 		assert.Equal(t, exp, dfOut.RowCount())

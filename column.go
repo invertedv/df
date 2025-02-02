@@ -12,8 +12,7 @@ type Column interface {
 	Copy() Column
 	Data() *Vector
 	Len() int
-	// Rename is needed bc sql/column needs to do more work than just rename
-	//	Rename(newName string) error
+	Rename(newName string) error
 	String() string
 }
 
@@ -26,6 +25,7 @@ type CC interface {
 	Dialect() *Dialect
 	Name() string
 	Parent() DF
+	RT() ReturnTypes
 }
 
 // *********** ColCore ***********
@@ -34,6 +34,7 @@ type CC interface {
 type ColCore struct {
 	name string
 	dt   DataTypes
+	rt   ReturnTypes
 
 	catMap    CategoryMap
 	catCounts CategoryMap
@@ -46,7 +47,7 @@ type ColCore struct {
 }
 
 func NewColCore(dt DataTypes, ops ...ColOpt) (*ColCore, error) {
-	c := &ColCore{dt: dt}
+	c := &ColCore{dt: dt, rt: RTcolumn}
 
 	for _, op := range ops {
 		if e := op(c); e != nil {
@@ -163,6 +164,21 @@ func ColRawType(rt DataTypes) ColOpt {
 	}
 }
 
+func ColReturnType(rt ReturnTypes) ColOpt {
+	return func(c CC) error {
+		if c == nil {
+			return fmt.Errorf("nil column to ColRawType")
+		}
+		if rt != RTcolumn && rt != RTscalar {
+			return fmt.Errorf("invalid column return type: %v", rt)
+		}
+
+		c.Core().rt = rt
+
+		return nil
+	}
+}
+
 func colDependencies(dep []string) ColOpt {
 	return func(c CC) error {
 		c.Core().dep = dep
@@ -187,6 +203,7 @@ func (c *ColCore) Copy() *ColCore {
 		colDependencies(c.Dependencies()),
 		ColRawType(c.RawType()),
 		ColCatMap(c.CategoryMap()),
+		ColReturnType(c.RT()),
 		ColCatCounts(c.CategoryCounts()))
 
 	return cx
@@ -217,6 +234,10 @@ func (c *ColCore) Parent() DF {
 
 func (c *ColCore) RawType() DataTypes {
 	return c.rawType
+}
+
+func (c *ColCore) RT() ReturnTypes {
+	return c.rt
 }
 
 // *********** Category Map ***********

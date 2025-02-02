@@ -283,8 +283,7 @@ func (df *DFcore) Copy() *DFcore {
 
 	var outDF *DFcore
 
-	outDF, _ = NewDF(df.Fns(), cols)
-	_ = DFdialect(df.Dialect())(outDF)
+	outDF, _ = NewDF(df.Fns(), cols, DFdialect(df.Dialect()))
 
 	return outDF
 }
@@ -417,6 +416,7 @@ func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
 	subsetDF := &DFcore{
 		head:     subHead,
 		appFuncs: df.appFuncs,
+		dlct:     df.Dialect(),
 	}
 
 	return subsetDF, nil

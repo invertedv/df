@@ -192,6 +192,7 @@ func (d *Dialect) Count() string {
 	return sqlx
 }
 
+// options are in key:value format and are meant to replace placeholders in create.txt
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool, options ...string) error {
 	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
 
@@ -717,9 +718,14 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 	e := fmt.Errorf("no implemention of Union for %s", d.DialectName())
 	var sqlx string
 
-	if d.DialectName() == ch || d.DialectName() == pg {
-		cols := strings.Join(colNames, ",")
+	cols := strings.Join(colNames, ",")
+	if d.DialectName() == ch {
 		sqlx = fmt.Sprintf("SELECT %s FROM (%s) UNION ALL (%s)", cols, table1, table2)
+		e = nil
+	}
+
+	if d.DialectName() == pg {
+		sqlx = fmt.Sprintf("WITH abc AS(%s), def AS (%s) SELECT * FROM abc UNION ALL SELECT * FROM def", table1, table2)
 		e = nil
 	}
 

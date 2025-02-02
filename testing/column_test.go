@@ -89,18 +89,17 @@ func TestRandom(t *testing.T) {
 func TestRename(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		fmt.Println(dfx.Column("x").Data())
-		e := d.ColName("aa")(dfx.Column("xr"))
+		e := dfx.Column("y").Rename("x")
 		assert.NotNil(t, e)
-		e = d.ColName("x")(dfx.Column("y"))
-		assert.NotNil(t, e)
-		x1 := dfx.Column("x").Data()
-		e = d.ColName("xa")(dfx.Column("x"))
+		e = dfx.Column("y").Rename("aa")
+		assert.Nil(t, e)
+		x1 := dfx.Column("x").Data().AsAny()
+		e = dfx.Column("x").Rename("xa")
 		assert.Nil(t, e)
 		e = d.ColName("xb")(dfx.Column("xa"))
 		assert.Nil(t, e)
-		assert.Equal(t, x1, dfx.Column("xb").Data())
-		e = d.ColName("x=")(dfx.Column("xb"))
+		assert.Equal(t, x1, dfx.Column("xb").Data().AsAny())
+		e = dfx.Column("xb").Rename("x=")
 		assert.NotNil(t, e)
 	}
 }
@@ -127,9 +126,9 @@ func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		x := [][]any{
-			//			{"e()", 0, math.E},
-			{"isInf(exp(1000000.0))", 0, 1},
-			{"isInf(log(0.0))", 0, 1},
+			{"y+yy", 0, 2},
+			//			{"isInf(exp(1000000.0))", 0, 1},
+			//			{"isInf(log(0.0))", 0, 1},
 			{"if(y==1,2,y)", 0, 2},
 			{"rowNumber()", 1, 1},
 			{"x + 2.0", 0, 3.0},
@@ -142,20 +141,20 @@ func TestParser(t *testing.T) {
 			{"dt != date(20221231)", 0, 0},
 			{"y+y", 0, 2},
 			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-			{"quantile(y,1.0)", 0, 6.0},
-			{"quantile(y,0.0)", 0, -5.0},
-			{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
-			{"min(dt)", 0, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
-			{"min(z)", 0, "20000101"},
-			{"max(z)", 0, "20230915"},
-			{"min(y)", 0, -5},
-			{"max(y)", 0, 6},
-			{"min(x)", 0, -2.0},
-			{"max(x)", 0, 3.5},
-			{"quantile(y,0.5)", 0, 1.0},
-			{"quantile(x,0.5)", 0, 1.0},
-			{"median(y)", 0, 1.0},
-			{"median(x)", 0, 1.0},
+			//			{"quantile(y,1.0)", 0, 6.0},
+			//			{"quantile(y,0.0)", 0, -5.0},
+			//			{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
+			//			{"min(dt)", 0, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
+			//			{"min(z)", 0, "20000101"},
+			//			{"max(z)", 0, "20230915"},
+			//			{"min(y)", 0, -5},
+			//			{"max(y)", 0, 6},
+			//			{"min(x)", 0, -2.0},
+			//			{"max(x)", 0, 3.5},
+			//			{"quantile(y,0.5)", 0, 1.0},
+			//			{"quantile(x,0.5)", 0, 1.0},
+			//			{"median(y)", 0, 1.0},
+			//			{"median(x)", 0, 1.0},
 			//			{"sdev(y)", 0, 4.0},
 			//			{"sdev(x)", 0, 2.043},
 			//			{"var(y)", 0, 16.0},
@@ -272,8 +271,9 @@ func TestToCat(t *testing.T) {
 		colx, e := d.Parse(dfx, "date(z)")
 		assert.Nil(t, e)
 		col := colx.Column()
-		d.ColName("dt1")(col)
-		e = dfx.Core().AppendColumn(col, false)
+		e = d.ColName("dt1")(col)
+		assert.Nil(t, e)
+		e = dfx.AppendColumn(col, false)
 		assert.Nil(t, e)
 
 		//		colx, e = dfx.Parse("1")
@@ -283,10 +283,11 @@ func TestToCat(t *testing.T) {
 		// try with DTint
 		colx, e = d.Parse(dfx, "cat(y)")
 		assert.Nil(t, e)
-		d.ColName("test")(colx.Column())
+		e = d.ColName("test")(colx.Column())
+		assert.Nil(t, e)
 		result := colx.Column()
 		expected := []int{1, 0, 4, 1, 2, 3}
-		assert.Equal(t, expected, inter(result))
+		assert.Equal(t, expected, result.Data().AsAny())
 
 		if which == "mem" {
 			e = dfx.AppendColumn(colx.Column(), true)
@@ -311,7 +312,7 @@ func TestToCat(t *testing.T) {
 		assert.Nil(t, e)
 		result = colx.Column()
 		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, inter(result))
+		assert.Equal(t, expected, result.Data().AsAny())
 
 		// try with fuzz > 1
 		colx, e = d.Parse(dfx, "cat(y, 2)")

@@ -34,9 +34,9 @@ func (s *Scalar) Len() int {
 	return 1
 }
 
-//func (s *Scalar) Rename(newName string) error {
-//	return ColName(newName)(s)
-//}
+func (s *Scalar) Rename(newName string) error {
+	return ColName(newName)(s)
+}
 
 func (s *Scalar) Replace(ind, repl Column) (Column, error) {
 	return nil, fmt.Errorf("no replace in scalar")

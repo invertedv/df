@@ -75,8 +75,7 @@ func (c *Col) AppendRows(col d.Column) (d.Column, error) {
 
 func (c *Col) Copy() d.Column {
 	n := &Col{
-		sql: c.sql,
-		//		scalarValue: c.scalarValue,
+		sql:     c.sql,
 		ColCore: c.Core().Copy(),
 	}
 
@@ -136,11 +135,12 @@ func (c *Col) MakeQuery() string {
 	}
 
 	df := c.Parent().(*DF)
+	if c.Name() != "" && df.Column(c.Name()) != nil {
+		return df.MakeQuery(c.Name())
+	}
 
 	var selectFld string
 	switch {
-	case c.Name() == "":
-		selectFld = fmt.Sprintf("%s AS %s", c.SQL(), d.RandomLetters(5))
 	case c.Name() != "" && c.SQL() != "":
 		selectFld = fmt.Sprintf("%s AS %s", c.SQL(), c.Name())
 	case c.Name() != "" && c.SQL() == "" && !d.Has(c.Name(), df.ColumnNames()):
@@ -148,17 +148,11 @@ func (c *Col) MakeQuery() string {
 	default:
 		selectFld = c.Name()
 	}
-
-	deps := c.Dependencies()
-
-	w := c.Dialect().WithName()
-	qry := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", w, df.MakeQuery(deps...), selectFld, w)
-
-	return qry
+	q := fmt.Sprintf("WITH aaa AS (%s) SELECT %s FROM aaa", df.MakeQuery(), selectFld)
+	return q
 }
 
-// TODO: don't think I need this
-func (c *Col) RenameX(newName string) error {
+func (c *Col) Rename(newName string) error {
 	oldName := c.Name()
 	if e := d.ColName(newName)(c); e != nil {
 		return e
@@ -233,7 +227,7 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		df, _ := NewDFcol(nil, c.Dialect(), c)
+		df, _ := NewDFcol(nil, c.Dialect(), c.Parent().MakeQuery(), c)
 		tab, _ := df.Table(false, c.Name())
 
 		var (

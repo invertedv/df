@@ -68,9 +68,9 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
-//func (c *Col) Rename(newName string) error {
-//	return d.ColName(newName)(c)
-//}
+func (c *Col) Rename(newName string) error {
+	return d.ColName(newName)(c)
+}
 
 // TODO: get rid of this ... was using d.ToString(x)
 func toString(x any) (any, bool) {

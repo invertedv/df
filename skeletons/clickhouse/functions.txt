@@ -1,9 +1,9 @@
+// core functions
 add:(%s + %s):{int,int},{float,float}:int,float:C
 subtract:(%s - %s):{int,int},{float,float}:int,float:C
 multiply:(%s * %s):{int,int},{float,float}:int,float:C
 divide:(%s / %s):{int,int},{float,float}:int,float:C
-sum:sum(%s):{int},{float}:int,float:S
-mean:avg(%s):{int},{float}:float,float:S
+
 dot:sum(%s*%s):{float,float},{int,int}:float,float:S
 exp:exp(%s):{float}:float:C
 log:log(%s):{float}:float:C
@@ -15,7 +15,7 @@ gt:(%s > %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int
 ge:(%s >= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
 lt:(%s < %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
 le:(%s <= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
-neg:(- %s):{float},{int}:float,int:C
+neg:-%s:{float},{int}:float,int:C
 and:and(%s,%s):{int,int}:int:C
 or:or(%s,%s):{int,int}:int:C
 not:not(%s):{int}:int:C
@@ -24,3 +24,5 @@ date:cast(toString(%s) AS date):{int},{string},{date}:date,date,date:C
 float:toFloat64(%s):{float},{int},{string}:float,float,float:C
 int:toInt32(%s):{float},{int},{string}:int,int,int:C
 string:toString(%s):{float},{int},{string},{date}:string,string,string,string:C
+mean:avg(%s):{int},{float}:float,float:S
+sum:sum(%s):{int},{float}:int,float:S

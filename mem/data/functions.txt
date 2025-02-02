@@ -1,3 +1,9 @@
+// core functions
+add:github.com/invertedv/df/mem.addFn[...]:{int,int},{float,float}:int,float:C
+subtract:github.com/invertedv/df/mem.subtractFn[...]:{int,int},{float,float}:int,float:C
+multiply:github.com/invertedv/df/mem.multiplyFn[...]:{int,int},{float,float}:int,float:C
+divide:github.com/invertedv/df/mem.divideFn[...]:{int,int},{float,float}:int,float:C
+
 elem:github.com/invertedv/df/mem.elemFn[...]:{float,int},{int,int},{string,int},{date,int}:float,int,string,date:S
 mean:github.com/invertedv/df/mem.meanFn[...]:{float},{int}:float,float:S
 sum:github.com/invertedv/df/mem.sumFn[...]:{float},{int}:float,int:S
@@ -9,10 +15,6 @@ string:github.com/invertedv/df/mem.stringFn[...]:{float},{int},{string},{date}:s
 date:github.com/invertedv/df/mem.dateFn[...]:{int},{string},{date}:date,date,date:C
 rowNumber:github.com/invertedv/df/mem.rowNumberFn:{}:int:C
 abs:github.com/invertedv/df/mem.absFn[...]:{int},{float}:int,float:C
-add:github.com/invertedv/df/mem.addFn[...]:{int,int},{float,float}:int,float:C
-subtract:github.com/invertedv/df/mem.subtractFn[...]:{int,int},{float,float}:int,float:C
-multiply:github.com/invertedv/df/mem.multiplyFn[...]:{int,int},{float,float}:int,float:C
-divide:github.com/invertedv/df/mem.divideFn[...]:{int,int},{float,float}:int,float:C
 exp:math.Exp:{float}:float:C
 log:math.Log:{float}:float:C
 and:github.com/invertedv/df/mem.andFn:{int,int}:int:C
