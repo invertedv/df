@@ -8,9 +8,18 @@ import (
 
 // ***************** Functions that return a data frame *****************
 
+func by(info bool, df d.DF, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "by", Inputs: [][]d.DataTypes{{d.DTstring}},
+			Output: []d.DataTypes{d.DTnil}, Varying: true}
+	}
+
+	return nil
+}
+
 func where(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "where", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTdf}}
+		return &d.FnReturn{Name: "where", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTdf}, RT: d.RTdataFrame}
 	}
 
 	var (
@@ -25,7 +34,7 @@ func where(info bool, df d.DF, inputs ...any) *d.FnReturn {
 func table(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "table", Inputs: [][]d.DataTypes{{d.DTint}, {d.DTstring}, {d.DTdate}},
-			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, Varying: true}
+			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, RT: d.RTdataFrame, Varying: true}
 	}
 	var (
 		outDF d.DF
@@ -47,7 +56,7 @@ func table(info bool, df d.DF, inputs ...any) *d.FnReturn {
 func sortDF(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
-			Output: []d.DataTypes{d.DTnil}, Varying: true}
+			Output: []d.DataTypes{d.DTnil}, RT: d.RTdataFrame, Varying: true}
 	}
 
 	ascending := true

@@ -15,6 +15,7 @@ import (
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
 	fns := d.Fns{applyCat,
+		tcount,
 		sortDF, table, toCat, where}
 	fns = append(fns, fnDefs(dlct)...)
 
@@ -22,6 +23,7 @@ func StandardFunctions(dlct *d.Dialect) d.Fns {
 }
 
 // TODO: make mem work like this
+// TODO: If col to append has no parent, set parentCheck dependencies?
 
 // DF is the implementation of DF for SQL.
 //
@@ -31,7 +33,8 @@ func StandardFunctions(dlct *d.Dialect) d.Fns {
 // version is the version number of this dataframe.  It is incremented if
 //   - a column is added
 type DF struct {
-	sourceSQL string // source SQL used to query DB
+	sourceSQL    string // source SQL used to query DB
+	sourcColumns []*Col
 
 	orderBy string
 	where   string
@@ -44,16 +47,16 @@ type DF struct {
 }
 
 // ***************** DF - Create *****************
-// TODO: need to give this the same signature as the mem version
+// TODO: delete this
 func NewDFcol(funcs d.Fns, dlct *d.Dialect, qry string, cols ...*Col) (*DF, error) {
+	if cols == nil {
+		return nil, fmt.Errorf("no columns in NewDFcol")
+	}
+
 	for ind := 1; ind < len(cols); ind++ {
 		if !sameSource(cols[ind-1], cols[ind]) {
 			return nil, fmt.Errorf("incompatible columns in NewDFcol %s %s", cols[ind-1].Name(), cols[ind].Name())
 		}
-	}
-
-	if cols == nil {
-		return nil, fmt.Errorf("no columns in NewDFcol")
 	}
 
 	if funcs == nil {
@@ -123,11 +126,12 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 	}
 
 	df := &DF{
-		sourceSQL: seqSQL,
-		orderBy:   "",
-		where:     "",
-		groupBy:   "",
-		DFcore:    dfc,
+		sourceSQL:    seqSQL,
+		orderBy:      "",
+		where:        "",
+		groupBy:      "",
+		DFcore:       dfc,
+		sourcColumns: []*Col{col},
 
 		rows: nil,
 		row:  nil,
@@ -190,24 +194,50 @@ func DBload(query string, dlct *d.Dialect) (*DF, error) {
 		return nil, ex
 	}
 
+	for _, c := range df.ColumnNames() {
+		cc := df.Column(c).Copy().(*Col)
+		df.sourcColumns = append(df.sourcColumns, cc)
+	}
+
 	return df, nil
 }
 
 // ***************** DF - Methods *****************
 
+func (f *DF) Column(colName string) d.Column {
+	if c := f.Core().Column(colName); c != nil {
+		return c
+	}
+
+	for _, c := range f.sourcColumns {
+		if c.Name() == colName {
+			return c
+		}
+	}
+
+	return nil
+}
+
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	panicer(col)
+
+	// if col has no parent, make f the parent
+	if col.Parent() == nil {
+		_ = d.ColParent(f)(col)
+	}
+
+	//	if f.groupBy == "" && col.RT() != d.RTcolumn {
+	//		return fmt.Errorf("cannot append summary function without GROUP BY")
+	//	}
+
+	//	if f.groupBy != "" && col.RT() != d.RTscalar {
+	//		return fmt.Errorf("cannot append column to dataframe with GROUP BY")
+	//	}
 
 	if !sameSource(f, col) {
 		return fmt.Errorf("added column not from same source")
 	}
 
-	// TODO: make this work
-	//	if f.RowCount() != col.Len() {
-	//		return fmt.Errorf("added column has differing # of rows")
-	//	}
-
-	_ = d.ColParent(f)(col)
 	_ = d.ColDialect(f.Dialect())(col)
 	return f.Core().AppendColumn(col, replace)
 }
@@ -251,6 +281,44 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 
 	if ex := dfOut.SetParent(); ex != nil {
 		return nil, ex
+	}
+
+	return dfOut, nil
+}
+
+func (f *DF) By(groupBy string, fns ...string) (*DF, error) {
+	if groupBy == "" {
+		return nil, fmt.Errorf("must have groupBy in DF.By")
+	}
+
+	flds := strings.Split(groupBy, ",")
+	dfOut := f.Copy().(*DF)
+
+	var e error
+	if dfOut.DFcore, e = f.KeepColumns(flds...); e != nil {
+		return nil, e
+	}
+
+	dfOut.groupBy = groupBy
+
+	for ind, fn := range fns {
+		var (
+			out *d.Parsed
+			e1  error
+		)
+		if out, e1 = d.Parse(dfOut, fn); e1 != nil {
+			return nil, e1
+		}
+
+		if out != nil {
+			if e2 := d.ColName(fmt.Sprintf("c%d", ind))(out.Column()); e2 != nil {
+				return nil, e2
+			}
+
+			if e2 := dfOut.AppendColumn(out.Column(), false); e2 != nil {
+				return nil, e2
+			}
+		}
 	}
 
 	return dfOut, nil
@@ -368,12 +436,14 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 func (f *DF) Copy() d.DF {
 	dfCore := f.Core().Copy()
 	dfNew := &DF{
-		sourceSQL: f.sourceSQL,
-		orderBy:   f.orderBy,
-		groupBy:   f.groupBy,
-		where:     f.where,
-		DFcore:    dfCore,
+		sourceSQL:    f.sourceSQL,
+		orderBy:      f.orderBy,
+		groupBy:      f.groupBy,
+		where:        f.where,
+		DFcore:       dfCore,
+		sourcColumns: f.sourcColumns,
 	}
+	_ = d.DFsetFns(f.Fns())(dfNew)
 
 	_ = dfNew.SetParent()
 
@@ -569,6 +639,7 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 func sameSource(s1, s2 any) bool {
 	sql1, sql2 := "No", "Match"
 	grp1, grp2 := "", ""
+
 	if df1, ok := s1.(*DF); ok {
 		sql1 = df1.SourceSQL()
 		grp1 = df1.groupBy

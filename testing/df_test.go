@@ -2,6 +2,7 @@ package testing
 
 import (
 	"fmt"
+	s "github.com/invertedv/df/sql"
 	"os"
 	"testing"
 
@@ -158,12 +159,41 @@ func TestFileSave(t *testing.T) {
 	}
 }
 
+func TestParse_By(t *testing.T) {
+	for _, which := range pkgs() {
+		if which == mem {
+			continue
+		}
+		dfx := loadData(which).(*s.DF)
+		dfy, e := dfx.By("y", "n:=count()", "r:=sum(x)")
+		assert.Nil(t, e)
+		fmt.Println(dfy.RowCount())
+		dfz, ez := m.DBLoad(dfy.MakeQuery(), dfy.Dialect())
+		assert.Nil(t, ez)
+		fmt.Println(dfz.Column("n").Data().AsAny())
+		_, ea := d.Parse(dfy, "a:=float(tcount()*200)")
+		assert.Nil(t, ea)
+		q := dfy.MakeQuery()
+		_ = q
+		dfz, ez = m.DBLoad(dfy.MakeQuery(), dfy.Dialect())
+		fmt.Println(dfz.Column("a").Data().AsAny())
+		fmt.Println(dfz.Column("a").DataType())
+	}
+
+}
+
 func TestParse_Table(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "table(y,yy)")
 		assert.Nil(t, e)
 		df1 := out.DF()
+
+		cx := dfx.Column("x")
+		_ = d.ColParent(nil)(cx)
+		ez := df1.AppendColumn(cx, true)
+		assert.NotNil(t, ez)
+
 		fmt.Println(df1.Column("rate").Data().AsAny())
 		n := df1.ColumnNames()
 		_ = n

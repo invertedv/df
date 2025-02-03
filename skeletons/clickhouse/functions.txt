@@ -26,3 +26,4 @@ int:toInt32(%s):{float},{int},{string}:int,int,int:C
 string:toString(%s):{float},{int},{string},{date}:string,string,string,string:C
 mean:avg(%s):{int},{float}:float,float:S
 sum:sum(%s):{int},{float}:int,float:S
+count:count(*)::int:S

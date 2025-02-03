@@ -10,16 +10,27 @@ func fnDefs(dlct *d.Dialect) d.Fns {
 	var fns d.Fns
 	for _, v := range dlct.Functions() {
 		fns = append(fns,
-			buildFn(v.Name, v.FnDetail, v.Inputs, v.Outputs))
+			buildFn(v.Name, v.FnDetail, v.Inputs, v.Outputs, v.RT))
 	}
 
 	return fns
 }
 
-func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
+func tcount(info bool, df d.DF, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "tcount", Inputs: nil, Output: []d.DataTypes{d.DTint}, RT: d.RTcolumn}
+	}
+
+	qry := fmt.Sprintf("(WITH xxx AS (%s) SELECT count(*) FROM xxx)", df.(*DF).SourceSQL())
+	outCol, _ := NewColSQL(d.DTint, df.Dialect(), qry, d.ColReturnType(d.RTscalar))
+
+	return &d.FnReturn{Value: outCol}
+}
+
+func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.ReturnTypes) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		if info {
-			return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
+			return &d.FnReturn{Name: name, Inputs: inp, Output: outp, RT: rt}
 		}
 
 		sqls := getSQL(df, inputs...)
@@ -49,7 +60,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 			}
 		}
 
-		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
+		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut, d.ColReturnType(rt))
 
 		_ = d.ColParent(df)(outCol)
 		_ = d.ColDialect(df.Dialect())(outCol)

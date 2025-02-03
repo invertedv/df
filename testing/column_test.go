@@ -126,7 +126,7 @@ func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		x := [][]any{
-			{"y+yy", 0, 2},
+			{"y--yy", 0, 2},
 			//			{"isInf(exp(1000000.0))", 0, 1},
 			//			{"isInf(log(0.0))", 0, 1},
 			{"if(y==1,2,y)", 0, 2},
