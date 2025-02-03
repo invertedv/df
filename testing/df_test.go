@@ -164,14 +164,12 @@ func TestParse_Table(t *testing.T) {
 		out, e := d.Parse(dfx, "table(y,yy)")
 		assert.Nil(t, e)
 		df1 := out.DF()
+		fmt.Println(df1.Column("rate").Data().AsAny())
 		n := df1.ColumnNames()
 		_ = n
 		e1 := df1.Sort(false, "count")
 		assert.Nil(t, e1)
-		colx := df1.Column("count")
-		qq := df1.MakeQuery()
-		_ = qq
-		col := colx.Data().AsAny()
+		col := df1.Column("count").Data().AsAny()
 		assert.NotNil(t, col)
 		assert.Equal(t, []int{2, 1, 1, 1, 1}, col)
 

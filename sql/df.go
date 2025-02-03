@@ -510,14 +510,14 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	}
 	dfOut.groupBy = strings.Join(cols, ",")
 	var (
-		count *Col
-		e1    error
+		count, rate *Col
+		e1          error
 	)
 
 	if count, e1 = NewColSQL(d.DTint, f.Dialect(), "count(*)",
 		d.ColName("count"),
 		d.ColReturnType(d.RTscalar),
-		d.ColParent(dfOut)); e != nil {
+		d.ColParent(dfOut)); e1 != nil {
 		return nil, e1
 	}
 
@@ -525,17 +525,19 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		return nil, e2
 	}
 
-	//	sqlx := fmt.Sprintf("1.0*count(*)/(WITH aa AS (%s) SELECT count(*) FROM aa)", f.SourceSQL())
-	//	if count, e1 = NewColSQL(d.DTfloat, f.Dialect(), sqlx,
-	//		d.ColName("rate"),
-	//		d.ColReturnType(d.RTscalar),
-	//		d.ColParent(dfOut)); e != nil {
-	//		return nil, e1
-	//	}
+	qq := fmt.Sprintf("(WITH aa AS (%s) SELECT count(*) FROM aa)", f.SourceSQL())
+	dv, _ := f.Dialect().CastField(qq, d.DTint, d.DTfloat)
+	sqlx := fmt.Sprintf("count(*)/%s", dv)
+	if rate, e1 = NewColSQL(d.DTfloat, f.Dialect(), sqlx,
+		d.ColName("rate"),
+		d.ColReturnType(d.RTscalar),
+		d.ColParent(dfOut)); e1 != nil {
+		return nil, e1
+	}
 
-	//	if e2 := dfOut.AppendColumn(count, true); e2 != nil {
-	//		return nil, e2
-	//	}
+	if e2 := dfOut.AppendColumn(rate, true); e2 != nil {
+		return nil, e2
+	}
 
 	return dfOut, nil
 }
