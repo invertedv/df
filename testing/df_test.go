@@ -11,6 +11,53 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestLoad(t *testing.T) {
+	sql := "SELECT (SELECT count(*) FROM testing.d1) AS r"
+	db := newConnectCH("", "root", "abc234")
+	dlct, e := d.NewDialect(ch, db)
+	assert.Nil(t, e)
+
+	qry := "select * from testing.d1"
+	_ = qry
+	v, _, _, e3 := dlct.Load(sql)
+	assert.Nil(t, e3)
+	_ = v
+	for ind := 0; ind < len(v); ind++ {
+		fmt.Println(v[ind].Data().AsAny())
+	}
+	return
+	rows, e2 := db.Query("select z, k from testing.d1 limit 1")
+	ct, e4 := rows.ColumnTypes()
+	assert.Nil(t, e4)
+	var ry []any
+	for ind := 0; ind < len(ct); ind++ {
+		var x any
+		ry = append(ry, &x)
+	}
+	for rows.Next() {
+		e5 := rows.Scan(ry...)
+		assert.Nil(t, e5)
+	}
+
+	assert.Nil(t, e2)
+	var x any
+	var y *uint64
+	_, _ = x, y
+	for rows.Next() {
+		ex := rows.Scan(&y)
+		assert.Nil(t, ex)
+		switch x := x.(type) {
+		case uint64:
+			fmt.Println(x, "uint")
+		case *uint64:
+			fmt.Println(*x, "*uint64")
+		}
+	}
+	df, e1 := m.DBLoad(sql, dlct)
+	assert.Nil(t, e1)
+	_ = df
+}
+
 // slash adds a trailing slash if inStr doesn't end in a slash
 func slash(inStr string) string {
 	if inStr[len(inStr)-1] == '/' {
@@ -190,7 +237,8 @@ func TestParse_Table(t *testing.T) {
 		df1 := out.DF()
 
 		cx := dfx.Column("x")
-		_ = d.ColParent(nil)(cx)
+		//		_ = d.ColParent(nil)(cx)
+		d.ColName("xx")(cx)
 		ez := df1.AppendColumn(cx, true)
 		assert.NotNil(t, ez)
 

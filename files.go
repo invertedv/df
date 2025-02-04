@@ -459,10 +459,12 @@ func (f *Files) Write(v []any) error {
 	var line []byte
 	for ind := 0; ind < len(v); ind++ {
 		var lx []byte
+
+		//		var z any = *v[ind].(*any)
 		switch d := v[ind].(type) {
 		case float64:
 			lx = []byte(fmt.Sprintf(f.floatFormat, d))
-		case int:
+		case int, int8, int16, int32, int64:
 			lx = []byte(fmt.Sprintf("%v", d))
 		case time.Time:
 			lx = []byte(d.Format(f.dateFormat))
@@ -474,7 +476,7 @@ func (f *Files) Write(v []any) error {
 			}
 		case *float64:
 			lx = []byte(fmt.Sprintf(f.floatFormat, *d))
-		case *int:
+		case *int64:
 			lx = []byte(fmt.Sprintf("%v", *d))
 		case *time.Time:
 			lx = []byte(d.Format(f.dateFormat))

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"reflect"
+	"math"
 	"strings"
 	"time"
 )
@@ -432,57 +432,118 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 	return nil
 }
 
-func (d *Dialect) Load(qry string) ([]*Vector, error) {
+func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
+
+	fieldNames, fieldTypes, ry, e1 := d.Types(qry)
+	if e1 != nil {
+		return nil, nil, nil, e1
+	}
+
 	var (
-		e     error
-		names []string
-		types []DataTypes
-		kinds []reflect.Kind
+		n       int
+		e2      error
+		memData []*Vector
 	)
-
-	if names, types, kinds, e = d.Types(qry); e != nil {
-		return nil, e
-	}
-	var rows *sql.Rows
-
-	if rows, e = d.db.Query(qry); e != nil {
-		return nil, e
+	if n, e2 = d.RowCount(qry); e2 != nil {
+		return nil, nil, nil, e2
 	}
 
-	r := make([]any, len(names))
-	for ind := range r {
-		var x any
-		r[ind] = &x
+	for ind := 0; ind < len(fieldTypes); ind++ {
+		memData = append(memData, MakeVector(fieldTypes[ind], n))
 	}
 
-	var n int
-	if n, e = d.RowCount(qry); e != nil {
-		return nil, e
-	}
-
-	var memData []*Vector
-	for ind := 0; ind < len(types); ind++ {
-		memData = append(memData, MakeVector(types[ind], n))
+	var (
+		rows *sql.Rows
+		e5   error
+	)
+	if rows, e5 = d.db.Query(qry); e5 != nil {
+		return nil, nil, nil, e5
 	}
 
 	xind := 0
-	ry := buildRow(kinds)
 	for rows.Next() {
 		if ex := rows.Scan(ry...); ex != nil {
-			return nil, ex
+			return nil, nil, nil, ex
 		}
 
-		for ind := 0; ind < len(types); ind++ {
-			val := castKind(ry[ind], kinds[ind])
-			switch types[ind] {
-			case DTfloat:
-				_ = memData[ind].SetFloat(val.(float64), xind)
-			case DTint:
-				_ = memData[ind].SetInt(val.(int), xind)
-			case DTstring:
-				_ = memData[ind].SetString(val.(string), xind)
-			case DTdate:
-				_ = memData[ind].SetDate(val.(time.Time), xind)
+		for ind := 0; ind < len(memData); ind++ {
+			var z any = *ry[ind].(*any)
+			if z == nil {
+				switch memData[ind].dt {
+				case DTfloat:
+					z = math.MaxFloat64
+				case DTint:
+					z = math.MaxInt
+				case DTstring:
+					z = "!null"
+				case DTdate:
+					z = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+				}
+			}
+
+			switch x := z.(type) {
+			case float32:
+				_ = memData[ind].SetFloat(float64(x), xind)
+			case float64:
+				_ = memData[ind].SetFloat(x, xind)
+			case *float32:
+				_ = memData[ind].SetFloat(float64(*x), xind)
+			case *float64:
+				_ = memData[ind].SetFloat(*x, xind)
+			case *uint:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *uint8:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *uint16:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *uint32:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *uint64:
+				_ = memData[ind].SetInt(int(*x), xind)
+
+			case uint:
+				_ = memData[ind].SetInt(int(x), xind)
+			case uint8:
+				_ = memData[ind].SetInt(int(x), xind)
+			case uint16:
+				_ = memData[ind].SetInt(int(x), xind)
+			case uint32:
+				_ = memData[ind].SetInt(int(x), xind)
+			case uint64:
+				_ = memData[ind].SetInt(int(x), xind)
+
+			case *int:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *int8:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *int16:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *int32:
+				_ = memData[ind].SetInt(int(*x), xind)
+			case *int64:
+				_ = memData[ind].SetInt(int(*x), xind)
+
+			case int:
+				_ = memData[ind].SetInt(int(x), xind)
+			case int8:
+				_ = memData[ind].SetInt(int(x), xind)
+			case int16:
+				_ = memData[ind].SetInt(int(x), xind)
+			case int32:
+				_ = memData[ind].SetInt(int(x), xind)
+			case int64:
+				_ = memData[ind].SetInt(int(x), xind)
+
+			case string:
+				_ = memData[ind].SetString(x, xind)
+			case *string:
+				_ = memData[ind].SetString(*x, xind)
+			case time.Time:
+				_ = memData[ind].SetDate(x, xind)
+			case *time.Time:
+				_ = memData[ind].SetDate(*x, xind)
+			default:
+				panic(fmt.Errorf("unsupported data type in dialect.Load"))
 			}
 		}
 
@@ -490,8 +551,8 @@ func (d *Dialect) Load(qry string) ([]*Vector, error) {
 	}
 
 	// change any dates to midnight UTC o.w. comparisons may not work
-	for c := 0; c < len(types); c++ {
-		if types[c] != DTdate {
+	for c := 0; c < len(memData); c++ {
+		if fieldTypes[c] != DTdate {
 			continue
 		}
 
@@ -500,7 +561,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, error) {
 			ex  error
 		)
 		if col, ex = memData[c].AsDate(); ex != nil {
-			return nil, ex
+			return nil, nil, nil, ex
 		}
 
 		for rx := 0; rx < n; rx++ {
@@ -508,7 +569,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, error) {
 		}
 	}
 
-	return memData, nil
+	return memData, fieldNames, fieldTypes, nil
 }
 
 func (d *Dialect) Max(col string) string {
@@ -576,12 +637,9 @@ func (d *Dialect) RowNumber() string {
 }
 
 func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
-	var (
-		kinds []reflect.Kind
-		e     error
-	)
+	var e error
 
-	if fieldNames, _, kinds, e = d.Types(qry); e != nil {
+	if fieldNames, _, row2Read, e = d.Types(qry); e != nil {
 		return nil, nil, nil, e
 	}
 
@@ -589,9 +647,7 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 		return nil, nil, nil, e
 	}
 
-	addr := buildRow(kinds)
-
-	return rows, addr, fieldNames, nil
+	return rows, row2Read, fieldNames, nil
 }
 
 func (d *Dialect) Summary(qry, col string) ([]float64, error) {
@@ -684,34 +740,67 @@ func (d *Dialect) ToString(val any) string {
 	panic(fmt.Errorf("unsupported db dialect"))
 }
 
-func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, fieldKinds []reflect.Kind, err error) {
+func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, row2read []any, err error) {
 	const skeleton = "WITH %s AS (%s) SELECT * FROM %s LIMIT 1"
 
 	sig := d.WithName()
 	q := fmt.Sprintf(skeleton, sig, qry, sig)
 
-	var rows *sql.Rows
-	rows, err = d.db.Query(q)
-	if err != nil {
-		return nil, nil, nil, err
+	var (
+		r      *sql.Rows
+		ct     []*sql.ColumnType
+		e0, e1 error
+	)
+	r, e0 = d.db.Query(q)
+	if e0 != nil {
+		return nil, nil, nil, e0
 	}
-	defer func() { _ = rows.Close() }()
-
-	var types []*sql.ColumnType
-	if types, err = rows.ColumnTypes(); err != nil {
-		return nil, nil, nil, err
-	}
-
-	// TODO: if k is interface, it means the field is nullable...account for this?
-	for ind := 0; ind < len(types); ind++ {
-		fieldNames = append(fieldNames, types[ind].Name())
-
-		k := types[ind].ScanType().Kind()
-		fieldKinds = append(fieldKinds, k)
-		fieldTypes = append(fieldTypes, kindToDataTypes(k))
+	if ct, e1 = r.ColumnTypes(); e1 != nil {
+		return nil, nil, nil, e1
 	}
 
-	return fieldNames, fieldTypes, fieldKinds, nil
+	var ry []any
+	for ind := 0; ind < len(ct); ind++ {
+		var x any
+		ry = append(ry, &x)
+	}
+	for r.Next() {
+		if e1 := r.Scan(ry...); e1 != nil {
+			return nil, nil, nil, e1
+		}
+
+		break
+	}
+
+	var (
+		names []string
+		dts   []DataTypes
+	)
+
+	for ind := 0; ind < len(ry); ind++ {
+		names = append(names, ct[ind].Name())
+		var dt DataTypes
+
+		var z any = *ry[ind].(*any)
+		switch z.(type) {
+		case int, int8, int16, int32, int64, *int, *int16, *int32, *int64,
+			uint, uint8, uint16, uint32, uint64, *uint, *uint8, *uint16, *uint32, *uint64:
+			dt = DTint
+		case float32, float64, *float32, *float64:
+			dt = DTfloat
+		case string, *string:
+			dt = DTstring
+		case time.Time, *time.Time:
+			dt = DTdate
+		default:
+			panic("OH NO bad datatype")
+		}
+
+		dts = append(dts, dt)
+	}
+	_ = r.Close()
+
+	return names, dts, ry, nil
 }
 
 func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, error) {
@@ -739,117 +828,4 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 	}
 
 	return d.dbTypes[pos], nil
-}
-
-// **************** Helpers **************
-
-func buildRow(k []reflect.Kind) []any {
-	var ry []any
-	for ind := 0; ind < len(k); ind++ {
-		switch k[ind] {
-		case reflect.Int:
-			var x int
-			ry = append(ry, &x)
-		case reflect.Int8:
-			var x int8
-			ry = append(ry, &x)
-		case reflect.Int16:
-			var x int16
-			ry = append(ry, &x)
-		case reflect.Int32:
-			var x int32
-			ry = append(ry, &x)
-		case reflect.Int64:
-			var x int64
-			ry = append(ry, &x)
-		case reflect.Uint8:
-			var x uint8
-			ry = append(ry, &x)
-		case reflect.Uint16:
-			var x uint16
-			ry = append(ry, &x)
-		case reflect.Uint32:
-			var x uint32
-			ry = append(ry, &x)
-		case reflect.Uint64:
-			var x uint64
-			ry = append(ry, &x)
-		case reflect.Float64:
-			var x float64
-			ry = append(ry, &x)
-		case reflect.Float32:
-			var x float32
-			ry = append(ry, &x)
-		case reflect.String:
-			var x string
-			ry = append(ry, &x)
-		case reflect.Struct:
-			var x time.Time
-			ry = append(ry, &x)
-		default:
-			panic(fmt.Errorf("unsupported data type: %v", k[ind]))
-		}
-	}
-
-	return ry
-}
-
-func kindToDataTypes(k reflect.Kind) DataTypes {
-	var dt DataTypes
-
-	switch k {
-	case reflect.Float64, reflect.Float32:
-		dt = DTfloat
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		dt = DTint
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		dt = DTint
-	case reflect.String:
-		dt = DTstring
-	case reflect.Struct:
-		dt = DTdate
-	case reflect.Ptr:
-		panic(fmt.Errorf("pointer type"))
-	default:
-		panic(fmt.Errorf("unsupported db field type: %v", k))
-	}
-
-	return dt
-}
-
-func castKind(r any, k reflect.Kind) any {
-	var out any
-
-	switch k {
-	case reflect.Int:
-		out = *(r.(*int))
-	case reflect.Int32:
-		out = int(*(r.(*int32)))
-	case reflect.Int64:
-		out = int(*(r.(*int64)))
-	case reflect.Int8:
-		out = int(*(r.(*int8)))
-	case reflect.Int16:
-		out = int(*(r.(*int16)))
-	case reflect.Uint8:
-		out = int(*(r.(*uint8)))
-	case reflect.Uint16:
-		out = int(*(r.(*uint16)))
-	case reflect.Uint32:
-		out = int(*(r.(*uint32)))
-	case reflect.Uint64:
-		out = int(*(r.(*uint64)))
-	case reflect.Float64:
-		out = *(r).(*float64)
-	case reflect.Float32:
-		out = float64(*(r).(*float32))
-	case reflect.String:
-		out = *(r).(*string)
-	case reflect.Struct:
-		out = *(r).(*time.Time)
-	default:
-		panic("unsupported type in Load")
-	}
-
-	return out
 }

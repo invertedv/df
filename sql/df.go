@@ -475,7 +475,14 @@ func (f *DF) Iter(reset bool) (row []any, err error) {
 		return nil, io.EOF
 	}
 
-	return f.row, nil
+	// f.row elements are pointers to interface, remove the "pointer" part
+	newRow := make([]any, len(f.row))
+	for ind, x := range f.row {
+		var z any = *x.(*any)
+		newRow[ind] = z
+	}
+
+	return newRow, nil
 }
 
 func (f *DF) MakeQuery(colNames ...string) string {
@@ -639,23 +646,40 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 func sameSource(s1, s2 any) bool {
 	sql1, sql2 := "No", "Match"
 	grp1, grp2 := "", ""
+	var (
+		c1, c2   *Col
+		df1, df2 *DF
+	)
 
-	if df1, ok := s1.(*DF); ok {
+	if cx, ok := s1.(*Col); ok {
+		c1 = cx
+	}
+	if dfx, ok := s1.(*DF); ok {
+		df1 = dfx
 		sql1 = df1.SourceSQL()
 		grp1 = df1.groupBy
 	}
-
-	if c1, ok := s1.(*Col); ok {
-		sql1 = c1.Parent().(*DF).SourceSQL()
-		grp1 = c1.Parent().(*DF).groupBy
+	if cx, ok := s2.(*Col); ok {
+		c2 = cx
 	}
-
-	if df2, ok := s2.(*DF); ok {
+	if dfx, ok := s2.(*DF); ok {
+		df2 = dfx
 		sql2 = df2.SourceSQL()
 		grp2 = df2.groupBy
 	}
 
-	if c2, ok := s2.(*Col); ok {
+	if df1 != nil && c2 != nil && c2.Parent() == nil {
+		e := d.ColParent(df1)(c2)
+		_ = e
+	}
+	if df2 != nil && c1 != nil && c1.Parent() == nil {
+		_ = d.ColParent(df2)(c1)
+	}
+	if c1 != nil {
+		sql1 = c1.Parent().(*DF).SourceSQL()
+		grp1 = c1.Parent().(*DF).groupBy
+	}
+	if c2 != nil {
 		sql2 = c2.Parent().(*DF).SourceSQL()
 		grp2 = c2.Parent().(*DF).groupBy
 	}

@@ -103,12 +103,12 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 		e           error
 	)
 
-	if columnNames, columnTypes, _, e = dlct.Types(qry); e != nil {
-		return nil, e
-	}
+	//	if columnNames, columnTypes, _, e = dlct.Types(qry); e != nil {
+	//		return nil, e
+	//	}
 
 	var memData []*d.Vector
-	if memData, e = dlct.Load(qry); e != nil {
+	if memData, columnNames, columnTypes, e = dlct.Load(qry); e != nil {
 		return nil, e
 	}
 
