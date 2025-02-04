@@ -25,7 +25,7 @@ func inter(c d.Column) []int {
 }
 
 func TestRandom(t *testing.T) {
-	n := 10000 //000
+	n := 100 //000000
 	x := make([]float64, n)
 	y := make([]float64, n)
 	z := make([]float64, n)

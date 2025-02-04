@@ -433,8 +433,7 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 }
 
 func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
-
-	fieldNames, fieldTypes, ry, e1 := d.Types(qry)
+	fieldNames, fieldTypes, row2read, e1 := d.Types(qry)
 	if e1 != nil {
 		return nil, nil, nil, e1
 	}
@@ -454,20 +453,20 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 
 	var (
 		rows *sql.Rows
-		e5   error
+		e3   error
 	)
-	if rows, e5 = d.db.Query(qry); e5 != nil {
-		return nil, nil, nil, e5
+	if rows, e3 = d.db.Query(qry); e3 != nil {
+		return nil, nil, nil, e3
 	}
 
-	xind := 0
+	indx := 0
 	for rows.Next() {
-		if ex := rows.Scan(ry...); ex != nil {
-			return nil, nil, nil, ex
+		if e4 := rows.Scan(row2read...); e4 != nil {
+			return nil, nil, nil, e4
 		}
 
 		for ind := 0; ind < len(memData); ind++ {
-			var z any = *ry[ind].(*any)
+			var z = *row2read[ind].(*any)
 			if z == nil {
 				switch memData[ind].dt {
 				case DTfloat:
@@ -481,73 +480,10 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 				}
 			}
 
-			switch x := z.(type) {
-			case float32:
-				_ = memData[ind].SetFloat(float64(x), xind)
-			case float64:
-				_ = memData[ind].SetFloat(x, xind)
-			case *float32:
-				_ = memData[ind].SetFloat(float64(*x), xind)
-			case *float64:
-				_ = memData[ind].SetFloat(*x, xind)
-			case *uint:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *uint8:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *uint16:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *uint32:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *uint64:
-				_ = memData[ind].SetInt(int(*x), xind)
-
-			case uint:
-				_ = memData[ind].SetInt(int(x), xind)
-			case uint8:
-				_ = memData[ind].SetInt(int(x), xind)
-			case uint16:
-				_ = memData[ind].SetInt(int(x), xind)
-			case uint32:
-				_ = memData[ind].SetInt(int(x), xind)
-			case uint64:
-				_ = memData[ind].SetInt(int(x), xind)
-
-			case *int:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *int8:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *int16:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *int32:
-				_ = memData[ind].SetInt(int(*x), xind)
-			case *int64:
-				_ = memData[ind].SetInt(int(*x), xind)
-
-			case int:
-				_ = memData[ind].SetInt(int(x), xind)
-			case int8:
-				_ = memData[ind].SetInt(int(x), xind)
-			case int16:
-				_ = memData[ind].SetInt(int(x), xind)
-			case int32:
-				_ = memData[ind].SetInt(int(x), xind)
-			case int64:
-				_ = memData[ind].SetInt(int(x), xind)
-
-			case string:
-				_ = memData[ind].SetString(x, xind)
-			case *string:
-				_ = memData[ind].SetString(*x, xind)
-			case time.Time:
-				_ = memData[ind].SetDate(x, xind)
-			case *time.Time:
-				_ = memData[ind].SetDate(*x, xind)
-			default:
-				panic(fmt.Errorf("unsupported data type in dialect.Load"))
-			}
+			assign(memData[ind], z, indx)
 		}
 
-		xind++
+		indx++
 	}
 
 	// change any dates to midnight UTC o.w. comparisons may not work
@@ -556,17 +492,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 			continue
 		}
 
-		var (
-			col []time.Time
-			ex  error
-		)
-		if col, ex = memData[c].AsDate(); ex != nil {
-			return nil, nil, nil, ex
-		}
-
-		for rx := 0; rx < n; rx++ {
-			col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
-		}
+		utc(memData[c])
 	}
 
 	return memData, fieldNames, fieldTypes, nil
@@ -625,15 +551,6 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 	}
 
 	return n, nil
-}
-
-// TODO delete
-func (d *Dialect) RowNumber() string {
-	if d.DialectName() == ch {
-		return "toInt32(rowNumberInBlock())"
-	}
-
-	panic(fmt.Errorf("unsupported dialect in RownNumber"))
 }
 
 func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
@@ -752,6 +669,12 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		e0, e1 error
 	)
 	r, e0 = d.db.Query(q)
+	defer func() {
+		{
+			_ = r.Close()
+		}
+	}()
+
 	if e0 != nil {
 		return nil, nil, nil, e0
 	}
@@ -768,8 +691,6 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		if e1 := r.Scan(ry...); e1 != nil {
 			return nil, nil, nil, e1
 		}
-
-		break
 	}
 
 	var (
@@ -781,7 +702,7 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		names = append(names, ct[ind].Name())
 		var dt DataTypes
 
-		var z any = *ry[ind].(*any)
+		var z = *ry[ind].(*any)
 		switch z.(type) {
 		case int, int8, int16, int32, int64, *int, *int16, *int32, *int64,
 			uint, uint8, uint16, uint32, uint64, *uint, *uint8, *uint16, *uint32, *uint64:
@@ -798,7 +719,6 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 
 		dts = append(dts, dt)
 	}
-	_ = r.Close()
 
 	return names, dts, ry, nil
 }
@@ -828,4 +748,89 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 	}
 
 	return d.dbTypes[pos], nil
+}
+
+// assign assigns the indx vector of v to be val
+func assign(v *Vector, val any, indx int) {
+	switch x := val.(type) {
+	case float32:
+		_ = v.SetFloat(float64(x), indx)
+	case float64:
+		_ = v.SetFloat(x, indx)
+	case *float32:
+		_ = v.SetFloat(float64(*x), indx)
+	case *float64:
+		_ = v.SetFloat(*x, indx)
+	case *uint:
+		_ = v.SetInt(int(*x), indx)
+	case *uint8:
+		_ = v.SetInt(int(*x), indx)
+	case *uint16:
+		_ = v.SetInt(int(*x), indx)
+	case *uint32:
+		_ = v.SetInt(int(*x), indx)
+	case *uint64:
+		_ = v.SetInt(int(*x), indx)
+
+	case uint:
+		_ = v.SetInt(int(x), indx)
+	case uint8:
+		_ = v.SetInt(int(x), indx)
+	case uint16:
+		_ = v.SetInt(int(x), indx)
+	case uint32:
+		_ = v.SetInt(int(x), indx)
+	case uint64:
+		_ = v.SetInt(int(x), indx)
+
+	case *int:
+		_ = v.SetInt(int(*x), indx)
+	case *int8:
+		_ = v.SetInt(int(*x), indx)
+	case *int16:
+		_ = v.SetInt(int(*x), indx)
+	case *int32:
+		_ = v.SetInt(int(*x), indx)
+	case *int64:
+		_ = v.SetInt(int(*x), indx)
+
+	case int:
+		_ = v.SetInt(int(x), indx)
+	case int8:
+		_ = v.SetInt(int(x), indx)
+	case int16:
+		_ = v.SetInt(int(x), indx)
+	case int32:
+		_ = v.SetInt(int(x), indx)
+	case int64:
+		_ = v.SetInt(int(x), indx)
+
+	case string:
+		_ = v.SetString(x, indx)
+	case *string:
+		_ = v.SetString(*x, indx)
+	case time.Time:
+		_ = v.SetDate(x, indx)
+	case *time.Time:
+		_ = v.SetDate(*x, indx)
+	default:
+		panic(fmt.Errorf("unsupported data type in dialect.Load"))
+	}
+
+}
+
+// utc changes the entries of date slices to be midnight UTC
+func utc(v *Vector) {
+	var (
+		col []time.Time
+		e   error
+	)
+	if col, e = v.AsDate(); e != nil {
+		panic(e)
+	}
+
+	for rx := 0; rx < v.Len(); rx++ {
+		col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
+	}
+
 }
