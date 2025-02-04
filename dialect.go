@@ -72,14 +72,6 @@ type Dialect struct {
 	functions Fmap
 }
 
-type fnSpec struct {
-	Name    string
-	SQL     string
-	Inputs  [][]DataTypes
-	Outputs []DataTypes
-	RT      ReturnTypes
-}
-
 func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 	dialect = strings.ToLower(dialect)
 
@@ -338,21 +330,6 @@ func (d *Dialect) Functions() Fmap {
 	return d.functions
 }
 
-// TODO: delete
-func (d *Dialect) Ifs(x, y, op string) (string, error) {
-	const ops = ">,>=,<,<=,==,!="
-	op = strings.ReplaceAll(op, " ", "")
-	if !Has(op, strings.Split(ops, ",")) {
-		return "", fmt.Errorf("unknown comparison: %s", op)
-	}
-
-	if d.dialect == ch {
-		return fmt.Sprintf("toInt32(%s%s%s)", x, op, y), nil
-	}
-
-	return "", fmt.Errorf("unknown error")
-}
-
 // TODO: think about query
 func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	e := fmt.Errorf("db not implemented")
@@ -498,18 +475,19 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 	return memData, fieldNames, fieldTypes, nil
 }
 
-func (d *Dialect) Max(col string) string {
+// TODO: delete these
+func (d *Dialect) Max1(col string) string {
 	sqlx, _ := d.CastField(fmt.Sprintf("max(%s)", col), DTfloat, DTfloat)
 
 	return sqlx
 }
 
-func (d *Dialect) Mean(col string) string {
+func (d *Dialect) Mean1(col string) string {
 	sqlx, _ := d.CastField(fmt.Sprintf("avg(%s)", col), DTfloat, DTfloat)
 	return sqlx
 }
 
-func (d *Dialect) Min(col string) string {
+func (d *Dialect) Min1(col string) string {
 	sqlx, _ := d.CastField(fmt.Sprintf("min(%s)", col), DTfloat, DTfloat)
 
 	return sqlx
@@ -614,7 +592,6 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF, options
 	return d.IterSave(tableName, df)
 }
 
-// TODO: is this used?
 func (d *Dialect) Seq(n int) string {
 	if n <= 0 {
 		return ""
@@ -816,7 +793,6 @@ func assign(v *Vector, val any, indx int) {
 	default:
 		panic(fmt.Errorf("unsupported data type in dialect.Load"))
 	}
-
 }
 
 // utc changes the entries of date slices to be midnight UTC
