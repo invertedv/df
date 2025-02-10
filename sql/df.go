@@ -15,7 +15,7 @@ import (
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
 	fns := d.Fns{applyCat,
-		tcount,
+		global,
 		sortDF, table, toCat, where}
 	fns = append(fns, fnDefs(dlct)...)
 
@@ -47,7 +47,7 @@ type DF struct {
 }
 
 // ***************** DF - Create *****************
-// TODO: delete this
+// TODO: delete or fix this
 func NewDFcol(funcs d.Fns, dlct *d.Dialect, qry string, cols ...*Col) (*DF, error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDFcol")
@@ -146,8 +146,7 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 	return df, nil
 }
 
-// TODO: needs runDF, fns as parameters...
-func DBload(query string, dlct *d.Dialect) (*DF, error) {
+func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	var (
 		e        error
 		colTypes []d.DataTypes
@@ -181,11 +180,12 @@ func DBload(query string, dlct *d.Dialect) (*DF, error) {
 	}
 
 	var tmp *d.DFcore
-	// TODO: fix runs
-	if tmp, e = d.NewDF(StandardFunctions(dlct), cols); e != nil {
+	if fns == nil {
+		fns = StandardFunctions(dlct)
+	}
+	if tmp, e = d.NewDF(fns, cols); e != nil {
 		return nil, e
 	}
-	// TODO: think about: should SetContext copy context?
 	df.DFcore = tmp
 
 	_ = d.DFdialect(dlct)(df)
@@ -580,43 +580,7 @@ func (f *DF) String() string {
 }
 
 func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
-	dfOut := f.Copy().(*DF)
-	var e error
-	if dfOut.DFcore, e = dfOut.KeepColumns(cols...); e != nil {
-		return nil, e
-	}
-	dfOut.groupBy = strings.Join(cols, ",")
-	var (
-		count, rate *Col
-		e1          error
-	)
-
-	if count, e1 = NewColSQL(d.DTint, f.Dialect(), "count(*)",
-		d.ColName("count"),
-		d.ColReturnType(d.RTscalar),
-		d.ColParent(dfOut)); e1 != nil {
-		return nil, e1
-	}
-
-	if e2 := dfOut.AppendColumn(count, true); e2 != nil {
-		return nil, e2
-	}
-
-	qq := fmt.Sprintf("(WITH aa AS (%s) SELECT count(*) FROM aa)", f.SourceSQL())
-	dv, _ := f.Dialect().CastField(qq, d.DTint, d.DTfloat)
-	sqlx := fmt.Sprintf("count(*)/%s", dv)
-	if rate, e1 = NewColSQL(d.DTfloat, f.Dialect(), sqlx,
-		d.ColName("rate"),
-		d.ColReturnType(d.RTscalar),
-		d.ColParent(dfOut)); e1 != nil {
-		return nil, e1
-	}
-
-	if e2 := dfOut.AppendColumn(rate, true); e2 != nil {
-		return nil, e2
-	}
-
-	return dfOut, nil
+	return f.By(strings.Join(cols, ","), "count:=count()", "rate:=float(count)/float(global(count()))")
 }
 
 func (f *DF) Where(col d.Column) (d.DF, error) {
@@ -625,7 +589,6 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 		return nil, fmt.Errorf("where column is nil")
 	}
 
-	// TODO: this should update self + columns
 	dfNew := f.Copy().(*DF)
 
 	if col.DataType() != d.DTint {

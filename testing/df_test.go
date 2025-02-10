@@ -211,20 +211,27 @@ func TestParse_By(t *testing.T) {
 		if which == mem {
 			continue
 		}
+
 		dfx := loadData(which).(*s.DF)
+
+		_, e2 := d.Parse(dfx, "a:=mean(x)")
+		assert.Nil(t, e2)
+		fmt.Println(dfx.Column("a").Data().AsAny())
+
 		dfy, e := dfx.By("y", "n:=count()", "r:=sum(x)")
 		assert.Nil(t, e)
 		fmt.Println(dfy.RowCount())
 		dfz, ez := m.DBLoad(dfy.MakeQuery(), dfy.Dialect())
 		assert.Nil(t, ez)
 		fmt.Println(dfz.Column("n").Data().AsAny())
-		_, ea := d.Parse(dfy, "a:=float(tcount()*200)")
-		assert.Nil(t, ea)
+		//		_, ea := d.Parse(dfy, "a:=float(tcount()*200)")
+		//		assert.Nil(t, ea)
 		q := dfy.MakeQuery()
 		_ = q
 		dfz, ez = m.DBLoad(dfy.MakeQuery(), dfy.Dialect())
-		fmt.Println(dfz.Column("a").Data().AsAny())
-		fmt.Println(dfz.Column("a").DataType())
+		assert.Nil(t, ez)
+		//		fmt.Println(dfz.Column("a").Data().AsAny())
+		//		fmt.Println(dfz.Column("a").DataType())
 	}
 
 }

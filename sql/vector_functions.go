@@ -16,17 +16,6 @@ func fnDefs(dlct *d.Dialect) d.Fns {
 	return fns
 }
 
-func tcount(info bool, df d.DF, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: "tcount", Inputs: nil, Output: []d.DataTypes{d.DTint}, RT: d.RTcolumn}
-	}
-
-	qry := fmt.Sprintf("(WITH xxx AS (%s) SELECT count(*) FROM xxx)", df.(*DF).SourceSQL())
-	outCol, _ := NewColSQL(d.DTint, df.Dialect(), qry, d.ColReturnType(d.RTscalar))
-
-	return &d.FnReturn{Value: outCol}
-}
-
 func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.ReturnTypes) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		if info {
@@ -42,6 +31,12 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 		}
 
 		sqlOut := fmt.Sprintf(sql, sa...)
+
+		// if this returns a scalar, but there is no GROUP BY, then make a column of the global value
+		// if you want to return the global value within a GROUP BY, put it within the function "global"
+		if rt == d.RTscalar && df.(*DF).groupBy == "" {
+			sqlOut = df.Dialect().Global(df.(*DF).SourceSQL(), sqlOut)
+		}
 
 		outType := outp[0]
 		// output type
@@ -71,7 +66,17 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 	return fn
 }
 
-// ////////  Standard Fns
+func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
+	if info {
+		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTany}}, Output: []d.DataTypes{d.DTany}, RT: d.RTscalar}
+	}
+
+	sqls := getSQL(df, inputs...)
+	qry := df.Dialect().Global(df.(*DF).SourceSQL(), sqls[0])
+	outCol, _ := NewColSQL(d.DTint, df.Dialect(), qry, d.ColReturnType(d.RTscalar))
+
+	return &d.FnReturn{Value: outCol}
+}
 
 // getNames returns the names of the input Columns starting with startInd element
 func getNames(startInd int, cols ...any) ([]string, error) {
@@ -188,12 +193,9 @@ func toCol(df d.DF, x any) *Col {
 
 	if s, ok := x.(*d.Scalar); ok {
 		var c *Col
-		// TODO: HERE
 		xx, _ := s.Data().ElementString(0)
 		fld := *xx
 		if s.DataType() == d.DTstring {
-			// TODO: check this may not work
-			//			fld = s.Dialect().ToString(fld)
 			fld = df.Dialect().ToString(fld)
 		}
 
@@ -257,7 +259,6 @@ func fnGen(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, info bool,
 
 	outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
 
-	// TODO: think about best place to do this
 	_ = d.ColParent(df)(outCol)
 	_ = d.ColDialect(df.Dialect())(outCol)
 

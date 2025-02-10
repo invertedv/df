@@ -268,7 +268,6 @@ func (ot *opTree) eval(df DF) error {
 		}
 
 		if p := df.Plot(ot.expr); p != nil {
-			// TODO: need dependencies?
 			ot.value = newParsed(p)
 			return nil
 		}

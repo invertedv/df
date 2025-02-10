@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// TODO: Populate parent in mem/df operations
+
 // Can Save any DF to a table
 // Can Load any query to []any
 
@@ -330,7 +332,13 @@ func (d *Dialect) Functions() Fmap {
 	return d.functions
 }
 
-// TODO: think about query
+// Global takes SQL that normally is a scalar return (e.g. count(*), avg(x)) and surrounds it with SQL to return
+// that value for every row of a query
+func (d *Dialect) Global(sourceSQL, colSQL string) string {
+	with := d.WithName()
+	return fmt.Sprintf("(WITH %s AS (%s) SELECT (%s) FROM %s)", with, sourceSQL, colSQL, with)
+}
+
 func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	e := fmt.Errorf("db not implemented")
 
@@ -475,7 +483,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 	return memData, fieldNames, fieldTypes, nil
 }
 
-// TODO: delete these
+// TODO: delete these?
 func (d *Dialect) Max1(col string) string {
 	sqlx, _ := d.CastField(fmt.Sprintf("max(%s)", col), DTfloat, DTfloat)
 

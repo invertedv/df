@@ -96,16 +96,12 @@ func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) (*DF, error) {
 	return df, nil
 }
 
-func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
+func DBLoad(qry string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	var (
 		columnNames []string
 		columnTypes []d.DataTypes
 		e           error
 	)
-
-	//	if columnNames, columnTypes, _, e = dlct.Types(qry); e != nil {
-	//		return nil, e
-	//	}
 
 	var memData []*d.Vector
 	if memData, columnNames, columnTypes, e = dlct.Load(qry); e != nil {
@@ -121,7 +117,10 @@ func DBLoad(qry string, dlct *d.Dialect) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(StandardFunctions(), []*Col{col}); e != nil {
+			if fns == nil {
+				fns = StandardFunctions()
+			}
+			if memDF, e = NewDFcol(fns, []*Col{col}); e != nil {
 				return nil, e
 			}
 
