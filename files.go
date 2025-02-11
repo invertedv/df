@@ -139,8 +139,8 @@ func FileEOL(eol byte) FileOpt {
 func FileFieldNames(fieldNames []string) FileOpt {
 	return func(f *Files) error {
 		for _, fn := range fieldNames {
-			if !validName(fn) {
-				return fmt.Errorf("invalid field name: %s", fn)
+			if e := validName(fn); e != nil {
+				return e
 			}
 		}
 

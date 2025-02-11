@@ -29,7 +29,6 @@ func StandardFunctions() d.Fns {
 	return fns
 }
 
-// TODO: should this return DF interface?
 func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if funcs == nil {
 		funcs = StandardFunctions()

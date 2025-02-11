@@ -228,9 +228,7 @@ func TestParse_By(t *testing.T) {
 		fmt.Println(dfy.Column("n").Data().AsAny())
 		fmt.Println(dfy.Column("zx").Data().AsAny())
 		fmt.Println(dfy.Column("zt").Data().AsAny())
-
 	}
-
 }
 
 func TestParse_Table(t *testing.T) {

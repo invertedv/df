@@ -192,15 +192,17 @@ func TestWhere(t *testing.T) {
 
 func TestRename(t *testing.T) {
 	dfx := testDF(which)
-	c := dfx.Column("x")
-	e := d.ColName("yyz")(c)
+	e := dfx.Column("x").Rename("yyz")
+	//	e := d.ColName("yyz")(c)
 	assert.Nil(t, e)
 	out, ex := d.Parse(dfx, "1*y")
 	assert.Nil(t, ex)
 	e = d.ColName("z2")(out.Column())
 	assert.Nil(t, e)
-	e = d.ColName("zz")(out.Column())
+	e = out.Column().Rename("zz")
 	assert.Nil(t, e)
+	q := out.Column().(*Col).MakeQuery()
+	_ = q
 	d1 := out.Column().Data().AsAny()
 	d2 := dfx.Column("y").Data().AsAny()
 	assert.Equal(t, d1, d2)

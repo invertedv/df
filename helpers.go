@@ -369,10 +369,14 @@ func randUnifInt(n, upper int) ([]int64, error) {
 	return outInts, nil
 }
 
-func validName(name string) bool {
+func validName(name string) error {
 	const illegal = "!@#$%^&*()=+-;:'`/.,>< ~ " + `"`
 
-	return !strings.ContainsAny(name, illegal)
+	if strings.ContainsAny(name, illegal) {
+		return fmt.Errorf("illegal column name")
+	}
+
+	return nil
 }
 
 func stringSlice(header string, inVal any) []string {

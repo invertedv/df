@@ -158,8 +158,12 @@ func (c *Col) MakeQuery() string {
 }
 
 func (c *Col) Rename(newName string) error {
+	//	if c.Parent() != nil && c.Parent().Column(newName) != nil {
+	//		return fmt.Errorf("column %s already exists cannot Rename", newName)
+	//	}
+
 	oldName := c.Name()
-	if e := d.ColName(newName)(c); e != nil {
+	if e := c.Core().Rename(newName); e != nil {
 		return e
 	}
 

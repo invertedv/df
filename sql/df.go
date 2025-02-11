@@ -26,12 +26,6 @@ func StandardFunctions(dlct *d.Dialect) d.Fns {
 // TODO: If col to append has no parent, set parentCheck dependencies?
 
 // DF is the implementation of DF for SQL.
-//
-// signature is the unique identifier of this dataframe.  It is reset if
-//   - a column is dropped
-//
-// version is the version number of this dataframe.  It is incremented if
-//   - a column is added
 type DF struct {
 	sourceSQL string // source SQL used to query DB
 
@@ -449,7 +443,6 @@ func (f *DF) Copy() d.DF {
 	return dfNew
 }
 
-// TODO: check
 func (f *DF) DropColumns(colNames ...string) error {
 	return f.Core().DropColumns(colNames...)
 }

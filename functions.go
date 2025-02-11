@@ -28,7 +28,7 @@ type FnReturn struct {
 
 	Varying bool
 
-	RT ReturnTypes // TODO: add to dialect file
+	RT ReturnTypes
 
 	Err error
 }
@@ -36,11 +36,11 @@ type FnReturn struct {
 type ReturnTypes rune
 
 const (
-	RTscalar    ReturnTypes = 'S'
-	RTcolumn    ReturnTypes = 'C'
-	RTdataFrame ReturnTypes = 'D'
-	RTplot      ReturnTypes = 'P'
-	RTnone                  = 'N'
+	RTscalar ReturnTypes = 'S'
+	RTcolumn ReturnTypes = 'C'
+	RTdf     ReturnTypes = 'D'
+	RTplot   ReturnTypes = 'P'
+	RTnone               = 'N'
 )
 
 //go:generate stringer -type=ReturnTypes

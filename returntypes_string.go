@@ -10,7 +10,7 @@ func _() {
 	var x [1]struct{}
 	_ = x[RTscalar-83]
 	_ = x[RTcolumn-67]
-	_ = x[RTdataFrame-68]
+	_ = x[RTdf-68]
 	_ = x[RTplot-80]
 }
 

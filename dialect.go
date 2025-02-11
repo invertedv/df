@@ -16,7 +16,6 @@ import (
 
 // All code interacting with a database is here
 
-// TODO: make a clickhouse directory
 var (
 	//go:embed skeletons/clickhouse/create.txt
 	chCreate string

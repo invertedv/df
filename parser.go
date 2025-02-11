@@ -39,7 +39,7 @@ func (p *Parsed) Plot() *Plot { return p.plot }
 
 func (p *Parsed) Which() ReturnTypes {
 	if p.df != nil {
-		return RTdataFrame
+		return RTdf
 	}
 
 	if p.col != nil {
@@ -105,7 +105,7 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 	var vals []any
 	for ind := 0; ind < len(inputs); ind++ {
 		switch inputs[ind].Which() {
-		case RTdataFrame:
+		case RTdf:
 			return nil, fmt.Errorf("cannot take DF as function input")
 		case RTcolumn:
 			vals = append(vals, inputs[ind].Column())

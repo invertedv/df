@@ -193,8 +193,8 @@ func (df *DFcore) AppendPlot(plot *Plot, plotName string, replace bool) error {
 		}
 	}
 
-	if !validName(plotName) {
-		return fmt.Errorf("invalid plot name: %s", plotName)
+	if e := validName(plotName); e != nil {
+		return e
 	}
 
 	df.plots[plotName] = plot

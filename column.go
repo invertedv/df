@@ -12,7 +12,6 @@ type Column interface {
 	Copy() Column
 	Data() *Vector
 	Len() int
-	Rename(newName string) error
 	String() string
 }
 
@@ -25,6 +24,7 @@ type CC interface {
 	Dialect() *Dialect
 	Name() string
 	Parent() DF
+	Rename(newName string) error
 	RT() ReturnTypes
 }
 
@@ -110,14 +110,12 @@ func ColName(name string) ColOpt {
 			return fmt.Errorf("nil column to ColName")
 		}
 
-		if df := c.Parent(); df != nil {
-			if df.Column(name) != nil {
-				return fmt.Errorf("column name already exists: %s", name)
-			}
+		if c.Name() != "" {
+			return fmt.Errorf("column already named -- use Rename method")
 		}
 
-		if !validName(name) {
-			return fmt.Errorf("invalid column name %s", name)
+		if e := validName(name); e != nil {
+			return e
 		}
 
 		c.Core().name = name
@@ -131,11 +129,6 @@ func ColParent(df DF) ColOpt {
 		if c == nil {
 			return fmt.Errorf("nil column to ColParent")
 		}
-
-		// TODO: think about this
-		//		if c.Name() == "" && df != nil {
-		//			return fmt.Errorf("column must have a name to assign parent")
-		//		}
 
 		// A column with this name already exists in df and is not the column we're assigning the parent to
 		if df != nil && df.Column(c.Name()) != nil && df.Column(c.Name()) != c {
@@ -234,6 +227,20 @@ func (c *ColCore) Parent() DF {
 
 func (c *ColCore) RawType() DataTypes {
 	return c.rawType
+}
+
+func (c *ColCore) Rename(newName string) error {
+	if e := validName(newName); e != nil {
+		return e
+	}
+
+	if c.Parent() != nil && c.Parent().Column(newName) != nil {
+		return fmt.Errorf("column %s already exists, cannot Rename", newName)
+	}
+
+	c.name = newName
+
+	return nil
 }
 
 func (c *ColCore) RT() ReturnTypes {
