@@ -55,6 +55,8 @@ type DFcore struct {
 	dlct *Dialect
 
 	plots map[string]*Plot
+
+	sourceDF *DFcore
 }
 
 type columnList struct {
@@ -138,6 +140,17 @@ func DFsetFns(f Fns) DFopt {
 
 		df.Core().appFuncs = f
 
+		return nil
+	}
+}
+
+func DFsetSourceDF(source DC) DFopt {
+	return func(df DC) error {
+		if df == nil {
+			return fmt.Errorf("nil dataframe to DFsetSourceDF")
+		}
+
+		df.Core().sourceDF = source.Core()
 		return nil
 	}
 }
@@ -438,6 +451,10 @@ func (df *DFcore) Plot(plotName string) *Plot {
 	}
 
 	return nil
+}
+
+func (df *DFcore) SourceDF() *DFcore {
+	return df.sourceDF
 }
 
 func (df *DFcore) node(colName string) (node *columnList, err error) {

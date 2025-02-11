@@ -33,8 +33,7 @@ func StandardFunctions(dlct *d.Dialect) d.Fns {
 // version is the version number of this dataframe.  It is incremented if
 //   - a column is added
 type DF struct {
-	sourceSQL    string // source SQL used to query DB
-	sourcColumns []*Col
+	sourceSQL string // source SQL used to query DB
 
 	orderBy string
 	where   string
@@ -126,12 +125,11 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 	}
 
 	df := &DF{
-		sourceSQL:    seqSQL,
-		orderBy:      "",
-		where:        "",
-		groupBy:      "",
-		DFcore:       dfc,
-		sourcColumns: []*Col{col},
+		sourceSQL: seqSQL,
+		orderBy:   "",
+		where:     "",
+		groupBy:   "",
+		DFcore:    dfc,
 
 		rows: nil,
 		row:  nil,
@@ -194,11 +192,6 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 		return nil, ex
 	}
 
-	for _, c := range df.ColumnNames() {
-		cc := df.Column(c).Copy().(*Col)
-		df.sourcColumns = append(df.sourcColumns, cc)
-	}
-
 	return df, nil
 }
 
@@ -213,10 +206,12 @@ func (f *DF) Column(colName string) d.Column {
 		return c
 	}
 
-	for _, c := range f.sourcColumns {
-		if c.Name() == colName {
-			return c
-		}
+	if f.SourceDF() == nil {
+		return nil
+	}
+
+	if c := f.SourceDF().Column(colName); c != nil {
+		return c
 	}
 
 	return nil
@@ -302,6 +297,7 @@ func (f *DF) By(groupBy string, fns ...string) (*DF, error) {
 	if dfOut.DFcore, e = f.KeepColumns(flds...); e != nil {
 		return nil, e
 	}
+	_ = d.DFsetSourceDF(f)(dfOut)
 
 	dfOut.groupBy = groupBy
 
@@ -440,12 +436,11 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 func (f *DF) Copy() d.DF {
 	dfCore := f.Core().Copy()
 	dfNew := &DF{
-		sourceSQL:    f.sourceSQL,
-		orderBy:      f.orderBy,
-		groupBy:      f.groupBy,
-		where:        f.where,
-		DFcore:       dfCore,
-		sourcColumns: f.sourcColumns,
+		sourceSQL: f.sourceSQL,
+		orderBy:   f.orderBy,
+		groupBy:   f.groupBy,
+		where:     f.where,
+		DFcore:    dfCore,
 	}
 	_ = d.DFsetFns(f.Fns())(dfNew)
 
