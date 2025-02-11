@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"strings"
 
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
@@ -131,16 +132,20 @@ func (c *Col) Len() int {
 
 func (c *Col) MakeQuery() string {
 	if c.Parent() == nil {
-		panic("nil Context")
+		panic("nil parent")
 	}
 
 	df := c.Parent().(*DF)
-	if c.Name() != "" && df.Column(c.Name()) != nil {
-		return df.MakeQuery(c.Name())
-	}
+
+	with := c.Dialect().WithName()
+	repl := c.Dialect().WithName()
+	parentSQL := df.MakeQuery()
+	ssql := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", with, parentSQL, repl, with)
 
 	var selectFld string
 	switch {
+	case c.Name() != "" && df.Column(c.Name()) != nil:
+		selectFld = c.Name()
 	case c.Name() != "" && c.SQL() != "":
 		selectFld = fmt.Sprintf("%s AS %s", c.SQL(), c.Name())
 	case c.Name() != "" && c.SQL() == "" && !d.Has(c.Name(), df.ColumnNames()):
@@ -148,8 +153,8 @@ func (c *Col) MakeQuery() string {
 	default:
 		selectFld = c.Name()
 	}
-	q := fmt.Sprintf("WITH aaa AS (%s) SELECT %s FROM aaa", df.MakeQuery(), selectFld)
-	return q
+
+	return strings.ReplaceAll(ssql, repl, selectFld)
 }
 
 func (c *Col) Rename(newName string) error {

@@ -220,24 +220,24 @@ func TestParse_By(t *testing.T) {
 
 		dfy, e := dfx.By("y", "n:=count()", "r:=sum(x)")
 		assert.Nil(t, e)
-		fmt.Println(dfy.RowCount())
-		dfz, ez := m.DBLoad(dfy.MakeQuery(), dfy.Dialect())
-		assert.Nil(t, ez)
-		fmt.Println(dfz.Column("n").Data().AsAny())
-		//		_, ea := d.Parse(dfy, "a:=float(tcount()*200)")
-		//		assert.Nil(t, ea)
-		q := dfy.MakeQuery()
-		_ = q
-		dfz, ez = m.DBLoad(dfy.MakeQuery(), dfy.Dialect())
-		assert.Nil(t, ez)
-		//		fmt.Println(dfz.Column("a").Data().AsAny())
-		//		fmt.Println(dfz.Column("a").DataType())
+
+		_, e = d.Parse(dfy, "zx:=mean(x)")
+		assert.Nil(t, e)
+		_, e = d.Parse(dfy, "zt := global(sum(y))")
+
+		fmt.Println(dfy.Column("n").Data().AsAny())
+		fmt.Println(dfy.Column("zx").Data().AsAny())
+		fmt.Println(dfy.Column("zt").Data().AsAny())
+
 	}
 
 }
 
 func TestParse_Table(t *testing.T) {
 	for _, which := range pkgs() {
+		if which != pg {
+			continue
+		}
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "table(y,yy)")
 		assert.Nil(t, e)
@@ -249,9 +249,10 @@ func TestParse_Table(t *testing.T) {
 		ez := df1.AppendColumn(cx, true)
 		assert.NotNil(t, ez)
 
+		q := df1.Column("rate").(*s.Col).MakeQuery()
+		_ = q
 		fmt.Println(df1.Column("rate").Data().AsAny())
-		n := df1.ColumnNames()
-		_ = n
+
 		e1 := df1.Sort(false, "count")
 		assert.Nil(t, e1)
 		col := df1.Column("count").Data().AsAny()

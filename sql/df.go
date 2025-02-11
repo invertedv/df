@@ -205,6 +205,10 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 // ***************** DF - Methods *****************
 
 func (f *DF) Column(colName string) d.Column {
+	if colName == "" {
+		return nil
+	}
+
 	if c := f.Core().Column(colName); c != nil {
 		return c
 	}
@@ -580,7 +584,19 @@ func (f *DF) String() string {
 }
 
 func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
-	return f.By(strings.Join(cols, ","), "count:=count()", "rate:=float(count)/float(global(count()))")
+	var (
+		dfOut *DF
+		e     error
+	)
+	if dfOut, e = f.By(strings.Join(cols, ","), "count:=count()", "rate:=float(count)/float(global(count()))"); e != nil {
+		return nil, e
+	}
+
+	if e1 := dfOut.Sort(false, "count"); e1 != nil {
+		return nil, e
+	}
+
+	return dfOut, nil
 }
 
 func (f *DF) Where(col d.Column) (d.DF, error) {
