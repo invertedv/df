@@ -334,8 +334,7 @@ func (d *Dialect) Functions() Fmap {
 // Global takes SQL that normally is a scalar return (e.g. count(*), avg(x)) and surrounds it with SQL to return
 // that value for every row of a query
 func (d *Dialect) Global(sourceSQL, colSQL string) string {
-	with := d.WithName()
-	return fmt.Sprintf("(WITH %s AS (%s) SELECT (%s) FROM %s)", with, sourceSQL, colSQL, with)
+	return fmt.Sprintf("(WITH global AS (%s) SELECT (%s) FROM global)", sourceSQL, colSQL)
 }
 
 func (d *Dialect) Insert(tableName, makeQuery, fields string) error {

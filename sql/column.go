@@ -8,8 +8,12 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
+// TODO: do I really need sourceDF??
+
 type Col struct {
-	sql string // SQL to generate this column
+	sql    string // SQL to generate this column
+	global bool   // permanent signal that this column uses a global query
+	gf     bool   // short term signal indicating "global" function surrounds the column
 
 	*d.ColCore
 }
@@ -112,6 +116,10 @@ func (c *Col) Data() *d.Vector {
 
 func (c *Col) SQL() string {
 	if c.sql != "" {
+		if c.global {
+			return c.Dialect().Global(c.Parent().(*DF).SourceSQL(), c.sql)
+		}
+
 		return c.sql
 	}
 
@@ -130,6 +138,7 @@ func (c *Col) Len() int {
 	return n
 }
 
+// MakeQuery creates a stand-alone query that will pull this column
 func (c *Col) MakeQuery() string {
 	if c.Parent() == nil {
 		panic("nil parent")
@@ -138,7 +147,7 @@ func (c *Col) MakeQuery() string {
 	df := c.Parent().(*DF)
 
 	with := c.Dialect().WithName()
-	repl := c.Dialect().WithName()
+	repl := c.Dialect().WithName() // placeholder for the SELECT field
 	parentSQL := df.MakeQuery()
 	ssql := fmt.Sprintf("WITH %s AS (%s) SELECT %s FROM %s", with, parentSQL, repl, with)
 

@@ -494,6 +494,7 @@ func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Name: "global", Inputs: inTypes, Output: outTypes, RT: d.RTcolumn}
 	}
 
+	// if there is a SourceDF, get the data from there.
 	if df.SourceDF() != nil {
 		var col d.Column
 		name := inputs[0].(d.Column).Name()
@@ -504,7 +505,7 @@ func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		return &d.FnReturn{Value: col}
 	}
 
-	return &d.FnReturn{Err: fmt.Errorf("no sourceDF")}
+	return &d.FnReturn{Value: inputs[0]}
 }
 
 // ***************** Categorical Operations *****************

@@ -208,26 +208,38 @@ func TestFileSave(t *testing.T) {
 
 func TestParse_By(t *testing.T) {
 	for _, which := range pkgs() {
-		if which == mem {
+		if which == "a" {
 			continue
 		}
 
-		dfx := loadData(which).(*s.DF)
+		dfx := loadData(which) //.(*s.DF)
 
-		_, e2 := d.Parse(dfx, "a:=mean(x)")
+		_, e2 := d.Parse(dfx, "a:=mean(global(x))")
 		assert.Nil(t, e2)
 		fmt.Println(dfx.Column("a").Data().AsAny())
 
-		dfy, e := dfx.By("y", "n:=count(x)", "r:=sum(x)")
+		dfy, e := dfx.By("y", "n:=count(x)", "r:=sum(global(x))",
+			"zt := sum(y)", "zxx:=sum(global(y))")
+		//		, "zx := float(zxx)/float(zt)",
+		//			"za:=float(sum(global(y)))/float(sum(y))")
 		assert.Nil(t, e)
 
-		_, e = d.Parse(dfy, "zx:=mean(x)")
+		// TODO: implement these for mem:
+		//		_, e = d.Parse(dfy, "zt := sum(y)")
+		//		_, e = d.Parse(dfy, "zxx:=sum(global(y))")
+		//		_, e = d.Parse(dfy, "zx := float(zxx)/float(zt)")
+		//		_, e = d.Parse(dfy, "za:=float(sum(global(y)))/float(sum(y))")
 		assert.Nil(t, e)
-		_, e = d.Parse(dfy, "zt := global(sum(y))")
+		//		q := dfy.MakeQuery()
+		//		fmt.Println(q)
 
 		fmt.Println(dfy.Column("n").Data().AsAny())
-		fmt.Println(dfy.Column("zx").Data().AsAny())
+		fmt.Println(dfy.Column("r").Data().AsAny())
 		fmt.Println(dfy.Column("zt").Data().AsAny())
+		fmt.Println(dfy.Column("zxx").Data().AsAny())
+		//		fmt.Println(dfy.Column("zx").Data().AsAny())
+		//		fmt.Println(dfy.Column("za").Data().AsAny())
+		fmt.Println("------------")
 	}
 }
 

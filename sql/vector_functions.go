@@ -6,6 +6,8 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// TODO: am I using RT values anywhere?
+
 func fnDefs(dlct *d.Dialect) d.Fns {
 	var fns d.Fns
 	for _, v := range dlct.Functions() {
@@ -22,6 +24,8 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 			return &d.FnReturn{Name: name, Inputs: inp, Output: outp, RT: rt}
 		}
 
+		// glb flags if this is a global query, only meaningful if we have a GROUP BY
+		glb := getGlobal(inputs...) && (df.(*DF).GroupBy() != "")
 		sqls := getSQL(df, inputs...)
 		dts := getDataTypes(df, inputs...)
 
@@ -56,6 +60,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 		}
 
 		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut, d.ColReturnType(rt))
+		outCol.global = glb
 
 		_ = d.ColParent(df)(outCol)
 		_ = d.ColDialect(df.Dialect())(outCol)
@@ -68,12 +73,14 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 
 func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTany}}, Output: []d.DataTypes{d.DTany}, RT: d.RTscalar}
+		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTany}}, Output: []d.DataTypes{d.DTany}, RT: d.RTcolumn}
 	}
 
 	sqls := getSQL(df, inputs...)
-	qry := df.Dialect().Global(df.(*DF).SourceSQL(), sqls[0])
-	outCol, _ := NewColSQL(d.DTint, df.Dialect(), qry, d.ColReturnType(d.RTscalar))
+	dts := getDataTypes(df, inputs...)
+	outCol, _ := NewColSQL(dts[0], df.Dialect(), sqls[0], d.ColReturnType(d.RTcolumn), d.ColParent(df))
+	// sends the signal back that this is a global query
+	outCol.gf = true
 
 	return &d.FnReturn{Value: outCol}
 }
@@ -186,6 +193,7 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 // ***************** Helpers *****************
 
+// toCol makes a *Col out of x -- this should always be possible
 func toCol(df d.DF, x any) *Col {
 	if c, ok := x.(*Col); ok {
 		return c
@@ -207,15 +215,24 @@ func toCol(df d.DF, x any) *Col {
 	panic("can't make column")
 }
 
+// getSQL returns either the name of the columns or their SQL
 func getSQL(df d.DF, inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
+		col := toCol(df, inputs[ind])
+		// postgres can't use an alias from the same query.
+		if col.Name() != "" && col.sql == "" {
+			sOut = append(sOut, col.Name())
+			continue
+		}
+
 		sOut = append(sOut, toCol(df, inputs[ind]).SQL())
 	}
 
 	return sOut
 }
 
+// getDataTypes returns the d.DataTypes of the columns
 func getDataTypes(df d.DF, inputs ...any) []d.DataTypes {
 	var sOut []d.DataTypes
 	for ind := 0; ind < len(inputs); ind++ {
@@ -225,43 +242,13 @@ func getDataTypes(df d.DF, inputs ...any) []d.DataTypes {
 	return sOut
 }
 
-func fnGen(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, info bool, df d.DF, inputs ...any) *d.FnReturn {
-	if info {
-		return &d.FnReturn{Name: name, Inputs: inp, Output: outp}
-	}
-
-	sqls := getSQL(df, inputs...)
-	dts := getDataTypes(df, inputs...)
-
-	var sa []any
-	for j := 0; j < len(sqls); j++ {
-		sa = append(sa, sqls[j])
-	}
-
-	sqlOut := fmt.Sprintf(sql, sa...)
-
-	outType := outp[0]
-	// output type
-	for ind := 0; ind < len(inp); ind++ {
-		ok := true
-		for j := 0; j < len(dts); j++ {
-			if dts[j] != inp[ind][j] {
-				ok = false
-				break
-			}
-		}
-
-		if ok {
-			outType = outp[ind]
-			break
+// getGlobal returns true if any of the inputs has a gf signal (gf=used global() function)
+func getGlobal(inputs ...any) bool {
+	for ind := 0; ind < len(inputs); ind++ {
+		if col, ok := inputs[ind].(*Col); ok && col.gf {
+			return col.gf
 		}
 	}
 
-	outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
-
-	_ = d.ColParent(df)(outCol)
-	_ = d.ColDialect(df.Dialect())(outCol)
-
-	fmt.Println(name)
-	return &d.FnReturn{Value: outCol}
+	return false
 }

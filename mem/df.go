@@ -243,7 +243,7 @@ func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 	return ndf, nil
 }
 
-func (f *DF) By(groupBy string, fns ...string) (*DF, error) {
+func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	if groupBy == "" {
 		return nil, fmt.Errorf("must have groupBy in DF.By")
 	}

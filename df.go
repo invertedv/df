@@ -10,6 +10,7 @@ type DF interface {
 	DC
 
 	AppendDF(df DF) (DF, error)
+	By(groupBy string, fns ...string) (DF, error)
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Copy() DF
 	Iter(reset bool) (row []any, err error)

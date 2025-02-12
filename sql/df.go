@@ -281,7 +281,7 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 	return dfOut, nil
 }
 
-func (f *DF) By(groupBy string, fns ...string) (*DF, error) {
+func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	if groupBy == "" {
 		return nil, fmt.Errorf("must have groupBy in DF.By")
 	}
@@ -449,6 +449,10 @@ func (f *DF) DropColumns(colNames ...string) error {
 	return f.Core().DropColumns(colNames...)
 }
 
+func (f *DF) GroupBy() string {
+	return f.groupBy
+}
+
 func (f *DF) Iter(reset bool) (row []any, err error) {
 	if reset {
 		qry := f.MakeQuery()
@@ -575,7 +579,7 @@ func (f *DF) String() string {
 
 func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 	var (
-		dfOut *DF
+		dfOut d.DF
 		e     error
 	)
 
