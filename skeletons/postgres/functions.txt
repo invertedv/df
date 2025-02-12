@@ -26,4 +26,4 @@ int:cast(floor(%s) as integer):{float},{int},{string}:int,int,int:C
 string:cast(%s as text):{float},{int},{string},{date}:string,string,string,string:C
 sum:sum(%s):{int},{float}:int,float:S
 mean:avg(%s):{int},{float}:float,float:S
-count:count(*)::int:S
+count:count(%s):{float},{int},{string},{date},{categorical}:int,int,int,int,int:S

@@ -40,6 +40,7 @@ type DC interface {
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next() Column
 	Plot(plotName string) *Plot
+	SourceDF() *DFcore
 }
 
 // *********** DFcore ***********

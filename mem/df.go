@@ -4,26 +4,36 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	d "github.com/invertedv/df"
 	"hash/fnv"
 	"io"
 	"maps"
 	"sort"
-
-	d "github.com/invertedv/df"
+	"strings"
 )
 
 type DF struct {
 	sourceQuery string
-	by          []*Col
+	orderBy     []*Col
 	ascending   bool
 	row         int
 
 	*d.DFcore
+
+	groupBy groups
+}
+
+type groups map[uint64]*groupVal
+
+type groupVal struct {
+	groupDF *DF
+
+	row []any
 }
 
 func StandardFunctions() d.Fns {
 	// DF returns
-	fns := d.Fns{sortDF, table, where, toCat, applyCat}
+	fns := d.Fns{sortDF, table, where, toCat, applyCat, global}
 	fns = append(fns, vectorFunctions()...)
 
 	return fns
@@ -226,11 +236,112 @@ func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 
 	ndf := &DF{
 		sourceQuery: "",
-		by:          nil,
+		orderBy:     nil,
 		DFcore:      dfCore,
 	}
 
 	return ndf, nil
+}
+
+func (f *DF) By(groupBy string, fns ...string) (*DF, error) {
+	if groupBy == "" {
+		return nil, fmt.Errorf("must have groupBy in DF.By")
+	}
+
+	if fns == nil {
+		return nil, fmt.Errorf("must have at least on function in By")
+	}
+
+	flds := strings.Split(groupBy, ",")
+	var gCol []*Col
+
+	var outVecs []*d.Vector
+	for ind := 0; ind < len(flds); ind++ {
+		var col d.Column
+		cName := strings.ReplaceAll(flds[ind], " ", "")
+		if col = f.Column(cName); col == nil {
+			return nil, fmt.Errorf("missing column %s in By", cName)
+		}
+
+		gCol = append(gCol, col.(*Col))
+		outVecs = append(outVecs, d.MakeVector(col.DataType(), 0))
+	}
+
+	var (
+		grp groups
+		e   error
+	)
+	if grp, e = buildGroups(f, gCol); e != nil {
+		return nil, e
+	}
+
+	var left, right []string
+	for ind := 0; ind < len(fns); ind++ {
+		lr := strings.Split(fns[ind], ":=")
+		left = append(left, strings.ReplaceAll(lr[0], " ", ""))
+		right = append(right, lr[1])
+	}
+
+	for _, v := range grp {
+		for ind := 0; ind < len(fns); ind++ {
+			// create group columns on first pass
+			if ind == 0 {
+				for ind1 := 0; ind1 < len(gCol); ind1++ {
+					if e5 := outVecs[ind1].Append(v.row[ind1]); e5 != nil {
+						return nil, e5
+					}
+				}
+			}
+			var (
+				out *d.Parsed
+				e1  error
+			)
+
+			if out, e1 = d.Parse(v.groupDF, right[ind]); e1 != nil {
+				return nil, e1
+			}
+
+			if out.Column() == nil || out.Column().Len() != 1 {
+				return nil, fmt.Errorf("bad return from %s: must be scalar", fns[ind])
+			}
+
+			if len(outVecs) < len(gCol)+ind+1 {
+				outVecs = append(outVecs, d.MakeVector(out.Column().DataType(), 0))
+			}
+
+			if e2 := outVecs[ind+len(gCol)].Append(out.Column().Data().Element(0)); e2 != nil {
+				return nil, e2
+			}
+		}
+	}
+
+	var cols []*Col
+	names := append(flds, left...)
+	for ind := 0; ind < len(outVecs); ind++ {
+		var (
+			col *Col
+			e3  error
+		)
+
+		if col, e3 = NewCol(outVecs[ind], d.DTany, d.ColName(names[ind])); e3 != nil {
+			return nil, e3
+		}
+
+		cols = append(cols, col)
+	}
+
+	var (
+		outDF *DF
+		e4    error
+	)
+	if outDF, e4 = NewDFcol(f.Fns(), cols); e4 != nil {
+		return nil, e4
+	}
+
+	outDF.groupBy = grp
+	_ = d.DFsetSourceDF(f)(outDF)
+
+	return outDF, nil
 }
 
 func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
@@ -335,7 +446,7 @@ func (f *DF) Copy() d.DF {
 
 	mNew := &DF{
 		sourceQuery: "",
-		by:          nil,
+		orderBy:     nil,
 		ascending:   false,
 		DFcore:      dfC,
 	}
@@ -367,13 +478,13 @@ func (f *DF) Len() int {
 }
 
 func (f *DF) Less(i, j int) bool {
-	for ind := 0; ind < len(f.by); ind++ {
+	for ind := 0; ind < len(f.orderBy); ind++ {
 		var less bool
 		if f.ascending {
-			less = f.by[ind].Less(i, j)
+			less = f.orderBy[ind].Less(i, j)
 
 		} else {
-			less = f.by[ind].Less(j, i)
+			less = f.orderBy[ind].Less(j, i)
 		}
 
 		// if greater, it's false
@@ -382,7 +493,7 @@ func (f *DF) Less(i, j int) bool {
 		}
 
 		// if < (rather than <=) it's true
-		if f.by[ind].Less(i, j) && !f.by[ind].Less(j, i) {
+		if f.orderBy[ind].Less(i, j) && !f.orderBy[ind].Less(j, i) {
 			return true
 		}
 
@@ -422,7 +533,7 @@ func (f *DF) Sort(ascending bool, cols ...string) error {
 		by = append(by, x.(*Col))
 	}
 
-	f.by = by
+	f.orderBy = by
 	f.ascending = ascending
 	sort.Sort(f)
 
@@ -661,3 +772,141 @@ func checkType(cols ...d.Column) error {
 
 	return nil
 }
+
+// ****************************************************************************
+
+func buildGroups(df *DF, gbCol []*Col) (groups, error) {
+	type entry struct {
+		count int
+		cols  []*d.Vector
+		row   []any
+	}
+
+	cn := df.ColumnNames()
+	ct, _ := df.ColumnTypes()
+
+	var inVecs []*d.Vector
+	for ind := 0; ind < len(cn); ind++ {
+		inVecs = append(inVecs, df.Column(cn[ind]).Data())
+	}
+
+	type oneD map[any]int64
+
+	// the levels of each column in the table are stored in mps which maps the native value to int64
+	// the byte representation of the int64 are concatenated and fed to the hash function
+	var mps []oneD
+
+	// nextIndx is the next index value to use for each column
+	nextIndx := make([]int64, len(gbCol))
+	for ind := 0; ind < len(gbCol); ind++ {
+		mps = append(mps, make(oneD))
+	}
+
+	// tabMap is the map represenation of the table. The key is the hash value.
+	tabMap := make(map[uint64]*entry)
+
+	// buf is the 8 byte representation of the index number for a level of a column
+	buf := new(bytes.Buffer)
+	// h will be the hash of the bytes of the index numbers for each level of the table columns
+	h := fnv.New64()
+
+	// scan the rows to build the table
+	for rowNum := 0; rowNum < gbCol[0].Len(); rowNum++ {
+		// str is the byte array that is hashed, its length is 8 times the # of columns
+		var str []byte
+
+		// rowVal holds the values of the columns for that row of the table
+		var rowVal []any
+		for c := 0; c < len(gbCol); c++ {
+			val := gbCol[c].Element(rowNum)
+			rowVal = append(rowVal, val)
+			var (
+				cx int64
+				ok bool
+			)
+
+			if cx, ok = mps[c][val]; !ok {
+				mps[c][val] = nextIndx[c]
+				cx = nextIndx[c]
+				nextIndx[c]++
+			}
+
+			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
+				panic(e)
+			}
+
+			str = append(str, buf.Bytes()...)
+			buf.Reset()
+		}
+
+		_, _ = h.Write(str)
+
+		// increment the counter if that row is already mapped, o.w. add a new row
+		// TODO: HERE, either append rows or make new entry
+		entryx := h.Sum64()
+		if _, ok := tabMap[entryx]; !ok {
+			var vecs []*d.Vector
+			for ind := 0; ind < len(cn); ind++ {
+				vecs = append(vecs, d.MakeVector(ct[ind], 0))
+			}
+
+			tabMap[entryx] = &entry{
+				count: 0,
+				cols:  vecs,
+				row:   rowVal,
+			}
+		}
+
+		v := tabMap[entryx]
+		for ind := 0; ind < len(cn); ind++ {
+			if e := v.cols[ind].Append(inVecs[ind].Element(rowNum)); e != nil {
+				return nil, e
+			}
+		}
+
+		h.Reset()
+	}
+
+	var outVecs []*d.Vector
+	for c := 0; c < len(gbCol); c++ {
+		outVecs = append(outVecs, d.MakeVector(gbCol[c].DataType(), 0))
+	}
+
+	grp := make(groups)
+	for k, v := range tabMap {
+		var cols []*Col
+		for ind := 0; ind < len(cn); ind++ {
+			var (
+				col *Col
+				e1  error
+			)
+			if col, e1 = NewCol(v.cols[ind], ct[ind], d.ColName(cn[ind])); e1 != nil {
+				return nil, e1
+			}
+
+			cols = append(cols, col)
+		}
+
+		var (
+			dfg *DF
+			e2  error
+		)
+		if dfg, e2 = NewDFcol(nil, cols); e2 != nil {
+			return nil, e2
+		}
+
+		//TODO: create a "global" function that uses this DF but must return a scalar
+		_ = d.DFsetSourceDF(df)(dfg)
+
+		grp[k] = &groupVal{
+			groupDF: dfg,
+			row:     v.row,
+		}
+	}
+
+	return grp, nil
+}
+
+//TODO: do I want to make the parent columns available or not?
+//TODO: if I do, then need to make Parse a method.
+//TODO: for SQL should copy the dataframe for sourceDF

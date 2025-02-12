@@ -13,6 +13,8 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
+// TODO: move sourceDF out of DFCore and make it so it copies the source DF so no changes work through
+
 func StandardFunctions(dlct *d.Dialect) d.Fns {
 	fns := d.Fns{applyCat,
 		global,
@@ -576,7 +578,10 @@ func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
 		dfOut *DF
 		e     error
 	)
-	if dfOut, e = f.By(strings.Join(cols, ","), "count:=count()", "rate:=float(count)/float(global(count()))"); e != nil {
+
+	fn1 := fmt.Sprintf("count:=count(%s)", cols[0])
+	fn2 := fmt.Sprintf("rate:=float(count)/float(global(count(%s)))", cols[0])
+	if dfOut, e = f.By(strings.Join(cols, ","), fn1, fn2); e != nil {
 		return nil, e
 	}
 

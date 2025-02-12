@@ -218,7 +218,7 @@ func TestParse_By(t *testing.T) {
 		assert.Nil(t, e2)
 		fmt.Println(dfx.Column("a").Data().AsAny())
 
-		dfy, e := dfx.By("y", "n:=count()", "r:=sum(x)")
+		dfy, e := dfx.By("y", "n:=count(x)", "r:=sum(x)")
 		assert.Nil(t, e)
 
 		_, e = d.Parse(dfy, "zx:=mean(x)")

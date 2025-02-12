@@ -70,6 +70,30 @@ func inter(c d.Column) []int {
 	return x
 }
 
+func TestBy(t *testing.T) {
+	dfx := testDF()
+
+	outDF, e1 := dfx.By("z", "n:=count(x)", "avgx:=mean(global(yy))")
+	assert.Nil(t, e1)
+	fmt.Println(outDF.RowCount())
+	fmt.Println(outDF.ColumnNames())
+	fmt.Println(outDF.Column("n").Data().AsAny())
+	fmt.Println(outDF.Column("avgx").Data().AsAny())
+
+	/*	c1 := dfx.Column("y").(*Col)
+		grp, e := buildGroups(dfx, []*Col{c1})
+		assert.Nil(t, e)
+		k := 0
+		for _, v := range grp {
+			k++
+			fmt.Println("k: ", k)
+			out, e := d.Parse(v.groupDF, "count(x)")
+			assert.Nil(t, e)
+			fmt.Println(out.Column().Data().AsAny())
+		}
+		_ = grp*/
+}
+
 func TestRowNumber(t *testing.T) {
 	n := 100 //000000
 	x1 := make([]float64, n)

@@ -6,6 +6,7 @@ divide:github.com/invertedv/df/mem.divideFn[...]:{int,int},{float,float}:int,flo
 
 elem:github.com/invertedv/df/mem.elemFn[...]:{float,int},{int,int},{string,int},{date,int}:float,int,string,date:S
 mean:github.com/invertedv/df/mem.meanFn[...]:{float},{int}:float,float:S
+count:github.com/invertedv/df/mem.countFn[...]:{float},{int},{string},{date},{categorical}:int,int,int,int,int:S
 sum:github.com/invertedv/df/mem.sumFn[...]:{float},{int}:float,int:S
 isInf:github.com/invertedv/df/mem.isInfFn:{float}:int:C
 isNaN:github.com/invertedv/df/mem.isNaNfn:{float}:int:C

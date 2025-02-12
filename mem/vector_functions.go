@@ -76,6 +76,7 @@ func rawFuncs() []any {
 		uqFn[float64], uqFn[int],
 		meanFn[float64], meanFn[int],
 		sumFn[float64], sumFn[int],
+		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
 		plotFn, plotTitleFn,
 		printFn[float64], printFn[int], printFn[string], printFn[time.Time],
 	}
@@ -482,6 +483,30 @@ func meanFn[T float64 | int](x []T) (float64, error) {
 	return 0, fmt.Errorf("error in mean")
 }
 
+func countFn[T frameTypes](x []T) int {
+	return len(x)
+}
+
+func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
+	if info {
+		inTypes := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}, {d.DTcategorical}}
+		outTypes := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate, d.DTcategorical}
+		return &d.FnReturn{Name: "global", Inputs: inTypes, Output: outTypes, RT: d.RTcolumn}
+	}
+
+	if df.SourceDF() != nil {
+		var col d.Column
+		name := inputs[0].(d.Column).Name()
+		if col = df.SourceDF().Column(name); col == nil {
+			return &d.FnReturn{Err: fmt.Errorf("no such column in sourceDF: %s", name)}
+		}
+
+		return &d.FnReturn{Value: col}
+	}
+
+	return &d.FnReturn{Err: fmt.Errorf("no sourceDF")}
+}
+
 // ***************** Categorical Operations *****************
 
 func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
@@ -579,9 +604,15 @@ func increment(len1 int) int {
 }
 
 func dofn0[T frameTypes | any](out []T, fn any) error {
-	fnx := fn.(func(int) T)
-	for ind := 0; ind < len(out); ind++ {
-		out[ind] = fnx(ind)
+	switch fnx := fn.(type) {
+	case func(int) T:
+		for ind := 0; ind < len(out); ind++ {
+			out[ind] = fnx(ind)
+		}
+	case func() T:
+		out[0] = fnx()
+	default:
+		return fmt.Errorf("unsupported function signature in  dofn0")
 	}
 
 	return nil
