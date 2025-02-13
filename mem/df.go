@@ -617,11 +617,11 @@ func checkType(cols ...d.Column) error {
 
 // ****************************************************************************
 
+// buildGroups creates a groups map by grouping df along the columns gbCol
 func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	type entry struct {
-		count int
-		cols  []*d.Vector
-		row   []any
+		cols []*d.Vector
+		row  []any
 	}
 
 	cn := df.ColumnNames()
@@ -659,6 +659,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 
 		// rowVal holds the values of the columns for that row of the table
 		var rowVal []any
+		// build hash value from the values of the grouping columns
 		for c := 0; c < len(gbCol); c++ {
 			val := gbCol[c].Element(rowNum)
 			rowVal = append(rowVal, val)
@@ -673,19 +674,22 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 				nextIndx[c]++
 			}
 
+			// write the binary value of the index (cx) to the buffer
 			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
 				panic(e)
 			}
 
+			// append the binary value to the byte array
 			str = append(str, buf.Bytes()...)
 			buf.Reset()
 		}
 
+		// write the byte array to the fnv hash
 		_, _ = h.Write(str)
 
-		// increment the counter if that row is already mapped, o.w. add a new row
-		// TODO: HERE, either append rows or make new entry
+		// retrieve the hash value:
 		entryx := h.Sum64()
+		// need a new entry?
 		if _, ok := tabMap[entryx]; !ok {
 			var vecs []*d.Vector
 			for ind := 0; ind < len(cn); ind++ {
@@ -693,12 +697,12 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 			}
 
 			tabMap[entryx] = &entry{
-				count: 0,
-				cols:  vecs,
-				row:   rowVal,
+				cols: vecs,
+				row:  rowVal,
 			}
 		}
 
+		// put the data in the entry
 		v := tabMap[entryx]
 		for ind := 0; ind < len(cn); ind++ {
 			if e := v.cols[ind].Append(inVecs[ind].Element(rowNum)); e != nil {
@@ -707,11 +711,6 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 		}
 
 		h.Reset()
-	}
-
-	var outVecs []*d.Vector
-	for c := 0; c < len(gbCol); c++ {
-		outVecs = append(outVecs, d.MakeVector(gbCol[c].DataType(), 0))
 	}
 
 	grp := make(groups)
@@ -737,7 +736,6 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 			return nil, e2
 		}
 
-		//TODO: create a "global" function that uses this DF but must return a scalar
 		_ = d.DFsetSourceDF(df)(dfg)
 
 		grp[k] = &groupVal{
