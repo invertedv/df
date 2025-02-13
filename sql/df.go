@@ -349,8 +349,12 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		tabl d.DF
 		e4   error
 	)
-	if tabl, e4 = f.Table(true, cn); e4 != nil {
+	if tabl, e4 = f.Table(cn); e4 != nil {
 		return nil, e4
+	}
+
+	if e5 := tabl.Sort(true, cn); e5 != nil {
+		return nil, e5
 	}
 
 	x := tabl.(*DF).MakeQuery()
@@ -577,14 +581,14 @@ func (f *DF) String() string {
 	return sx
 }
 
-func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
+func (f *DF) Table(cols ...string) (d.DF, error) {
 	var (
 		dfOut d.DF
 		e     error
 	)
 
 	fn1 := fmt.Sprintf("count:=count(%s)", cols[0])
-	fn2 := fmt.Sprintf("rate:=float(count)/float(global(count(%s)))", cols[0])
+	fn2 := fmt.Sprintf("rate:=float(count)/float(count(global(%s)))", cols[0])
 	if dfOut, e = f.By(strings.Join(cols, ","), fn1, fn2); e != nil {
 		return nil, e
 	}

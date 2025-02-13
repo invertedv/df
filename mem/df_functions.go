@@ -59,7 +59,7 @@ func table(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		outDF d.DF
 		ex    error
 	)
-	if outDF, ex = df.Table(false, colNames...); ex != nil {
+	if outDF, ex = df.Table(colNames...); ex != nil {
 		return &d.FnReturn{Err: ex}
 	}
 

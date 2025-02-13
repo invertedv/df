@@ -46,7 +46,7 @@ func table(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		names = append(names, inputs[ind].(*Col).Name())
 	}
 
-	if outDF, e = df.(*DF).Table(false, names...); e != nil {
+	if outDF, e = df.(*DF).Table(names...); e != nil {
 		return &d.FnReturn{Err: e}
 	}
 

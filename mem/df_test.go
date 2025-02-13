@@ -612,7 +612,7 @@ func TestMemDF_Table(t *testing.T) {
 	assert.Nil(t, e)
 
 	var tab d.DF
-	tab, e = dfx.Table(false, "x", "y")
+	tab, e = dfx.Table("x", "y")
 	assert.Nil(t, e)
 	cNames := tab.ColumnNames()
 	for ind := 0; ind < len(cNames); ind++ {

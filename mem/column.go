@@ -105,9 +105,16 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		tabx := makeTable(c)
-		tab, _ := NewDFcol(nil, tabx)
-		_ = tab.Sort(false, "count")
+		//		tabx := makeTable(c)
+		//		tab, _ := NewDFcol(nil, tabx)
+		var (
+			tab d.DF
+			e   error
+		)
+		if tab, e = c.Parent().Table(c.Name()); e != nil {
+			panic(e)
+		}
+		//		_ = tab.Sort(false, "count")
 		l := tab.Column(c.Name())
 		cx := tab.Column("count")
 

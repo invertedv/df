@@ -275,11 +275,10 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		return nil, e
 	}
 
-	var left, right []string
+	var left []string
 	for ind := 0; ind < len(fns); ind++ {
 		lr := strings.Split(fns[ind], ":=")
 		left = append(left, strings.ReplaceAll(lr[0], " ", ""))
-		right = append(right, lr[1])
 	}
 
 	for _, v := range grp {
@@ -292,24 +291,19 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 					}
 				}
 			}
-			var (
-				out *d.Parsed
-				e1  error
-			)
+			var e1 error
 
-			if out, e1 = d.Parse(v.groupDF, right[ind]); e1 != nil {
+			if _, e1 = d.Parse(v.groupDF, fns[ind]); e1 != nil {
 				return nil, e1
 			}
 
-			if out.Column() == nil || out.Column().Len() != 1 {
-				return nil, fmt.Errorf("bad return from %s: must be scalar", fns[ind])
-			}
+			col := v.groupDF.Column(left[ind])
 
 			if len(outVecs) < len(gCol)+ind+1 {
-				outVecs = append(outVecs, d.MakeVector(out.Column().DataType(), 0))
+				outVecs = append(outVecs, d.MakeVector(col.DataType(), 0))
 			}
 
-			if e2 := outVecs[ind+len(gCol)].Append(out.Column().Data().Element(0)); e2 != nil {
+			if e2 := outVecs[ind+len(gCol)].Append(col.Data().Element(0)); e2 != nil {
 				return nil, e2
 			}
 		}
@@ -358,8 +352,12 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		tab d.DF
 		e2  error
 	)
-	if tab, e2 = f.Table(true, colName); e2 != nil {
+	if tab, e2 = f.Table(colName); e2 != nil {
 		return nil, e2
+	}
+
+	if e3 := tab.Sort(true, colName); e3 != nil {
+		return nil, e3
 	}
 
 	// check incoming map is of the correct types
@@ -559,63 +557,23 @@ func (f *DF) Swap(i, j int) {
 	}
 }
 
-func (f *DF) Table(sortByRows bool, cols ...string) (d.DF, error) {
-	var mCols, outCols []*Col
-	for ind := 0; ind < len(cols); ind++ {
-		var c d.Column
-		if c = f.Column(cols[ind]); c == nil {
-			return nil, fmt.Errorf("column %s not found", cols[ind])
-		}
-
-		if c.DataType() == d.DTfloat {
-			return nil, fmt.Errorf("cannot make table with type float")
-		}
-
-		mCols = append(mCols, c.(*Col))
-	}
-
-	outCols = makeTable(mCols...)
-
+func (f *DF) Table(cols ...string) (d.DF, error) {
 	var (
-		outDF d.DF
+		dfOut d.DF
 		e     error
 	)
 
-	if outDF, e = NewDFcol(f.Fns(), outCols); e != nil {
+	fn1 := fmt.Sprintf("count:=count(%s)", cols[0])
+	fn2 := fmt.Sprintf("rate:=float(count)/float(count(global(%s)))", cols[0])
+	if dfOut, e = f.By(strings.Join(cols, ","), fn1, fn2); e != nil {
 		return nil, e
 	}
 
-	sortBy := []string{"count"}
-	ascending := false
-	if sortByRows {
-		sortBy = cols
-		ascending = true
+	if e1 := dfOut.Sort(false, "count"); e1 != nil {
+		return nil, e
 	}
 
-	if ex := outDF.Sort(ascending, sortBy...); ex != nil {
-		return nil, ex
-	}
-
-	// add rate to the table
-	expr := "float(count) / float(sum(count))"
-	var (
-		rate d.Column
-		ret  *d.Parsed
-		ex   error
-	)
-
-	if ret, ex = d.Parse(outDF, expr); ex != nil || ret.Which() != d.RTcolumn {
-		return nil, ex
-	}
-
-	rate = ret.Value().(d.Column)
-	_ = d.ColName("rate")(rate)
-
-	if ex1 := outDF.AppendColumn(rate, false); ex1 != nil {
-		return nil, ex1
-	}
-
-	return outDF, nil
+	return dfOut, nil
 }
 
 func (f *DF) Where(indicator d.Column) (d.DF, error) {
@@ -646,122 +604,6 @@ func (f *DF) Where(indicator d.Column) (d.DF, error) {
 }
 
 // ***************** Helpers *****************
-
-func makeTable(cols ...*Col) []*Col {
-	type oneD map[any]int64
-	type entry struct {
-		count int
-		row   []any
-	}
-
-	// the levels of each column in the table are stored in mps which maps the native value to int64
-	// the byte representation of the int64 are concatenated and fed to the hash function
-	var mps []oneD
-
-	// nextIndx is the next index value to use for each column
-	nextIndx := make([]int64, len(cols))
-	for ind := 0; ind < len(cols); ind++ {
-		mps = append(mps, make(oneD))
-	}
-
-	// tabMap is the map represenation of the table. The key is the hash value.
-	tabMap := make(map[uint64]*entry)
-
-	// buf is the 8 byte representation of the index number for a level of a column
-	buf := new(bytes.Buffer)
-	// h will be the hash of the bytes of the index numbers for each level of the table columns
-	h := fnv.New64()
-
-	// scan the rows to build the table
-	for rowNum := 0; rowNum < cols[0].Len(); rowNum++ {
-		// str is the byte array that is hashed, its length is 8 times the # of columns
-		var str []byte
-
-		// rowVal holds the values of the columns for that row of the table
-		var rowVal []any
-		for c := 0; c < len(cols); c++ {
-			val := cols[c].Element(rowNum)
-			rowVal = append(rowVal, val)
-			var (
-				cx int64
-				ok bool
-			)
-
-			if cx, ok = mps[c][val]; !ok {
-				mps[c][val] = nextIndx[c]
-				cx = nextIndx[c]
-				nextIndx[c]++
-			}
-
-			if e := binary.Write(buf, binary.LittleEndian, cx); e != nil {
-				panic(e)
-			}
-
-			str = append(str, buf.Bytes()...)
-			buf.Reset()
-		}
-
-		_, _ = h.Write(str)
-
-		// increment the counter if that row is already mapped, o.w. add a new row
-		if v, ok := tabMap[h.Sum64()]; ok {
-			v.count++
-		} else {
-			tabMap[h.Sum64()] = &entry{
-				count: 1,
-				row:   rowVal,
-			}
-		}
-
-		h.Reset()
-	}
-
-	var outVecs []*d.Vector
-	for c := 0; c < len(cols); c++ {
-		outVecs = append(outVecs, d.MakeVector(cols[c].DataType(), 0))
-	}
-
-	// counts
-	outVecs = append(outVecs, d.MakeVector(d.DTint, 0))
-
-	for _, v := range tabMap {
-		for c := 0; c < len(cols); c++ {
-			_ = outVecs[c].Append(v.row[c])
-		}
-
-		_ = outVecs[len(outVecs)-1].Append(v.count)
-	}
-
-	var (
-		outCols []*Col
-	)
-
-	ok := true
-	for c := 0; c <= len(cols); c++ {
-		var (
-			col *Col
-			e   error
-		)
-		name := "count"
-		// is count a name of one of the columns?
-		if !ok {
-			name = "cOuNt"
-		}
-		if c < len(cols) {
-			if name = cols[c].Name(); name == "count" {
-				ok = false
-			}
-		}
-
-		if col, e = NewCol(outVecs[c], outVecs[c].VectorType(), d.ColName(name)); e != nil {
-			panic(e)
-		}
-
-		outCols = append(outCols, col)
-	}
-
-	return outCols
-}
 
 func checkType(cols ...d.Column) error {
 	for _, c := range cols {

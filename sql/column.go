@@ -246,7 +246,7 @@ func (c *Col) String() string {
 
 	if c.DataType() != d.DTfloat {
 		df, _ := NewDFcol(nil, c.Dialect(), c.Parent().MakeQuery(), c)
-		tab, _ := df.Table(false, c.Name())
+		tab, _ := df.Table(c.Name())
 
 		var (
 			vals *m.DF

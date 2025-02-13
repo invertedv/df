@@ -19,7 +19,7 @@ type DF interface {
 	SetParent() error
 	Sort(ascending bool, keys ...string) error
 	String() string
-	Table(sortByRows bool, cols ...string) (DF, error)
+	Table(cols ...string) (DF, error)
 	Where(indicator Column) (DF, error)
 }
 

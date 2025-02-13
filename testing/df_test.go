@@ -2,7 +2,6 @@ package testing
 
 import (
 	"fmt"
-	s "github.com/invertedv/df/sql"
 	"os"
 	"testing"
 
@@ -208,11 +207,7 @@ func TestFileSave(t *testing.T) {
 
 func TestParse_By(t *testing.T) {
 	for _, which := range pkgs() {
-		if which == "a" {
-			continue
-		}
-
-		dfx := loadData(which) //.(*s.DF)
+		dfx := loadData(which)
 
 		_, e2 := d.Parse(dfx, "a:=mean(global(x))")
 		assert.Nil(t, e2)
@@ -245,9 +240,6 @@ func TestParse_By(t *testing.T) {
 
 func TestParse_Table(t *testing.T) {
 	for _, which := range pkgs() {
-		if which != pg {
-			continue
-		}
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "table(y,yy)")
 		assert.Nil(t, e)
@@ -259,8 +251,6 @@ func TestParse_Table(t *testing.T) {
 		ez := df1.AppendColumn(cx, true)
 		assert.NotNil(t, ez)
 
-		q := df1.Column("rate").(*s.Col).MakeQuery()
-		_ = q
 		fmt.Println(df1.Column("rate").Data().AsAny())
 
 		e1 := df1.Sort(false, "count")

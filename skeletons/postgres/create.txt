@@ -4,7 +4,7 @@ CREATE TABLE ?TableName
 )
 TABLESPACE ?TableSpace;
 
-ALTER TABLE IF EXISTS public.d1
+ALTER TABLE IF EXISTS ?TableName
     OWNER to ?Owner;
 
 CREATE INDEX IF NOT EXISTS ?IndexName

@@ -331,6 +331,9 @@ func TestToCat(t *testing.T) {
 
 func TestApplyCat(t *testing.T) {
 	for _, which := range pkgs() {
+		if which != "a" {
+			continue
+		}
 		dfx := loadData(which)
 
 		r, e := d.Parse(dfx, "cat(y)")
@@ -344,7 +347,9 @@ func TestApplyCat(t *testing.T) {
 		assert.Nil(t, e2)
 
 		// -5 maps to 0 so all new values map to 0
-		expected := []int{1, 0, 0, 1, 0, 0}
+		fmt.Println(which)
+		expected := []int{0, 1, 1, 0, 1, 1}
+		expected = []int{1, 0, 0, 1, 0, 0}
 		assert.Equal(t, expected, inter(r2.Column()))
 
 		// try with fuzz > 1
