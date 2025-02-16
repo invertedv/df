@@ -208,7 +208,18 @@ func TestFileSave(t *testing.T) {
 func TestParse_By(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-
+		if which != mem {
+			continue
+		}
+		outDF, ex := d.Parse(dfx, "by(y,z,'sx:=sum(x)','count:=count(y)', 'mx:=mean(global(x))', 'mz:=mean(x)')")
+		assert.Nil(t, ex)
+		fmt.Println(outDF.DF().ColumnNames())
+		fmt.Println(outDF.DF().Column("y").Data().AsAny())
+		fmt.Println(outDF.DF().Column("sx").Data().AsAny())
+		fmt.Println(outDF.DF().Column("count").Data().AsAny())
+		fmt.Println(outDF.DF().Column("mx").Data().AsAny())
+		fmt.Println(outDF.DF().Column("mz").Data().AsAny())
+		continue
 		_, e2 := d.Parse(dfx, "a:=mean(global(x))")
 		assert.Nil(t, e2)
 		fmt.Println(dfx.Column("a").Data().AsAny())

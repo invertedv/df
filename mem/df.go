@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	d "github.com/invertedv/df"
 	"hash/fnv"
 	"io"
 	"maps"
 	"sort"
 	"strings"
+
+	d "github.com/invertedv/df"
 )
 
 type DF struct {
@@ -20,20 +21,20 @@ type DF struct {
 
 	*d.DFcore
 
-	groupBy groups
+	//	groupBy groups
 }
 
 type groups map[uint64]*groupVal
 
 type groupVal struct {
-	groupDF *DF
+	groupDF *DF // slice of original DF corresponding to this group
 
-	row []any
+	row []any // values of the grouping fields
 }
 
 func StandardFunctions() d.Fns {
 	// DF returns
-	fns := d.Fns{sortDF, table, where, toCat, applyCat, global}
+	fns := d.Fns{sortDF, table, where, toCat, applyCat, global, by}
 	fns = append(fns, vectorFunctions()...)
 
 	return fns
@@ -332,7 +333,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		return nil, e4
 	}
 
-	outDF.groupBy = grp
+	//	outDF.groupBy = grp
 	_ = d.DFsetSourceDF(f)(outDF)
 
 	return outDF, nil
@@ -750,3 +751,5 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 //TODO: do I want to make the parent columns available or not?
 //TODO: if I do, then need to make Parse a method.
 //TODO: for SQL should copy the dataframe for sourceDF
+
+// TODO: add "by" function to Parse

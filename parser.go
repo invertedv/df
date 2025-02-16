@@ -1,6 +1,7 @@
 package df
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 )
@@ -57,7 +58,7 @@ func Parse(df DF, expr string) (*Parsed, error) {
 	var left string
 	right := expr
 
-	if indx := strings.Index(expr, ":="); indx > 0 {
+	if indx := smartFind(expr, ":=", "'"); indx > 0 {
 		left = expr[:indx]
 		right = expr[indx+2:]
 		left = strings.ReplaceAll(left, " ", "")
@@ -651,4 +652,22 @@ func nodupAppend(x []string, xadd ...string) []string {
 	}
 
 	return x
+}
+
+// smartFind looks for sub in s outside of characters in single quotes
+func smartFind(s, sub, escape string) int {
+	inQ := false
+	pattern := make([]byte, len(s))
+	// only fill in the characters outside of the escape string
+	for ind := 0; ind < len(s); ind++ {
+		if s[ind:ind+1] == escape {
+			inQ = !inQ
+		}
+
+		if !inQ {
+			pattern[ind] = s[ind]
+		}
+	}
+
+	return bytes.Index(pattern, []byte(sub))
 }
