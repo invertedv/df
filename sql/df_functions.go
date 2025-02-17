@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"fmt"
 	"strings"
 
 	d "github.com/invertedv/df"
@@ -10,11 +11,45 @@ import (
 
 func by(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "by", Inputs: [][]d.DataTypes{{d.DTstring}},
-			Output: []d.DataTypes{d.DTnil}, Varying: true}
+		return &d.FnReturn{Name: "by", Inputs: [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}},
+			Output: []d.DataTypes{d.DTdf, d.DTdf, d.DTdf}, Varying: true}
 	}
 
-	return nil
+	var (
+		gb   []string
+		eqns []string
+	)
+	onCols := true
+	for ind := 0; ind < len(inputs); ind++ {
+		if sc, ok := inputs[ind].(*d.Scalar); ok {
+			onCols = false
+			var (
+				eqn *string
+				e   error
+			)
+			if eqn, e = sc.Data().ElementString(0); e != nil {
+				return &d.FnReturn{Err: e}
+			}
+			eqns = append(eqns, *eqn)
+		} else {
+			if !onCols {
+				return &d.FnReturn{Err: fmt.Errorf("parameters out of order in By")}
+			}
+			gb = append(gb, inputs[ind].(*Col).Name())
+		}
+	}
+
+	var (
+		outDF d.DF
+		ex    error
+	)
+	if outDF, ex = df.By(strings.Join(gb, ","), eqns...); ex != nil {
+		return &d.FnReturn{Err: ex}
+	}
+
+	ret := &d.FnReturn{Value: outDF}
+
+	return ret
 }
 
 func where(info bool, df d.DF, inputs ...any) *d.FnReturn {

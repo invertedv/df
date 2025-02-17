@@ -3,6 +3,7 @@ package testing
 import (
 	"fmt"
 	"os"
+	"sort"
 	"testing"
 
 	d "github.com/invertedv/df"
@@ -208,44 +209,16 @@ func TestFileSave(t *testing.T) {
 func TestParse_By(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		if which != mem {
-			continue
-		}
-		outDF, ex := d.Parse(dfx, "by(y,z,'sx:=sum(x)','count:=count(y)', 'mx:=mean(global(x))', 'mz:=mean(x)')")
-		assert.Nil(t, ex)
-		fmt.Println(outDF.DF().ColumnNames())
-		fmt.Println(outDF.DF().Column("y").Data().AsAny())
-		fmt.Println(outDF.DF().Column("sx").Data().AsAny())
-		fmt.Println(outDF.DF().Column("count").Data().AsAny())
-		fmt.Println(outDF.DF().Column("mx").Data().AsAny())
-		fmt.Println(outDF.DF().Column("mz").Data().AsAny())
-		continue
-		_, e2 := d.Parse(dfx, "a:=mean(global(x))")
-		assert.Nil(t, e2)
-		fmt.Println(dfx.Column("a").Data().AsAny())
-
-		dfy, e := dfx.By("y", "n:=count(x)", "r:=sum(global(x))",
-			"zt := sum(y)", "zxx:=sum(global(y))")
-		//		, "zx := float(zxx)/float(zt)",
-		//			"za:=float(sum(global(y)))/float(sum(y))")
-		assert.Nil(t, e)
-
-		// TODO: implement these for mem:
-		//		_, e = d.Parse(dfy, "zt := sum(y)")
-		//		_, e = d.Parse(dfy, "zxx:=sum(global(y))")
-		//		_, e = d.Parse(dfy, "zx := float(zxx)/float(zt)")
-		//		_, e = d.Parse(dfy, "za:=float(sum(global(y)))/float(sum(y))")
-		assert.Nil(t, e)
-		//		q := dfy.MakeQuery()
-		//		fmt.Println(q)
-
-		fmt.Println(dfy.Column("n").Data().AsAny())
-		fmt.Println(dfy.Column("r").Data().AsAny())
-		fmt.Println(dfy.Column("zt").Data().AsAny())
-		fmt.Println(dfy.Column("zxx").Data().AsAny())
-		//		fmt.Println(dfy.Column("zx").Data().AsAny())
-		//		fmt.Println(dfy.Column("za").Data().AsAny())
-		fmt.Println("------------")
+		outDF, e0 := d.Parse(dfx, "by(y,'sx:=sum(x)','count:=count(y)', 'mx:=mean(global(x))', 'mz:=mean(x)')")
+		assert.Nil(t, e0)
+		df := outDF.DF()
+		e1 := df.Sort(false, "count")
+		assert.Nil(t, e1)
+		assert.Equal(t, []int{2, 1, 1, 1, 1}, df.Column("count").Data().AsAny())
+		assert.Equal(t, []float64{1.25, 1.25, 1.25, 1.25, 1.25}, df.Column("mx").Data().AsAny())
+		col, _ := df.Column("sx").Data().AsFloat()
+		sort.Float64s(col)
+		assert.Equal(t, []float64{-2, 1, 2, 3, 3.5}, col)
 	}
 }
 
@@ -257,8 +230,7 @@ func TestParse_Table(t *testing.T) {
 		df1 := out.DF()
 
 		cx := dfx.Column("x")
-		//		_ = d.ColParent(nil)(cx)
-		d.ColName("xx")(cx)
+		_ = d.ColName("xx")(cx)
 		ez := df1.AppendColumn(cx, true)
 		assert.NotNil(t, ez)
 
