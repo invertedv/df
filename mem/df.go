@@ -186,92 +186,6 @@ func FileLoad(f *d.Files) (*DF, error) {
 
 // ***************** Methods *****************
 
-func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
-	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
-	if e := f.Sort(true, jCols...); e != nil {
-		return nil, e
-	}
-
-	if e := df.Sort(true, jCols...); e != nil {
-		return nil, e
-	}
-
-	leftNames := f.ColumnNames()
-	rightNames := df.ColumnNames()
-	outCols := doCols(nil, f, nil, nil)
-	outCols = doCols(outCols, df, jCols, leftNames)
-
-	// location of the join fields in both dataframes
-	var colsLeft, colsRight []int
-	for ind := 0; ind < len(jCols); ind++ {
-		colsLeft = append(colsLeft, d.Position(jCols[ind], leftNames))
-		colsRight = append(colsRight, d.Position(jCols[ind], rightNames))
-	}
-
-	// pull first rows from both
-	leftRow, eof := f.Iter(true)
-	rightRow, _ := df.Iter(true)
-
-	// subset the rows to the values we're joining on
-	leftJoin := subset(leftRow, colsLeft)
-	rightJoin := subset(rightRow, colsRight)
-
-	// rh holds the row number of the first row of right that matches the current row of left
-	rh := -1
-	for eof == nil {
-		if rowCompare(leftJoin, rightJoin, "eq") {
-			// append
-			if rh == -1 {
-				rh = df.(*DF).row - 1 // df.row has already been incremented
-			}
-
-			if e := appendRow(outCols, leftRow, rightRow, colsRight); e != nil {
-				return nil, e
-			}
-
-			// get next row from right side
-			if rightRow, eof = df.Iter(false); eof != nil {
-				continue
-			}
-
-			rightJoin = subset(rightRow, colsRight)
-			continue
-		}
-
-		// if left is less than right, increment left
-		if rowCompare(leftJoin, rightJoin, "lt") {
-			leftJoinHold := leftJoin
-			if leftRow, eof = f.Iter(false); eof != nil {
-				continue
-			}
-			leftJoin = subset(leftRow, colsLeft)
-
-			// if the next row of left is identical on the join fields, then back up to start of matching df rows on right
-			if rh >= 0 && rowCompare(leftJoin, leftJoinHold, "eq") {
-				df.(*DF).row = rh
-				rightRow, _ = df.Iter(false)
-				rightJoin = subset(rightRow, colsRight)
-			}
-
-			rh = -1
-			continue
-		}
-
-		// if left is greater than right, increment right
-		if rowCompare(leftJoin, rightJoin, "gt") {
-			if rightRow, eof = df.Iter(false); eof != nil {
-				continue
-			}
-
-			rightJoin = subset(rightRow, colsRight)
-		}
-	}
-
-	outDF, e1 := NewDFcol(f.Fns(), outCols)
-
-	return outDF, e1
-}
-
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	if e := checkType(col); e != nil {
@@ -558,6 +472,92 @@ func (f *DF) Iter(reset bool) (row []any, err error) {
 	return row, nil
 }
 
+func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
+	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
+	if e := f.Sort(true, jCols...); e != nil {
+		return nil, e
+	}
+
+	if e := df.Sort(true, jCols...); e != nil {
+		return nil, e
+	}
+
+	leftNames := f.ColumnNames()
+	rightNames := df.ColumnNames()
+	outCols := doCols(nil, f, nil, nil)
+	outCols = doCols(outCols, df, jCols, leftNames)
+
+	// location of the join fields in both dataframes
+	var colsLeft, colsRight []int
+	for ind := 0; ind < len(jCols); ind++ {
+		colsLeft = append(colsLeft, d.Position(jCols[ind], leftNames))
+		colsRight = append(colsRight, d.Position(jCols[ind], rightNames))
+	}
+
+	// pull first rows from both
+	leftRow, eof := f.Iter(true)
+	rightRow, _ := df.Iter(true)
+
+	// subset the rows to the values we're joining on
+	leftJoin := subset(leftRow, colsLeft)
+	rightJoin := subset(rightRow, colsRight)
+
+	// rh is the row number of the first row of right that matches the current row of left
+	rh := -1
+	for eof == nil {
+		if rowCompare(leftJoin, rightJoin, "eq") {
+			// append
+			if rh == -1 {
+				rh = df.(*DF).row - 1 // df.row has already been incremented
+			}
+
+			if e := appendRow(outCols, leftRow, rightRow, colsRight); e != nil {
+				return nil, e
+			}
+
+			// get next row from right side
+			if rightRow, eof = df.Iter(false); eof != nil {
+				continue
+			}
+
+			rightJoin = subset(rightRow, colsRight)
+			continue
+		}
+
+		// if left is less than right, increment left
+		if rowCompare(leftJoin, rightJoin, "lt") {
+			leftJoinHold := leftJoin
+			if leftRow, eof = f.Iter(false); eof != nil {
+				continue
+			}
+			leftJoin = subset(leftRow, colsLeft)
+
+			// if the next row of left is identical on the join fields, then back up to start of matching df rows on right
+			if rh >= 0 && rowCompare(leftJoin, leftJoinHold, "eq") {
+				df.(*DF).row = rh
+				rightRow, _ = df.Iter(false)
+				rightJoin = subset(rightRow, colsRight)
+			}
+
+			rh = -1
+			continue
+		}
+
+		// if left is greater than right, increment right
+		if rowCompare(leftJoin, rightJoin, "gt") {
+			if rightRow, eof = df.Iter(false); eof != nil {
+				continue
+			}
+
+			rightJoin = subset(rightRow, colsRight)
+		}
+	}
+
+	outDF, e1 := NewDFcol(f.Fns(), outCols)
+
+	return outDF, e1
+}
+
 // Len is required for sort
 func (f *DF) Len() int {
 	return f.RowCount()
@@ -607,7 +607,6 @@ func (f *DF) SetParent() error {
 	return nil
 }
 
-// HERE!
 func (f *DF) Sort(ascending bool, cols ...string) error {
 	var byCols []*Col
 
@@ -958,3 +957,4 @@ func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 
 // TODO: add "join" methods
 // TODO: add "join" to interface methods
+// TODO: think about default values
