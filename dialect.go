@@ -725,7 +725,7 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 }
 
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {
-	pos := position(dt.String(), d.dtTypes)
+	pos := Position(dt.String(), d.dtTypes)
 	if pos < 0 {
 		return "", fmt.Errorf("cannot find type %s to map to DB type", dt.String())
 	}

@@ -206,6 +206,24 @@ func TestFileSave(t *testing.T) {
 	}
 }
 
+func TestParse_Join(t *testing.T) {
+	for _, which := range pkgs() {
+		if which != mem {
+			continue
+		}
+		dfx := loadData(which).(*m.DF)
+		dfy := dfx.Copy()
+		_ = dfy.Column("x").Rename("xx")
+		_ = dfy.Column("z").Rename("zz")
+		outDF, e := dfx.Join(dfy, "yy")
+		assert.Nil(t, e)
+		fmt.Println(outDF.ColumnNames())
+		fmt.Println(outDF.Column("y").Data().AsAny())
+		fmt.Println(outDF.Column("x").Data().AsAny())
+		fmt.Println(outDF.Column("xx").Data().AsAny())
+
+	}
+}
 func TestParse_By(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)

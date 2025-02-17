@@ -9,6 +9,7 @@ import (
 	"maps"
 	"sort"
 	"strings"
+	"time"
 
 	d "github.com/invertedv/df"
 )
@@ -184,6 +185,92 @@ func FileLoad(f *d.Files) (*DF, error) {
 }
 
 // ***************** Methods *****************
+
+func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
+	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
+	if e := f.Sort(true, jCols...); e != nil {
+		return nil, e
+	}
+
+	if e := df.Sort(true, jCols...); e != nil {
+		return nil, e
+	}
+
+	leftNames := f.ColumnNames()
+	rightNames := df.ColumnNames()
+	outCols := doCols(nil, f, nil, nil)
+	outCols = doCols(outCols, df, jCols, leftNames)
+
+	// location of the join fields in both dataframes
+	var colsLeft, colsRight []int
+	for ind := 0; ind < len(jCols); ind++ {
+		colsLeft = append(colsLeft, d.Position(jCols[ind], leftNames))
+		colsRight = append(colsRight, d.Position(jCols[ind], rightNames))
+	}
+
+	// pull first rows from both
+	leftRow, eof := f.Iter(true)
+	rightRow, _ := df.Iter(true)
+
+	// subset the rows to the values we're joining on
+	leftJoin := subset(leftRow, colsLeft)
+	rightJoin := subset(rightRow, colsRight)
+
+	// rh holds the row number of the first row of right that matches the current row of left
+	rh := -1
+	for eof == nil {
+		if rowCompare(leftJoin, rightJoin, "eq") {
+			// append
+			if rh == -1 {
+				rh = df.(*DF).row - 1 // df.row has already been incremented
+			}
+
+			if e := appendRow(outCols, leftRow, rightRow, colsRight); e != nil {
+				return nil, e
+			}
+
+			// get next row from right side
+			if rightRow, eof = df.Iter(false); eof != nil {
+				continue
+			}
+
+			rightJoin = subset(rightRow, colsRight)
+			continue
+		}
+
+		// if left is less than right, increment left
+		if rowCompare(leftJoin, rightJoin, "lt") {
+			leftJoinHold := leftJoin
+			if leftRow, eof = f.Iter(false); eof != nil {
+				continue
+			}
+			leftJoin = subset(leftRow, colsLeft)
+
+			// if the next row of left is identical on the join fields, then back up to start of matching df rows on right
+			if rh >= 0 && rowCompare(leftJoin, leftJoinHold, "eq") {
+				df.(*DF).row = rh
+				rightRow, _ = df.Iter(false)
+				rightJoin = subset(rightRow, colsRight)
+			}
+
+			rh = -1
+			continue
+		}
+
+		// if left is greater than right, increment right
+		if rowCompare(leftJoin, rightJoin, "gt") {
+			if rightRow, eof = df.Iter(false); eof != nil {
+				continue
+			}
+
+			rightJoin = subset(rightRow, colsRight)
+		}
+	}
+
+	outDF, e1 := NewDFcol(f.Fns(), outCols)
+
+	return outDF, e1
+}
 
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
@@ -520,8 +607,9 @@ func (f *DF) SetParent() error {
 	return nil
 }
 
+// HERE!
 func (f *DF) Sort(ascending bool, cols ...string) error {
-	var by []*Col
+	var byCols []*Col
 
 	for ind := 0; ind < len(cols); ind++ {
 		var x d.Column
@@ -529,10 +617,10 @@ func (f *DF) Sort(ascending bool, cols ...string) error {
 			return fmt.Errorf("column %s not found", cols[ind])
 		}
 
-		by = append(by, x.(*Col))
+		byCols = append(byCols, x.(*Col))
 	}
 
-	f.orderBy = by
+	f.orderBy = byCols
 	f.ascending = ascending
 	sort.Sort(f)
 
@@ -748,9 +836,125 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	return grp, nil
 }
 
+// rowCompare compares the elements of rowLeft to rowRight.  It returns true if the test passes.
+// comp = "eq", "lt" or "gt"
+func rowCompare(rowLeft, rowRight []any, comp string) bool {
+	var (
+		compFns []any
+		value   int
+	)
+	switch comp {
+	case "eq":
+		compFns = []any{eqFn[float64], eqFn[int], eqFn[string], eqFn[time.Time]}
+		value = 0
+	case "gt":
+		compFns = []any{ltFn[float64], ltFn[int], ltFn[string], ltFn[time.Time]}
+		value = 1
+	case "lt":
+		compFns = []any{gtFn[float64], gtFn[int], gtFn[string], gtFn[time.Time]}
+		value = 1
+	default:
+		panic(fmt.Errorf("unsupported comparison in rowCompare"))
+	}
+
+	for ind := 0; ind < len(rowLeft); ind++ {
+		switch left := rowLeft[ind].(type) {
+		case float64:
+			fn := compFns[0].(func(float64, float64) int)
+			if fn(left, rowRight[ind].(float64)) == value {
+				return false
+			}
+		case int:
+			fn := compFns[1].(func(int, int) int)
+			if fn(left, rowRight[ind].(int)) == value {
+				return false
+			}
+		case string:
+			fn := compFns[2].(func(string, string) int)
+			if fn(left, rowRight[ind].(string)) == value {
+				return false
+			}
+		case time.Time:
+			fn := compFns[3].(func(time.Time, time.Time) int)
+			if fn(left, rowRight[ind].(time.Time)) == value {
+				return false
+			}
+		}
+	}
+
+	return true
+
+}
+
+// subset returns elements of row whose index is in cols, conceptually row[cols]
+func subset(row []any, cols []int) []any {
+	var out []any
+	for ind := 0; ind < len(cols); ind++ {
+		out = append(out, row[cols[ind]])
+	}
+
+	return out
+}
+
+// appendRow appends a row to cols.  The values are the union of left and right.  The columns of right whose
+// indices in rightExclude are exluded.
+func appendRow(cols []*Col, left, right []any, rightExclude []int) error {
+	for ind := 0; ind < len(left); ind++ {
+		if e := cols[ind].Data().Append(left[ind]); e != nil {
+			return e
+		}
+	}
+
+	colInd := len(left)
+	for ind := 0; ind < len(right); ind++ {
+		if d.Has(ind, rightExclude) {
+			continue
+		}
+
+		if e := cols[colInd].Data().Append(right[ind]); e != nil {
+			return e
+		}
+
+		colInd++
+	}
+
+	return nil
+}
+
+// doCols appends columns to outCols.  It appends empty columns with the names/types
+// of df.
+// columns with names in exclude are not appended.
+// columns with names in dups have "DUP" appended to their name
+func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
+	names := df.ColumnNames()
+	for ind := 0; ind < len(names); ind++ {
+		src := df.Column(names[ind])
+		cn := names[ind]
+		if exclude != nil && d.Has(cn, exclude) {
+			continue
+		}
+		if dups != nil && d.Has(cn, dups) {
+			cn += "DUP"
+		}
+
+		data := d.MakeVector(src.DataType(), 0)
+		var (
+			col *Col
+			e0  error
+		)
+		if col, e0 = NewCol(data, d.DTany, d.ColName(cn)); e0 != nil {
+			panic(e0)
+		}
+
+		outCols = append(outCols, col)
+	}
+
+	return outCols
+}
+
 //TODO: do I want to make the parent columns available or not?
 //TODO: if I do, then need to make Parse a method.
 //TODO: for SQL should copy the dataframe for sourceDF
 
-// TODO: add "by" function to Parse
 // TODO: add "join" methods
+// TODO: add "join" to interface methods

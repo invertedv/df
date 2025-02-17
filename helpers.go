@@ -13,7 +13,17 @@ import (
 )
 
 func Has[C comparable](needle C, haystack []C) bool {
-	return position(needle, haystack) >= 0
+	return Position(needle, haystack) >= 0
+}
+
+func Position[C comparable](needle C, haystack []C) int {
+	for ind, straw := range haystack {
+		if needle == straw {
+			return ind
+		}
+	}
+
+	return -1
 }
 
 func PrettyPrint(header []string, cols ...any) string {
@@ -333,16 +343,6 @@ func slash(inStr string) string {
 	}
 
 	return inStr + "/"
-}
-
-func position[C comparable](needle C, haystack []C) int {
-	for ind, straw := range haystack {
-		if needle == straw {
-			return ind
-		}
-	}
-
-	return -1
 }
 
 // randUnifInt generates a slice whose elements are random U[0,upper) int64's
