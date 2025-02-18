@@ -14,6 +14,7 @@ type DF interface {
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Copy() DF
 	Iter(reset bool) (row []any, err error)
+	Join(df DF, joinOn string) (DF, error)
 	MakeQuery(colNames ...string) string
 	RowCount() int
 	SetParent() error
@@ -38,6 +39,7 @@ type DC interface {
 	DropPlots(plotNames ...string) error
 	First() Column
 	Fns() Fns
+	HasColumns(cols ...string) bool
 	KeepColumns(keepColumns ...string) (*DFcore, error)
 	Next() Column
 	Plot(plotName string) *Plot

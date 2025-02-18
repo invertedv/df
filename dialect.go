@@ -118,6 +118,37 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 
 // ***************** Methods *****************
 
+// Join creates an inner JOIN query.
+//
+//	leftSQL - SQL for left side of join
+//	rightSQL - SQL for right side of join
+//	leftFields - fields to keep from leftSQL
+//	rightFields - fields to keep from rightSQL
+//	joinField - fields to join on
+func (d *Dialect) Join(leftSQL, rightSQL string, leftFields, rightFields, joinFields []string) string {
+	leftAlias := d.WithName()
+	rightAlias := d.WithName()
+	for ind := 0; ind < len(joinFields); ind++ {
+		jn := joinFields[ind]
+		joinFields[ind] = fmt.Sprintf("%s.%s = %s.%s", leftAlias, jn, rightAlias, jn)
+	}
+
+	for ind := 0; ind < len(leftFields); ind++ {
+		leftFields[ind] = fmt.Sprintf("%s.%s", leftAlias, leftFields[ind])
+	}
+
+	for ind := 0; ind < len(rightFields); ind++ {
+		rightFields[ind] = fmt.Sprintf("%s.%s", rightAlias, rightFields[ind])
+	}
+
+	selectFields := strings.Join(append(leftFields, rightFields...), ",")
+
+	qry := fmt.Sprintf("SELECT %s FROM (%s) AS %s JOIN (%s) AS %s ON %s", selectFields,
+		leftSQL, leftAlias, rightSQL, rightAlias, strings.Join(joinFields, " AND "))
+
+	return qry
+}
+
 func (d *Dialect) BufSize() int {
 	return d.bufSize
 }

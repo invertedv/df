@@ -192,6 +192,46 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 }
 
 // ***************** DF - Methods *****************
+func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
+	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
+
+	if !f.HasColumns(jCols...) || !df.HasColumns(jCols...) {
+		return nil, fmt.Errorf("missing some join columns")
+	}
+
+	dfR := df.Copy()
+	leftNames, rightNames := f.ColumnNames(), df.ColumnNames()
+
+	var rNames []string
+	for ind := 0; ind < len(rightNames); ind++ {
+		rn := rightNames[ind]
+		// don't keep join columns for right
+		if d.Has(rn, jCols) {
+			continue
+		}
+
+		// rename any field names in right that are also in left
+		if d.Has(rn, leftNames) {
+			col := dfR.Column(rn)
+			rn += "DUP"
+			_ = col.Rename(rn)
+		}
+
+		rNames = append(rNames, rn)
+	}
+
+	qry := f.Dialect().Join(f.MakeQuery(), dfR.(*DF).MakeQuery(), leftNames, rNames, jCols)
+
+	var (
+		outDF *DF
+		e     error
+	)
+	if outDF, e = DBload(qry, f.Dialect(), f.Fns()...); e != nil {
+		return nil, e
+	}
+
+	return outDF, nil
+}
 
 func (f *DF) Column(colName string) d.Column {
 	if colName == "" {

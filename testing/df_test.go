@@ -25,7 +25,7 @@ func TestLoad(t *testing.T) {
 	for ind := 0; ind < len(v); ind++ {
 		fmt.Println(v[ind].Data().AsAny())
 	}
-	return
+
 	rows, e2 := db.Query("select z, k from testing.d1 limit 1")
 	ct, e4 := rows.ColumnTypes()
 	assert.Nil(t, e4)
@@ -195,12 +195,6 @@ func TestFileSave(t *testing.T) {
 		dfy, e2 := m.FileLoad(f)
 		assert.Nil(t, e2)
 		cexp := dfx.Column(coln)
-		// if sql, must pull data from query
-		/*		if which != mem {
-				dfz, e3 := m.DBLoad(cexp.(*s.Col).MakeQuery(), dfx.Context().Dialect())
-				assert.Nil(t, e3)
-				cexp = dfz.Column(coln)
-			}*/
 		cact := dfy.Column(coln)
 		assert.Equal(t, cexp.Data(), cact.Data())
 	}
@@ -208,14 +202,11 @@ func TestFileSave(t *testing.T) {
 
 func TestParse_Join(t *testing.T) {
 	for _, which := range pkgs() {
-		if which != mem {
-			continue
-		}
-		dfx := loadData(which).(*m.DF)
+		dfx := loadData(which)
 		dfy := dfx.Copy()
 		_ = dfy.Column("x").Rename("xx")
 		_ = dfy.Column("z").Rename("zz")
-		outDF, e := dfx.Join(dfy, "yy")
+		outDF, e := dfx.Join(dfy, "k")
 		assert.Nil(t, e)
 		fmt.Println(outDF.ColumnNames())
 		fmt.Println(outDF.Column("y").Data().AsAny())
@@ -224,6 +215,7 @@ func TestParse_Join(t *testing.T) {
 
 	}
 }
+
 func TestParse_By(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)

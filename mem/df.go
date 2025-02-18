@@ -474,6 +474,10 @@ func (f *DF) Iter(reset bool) (row []any, err error) {
 
 func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
+	if !f.HasColumns(jCols...) || !df.HasColumns(jCols...) {
+		return nil, fmt.Errorf("missing some join columns")
+	}
+
 	if e := f.Sort(true, jCols...); e != nil {
 		return nil, e
 	}
@@ -958,3 +962,5 @@ func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 // TODO: add "join" methods
 // TODO: add "join" to interface methods
 // TODO: think about default values
+// TODO: need to have a big df options for testing
+// TODO: need to have code in testing to create test tables in CH and PG
