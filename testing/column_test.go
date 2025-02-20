@@ -297,6 +297,7 @@ func TestToCat(t *testing.T) {
 			e = coly.Rename("test1")
 			assert.Nil(t, e)
 			e = dfx.AppendColumn(coly, true)
+			assert.Nil(t, e)
 			colx, e = d.Parse(dfx, "sum(int(test1)==int(test))")
 			assert.Nil(t, e)
 			assert.Equal(t, inter(colx.Column().(*m.Col))[0], 6)
@@ -347,9 +348,7 @@ func TestApplyCat(t *testing.T) {
 		assert.Nil(t, e2)
 
 		// -5 maps to 0 so all new values map to 0
-		fmt.Println(which)
-		expected := []int{0, 1, 1, 0, 1, 1}
-		expected = []int{1, 0, 0, 1, 0, 0}
+		expected := []int{1, 0, 0, 1, 0, 0}
 		assert.Equal(t, expected, inter(r2.Column()))
 
 		// try with fuzz > 1

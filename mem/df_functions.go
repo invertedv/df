@@ -2,10 +2,12 @@ package df
 
 import (
 	"fmt"
-	d "github.com/invertedv/df"
 	"strings"
+
+	d "github.com/invertedv/df"
 )
 
+// where implements Where to subset a dataframe
 func where(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "where", Inputs: [][]d.DataTypes{{d.DTint}}, Output: []d.DataTypes{d.DTdf}}

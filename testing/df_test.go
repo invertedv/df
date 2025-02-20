@@ -203,10 +203,10 @@ func TestFileSave(t *testing.T) {
 func TestParse_Join(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		fmt.Println("This is a test")
 		dfy := dfx.Copy()
 		_ = dfy.Column("x").Rename("xx")
 		_ = dfy.Column("z").Rename("zz")
+
 		outDF, e := dfx.Join(dfy, "k")
 		assert.Nil(t, e)
 		fmt.Println(outDF.ColumnNames())
