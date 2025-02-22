@@ -1,8 +1,11 @@
 package testing
 
 import (
+	_ "embed"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -122,7 +125,55 @@ func TestIf(t *testing.T) {
 	}
 }
 
+var (
+	//go:embed tests.txt
+	parserTests string
+)
+
 func TestParser(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		tests := strings.Split(parserTests, "\n")
+		for _, test := range tests {
+			vals := strings.Split(strings.ReplaceAll(test, " ", ""), "|")
+			if len(vals) != 4 {
+				continue
+			}
+			out, e0 := d.Parse(dfx, vals[0])
+			assert.Nil(t, e0)
+			ind, e1 := strconv.ParseInt(vals[1], 10, 64)
+			assert.Nil(t, e1)
+			var result any
+			switch vals[2] {
+			case "float":
+				var e2 error
+				result, e2 = strconv.ParseFloat(vals[3], 64)
+				assert.Nil(t, e2)
+			case "int":
+				var e3 error
+				result, e3 = strconv.ParseInt(vals[3], 10, 64)
+				result = int(result.(int64))
+				assert.Nil(t, e3)
+			case "string":
+				result = vals[3]
+			case "date":
+				var e4 error
+				result, e4 = time.Parse("2006-01-02", vals[3])
+				assert.Nil(t, e4)
+			}
+			actual := out.Column().Data().Element(int(ind))
+
+			if vals[2] != "float" {
+				assert.Equal(t, result, actual)
+				continue
+			}
+
+			assert.InEpsilon(t, result.(float64), actual.(float64), 0.001)
+		}
+	}
+}
+
+func TestParser1(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 

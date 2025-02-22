@@ -924,8 +924,7 @@ func appendRow(cols []*Col, left, right []any, rightExclude []int) error {
 	return nil
 }
 
-// doCols appends columns to outCols.  It appends empty columns with the names/types
-// of df.
+// doCols appends columns to outCols.  It appends empty columns with the names/types of df.
 // columns with names in exclude are not appended.
 // columns with names in dups have "DUP" appended to their name
 func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
@@ -964,3 +963,5 @@ func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 // TODO: think about default values
 // TODO: need to have a big df options for testing
 // TODO: need to have code in testing to create test tables in CH and PG
+
+// TODO: think about: give df's a name field?

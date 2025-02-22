@@ -59,6 +59,11 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 			}
 		}
 
+		// we may need to explicitly cast float fields as float
+		if outType == d.DTfloat && df.Dialect().CastFloat() {
+			sqlOut, _ = df.Dialect().CastField(sqlOut, d.DTany, d.DTfloat)
+		}
+
 		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut, d.ColReturnType(rt))
 		outCol.global = glb
 

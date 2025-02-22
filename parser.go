@@ -93,7 +93,6 @@ func Parse(df DF, expr string) (*Parsed, error) {
 	}
 
 	return nil, df.AppendPlot(ot.value.Plot(), left, true)
-
 }
 
 func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
