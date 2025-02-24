@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	d "github.com/invertedv/df"
 	m "github.com/invertedv/df/mem"
+	s "github.com/invertedv/df/sql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -68,7 +70,7 @@ func slash(inStr string) string {
 }
 
 func TestPlotXY(t *testing.T) {
-	dfx := loadData("mem")
+	dfx := loadData("mem,d1")
 	e := dfx.Sort(true, "x")
 	assert.Nil(t, e)
 	p, e0 := d.NewPlot(d.PlotTitle("This Is A Test"), d.PlotXlabel("X-Axis"),
@@ -129,24 +131,29 @@ func TestString(t *testing.T) {
 	}
 }
 
-/*
-	func TestSeq(t *testing.T) {
-		for _, which := range pkgs() {
-			dfx := loadData(which)
-			var df d.DF
-			switch which {
-			case mem:
-				df = m.NewDFseq(nil, nil, 5)
-			default:
-				df = s.NewDFseq(nil, dfx.Context(), 5)
-			}
+func TestSeq(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		var (
+			df d.DF
+			e  error
+		)
 
-			col := df.Column("seq")
-			assert.NotNil(t, col)
-			assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data())
+		switch which {
+		case mem:
+			df, e = m.NewDFseq(nil, 5)
+			assert.Nil(t, e)
+		default:
+			df, e = s.NewDFseq(nil, dfx.Dialect(), 5)
+			assert.Nil(t, e)
 		}
+
+		col := df.Column("seq")
+		assert.NotNil(t, col)
+		assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data().AsAny())
 	}
-*/
+}
+
 func TestSQLsave(t *testing.T) {
 	const coln = "x"
 	owner := os.Getenv("user")
@@ -155,11 +162,12 @@ func TestSQLsave(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		dlct := dfx.Dialect()
+		src := strings.Split(which, ",")[0]
 
 		// save to a table
 		var outTable string
 		var options []string
-		switch which {
+		switch src {
 		case ch:
 			outTable = outTableCH
 		case pg:
@@ -264,8 +272,8 @@ func TestParse_Sort(t *testing.T) {
 		outdf, e := d.Parse(dfx, "sort('asc', y, x)")
 		_ = outdf
 		assert.Nil(t, e)
-		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, inter(dfx.Column("y")))
-		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, inter(dfx.Column("yy")))
+		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsAny())
+		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsAny())
 	}
 }
 
@@ -284,13 +292,13 @@ func TestWhere(t *testing.T) {
 		assert.Nil(t, e2)
 		r := dfOut.Column("y")
 		fmt.Println(r.Data())
-		assert.Equal(t, []int{-5, 6}, inter(dfOut.Column("y")))
-		assert.Equal(t, []int{-15, 16}, inter(dfOut.Column("yy")))
+		assert.Equal(t, []int{-5, 6}, dfOut.Column("y").Data().AsAny())
+		assert.Equal(t, []int{-15, 16}, dfOut.Column("yy").Data().AsAny())
 
 		// via Parse
 		out, e3 := d.Parse(dfx, "where(y == -5 || yy == 16)")
 		assert.Nil(t, e3)
-		assert.Equal(t, []int{-5, 6}, inter(out.DF().Column("y")))
+		assert.Equal(t, []int{-5, 6}, out.DF().Column("y").Data().AsAny())
 	}
 }
 
@@ -308,7 +316,7 @@ func TestAppendDF(t *testing.T) {
 }
 
 func TestFilesOpen(t *testing.T) {
-	dfx := loadData(mem)
+	dfx := loadData(mem + ",d1")
 
 	// specify both fieldNames and fieldTypes
 	// file has no eol characters
@@ -375,7 +383,7 @@ func TestFilesOpen(t *testing.T) {
 }
 
 func TestFilesSave(t *testing.T) {
-	dfx := loadData(mem)
+	dfx := loadData("mem,d1")
 	fs, _ := d.NewFiles()
 	e0 := fs.Save(slash(os.Getenv("datapath"))+fileName, dfx)
 	assert.Nil(t, e0)

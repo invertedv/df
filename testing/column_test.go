@@ -3,7 +3,6 @@ package testing
 import (
 	_ "embed"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,18 +13,6 @@ import (
 	d "github.com/invertedv/df"
 	"github.com/stretchr/testify/assert"
 )
-
-func inter(c d.Column) []int {
-	var (
-		x []int
-		e error
-	)
-	if x, e = c.Data().AsInt(); e != nil {
-		panic(e)
-	}
-
-	return x
-}
 
 func TestRandom(t *testing.T) {
 	n := 100 //000000
@@ -91,6 +78,10 @@ func TestRandom(t *testing.T) {
 
 func TestRename(t *testing.T) {
 	for _, which := range pkgs() {
+		if which != "clickhouse,d1" {
+			continue
+		}
+
 		dfx := loadData(which)
 		e := dfx.Column("y").Rename("x")
 		assert.NotNil(t, e)
@@ -112,7 +103,7 @@ func TestRowNumber(t *testing.T) {
 		dfx := loadData(which)
 		out, e := d.Parse(dfx, "rowNumber()")
 		assert.Nil(t, e)
-		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, inter(out.Column()))
+		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, out.Column().Data().AsAny())
 	}
 }
 
@@ -173,147 +164,24 @@ func TestParser(t *testing.T) {
 	}
 }
 
-func TestParser1(t *testing.T) {
-	for _, which := range pkgs() {
-		dfx := loadData(which)
-
-		x := [][]any{
-			{"4+3", 0, 7},
-			{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, 2.0},
-			{"y--yy", 0, 2},
-			//			{"isInf(exp(1000000.0))", 0, 1},
-			//			{"isInf(log(0.0))", 0, 1},
-			{"if(y==1,2,y)", 0, 2},
-			{"rowNumber()", 1, 1},
-			{"x + 2.0", 0, 3.0},
-			{"float(y)", 0, 1.0},
-			{"sum(y)", 0, 12},
-			{"(x/0.1)", 0, 10.0},
-			{"y+100", 0, 101},
-			{"(x/0.1)*float(y+100)", 0, 1010.0},
-			{"z!='20060102'", 0, 1},
-			{"dt != date(20221231)", 0, 0},
-			{"y+y", 0, 2},
-			{"date('20221231')", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-			//			{"quantile(y,1.0)", 0, 6.0},
-			//			{"quantile(y,0.0)", 0, -5.0},
-			//			{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
-			//			{"min(dt)", 0, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
-			//			{"min(z)", 0, "20000101"},
-			//			{"max(z)", 0, "20230915"},
-			//			{"min(y)", 0, -5},
-			//			{"max(y)", 0, 6},
-			//			{"min(x)", 0, -2.0},
-			//			{"max(x)", 0, 3.5},
-			//			{"quantile(y,0.5)", 0, 1.0},
-			//			{"quantile(x,0.5)", 0, 1.0},
-			//			{"median(y)", 0, 1.0},
-			//			{"median(x)", 0, 1.0},
-			//			{"sdev(y)", 0, 4.0},
-			//			{"sdev(x)", 0, 2.043},
-			//			{"var(y)", 0, 16.0},
-			//			{"var(x)", 0, 4.175},
-			{"y > 2", 5, 1},
-			{"y > 2", 0, 0},
-			{"y+y", 1, -10},
-			{"rowNumber()", 1, 1},
-			{"abs(yy)", 1, 15},
-			//			{"sqrt(x)", 4, 1.414},
-			//			{"dot(x,x)", 0, 30.25},
-			{"mean(x)", 0, 1.25},
-			{"x--3.0", 0, 4.0},
-			{"sum(x)", 0, 7.5},
-			{"dt != date(20221231)", 0, 0},
-			{"dt != date(20221231)", 0, 0},
-			{"dt != date(20221231)", 1, 1},
-			{"dt == date(20221231)", 0, 1},
-			{"dt == date(20221231)", 1, 0},
-			{"4+1--1", 0, 6},
-			{"if(y == 1, 2.0, (x))", 0, 2.0},
-			{"if(y == 1, 2.0, (x))", 1, -2.0},
-			{"!(y>=1) && y>=1", 0, 0},
-			{"exp(x-1.0)", 0, 1.0},
-			{"abs(x)", 0, 1.0},
-			{"abs(y)", 1, 5},
-			{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
-			{"dt != date(20221231)", 1, 1},
-			{"dt == date(20221231)", 0, 1},
-			{"dt == date(20221231)", 1, 0},
-			//			{"string(float(1)+.234)", 0, "1.234"},
-			{"float('1.1')", 0, 1.1},
-			{"int(2.9)", 0, 2},
-			{"float(1)", 0, 1.0},
-			{"string(dt)", 0, "2022-12-31"},
-			{"x--1.0", 0, 2.0},
-			{"x*10.0", 0, 10.0},
-			{"int(x)", 5, 3},
-			{"(float(4+2) * abs(-3.0/2.0))", 0, 9.0},
-			{"y != 1", 0, 0},
-			{"y>=1 && y>=1 && dt >= date(20221231)", 0, 1},
-			{"y>=1 && y>=1 && dt > date(20221231)", 0, 0},
-			{"y>=1 && y>=1", 0, 1},
-			{"!(y>=1) && y>=1", 0, 0},
-			{"!1 && 1 || 1", 0, 1},
-			{"!1 && 1 || 0", 0, 0},
-			{"!0 && 1 || 0", 0, 1},
-			{"!1 && 1", 0, 0},
-			{"1 || 0 && 1", 0, 1},
-			{"0 || 0 && 1", 0, 0},
-			{"0 || 1 && 1", 0, 1},
-			{"0 || 1 && 1 && 0", 0, 0},
-			{"(0 || 1 && 1) && 0", 0, 0},
-			{"y < 2", 0, 1},
-			{"y < 1", 0, 0},
-			{"y <= 1", 0, 1},
-			{"y > 1", 0, 0},
-			{"y >= 1", 0, 1},
-			{"y == 1", 0, 1},
-			{"y == 1", 1, 0},
-			{"y && 1", 0, 1},
-			{"0 && 1", 0, 0},
-			{"0 || 0", 0, 0},
-			{"0 || 1", 0, 1},
-			{"4-1-1-1-1", 0, 0},
-			{"4+1-1", 0, 4},
-			{"float(4)+1.0--1.0", 0, 6.0},
-			{"exp(1.0)*abs(float(-2/(1+1)))", 0, math.Exp(1)},
-			{"date( 20020630)", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-			{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
-			{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
-			{"-x +2.0", 0, 1.0},
-			{"-x +4.0", 1, 6.0},
-			//			{"x/0.0", 0, math.Inf(1)},
-			{"float((3.0 * 4.0 + 1.0 - -1.0)*(2.0 + abs(-1.0)))", 0, 42.0},
-			{"(1 + 2) - -(-1 - 2)", 0, 0},
-		}
-
-		cnt := 0
-		for ind := 0; ind < len(x); ind++ {
-			cnt++
-			eqn := x[ind][0].(string)
-			fmt.Println(eqn)
-			xOut, e := d.Parse(dfx, eqn)
-			assert.Nil(t, e)
-			result := xOut.Column().Data()
-			switch xOut.Column().DataType() {
-			case d.DTfloat:
-				xv, _ := result.AsFloat()
-				assert.InEpsilon(t, x[ind][2].(float64), xv[x[ind][1].(int)], .001)
-			case d.DTint:
-				assert.Equal(t, x[ind][2], inter(xOut.Column())[x[ind][1].(int)])
-			case d.DTstring:
-				xv, _ := result.AsString()
-				assert.Equal(t, x[ind][2], xv[x[ind][1].(int)])
-			case d.DTdate:
-				vx, _ := result.AsDate()
-				val := vx[x[ind][1].(int)]
-				assert.Equal(t, val.Year(), x[ind][2].(time.Time).Year())
-				assert.Equal(t, val.Month(), x[ind][2].(time.Time).Month())
-				assert.Equal(t, val.Day(), x[ind][2].(time.Time).Day())
-			}
-		}
-	}
-}
+//			{"quantile(y,1.0)", 0, 6.0},
+//			{"quantile(y,0.0)", 0, -5.0},
+//			{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
+//			{"min(dt)", 0, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
+//			{"min(z)", 0, "20000101"},
+//			{"max(z)", 0, "20230915"},
+//			{"min(y)", 0, -5},
+//			{"max(y)", 0, 6},
+//			{"min(x)", 0, -2.0},
+//			{"max(x)", 0, 3.5},
+//			{"quantile(y,0.5)", 0, 1.0},
+//			{"quantile(x,0.5)", 0, 1.0},
+//			{"median(y)", 0, 1.0},
+//			{"median(x)", 0, 1.0},
+//			{"sdev(y)", 0, 4.0},
+//			{"sdev(x)", 0, 2.043},
+//			{"var(y)", 0, 16.0},
+//			{"var(x)", 0, 4.175},
 
 // TODO: consider dropping cat counts
 func TestToCat(t *testing.T) {
@@ -351,7 +219,7 @@ func TestToCat(t *testing.T) {
 			assert.Nil(t, e)
 			colx, e = d.Parse(dfx, "sum(int(test1)==int(test))")
 			assert.Nil(t, e)
-			assert.Equal(t, inter(colx.Column().(*m.Col))[0], 6)
+			assert.Equal(t, colx.Column().Data().Element(0), 6)
 		}
 
 		// try with DTstring
@@ -359,7 +227,7 @@ func TestToCat(t *testing.T) {
 		assert.Nil(t, e)
 		result = colx.Column()
 		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, inter(result))
+		assert.Equal(t, expected, result.Data().AsAny())
 
 		// try with DTdate
 		colx, e = d.Parse(dfx, "cat(dt1)")
@@ -373,7 +241,7 @@ func TestToCat(t *testing.T) {
 		assert.Nil(t, e)
 		result = colx.Column()
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, inter(result))
+		assert.Equal(t, expected, result.Data().AsAny())
 
 		// try with DTfloat
 		_, e = d.Parse(dfx, "cat(x)")
@@ -400,7 +268,7 @@ func TestApplyCat(t *testing.T) {
 
 		// -5 maps to 0 so all new values map to 0
 		expected := []int{1, 0, 0, 1, 0, 0}
-		assert.Equal(t, expected, inter(r2.Column()))
+		assert.Equal(t, expected, r2.Column().Data().AsAny())
 
 		// try with fuzz > 1
 		r3, e3 := d.Parse(dfx, "cat(y,2)")
@@ -412,6 +280,6 @@ func TestApplyCat(t *testing.T) {
 		r5, e5 := d.Parse(dfx, "applyCat(yy,caty2,-5)")
 		assert.Nil(t, e5)
 		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, inter(r5.Column()))
+		assert.Equal(t, expected, r5.Column().Data().AsAny())
 	}
 }

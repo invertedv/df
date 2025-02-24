@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -13,16 +14,17 @@ import (
 	_ "github.com/jackc/pgx/stdlib"
 )
 
-// CONSIDER making .Data fetch the data for sql....
 const (
 	fileName   = "test.csv"
 	fileNameW1 = "testFW.txt"
 	fileNameW2 = "testFW1.txt"
 	fileNameW3 = "testFW2.txt"
-	inTableCH  = "testing.d1"
-	inTablePG  = "d1"
+	//	inTableCH  = "testing.d1"
+	//	inTablePG  = "d1"
+	//	inFile     = "d1.csv"
 	outTableCH = "testing.test"
 	outTablePG = "public.test"
+	sources    = "d1"
 
 	pg  = "postgres"
 	ch  = "clickhouse"
@@ -37,7 +39,15 @@ const (
 
 // list of packages to test
 func pkgs() []string {
-	return []string{pg, mem, ch} //, mem}
+	dbs := []string{pg, mem, ch}
+	srcs := strings.Split(sources, ",")
+	var choices []string
+	for _, db := range dbs {
+		for _, src := range srcs {
+			choices = append(choices, db+","+src)
+		}
+	}
+	return choices
 }
 
 // NewConnect established a new connection to ClickHouse.
@@ -80,34 +90,65 @@ func newConnectPG(host, user, password, dbName string) *sql.DB {
 	return db
 }
 
-func loadData(pkg string) d.DF {
+func loadFile(fileName string) d.DF {
 	var (
-		table string
-		db    *sql.DB
+		f  *d.Files
+		e3 error
+	)
+	if f, e3 = d.NewFiles(); e3 != nil {
+		panic(e3)
+	}
+
+	if e := f.Open(os.Getenv("datapath") + fileName); e != nil {
+		panic(e)
+	}
+
+	var (
+		df *m.DF
+		e4 error
+	)
+	if df, e4 = m.FileLoad(f); e4 != nil {
+		panic(e4)
+	}
+
+	return df
+}
+
+func loadData(which string) d.DF {
+	var (
+		tableName   string
+		dialectName string
+		db          *sql.DB
 	)
 
+	lr := strings.Split(which, ",")
+	pkg, sName := lr[0], lr[1]
 	user := os.Getenv("user")
 	host := os.Getenv("host")
 	password := os.Getenv("password")
 	dbName := os.Getenv("db")
 
-	var dialectName string
 	switch pkg {
 	case mem:
+		df := loadFile(sName + ".csv")
 		db = newConnectPG(host, user, password, dbName)
-		dialectName = pg
-		table = "SELECT * FROM " + inTablePG
+		dl, _ := d.NewDialect(pg, db)
+		_ = d.DFdialect(dl)(df)
+		return df
 	case ch:
+		const dbName = "testing"
 		db = newConnectCH(host, user, password)
 		dialectName = ch
-		table = "SELECT * FROM " + inTableCH
+		tableName = dbName + "." + sName
 	case pg:
 		db = newConnectPG(host, user, password, dbName)
 		dialectName = pg
-		table = "SELECT * FROM " + inTablePG
+		tableName = sName
 	default:
 		panic("unsupported data source")
 	}
+
+	table := "SELECT * FROM " + tableName
 
 	var (
 		dialect *d.Dialect
@@ -121,18 +162,19 @@ func loadData(pkg string) d.DF {
 		df d.DF
 		e2 error
 	)
-	if pkg == mem {
-		if df, e2 = m.DBLoad(table, dialect); e2 != nil {
+
+	// if data doesn't load, create the table
+	if df, e2 = s.DBload(table, dialect); e2 != nil {
+		dfl := loadFile(sName + ".csv")
+
+		if e := dialect.Save(tableName, "k", true, dfl); e != nil {
+			panic(e)
+		}
+
+		if df, e2 = s.DBload(table, dialect); e2 != nil {
 			panic(e2)
 		}
 
-		_ = d.DFdialect(dialect)(df.Core())
-
-		return df
-	}
-
-	if df, e2 = s.DBload(table, dialect); e2 != nil {
-		panic(e2)
 	}
 
 	return df

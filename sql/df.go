@@ -287,7 +287,7 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 
 	for c := f.First(); c != nil; c = f.Next() {
 		var cNew d.Column
-		if cNew = dfNew.Column(c.Name()); c == nil {
+		if cNew = dfNew.Column(c.Name()); cNew == nil {
 			return nil, fmt.Errorf("missing column %s in AppendDF", c.Name())
 		}
 
@@ -537,7 +537,7 @@ func (f *DF) MakeQuery(colNames ...string) string {
 	for ind := 0; ind < len(colNames); ind++ {
 		var cx d.Column
 		if cx = f.Column(colNames[ind]); cx == nil {
-			panic(fmt.Errorf("missing name %s", cx.Name()))
+			panic(fmt.Errorf("missing name %s", colNames[ind]))
 		}
 
 		var field string

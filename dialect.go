@@ -297,7 +297,7 @@ func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF, 
 		if dts, e = df.ColumnTypes(cols...); e != nil {
 			return e
 		}
-		return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite, options...)
+		return d.Create(tableName, noDesc, cols, dts, overwrite, options...)
 	}
 
 	return fmt.Errorf("unknown error")
@@ -692,16 +692,15 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		ct     []*sql.ColumnType
 		e0, e1 error
 	)
-	r, e0 = d.db.Query(q)
+	if r, e0 = d.db.Query(q); e0 != nil {
+		return nil, nil, nil, e0
+	}
 	defer func() {
 		{
 			_ = r.Close()
 		}
 	}()
 
-	if e0 != nil {
-		return nil, nil, nil, e0
-	}
 	if ct, e1 = r.ColumnTypes(); e1 != nil {
 		return nil, nil, nil, e1
 	}
