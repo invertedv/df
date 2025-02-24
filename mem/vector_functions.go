@@ -243,15 +243,15 @@ func quantileFn[T float64 | int](x []T, p []float64) float64 {
 }
 
 func lqFn[T float64 | int](a []T) float64 {
-	return quantileFn[T](a, []float64{0.25})
+	return quantileFn(a, []float64{0.25}) // had quantileFn[T]
 }
 
 func medianFn[T float64 | int](a []T) float64 {
-	return quantileFn[T](a, []float64{0.5})
+	return quantileFn(a, []float64{0.5}) // had quantileFn[T]
 }
 
 func uqFn[T float64 | int](a []T) float64 {
-	return quantileFn[T](a, []float64{0.75})
+	return quantileFn(a, []float64{0.75}) // had quantileFn[T]
 }
 
 func maxFn[T frameTypes](a []T) T {
@@ -740,17 +740,17 @@ func level0(out, fn any, cols []any) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
-			return dofn0[float64](outx, fn)
+			return dofn0(outx, fn)
 		case []int:
-			return dofn0[int](outx, fn)
+			return dofn0(outx, fn)
 		case []string:
-			return dofn0[string](outx, fn)
+			return dofn0(outx, fn)
 		case []time.Time:
-			return dofn0[time.Time](outx, fn)
+			return dofn0(outx, fn)
 		case nil:
 			return dofn0[any](nil, fn)
 		case []*d.Plot:
-			return dofn0[*d.Plot](outx, fn)
+			return dofn0(outx, fn)
 		}
 	}
 
@@ -758,17 +758,17 @@ func level0(out, fn any, cols []any) error {
 
 	switch v := col0.(type) {
 	case []*d.Plot:
-		return level1[*d.Plot](v, out, fn, colsRemain)
+		return level1(v, out, fn, colsRemain)
 	case *Col:
 		switch v.DataType() {
 		case d.DTfloat:
-			return level1[float64](v.AsAny().([]float64), out, fn, colsRemain)
+			return level1(v.AsAny().([]float64), out, fn, colsRemain)
 		case d.DTint:
-			return level1[int](v.AsAny().([]int), out, fn, colsRemain)
+			return level1(v.AsAny().([]int), out, fn, colsRemain)
 		case d.DTstring:
-			return level1[string](v.AsAny().([]string), out, fn, colsRemain)
+			return level1(v.AsAny().([]string), out, fn, colsRemain)
 		case d.DTdate:
-			return level1[time.Time](v.AsAny().([]time.Time), out, fn, colsRemain)
+			return level1(v.AsAny().([]time.Time), out, fn, colsRemain)
 		}
 	}
 
@@ -779,17 +779,17 @@ func level1[T frameTypes](a []T, out, fn any, cols []any) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
-			return dofn1[T, float64](a, outx, fn)
+			return dofn1(a, outx, fn)
 		case []int:
-			return dofn1[T, int](a, outx, fn)
+			return dofn1(a, outx, fn)
 		case []string:
-			return dofn1[T, string](a, outx, fn)
+			return dofn1(a, outx, fn)
 		case []time.Time:
-			return dofn1[T, time.Time](a, outx, fn)
+			return dofn1(a, outx, fn)
 		case nil:
 			return dofn1[T, any](a, nil, fn)
 		case []*d.Plot:
-			return dofn1[T, *d.Plot](a, outx, fn)
+			return dofn1(a, outx, fn)
 		}
 	}
 
@@ -797,17 +797,17 @@ func level1[T frameTypes](a []T, out, fn any, cols []any) error {
 
 	switch v := col0.(type) {
 	case []*d.Plot:
-		return level2[T, *d.Plot](a, v, out, fn, colsRemain)
+		return level2(a, v, out, fn, colsRemain)
 	case *Col:
 		switch v.DataType() {
 		case d.DTfloat:
-			return level2[T, float64](a, v.AsAny().([]float64), out, fn, colsRemain)
+			return level2(a, v.AsAny().([]float64), out, fn, colsRemain)
 		case d.DTint:
-			return level2[T, int](a, v.AsAny().([]int), out, fn, colsRemain)
+			return level2(a, v.AsAny().([]int), out, fn, colsRemain)
 		case d.DTstring:
-			return level2[T, string](a, v.AsAny().([]string), out, fn, colsRemain)
+			return level2(a, v.AsAny().([]string), out, fn, colsRemain)
 		case d.DTdate:
-			return level2[T, time.Time](a, v.AsAny().([]time.Time), out, fn, colsRemain)
+			return level2(a, v.AsAny().([]time.Time), out, fn, colsRemain)
 		}
 	}
 
@@ -818,17 +818,17 @@ func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []any) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
-			return dofn2[T, S, float64](a, b, outx, fn)
+			return dofn2(a, b, outx, fn)
 		case []int:
-			return dofn2[T, S, int](a, b, outx, fn)
+			return dofn2(a, b, outx, fn)
 		case []string:
-			return dofn2[T, S, string](a, b, outx, fn)
+			return dofn2(a, b, outx, fn)
 		case []time.Time:
-			return dofn2[T, S, time.Time](a, b, outx, fn)
+			return dofn2(a, b, outx, fn)
 		case nil:
 			return dofn2[T, S, any](a, b, nil, fn)
 		case []*d.Plot:
-			return dofn2[T, S, *d.Plot](a, b, outx, fn)
+			return dofn2(a, b, outx, fn)
 		}
 	}
 
@@ -836,17 +836,17 @@ func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []any) error {
 
 	switch v := col0.(type) {
 	case []*d.Plot:
-		return level3[T, S, *d.Plot](a, b, v, out, fn, colsRemain)
+		return level3(a, b, v, out, fn, colsRemain)
 	case *Col:
 		switch v.DataType() {
 		case d.DTfloat:
-			return level3[T, S, float64](a, b, v.AsAny().([]float64), out, fn, colsRemain)
+			return level3(a, b, v.AsAny().([]float64), out, fn, colsRemain)
 		case d.DTint:
-			return level3[T, S, int](a, b, v.AsAny().([]int), out, fn, colsRemain)
+			return level3(a, b, v.AsAny().([]int), out, fn, colsRemain)
 		case d.DTstring:
-			return level3[T, S, string](a, b, v.AsAny().([]string), out, fn, colsRemain)
+			return level3(a, b, v.AsAny().([]string), out, fn, colsRemain)
 		case d.DTdate:
-			return level3[T, S, time.Time](a, b, v.AsAny().([]time.Time), out, fn, colsRemain)
+			return level3(a, b, v.AsAny().([]time.Time), out, fn, colsRemain)
 		}
 	}
 
@@ -857,17 +857,17 @@ func level3[T, S, U frameTypes](a []T, b []S, c []U, out, fn any, cols []any) er
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
-			return dofn3[T, S, U, float64](a, b, c, outx, fn)
+			return dofn3(a, b, c, outx, fn)
 		case []int:
-			return dofn3[T, S, U, int](a, b, c, outx, fn)
+			return dofn3(a, b, c, outx, fn)
 		case []string:
-			return dofn3[T, S, U, string](a, b, c, outx, fn)
+			return dofn3(a, b, c, outx, fn)
 		case []time.Time:
-			return dofn3[T, S, U, time.Time](a, b, c, outx, fn)
+			return dofn3(a, b, c, outx, fn)
 		case nil:
 			return dofn3[T, S, U, any](a, b, nil, nil, fn)
 		case []*d.Plot:
-			return dofn3[T, S, U, *d.Plot](a, b, c, outx, fn)
+			return dofn3(a, b, c, outx, fn)
 		}
 	}
 

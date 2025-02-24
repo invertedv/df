@@ -374,7 +374,7 @@ func TestToCat(t *testing.T) {
 	assert.Equal(t, expected, inter(colx.Column()))
 
 	expr = "cat(x)"
-	colx, ex = d.Parse(dfx, expr)
+	_, ex = d.Parse(dfx, expr)
 	assert.NotNil(t, ex)
 }
 
@@ -591,8 +591,8 @@ func TestMemDF_AppendDF(t *testing.T) {
 
 	dfz, e := dfx.AppendDF(dfy)
 	assert.Nil(t, e)
-	var col d.Column
-	col = dfz.Column("x")
+	//var col d.Column
+	col := dfz.Column("x")
 	assert.NotNil(t, col)
 	assert.Equal(t, float64(1), col.(*Col).Element(0))
 	assert.Equal(t, float64(1), col.(*Col).Element(dfx.RowCount()))
