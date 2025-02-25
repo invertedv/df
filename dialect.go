@@ -210,11 +210,7 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr st
 // CastFloat says whether floats need to be cast as such.
 // Postgress will return "NUMERIC" for calculated fields which the connector loads as strings
 func (d *Dialect) CastFloat() bool {
-	if d.DialectName() == pg {
-		return true
-	}
-
-	return false
+	return d.DialectName() == pg
 }
 
 func (d *Dialect) Close() error {
