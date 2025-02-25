@@ -163,11 +163,18 @@ func loadData(which string) d.DF {
 		e2 error
 	)
 
-	// if data doesn't load, create the table
+	// if data doesn't load, create the table from the csv
 	if df, e2 = s.DBload(table, dialect); e2 != nil {
 		dfl := loadFile(sName + ".csv")
 
-		if e := dialect.Save(tableName, "k", true, dfl); e != nil {
+		var opts []string
+		if pkg == pg {
+			opts = append(opts, "Owner:"+user)
+			ts := os.Getenv("tablespace")
+			opts = append(opts, "TableSpace:"+ts)
+		}
+
+		if e := dialect.Save(tableName, "k", true, dfl, opts...); e != nil {
 			panic(e)
 		}
 

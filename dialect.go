@@ -236,7 +236,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 		}
 
 		if orderBy == "" {
-			orderBy = fields[0]
+			orderBy = d.ToName(fields[0])
 		}
 
 		create := strings.ReplaceAll(d.create, "?TableName", tableName)
@@ -255,7 +255,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 				return ex
 			}
 
-			field := strings.ReplaceAll(d.fields, "?Field", fields[ind])
+			field := strings.ReplaceAll(d.fields, "?Field", d.ToName(fields[ind]))
 			field = strings.ReplaceAll(field, "?Type", dbType)
 			flds = append(flds, field)
 		}
@@ -267,7 +267,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 				return fmt.Errorf("invalid option in Dialect.Create: %s", opt)
 			}
 
-			create = strings.ReplaceAll(create, kv[0], kv[1])
+			create = strings.ReplaceAll(create, "?"+kv[0], kv[1])
 		}
 
 		if strings.Contains(create, "?") {
@@ -633,7 +633,12 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF, options
 	}
 
 	if qry := df.MakeQuery(); qry != "" {
-		return d.Insert(tableName, df.MakeQuery(), strings.Join(df.ColumnNames(), ","))
+		colNames := df.ColumnNames()
+		for ind, cn := range colNames {
+			colNames[ind] = d.ToName(cn)
+		}
+
+		return d.Insert(tableName, df.MakeQuery(), strings.Join(colNames, ","))
 	}
 
 	return d.IterSave(tableName, df)
@@ -657,6 +662,16 @@ func (d *Dialect) Seq(n int) string {
 
 func (d *Dialect) SetBufSize(mb int) {
 	d.bufSize = mb
+}
+
+// ToName converts the raw field name to what's need for a interaction with the database.
+// Specifically, Postgres requires quotes around field names that have uppercase letters
+func (d *Dialect) ToName(fieldName string) string {
+	if d.DialectName() == pg && fieldName != strings.ToLower(fieldName) {
+		return `"` + fieldName + `"`
+	}
+
+	return fieldName
 }
 
 // ToString returns a string version of val that can be placed into SQL
@@ -765,14 +780,6 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 	}
 
 	return sqlx, e
-}
-
-func (d *Dialect) ToName(fieldName string) string {
-	if d.DialectName() == pg && fieldName != strings.ToLower(fieldName) {
-		return `"` + fieldName + `"`
-	}
-
-	return fieldName
 }
 
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {

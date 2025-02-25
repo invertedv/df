@@ -172,7 +172,7 @@ func (c *Col) Rename(newName string) error {
 	//		return fmt.Errorf("column %s already exists cannot Rename", newName)
 	//	}
 
-	oldName := c.Name()
+	oldName := c.Dialect().ToName(c.Name())
 	if e := c.Core().Rename(newName); e != nil {
 		return e
 	}

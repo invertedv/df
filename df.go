@@ -375,10 +375,9 @@ func (df *DFcore) DropPlots(plotNames ...string) error {
 	for _, plotName := range plotNames {
 		if _, ok := df.plots[plotName]; ok {
 			delete(df.plots, plotName)
-			return nil
+		} else {
+			return fmt.Errorf("plot %s not found", plotName)
 		}
-
-		return fmt.Errorf("plot %s not found", plotName)
 	}
 
 	return nil

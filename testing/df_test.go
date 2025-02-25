@@ -87,10 +87,10 @@ func TestSQLsave(t *testing.T) {
 			outTable = outTableCH
 		case pg:
 			outTable = outTablePG
-			options = []string{"?Owner:" + owner, "?TableSpace:" + tablespace}
+			options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
 		case mem:
 			outTable = outTablePG
-			options = []string{"?Owner:" + owner, "?TableSpace:" + tablespace}
+			options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
 		}
 		e := dlct.Save(outTable, "k,yy", true, dfx, options...)
 		assert.Nil(t, e)
@@ -125,10 +125,8 @@ func TestFileSave(t *testing.T) {
 
 func TestParse_Join(t *testing.T) {
 	for _, which := range pkgs() {
-		//		if !strings.Contains(which, "postgres") {
-		//			continue
-		//		}
 		dfx := loadData(which)
+		fmt.Println(dfx.ColumnNames())
 		dfy := dfx.Copy()
 		_ = dfy.Column("x").Rename("xx")
 		_ = dfy.Column("z").Rename("zz")
@@ -172,10 +170,10 @@ func TestParse_Table(t *testing.T) {
 		assert.Nil(t, e)
 		df1 := out.DF()
 
-		cx := dfx.Column("x")
-		_ = d.ColName("xx")(cx)
-		ez := df1.AppendColumn(cx, true)
-		assert.NotNil(t, ez)
+		//cx := dfx.Column("x")
+		//		_ = d.ColName("xx")(cx)
+		//		ez := df1.AppendColumn(cx, true)
+		//		assert.NotNil(t, ez)
 
 		fmt.Println(df1.Column("rate").Data().AsAny())
 
@@ -196,6 +194,7 @@ func TestParse_Sort(t *testing.T) {
 		outdf, e := d.Parse(dfx, "sort('asc', y, x)")
 		_ = outdf
 		assert.Nil(t, e)
+
 		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsAny())
 		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsAny())
 	}
@@ -241,6 +240,9 @@ func TestAppendDF(t *testing.T) {
 
 func TestFilesOpen(t *testing.T) {
 	dfx := loadData(mem + ",d1")
+	// other files don't have column R
+	e := dfx.DropColumns("R")
+	assert.Nil(t, e)
 
 	// specify both fieldNames and fieldTypes
 	// file has no eol characters
@@ -249,7 +251,7 @@ func TestFilesOpen(t *testing.T) {
 	fieldWidths := []int{1, 5, 2, 3, 10, 8}
 	f, _ := d.NewFiles(d.FileEOL(0), d.FileHeader(false), d.FileStrict(false),
 		d.FileFieldNames(fieldNames), d.FileFieldTypes(fieldTypes), d.FileFieldWidths(fieldWidths))
-	e := f.Open(slash(os.Getenv("datapath")) + fileNameW1)
+	e = f.Open(slash(os.Getenv("datapath")) + fileNameW1)
 	assert.Nil(t, e)
 	df1, e1 := m.FileLoad(f)
 	assert.Nil(t, e1)

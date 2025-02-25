@@ -965,3 +965,5 @@ func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 // TODO: need to have code in testing to create test tables in CH and PG
 
 // TODO: think about: give df's a name field?
+
+// TODO: add a column with a capital letter to d1.csv

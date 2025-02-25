@@ -227,7 +227,7 @@ func getSQL(df d.DF, inputs ...any) []string {
 		col := toCol(df, inputs[ind])
 		// postgres can't use an alias from the same query.
 		if col.Name() != "" && col.sql == "" {
-			sOut = append(sOut, col.Name())
+			sOut = append(sOut, df.Dialect().ToName(col.Name()))
 			continue
 		}
 
