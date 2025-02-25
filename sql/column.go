@@ -154,16 +154,17 @@ func (c *Col) MakeQuery() string {
 	var selectFld string
 	switch {
 	case c.Name() != "" && df.Column(c.Name()) != nil:
-		selectFld = c.Name()
+		selectFld = c.Dialect().ToName(c.Name())
 	case c.Name() != "" && c.SQL() != "":
-		selectFld = fmt.Sprintf("%s AS %s", c.SQL(), c.Name())
+		selectFld = fmt.Sprintf("%s AS %s", c.SQL(), c.Dialect().ToName(c.Name()))
 	case c.Name() != "" && c.SQL() == "" && !d.Has(c.Name(), df.ColumnNames()):
-		selectFld = fmt.Sprintf("%s AS %s", c.Name(), d.RandomLetters(5))
+		selectFld = fmt.Sprintf("%s AS %s", c.Dialect().ToName(c.Name()), d.RandomLetters(5))
 	default:
-		selectFld = c.Name()
+		selectFld = c.Dialect().ToName(c.Name())
 	}
 
-	return strings.ReplaceAll(ssql, repl, selectFld)
+	qry := strings.ReplaceAll(ssql, repl, selectFld)
+	return qry
 }
 
 func (c *Col) Rename(newName string) error {

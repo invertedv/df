@@ -541,9 +541,9 @@ func (f *DF) MakeQuery(colNames ...string) string {
 		}
 
 		var field string
-		field = cx.Name()
+		field = f.Dialect().ToName(cx.Name())
 		if fn := cx.(*Col).SQL(); fn != cx.Name() {
-			field = fmt.Sprintf("%s AS %s", fn, cx.Name())
+			field = fmt.Sprintf("%s AS %s", fn, f.Dialect().ToName(cx.Name()))
 		}
 
 		fields = append(fields, field)

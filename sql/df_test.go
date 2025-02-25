@@ -13,7 +13,6 @@ import (
 	m "github.com/invertedv/df/mem"
 	_ "github.com/jackc/pgx/stdlib"
 
-	//	pgy "github.com/jackc/pgx"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
@@ -163,9 +162,7 @@ func TestSQLcol_Data(t *testing.T) {
 }
 
 func TestWhere(t *testing.T) {
-	var dfx *DF
-	dfx = testDF(which)
-	//	defer func() { _ = dfx.Dialect().DB().Close() }()
+	dfx := testDF(which)
 
 	out, e := d.Parse(dfx, "y == 1 || z == '20060310'")
 	assert.Nil(t, e)

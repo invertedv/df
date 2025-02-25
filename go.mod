@@ -1,8 +1,8 @@
 module github.com/invertedv/df
 
-go 1.22
+go 1.23.0
 
-toolchain go1.22.5
+toolchain go1.24.0
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.18.0
@@ -32,8 +32,8 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	go.opentelemetry.io/otel v1.23.1 // indirect
 	go.opentelemetry.io/otel/trace v1.23.1 // indirect
-	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

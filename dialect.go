@@ -134,11 +134,11 @@ func (d *Dialect) Join(leftSQL, rightSQL string, leftFields, rightFields, joinFi
 	}
 
 	for ind := 0; ind < len(leftFields); ind++ {
-		leftFields[ind] = fmt.Sprintf("%s.%s", leftAlias, leftFields[ind])
+		leftFields[ind] = fmt.Sprintf("%s.%s", leftAlias, d.ToName(leftFields[ind]))
 	}
 
 	for ind := 0; ind < len(rightFields); ind++ {
-		rightFields[ind] = fmt.Sprintf("%s.%s", rightAlias, rightFields[ind])
+		rightFields[ind] = fmt.Sprintf("%s.%s", rightAlias, d.ToName(rightFields[ind]))
 	}
 
 	selectFields := strings.Join(append(leftFields, rightFields...), ",")
@@ -765,6 +765,14 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 	}
 
 	return sqlx, e
+}
+
+func (d *Dialect) ToName(fieldName string) string {
+	if d.DialectName() == pg && fieldName != strings.ToLower(fieldName) {
+		return `"` + fieldName + `"`
+	}
+
+	return fieldName
 }
 
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {

@@ -13,62 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLoad(t *testing.T) {
-	sql := "SELECT (SELECT count(*) FROM testing.d1) AS r"
-	db := newConnectCH("", "root", "abc234")
-	dlct, e := d.NewDialect(ch, db)
-	assert.Nil(t, e)
-
-	qry := "select * from testing.d1"
-	_ = qry
-	v, _, _, e3 := dlct.Load(sql)
-	assert.Nil(t, e3)
-	_ = v
-	for ind := 0; ind < len(v); ind++ {
-		fmt.Println(v[ind].Data().AsAny())
-	}
-
-	rows, e2 := db.Query("select z, k from testing.d1 limit 1")
-	ct, e4 := rows.ColumnTypes()
-	assert.Nil(t, e4)
-	var ry []any
-	for ind := 0; ind < len(ct); ind++ {
-		var x any
-		ry = append(ry, &x)
-	}
-	for rows.Next() {
-		e5 := rows.Scan(ry...)
-		assert.Nil(t, e5)
-	}
-
-	assert.Nil(t, e2)
-	var x any
-	var y *uint64
-	_, _ = x, y
-	for rows.Next() {
-		ex := rows.Scan(&y)
-		assert.Nil(t, ex)
-		switch x := x.(type) {
-		case uint64:
-			fmt.Println(x, "uint")
-		case *uint64:
-			fmt.Println(*x, "*uint64")
-		}
-	}
-	df, e1 := m.DBLoad(sql, dlct)
-	assert.Nil(t, e1)
-	_ = df
-}
-
-// slash adds a trailing slash if inStr doesn't end in a slash
-func slash(inStr string) string {
-	if inStr[len(inStr)-1] == '/' {
-		return inStr
-	}
-
-	return inStr + "/"
-}
-
 func TestPlotXY(t *testing.T) {
 	dfx := loadData("mem,d1")
 	e := dfx.Sort(true, "x")
@@ -94,35 +38,6 @@ func TestPlotXY(t *testing.T) {
 	e4 := d.PlotHeight(10)(p)
 	assert.NotNil(t, e4)
 }
-
-/*func TestTypes(t *testing.T) {
-	table := "SELECT * EXCEPT(fhfa_msad, delta) FROM fhfa.msad LIMIT 10"
-	var db *sql.DB
-
-	user := os.Getenv("user")
-	host := os.Getenv("host")
-	password := os.Getenv("password")
-	db = newConnectCH(host, user, password)
-
-	var (
-		dialect *d.Dialect
-		e       error
-	)
-	if dialect, e = d.NewDialect("clickhouse", db); e != nil {
-		panic(e)
-	}
-	ctx := d.NewContext(dialect, nil, nil)
-
-	var (
-		df *s.DF
-		e1 error
-	)
-	if df, e1 = s.DBload(table, ctx); e1 != nil {
-		panic(e1)
-	}
-	fmt.Println(df.Column("yr").Name())
-	fmt.Println(df.Column("yr").Data())
-}*/
 
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
@@ -210,6 +125,9 @@ func TestFileSave(t *testing.T) {
 
 func TestParse_Join(t *testing.T) {
 	for _, which := range pkgs() {
+		//		if !strings.Contains(which, "postgres") {
+		//			continue
+		//		}
 		dfx := loadData(which)
 		dfy := dfx.Copy()
 		_ = dfy.Column("x").Rename("xx")
@@ -218,9 +136,15 @@ func TestParse_Join(t *testing.T) {
 		outDF, e := dfx.Join(dfy, "k")
 		assert.Nil(t, e)
 		fmt.Println(outDF.ColumnNames())
-		fmt.Println(outDF.Column("y").Data().AsAny())
+		//		q := outDF.(*s.DF).MakeQuery()
+		//		_ = q
+		fmt.Println(outDF.Column("yDUP").Data().AsAny())
 		fmt.Println(outDF.Column("x").Data().AsAny())
 		fmt.Println(outDF.Column("xx").Data().AsAny())
+		assert.Equal(t, outDF.Column("xx").Data().AsAny(),
+			outDF.Column("x").Data().AsAny())
+		assert.Equal(t, outDF.Column("y").Data().AsAny(),
+			outDF.Column("yDUP").Data().AsAny())
 
 	}
 }

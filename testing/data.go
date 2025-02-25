@@ -179,3 +179,12 @@ func loadData(which string) d.DF {
 
 	return df
 }
+
+// slash adds a trailing slash if inStr doesn't end in a slash
+func slash(inStr string) string {
+	if inStr[len(inStr)-1] == '/' {
+		return inStr
+	}
+
+	return inStr + "/"
+}
