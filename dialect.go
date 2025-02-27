@@ -64,7 +64,6 @@ type Dialect struct {
 	create string
 	insert string
 	dropIf string
-	exists string
 
 	fields string
 

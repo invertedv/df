@@ -163,6 +163,8 @@ func TestSQLcol_Data(t *testing.T) {
 
 func TestWhere(t *testing.T) {
 	dfx := testDF(which)
+	owner := os.Getenv("user")
+	tablespace := os.Getenv("tablespace")
 
 	out, e := d.Parse(dfx, "y == 1 || z == '20060310'")
 	assert.Nil(t, e)
@@ -177,11 +179,17 @@ func TestWhere(t *testing.T) {
 
 	outDF := out.DF().(*DF)
 	fmt.Println(outDF.MakeQuery())
-	tablex := "public.where"
-	if which == ch {
-		tablex = "testing.where"
+	// save to a table
+	var outTable string
+	var options []string
+	switch which {
+	case ch:
+		outTable = os.Getenv("chTemp")
+	case pg:
+		outTable = os.Getenv("pgTemp")
+		options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
 	}
-	e = outDF.Dialect().Save(tablex, "", true, outDF)
+	e = outDF.Dialect().Save(outTable, "", true, outDF, options...)
 	assert.Nil(t, e)
 	assert.Equal(t, 2, outDF.RowCount())
 
@@ -217,6 +225,7 @@ func TestParser(t *testing.T) {
 	dfx := testDF(which)
 
 	x := [][]any{
+		//		{"x/0.0", 0, math.Inf(1)}, won't work in Postgres
 		{"date(20221231)", 0, time.Date(2022, 12, 31, 0, 0, 0, 0, time.UTC)},
 		{"log(exp(1.0))", 0, 1.0},
 		{"((exp(1.0) + log(exp(1.0))))*(3.0--1.0)", 0, 4.0 + 4.0*math.Exp(1)},
@@ -288,7 +297,6 @@ func TestParser(t *testing.T) {
 		{"date('2002-06-30')", 0, time.Date(2002, 6, 30, 0, 0, 0, 0, time.UTC)},
 		{"-x +2.0", 0, float64(1)},
 		{"-x +4.0", 1, float64(6)},
-		{"x/0.0", 0, math.Inf(1)},
 		{"(1 + 2) - -(-1 - 2)", 0, 0},
 		{"(1.0 + 3.0) / abs(-(-1.0 + 3.0))", 0, float64(2)},
 	}
@@ -303,6 +311,9 @@ func TestParser(t *testing.T) {
 		fmt.Println(xOut.Column().Data().AsAny())
 		result := xOut.Column().Data().Element(x[ind][1].(int))
 		if d.WhatAmI(result) == d.DTfloat {
+			if result.(float64) == math.Inf(1) && x[ind][2].(float64) == math.Inf(1) {
+				continue
+			}
 			assert.InEpsilon(t, x[ind][2].(float64), result.(float64), .001)
 			continue
 		}

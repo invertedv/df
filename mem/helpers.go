@@ -36,10 +36,6 @@ func returnCol(data any) *d.FnReturn {
 		return &d.FnReturn{}
 	}
 
-	if px, ok := data.(*d.Plot); ok {
-		return &d.FnReturn{Value: px}
-	}
-
 	if dx, ok := data.(*d.Vector); ok {
 		if dx == nil {
 			return &d.FnReturn{}
@@ -88,10 +84,6 @@ func signature(target [][]d.DataTypes, cols []any) int {
 			var trg d.DataTypes
 			if col, ok := cols[k].(d.Column); ok {
 				trg = col.DataType()
-			}
-
-			if _, ok := cols[k].(*d.Plot); ok {
-				trg = d.DTplot
 			}
 
 			if trg == d.DTcategorical {

@@ -19,11 +19,6 @@ const (
 	fileNameW1 = "testFW.txt"
 	fileNameW2 = "testFW1.txt"
 	fileNameW3 = "testFW2.txt"
-	//	inTableCH  = "testing.d1"
-	//	inTablePG  = "d1"
-	//	inFile     = "d1.csv"
-	outTableCH = "testing.test"
-	outTablePG = "public.test"
 	sources    = "d1"
 
 	pg  = "postgres"
@@ -35,7 +30,10 @@ const (
 //   - host ClickHouse IP address
 //   - user ClickHouse user
 //   - password: ClickHouse password
-//   - datapath: path to data directory in this project
+//   - datapath: path to data directory in this project (df/data)
+//   - tablespace: Postgres tablespace
+//   - chTemp - name of Clickhouse temp table to use in testing
+//   - pgTemp - name of Postgres temp table to use in testing
 
 // list of packages to test
 func pkgs() []string {
@@ -47,6 +45,7 @@ func pkgs() []string {
 			choices = append(choices, db+","+src)
 		}
 	}
+
 	return choices
 }
 
@@ -71,6 +70,7 @@ func newConnectCH(host, user, password string) *sql.DB {
 	if e := db.Ping(); e != nil {
 		panic(e)
 	}
+
 	return db
 }
 
@@ -87,6 +87,7 @@ func newConnectPG(host, user, password, dbName string) *sql.DB {
 	if e := db.Ping(); e != nil {
 		panic(e)
 	}
+
 	return db
 }
 

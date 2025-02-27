@@ -265,8 +265,6 @@ func WhatAmI(val any) DataTypes {
 		return DTstring
 	case time.Time, []time.Time:
 		return DTdate
-	case *Plot:
-		return DTplot
 	case DF:
 		return DTdf
 	default:
@@ -337,13 +335,13 @@ func toSlc(xIn any, target DataTypes) (any, bool) {
 // *********** Other ***********
 
 // slash adds a trailing slash if inStr doesn't end in a slash
-func slash(inStr string) string {
-	if inStr[len(inStr)-1] == '/' {
-		return inStr
-	}
-
-	return inStr + "/"
-}
+//func slash(inStr string) string {
+//	if inStr[len(inStr)-1] == '/' {
+//		return inStr
+//	}
+//
+//	return inStr + "/"
+//}
 
 // randUnifInt generates a slice whose elements are random U[0,upper) int64's
 func randUnifInt(n, upper int) ([]int64, error) {

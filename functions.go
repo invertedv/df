@@ -39,7 +39,6 @@ const (
 	RTscalar ReturnTypes = 'S'
 	RTcolumn ReturnTypes = 'C'
 	RTdf     ReturnTypes = 'D'
-	RTplot   ReturnTypes = 'P'
 	RTnone               = 'N'
 )
 
@@ -75,11 +74,6 @@ func okParams(cols []any, inputs [][]DataTypes, outputs []DataTypes) (ok bool, o
 	for j := 0; j < len(inputs); j++ {
 		ok = true
 		for k := 0; k < len(inputs[j]); k++ {
-			if _, isPlot := cols[k].(*Plot); isPlot && inputs[j][k] != DTplot {
-				ok = false
-				break
-			}
-
 			if _, isCol := cols[k].(Column); isCol && inputs[j][k] != DTany && cols[k].(Column).DataType() != inputs[j][k] {
 				ok = false
 				break

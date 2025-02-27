@@ -7,9 +7,8 @@ import (
 )
 
 type Parsed struct {
-	col  Column
-	df   DF
-	plot *Plot
+	col Column
+	df  DF
 }
 
 func (p *Parsed) Value() any {
@@ -19,10 +18,6 @@ func (p *Parsed) Value() any {
 
 	if p.col != nil {
 		return p.col
-	}
-
-	if p.plot != nil {
-		return p.plot
 	}
 
 	return nil
@@ -36,8 +31,6 @@ func (p *Parsed) Column() Column {
 	return p.col
 }
 
-func (p *Parsed) Plot() *Plot { return p.plot }
-
 func (p *Parsed) Which() ReturnTypes {
 	if p.df != nil {
 		return RTdf
@@ -45,10 +38,6 @@ func (p *Parsed) Which() ReturnTypes {
 
 	if p.col != nil {
 		return RTcolumn
-	}
-
-	if p.plot != nil {
-		return RTplot
 	}
 
 	return RTnone
@@ -92,7 +81,7 @@ func Parse(df DF, expr string) (*Parsed, error) {
 		return nil, df.AppendColumn(ot.value.Column(), true)
 	}
 
-	return nil, df.AppendPlot(ot.value.Plot(), left, true)
+	return nil, fmt.Errorf("error in Parse")
 }
 
 func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
@@ -109,8 +98,6 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 			return nil, fmt.Errorf("cannot take DF as function input")
 		case RTcolumn:
 			vals = append(vals, inputs[ind].Column())
-		case RTplot:
-			vals = append(vals, inputs[ind].Plot())
 		}
 	}
 
@@ -162,11 +149,6 @@ func newParsed(value any, dependencies ...string) *Parsed {
 	if col, ok := value.(Column); ok {
 		_ = colDependencies(dependencies)(col) //(value.(Column).Core())
 		p.col = col
-		return p
-	}
-
-	if plt, ok := value.(*Plot); ok {
-		p.plot = plt
 		return p
 	}
 
@@ -264,11 +246,6 @@ func (ot *opTree) eval(df DF) error {
 		if c := df.Column(ot.expr); c != nil {
 			ot.dependencies = nodupAppend(ot.dependencies, c.Name())
 			ot.value = newParsed(c, ot.dependencies...)
-			return nil
-		}
-
-		if p := df.Plot(ot.expr); p != nil {
-			ot.value = newParsed(p)
 			return nil
 		}
 

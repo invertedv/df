@@ -122,6 +122,7 @@ func TestRowNumber(t *testing.T) {
 	a5, _ := NewCol(v5, d.DTstring, d.ColName("a5"))
 	aind, _ := NewCol(ind, d.DTint, d.ColName("ind"))
 	_ = aind
+	_, _, _, _, _ = a1, a2, a3, a4, a5
 
 	za := make([]float64, n)
 	zz := make([]int, n)
@@ -133,20 +134,12 @@ func TestRowNumber(t *testing.T) {
 	//	level0(za, addFn[float64], []*Col{a1, a2})
 	//	level0(za, math.Exp, []*Col{a1})
 
-	df, _ := NewDFcol(nil, []*Col{a1, a2, a3, a4, a5})
 	//	outf, e := d.Parse(df, "a1+a2")
 	fmt.Println("time: ", time.Since(t0).Seconds())
 	//	assert.Nil(t, e)
 	//	_ = outf
-	plt, e := d.Parse(df, "p1:=plot(a1,a2)")
-	_ = plt
-	assert.Nil(t, plt)
-	//plt.Plot().Show("", "")
-	assert.Nil(t, e)
-	_, e = d.Parse(df, "title(p1,'Testing')")
-	assert.Nil(t, e)
 
-	df.Plot("p1").Show("", "")
+	//	df.Plot("p1").Show("", "")
 	//	tx := time.Now()
 	/*
 		//	plt.Plot().Show("", "")

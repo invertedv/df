@@ -19,26 +19,13 @@ import (
 )
 
 type frameTypes interface {
-	float64 | int | string | time.Time | *d.Plot
+	float64 | int | string | time.Time
 }
 
 var (
 	//go:embed data/functions.txt
 	functions string
 )
-
-func plotFn(x, y []float64) (*d.Plot, error) {
-	plt, _ := d.NewPlot()
-	if e := plt.PlotXY(x, y, "", "black"); e != nil {
-		return nil, e
-	}
-
-	return plt, nil
-}
-
-func plotTitleFn(plot []*d.Plot, title []string) {
-	_ = d.PlotTitle(title[0])(plot[0])
-}
 
 func printFn[T frameTypes](a []T) {
 	fmt.Println(a[0])
@@ -77,7 +64,6 @@ func rawFuncs() []any {
 		meanFn[float64], meanFn[int],
 		sumFn[float64], sumFn[int],
 		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
-		plotFn, plotTitleFn,
 		printFn[float64], printFn[int], printFn[string], printFn[time.Time],
 	}
 
@@ -118,11 +104,11 @@ func vectorFunctions() d.Fns {
 				if ind < 0 {
 					panic("no signature")
 				}
-				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.RT, spec.Outputs[ind])
+				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
 			}
 
 			// scalar, nil and plot returns take the whole vector as inputs
-			if spec.RT == d.RTscalar || spec.RT == d.RTnone || spec.RT == d.RTplot {
+			if spec.RT == d.RTscalar || spec.RT == d.RTnone {
 				n = 1
 			}
 
@@ -134,16 +120,8 @@ func vectorFunctions() d.Fns {
 				oas = outVec.AsAny()
 			}
 
-			if spec.RT == d.RTplot {
-				oas = make([]*d.Plot, 1)
-			}
-
 			if e := level0(oas, fnUse, inputs); e != nil {
 				return &d.FnReturn{Err: e}
-			}
-
-			if plt, ok := oas.([]*d.Plot); ok {
-				return &d.FnReturn{Value: plt[0]}
 			}
 
 			return returnCol(outVec)
@@ -158,10 +136,6 @@ func vectorFunctions() d.Fns {
 func GetKind(fn reflect.Type) d.DataTypes {
 	switch fn.Kind() {
 	case reflect.Pointer:
-		if fn == reflect.TypeOf(&d.Plot{}) {
-			return d.DTplot
-		}
-
 		return d.DTunknown
 	case reflect.Float64:
 		return d.DTfloat
@@ -184,7 +158,7 @@ func GetKind(fn reflect.Type) d.DataTypes {
 
 // fnToUse chooses the element of fns (slice of functions) that matches the pattern of inputs in targetIns and
 // output of targOut.
-func fnToUse(fns []any, targetIns []d.DataTypes, retType d.ReturnTypes, targOut d.DataTypes) any {
+func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 	for _, fn := range fns {
 		rfn := reflect.TypeOf(fn)
 		ok := true
@@ -193,10 +167,6 @@ func fnToUse(fns []any, targetIns []d.DataTypes, retType d.ReturnTypes, targOut 
 				ok = false
 				break
 			}
-		}
-
-		if ok && retType == d.RTplot && rfn.Out(0) == reflect.TypeOf(&d.Plot{}) {
-			return fn
 		}
 
 		if ok && rfn.NumOut() == 0 && targOut == d.DTnil {
@@ -725,10 +695,6 @@ func splitCol(cols []any) (any, []any) {
 		col0 = toCol(col0)
 	}
 
-	if p, ok := col0.(*d.Plot); ok {
-		col0 = []*d.Plot{p}
-	}
-
 	if len(cols) == 1 {
 		return col0, nil
 	}
@@ -749,16 +715,12 @@ func level0(out, fn any, cols []any) error {
 			return dofn0(outx, fn)
 		case nil:
 			return dofn0[any](nil, fn)
-		case []*d.Plot:
-			return dofn0(outx, fn)
 		}
 	}
 
 	col0, colsRemain := splitCol(cols)
 
 	switch v := col0.(type) {
-	case []*d.Plot:
-		return level1(v, out, fn, colsRemain)
 	case *Col:
 		switch v.DataType() {
 		case d.DTfloat:
@@ -788,16 +750,12 @@ func level1[T frameTypes](a []T, out, fn any, cols []any) error {
 			return dofn1(a, outx, fn)
 		case nil:
 			return dofn1[T, any](a, nil, fn)
-		case []*d.Plot:
-			return dofn1(a, outx, fn)
 		}
 	}
 
 	col0, colsRemain := splitCol(cols)
 
 	switch v := col0.(type) {
-	case []*d.Plot:
-		return level2(a, v, out, fn, colsRemain)
 	case *Col:
 		switch v.DataType() {
 		case d.DTfloat:
@@ -827,16 +785,12 @@ func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []any) error {
 			return dofn2(a, b, outx, fn)
 		case nil:
 			return dofn2[T, S, any](a, b, nil, fn)
-		case []*d.Plot:
-			return dofn2(a, b, outx, fn)
 		}
 	}
 
 	col0, colsRemain := splitCol(cols)
 
 	switch v := col0.(type) {
-	case []*d.Plot:
-		return level3(a, b, v, out, fn, colsRemain)
 	case *Col:
 		switch v.DataType() {
 		case d.DTfloat:
@@ -866,8 +820,6 @@ func level3[T, S, U frameTypes](a []T, b []S, c []U, out, fn any, cols []any) er
 			return dofn3(a, b, c, outx, fn)
 		case nil:
 			return dofn3[T, S, U, any](a, b, nil, nil, fn)
-		case []*d.Plot:
-			return dofn3(a, b, c, outx, fn)
 		}
 	}
 

@@ -13,31 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPlotXY(t *testing.T) {
-	dfx := loadData("mem,d1")
-	e := dfx.Sort(true, "x")
-	assert.Nil(t, e)
-	p, e0 := d.NewPlot(d.PlotTitle("This Is A Test"), d.PlotXlabel("X-Axis"),
-		d.PlotYlabel("Y-Axis"), d.PlotLegend(true))
-	assert.Nil(t, e0)
-	_ = d.PlotSubtitle("(subtitle here)")(p)
-	_ = d.PlotXlabel("New X Label")(p)
-	_ = d.PlotTitle("What???")(p)
-	_ = d.PlotHeight(800)(p)
-	_ = d.PlotWidth(800)(p)
-	x := dfx.Column("x")
-	y, _ := d.Parse(dfx, "exp(x)")
-	_ = d.ColName("expy")(y.Column())
-	e1 := p.PlotXY(x.Data().AsAny().([]float64), y.Column().Data().AsAny().([]float64), "s1", "red")
-	assert.Nil(t, e1)
-	//	e2 := p.PlotXY(x, x, "s2", "black")
-	//	assert.Nil(t, e2)
-	//	e3 := p.Show("", "")
-	//	assert.Nil(t, e3)
-
-	e4 := d.PlotHeight(10)(p)
-	assert.NotNil(t, e4)
-}
 
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
@@ -84,12 +59,12 @@ func TestSQLsave(t *testing.T) {
 		var options []string
 		switch src {
 		case ch:
-			outTable = outTableCH
+			outTable = os.Getenv("chTemp")
 		case pg:
-			outTable = outTablePG
+			outTable = os.Getenv("pgTemp")
 			options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
 		case mem:
-			outTable = outTablePG
+			outTable = os.Getenv("pgTemp")
 			options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
 		}
 		e := dlct.Save(outTable, "k,yy", true, dfx, options...)
