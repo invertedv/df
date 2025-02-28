@@ -2,8 +2,6 @@ package df
 
 import "fmt"
 
-// TODO: add dialect to ColCore to match DFcore
-
 // Column interface defines the methods the columns
 type Column interface {
 	CC

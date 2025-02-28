@@ -159,7 +159,7 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 	newData := inputs[0].(*Col)
 	oldData := inputs[1].(*Col)
-	newVal := inputs[2].(*Col)
+	newVal := toCol(df, inputs[2])
 
 	if newData.DataType() != oldData.RawType() {
 		return &d.FnReturn{Err: fmt.Errorf("new column must be same type as original data in applyCat")}
@@ -175,6 +175,10 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	)
 	if defaultValue, ok = d.ToDataType(newVal.SQL(), newVal.DataType()); !ok {
 		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value")}
+	}
+
+	if _, ok := oldData.CategoryMap()[defaultValue]; !ok {
+		return &d.FnReturn{Err: fmt.Errorf("default value in applyCat not an existing category level")}
 	}
 
 	var levels []any
@@ -220,18 +224,13 @@ func toCol(df d.DF, x any) *Col {
 	panic("can't make column")
 }
 
-// getSQL returns either the name of the columns or their SQL
+
 func getSQL(df d.DF, inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
 		col := toCol(df, inputs[ind])
-		// postgres can't use an alias from the same query.
-		if col.Name() != "" && col.sql == "" {
-			sOut = append(sOut, df.Dialect().ToName(col.Name()))
-			continue
-		}
-
-		sOut = append(sOut, toCol(df, inputs[ind]).SQL())
+		// don't use SQL() here to avoid getting global return
+		sOut = append(sOut, df.Dialect().NameOrSQL(col.Name(), col.sql))
 	}
 
 	return sOut

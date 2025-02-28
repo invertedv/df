@@ -509,7 +509,6 @@ func (f *Files) writeHeader(fieldNames []string) error {
 		return nil
 	}
 
-	// TODO: place stringDelim around these?
 	if _, e := f.file.WriteString(strings.Join(fieldNames, string(rune(f.sep))) + string(rune(f.eol))); e != nil {
 		return e
 	}

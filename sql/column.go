@@ -155,9 +155,9 @@ func (c *Col) MakeQuery() string {
 	switch {
 	case c.Name() != "" && df.Column(c.Name()) != nil:
 		selectFld = c.Dialect().ToName(c.Name())
-	case c.Name() != "" && c.SQL() != "":
-		selectFld = fmt.Sprintf("%s AS %s", c.SQL(), c.Dialect().ToName(c.Name()))
-	case c.Name() != "" && c.SQL() == "" && !d.Has(c.Name(), df.ColumnNames()):
+	case c.Name() != "" && c.sql != "":
+		selectFld = fmt.Sprintf("%s AS %s", c.sql, c.Dialect().ToName(c.Name()))
+	case c.Name() != "" && c.sql == "" && !d.Has(c.Name(), df.ColumnNames()):
 		selectFld = fmt.Sprintf("%s AS %s", c.Dialect().ToName(c.Name()), d.RandomLetters(5))
 	default:
 		selectFld = c.Dialect().ToName(c.Name())

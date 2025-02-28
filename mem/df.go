@@ -395,7 +395,8 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		}
 
 		if *cnt < fuzz {
-			lvl = defaultVal
+			//lvl = defaultVal
+			toMap[lvl] = -1
 		}
 
 		if _, ok := toMap[lvl]; !ok {
@@ -953,17 +954,3 @@ func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 
 	return outCols
 }
-
-//TODO: do I want to make the parent columns available or not?
-//TODO: if I do, then need to make Parse a method.
-//TODO: for SQL should copy the dataframe for sourceDF
-
-// TODO: add "join" methods
-// TODO: add "join" to interface methods
-// TODO: think about default values
-// TODO: need to have a big df options for testing
-// TODO: need to have code in testing to create test tables in CH and PG
-
-// TODO: think about: give df's a name field?
-
-// TODO: add a column with a capital letter to d1.csv

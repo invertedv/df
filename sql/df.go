@@ -382,9 +382,12 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 
 	if _, ok := toMap[defaultVal]; !ok {
 		toMap[defaultVal] = -1
+
 	}
 
 	cn := col.Name()
+	// avoiding global with .SQL()
+	colSQL := f.Dialect().NameOrSQL(cn, col.(*Col).sql)
 	var (
 		tabl d.DF
 		e4   error
@@ -447,7 +450,8 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 
 		cnts[catVal] += ct
 
-		whens = append(whens, fmt.Sprintf("%s = %s", cn, f.Dialect().ToString(val)))
+		cond := fmt.Sprintf("%s = %s", colSQL, f.Dialect().ToString(val))
+		whens = append(whens, cond)
 		equalTo = append(equalTo, fmt.Sprintf("%d", outVal))
 		if outVal == caseNo {
 			caseNo++

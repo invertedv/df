@@ -548,6 +548,9 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	}
 
 	defaultValue = newVal.Element(0)
+	if _, ok := oldData.CategoryMap()[defaultValue]; !ok {
+		return &d.FnReturn{Err: fmt.Errorf("default value in applyCat not an existing category level")}
+	}
 
 	var levels []any
 	for k := range oldData.CategoryMap() {

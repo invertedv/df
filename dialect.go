@@ -517,24 +517,6 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 	return memData, fieldNames, fieldTypes, nil
 }
 
-// TODO: delete these?
-func (d *Dialect) Max1(col string) string {
-	sqlx, _ := d.CastField(fmt.Sprintf("max(%s)", col), DTfloat, DTfloat)
-
-	return sqlx
-}
-
-func (d *Dialect) Mean1(col string) string {
-	sqlx, _ := d.CastField(fmt.Sprintf("avg(%s)", col), DTfloat, DTfloat)
-	return sqlx
-}
-
-func (d *Dialect) Min1(col string) string {
-	sqlx, _ := d.CastField(fmt.Sprintf("min(%s)", col), DTfloat, DTfloat)
-
-	return sqlx
-}
-
 func (d *Dialect) WithName() string {
 	const wLen = 4
 	return RandomLetters(wLen)
@@ -662,11 +644,33 @@ func (d *Dialect) SetBufSize(mb int) {
 // ToName converts the raw field name to what's need for a interaction with the database.
 // Specifically, Postgres requires quotes around field names that have uppercase letters
 func (d *Dialect) ToName(fieldName string) string {
-	if d.DialectName() == pg && fieldName != strings.ToLower(fieldName) {
-		return `"` + fieldName + `"`
+	if d.DialectName() == pg {
+		if fieldName != strings.ToLower(fieldName) {
+			return `"` + fieldName + `"`
+		}
 	}
 
 	return fieldName
+}
+
+// NameOrSQL returns the generating SQL for the column if there is any, o.w. the name
+// This can be needed for some DBs, such as Postgres, that can not use the alias of another column, such as:
+//
+//	SELECT
+//	  2*x AS a,
+//	  2*a AS b
+func (d *Dialect) NameOrSQL(fieldName, genSQL string) string {
+	if fieldName=="" {
+		return genSQL
+	}
+
+	if d.DialectName() == pg {
+		if genSQL != "" && genSQL != fieldName {
+			return genSQL
+		}
+	}
+
+	return d.ToName(fieldName)
 }
 
 // ToString returns a string version of val that can be placed into SQL

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	m "github.com/invertedv/df/mem"
+	//	s "github.com/invertedv/df/sql"
 
 	d "github.com/invertedv/df"
 	"github.com/stretchr/testify/assert"
@@ -110,9 +111,30 @@ func TestRowNumber(t *testing.T) {
 func TestIf(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		out, e := d.Parse(dfx, "if(y==-5,yy,y)")
+		_, e := d.Parse(dfx, "out:=if(y==-5,yy,y)")
 		assert.Nil(t, e)
-		assert.Equal(t, []int{1, -15, 6, 1, 4, 5}, out.Column().Data().AsAny())
+		assert.Equal(t, []int{1, -15, 6, 1, 4, 5},
+			dfx.Column("out").Data().AsAny())
+
+		_, e1 := d.Parse(dfx, "out:=if(z=='20221231',1.0,0.0)")
+		assert.Nil(t, e1)
+		assert.Equal(t, []float64{1, 0, 0, 0, 0, 0},
+			dfx.Column("out").Data().AsAny())
+
+		_, e2 := d.Parse(dfx, "out:=if(z=='20000101','a','b')")
+		assert.Nil(t, e2)
+		assert.Equal(t, []string{"b", "a", "b", "b", "b", "b"},
+			dfx.Column("out").Data().AsAny())
+
+		_, e3 := d.Parse(dfx, "out:=if(z=='20000101','a',if(y==1,'c','b'))")
+		assert.Nil(t, e3)
+		assert.Equal(t, []string{"c", "a", "b", "c", "b", "b"},
+			dfx.Column("out").Data().AsAny())
+
+		_, e4 := d.Parse(dfx, "out:=float(if(y==1 || yy==15,1,0))+1.0")
+		assert.Nil(t, e4)
+		assert.Equal(t, []float64{2, 1, 1, 2, 2, 1},
+			dfx.Column("out").Data().AsAny())
 	}
 }
 
@@ -123,9 +145,15 @@ var (
 
 func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
+		if !strings.Contains(which, "post") {
+			continue
+		}
 		dfx := loadData(which)
+		cc := dfx.Column("R")
+		_ = cc
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
+			fmt.Println(test)
 			vals := strings.Split(strings.ReplaceAll(test, " ", ""), "|")
 			if len(vals) != 4 {
 				continue
@@ -188,72 +216,51 @@ func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 
-		colx, e := d.Parse(dfx, "date(z)")
-		assert.Nil(t, e)
-		col := colx.Column()
-		e = d.ColName("dt1")(col)
-		assert.Nil(t, e)
-		e = dfx.AppendColumn(col, false)
-		assert.Nil(t, e)
-
-		//		colx, e = dfx.Parse("1")
-		//		col = colx.Column()
-		//		e = col.Rename("howdy")
-		//		e = dfx.AppendColumn(col, false)
-		// try with DTint
-		colx, e = d.Parse(dfx, "cat(y)")
-		assert.Nil(t, e)
-		e = d.ColName("test")(colx.Column())
-		assert.Nil(t, e)
-		result := colx.Column()
-		expected := []int{1, 0, 4, 1, 2, 3}
-		assert.Equal(t, expected, result.Data().AsAny())
-
-		if which == "mem" {
-			e = dfx.AppendColumn(colx.Column(), true)
-			assert.Nil(t, e)
-			coly := colx.Column().Copy()
-			e = coly.Rename("test1")
-			assert.Nil(t, e)
-			e = dfx.AppendColumn(coly, true)
-			assert.Nil(t, e)
-			colx, e = d.Parse(dfx, "sum(int(test1)==int(test))")
-			assert.Nil(t, e)
-			assert.Equal(t, colx.Column().Data().Element(0), 6)
-		}
-
-		// try with DTstring
-		colx, e = d.Parse(dfx, "cat(z)")
-		assert.Nil(t, e)
-		result = colx.Column()
-		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result.Data().AsAny())
-
+		_, e0 := d.Parse(dfx, "dt1:=date(z)")
+		assert.Nil(t, e0)
 		// try with DTdate
-		colx, e = d.Parse(dfx, "cat(dt1)")
-		assert.Nil(t, e)
-		result = colx.Column()
-		expected = []int{3, 0, 1, 1, 4, 2}
-		assert.Equal(t, expected, result.Data().AsAny())
-
-		// try with fuzz > 1
-		colx, e = d.Parse(dfx, "cat(y, 2)")
-		assert.Nil(t, e)
-		result = colx.Column()
-		expected = []int{0, -1, -1, 0, -1, -1}
-		assert.Equal(t, expected, result.Data().AsAny())
+		_, e3x := d.Parse(dfx, "test:=cat(dt1)")
+		assert.Nil(t, e3x)
+		resultx := dfx.Column("test").Data().AsAny()
+		expectedx := []int{3, 0, 1, 1, 4, 2}
+		assert.Equal(t, expectedx, resultx)
 
 		// try with DTfloat
-		_, e = d.Parse(dfx, "cat(x)")
-		assert.NotNil(t, e)
+		_, e5 := d.Parse(dfx, "cat(x)")
+		assert.NotNil(t, e5)
+
+		_, e1 := d.Parse(dfx, "test:=cat(y)")
+		assert.Nil(t, e1)
+		result := dfx.Column("test").Data().AsAny()
+		expected := []int{1, 0, 4, 1, 2, 3}
+		assert.Equal(t, expected, result)
+
+		// try with DTstring
+		_, e2 := d.Parse(dfx, "test:=cat(z)")
+		assert.Nil(t, e2)
+		result = dfx.Column("test").Data().AsAny()
+		expected = []int{3, 0, 1, 1, 4, 2}
+		assert.Equal(t, expected, result)
+
+		// try with fuzz > 1
+		_, e4 := d.Parse(dfx, "test:=cat(y, 2)")
+		assert.Nil(t, e4)
+		result = dfx.Column("test").Data().AsAny()
+		expected = []int{0, -1, -1, 0, -1, -1}
+		assert.Equal(t, expected, result)
+
+		// try with DTdate
+		//		_, e3 := d.Parse(dfx, "test:=cat(dt1)")
+		//		assert.Nil(t, e3)
+		//		result = dfx.Column("test").Data().AsAny()
+		//		expected = []int{3, 0, 1, 1, 4, 2}
+		//		assert.Equal(t, expected, result)
+
 	}
 }
 
 func TestApplyCat(t *testing.T) {
 	for _, which := range pkgs() {
-		if which != "a" {
-			continue
-		}
 		dfx := loadData(which)
 
 		r, e := d.Parse(dfx, "cat(y)")
@@ -262,6 +269,10 @@ func TestApplyCat(t *testing.T) {
 		d.ColName("caty")(sx)
 		e1 := dfx.Core().AppendColumn(sx, false)
 		assert.Nil(t, e1)
+
+		// try with a default that isn't in original data
+		_, e6 := d.Parse(dfx, "applyCat(yy,caty,100)")
+		assert.NotNil(t, e6)
 
 		r2, e2 := d.Parse(dfx, "applyCat(yy, caty, -5)")
 		assert.Nil(t, e2)

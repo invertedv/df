@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
@@ -76,10 +75,14 @@ func TestSQLsave(t *testing.T) {
 }
 
 func TestFileSave(t *testing.T) {
-	const coln = "x"
+	const coln = "b"
 
 	for _, which := range pkgs() {
 		dfx := loadData(which)
+		_, e0 := d.Parse(dfx, "a := 2*y")
+		assert.Nil(t, e0)
+		_, e3 := d.Parse(dfx, "b := 2*a")
+		assert.Nil(t, e3)
 		f1, _ := d.NewFiles()
 
 		fn := slash(os.Getenv("datapath")) + fileName
@@ -101,16 +104,15 @@ func TestFileSave(t *testing.T) {
 func TestParse_Join(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		fmt.Println(dfx.ColumnNames())
+		_, e := d.Parse(dfx, "y1:=2*k")
+		assert.Nil(t, e)
 		dfy := dfx.Copy()
 		_ = dfy.Column("x").Rename("xx")
 		_ = dfy.Column("z").Rename("zz")
 
-		outDF, e := dfx.Join(dfy, "k")
+		outDF, e := dfx.Join(dfy, "y1")
 		assert.Nil(t, e)
 		fmt.Println(outDF.ColumnNames())
-		//		q := outDF.(*s.DF).MakeQuery()
-		//		_ = q
 		fmt.Println(outDF.Column("yDUP").Data().AsAny())
 		fmt.Println(outDF.Column("x").Data().AsAny())
 		fmt.Println(outDF.Column("xx").Data().AsAny())

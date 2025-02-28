@@ -68,10 +68,6 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
-// TODO: get rid of this ... was using d.ToString(x)
-func toString(x any) (any, bool) {
-	return fmt.Sprintf("%v", x), true
-}
 
 func (c *Col) String() string {
 	if c.Name() == "" {
@@ -88,13 +84,8 @@ func (c *Col) String() string {
 				k = "Other"
 			}
 
-			var (
-				x  any
-				ok bool
-			)
-			if x, ok = toString(k); !ok {
-				panic(fmt.Errorf("cannot convert to string in Col.String()"))
-			}
+			var 				x any
+			x = fmt.Sprintf("%v", x)
 
 			keys = append(keys, x.(string))
 			vals = append(vals, v)

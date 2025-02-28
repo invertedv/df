@@ -296,19 +296,20 @@ func TestNewDFseq(t *testing.T) {
 func TestApplyCat(t *testing.T) {
 	//	y, _ := NewCol("y", []int{1, -5, 6, 1, 4, 5})
 	//	yy, _ := NewCol("yy", []int{1, -15, 16, 1, 4, 5})
+	var colx *d.Parsed
 	dfx := testDF()
-	expr := "cat(y)"
-	colx, ex := d.Parse(dfx, expr)
+	expr := "c:=cat(y)"
+	_, ex := d.Parse(dfx, expr)
 	assert.Nil(t, ex)
-	col := colx.Column()
-	d.ColName("c")(col)
-	_ = dfx.AppendColumn(col, false)
-	fmt.Println(col)
+	//	col := colx.Column()
+	//	d.ColName("c")(col)
+	//	_ = dfx.AppendColumn(col, false)
+	//	fmt.Println(col)
 	back, ex := d.Parse(dfx, "int(c)")
 	d.ColName("test")(back.Column())
 	assert.Nil(t, ex)
 	fmt.Println(back.Column())
-
+	col := dfx.Column("c")
 	v := col.(*Col).CategoryMap()[6]
 
 	// default is a known category level
@@ -318,13 +319,10 @@ func TestApplyCat(t *testing.T) {
 	exp := []int{1, v, v, 1, v, v}
 	assert.Equal(t, exp, inter(colx.Column()))
 
-	// default is not a known category level
+	// default is not a known category level -- this produces an error
 	expr = "applyCat(yy, c, 100)"
-	colx, ex = d.Parse(dfx, expr)
-	assert.Nil(t, ex)
-	v = -1
-	exp = []int{1, v, v, 1, v, v}
-	assert.Equal(t, exp, inter(colx.Column()))
+	_, ex = d.Parse(dfx, expr)
+	assert.NotNil(t, ex)
 
 	expr = "c + y"
 	_, ex = d.Parse(dfx, expr)
