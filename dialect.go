@@ -517,9 +517,26 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 	return memData, fieldNames, fieldTypes, nil
 }
 
-func (d *Dialect) WithName() string {
-	const wLen = 4
-	return RandomLetters(wLen)
+// NameOrSQL returns the generating SQL for the column if there is any, o.w. the name
+// This can be needed for some DBs, such as Postgres, that can not use the alias of another column, such as:
+//
+//	SELECT
+//	  2*x AS a,
+//	  2*a AS b
+//
+// which fails.
+func (d *Dialect) NameOrSQL(fieldName, genSQL string) string {
+	if fieldName == "" {
+		return genSQL
+	}
+
+	if d.DialectName() == pg {
+		if genSQL != "" && genSQL != fieldName {
+			return genSQL
+		}
+	}
+
+	return d.ToName(fieldName)
 }
 
 func (d *Dialect) Quantile(col string, q float64) string {
@@ -653,26 +670,6 @@ func (d *Dialect) ToName(fieldName string) string {
 	return fieldName
 }
 
-// NameOrSQL returns the generating SQL for the column if there is any, o.w. the name
-// This can be needed for some DBs, such as Postgres, that can not use the alias of another column, such as:
-//
-//	SELECT
-//	  2*x AS a,
-//	  2*a AS b
-func (d *Dialect) NameOrSQL(fieldName, genSQL string) string {
-	if fieldName=="" {
-		return genSQL
-	}
-
-	if d.DialectName() == pg {
-		if genSQL != "" && genSQL != fieldName {
-			return genSQL
-		}
-	}
-
-	return d.ToName(fieldName)
-}
-
 // ToString returns a string version of val that can be placed into SQL
 func (d *Dialect) ToString(val any) string {
 	if d.DialectName() == ch || d.DialectName() == pg {
@@ -779,6 +776,11 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 	}
 
 	return sqlx, e
+}
+
+func (d *Dialect) WithName() string {
+	const wLen = 4
+	return RandomLetters(wLen)
 }
 
 func (d *Dialect) dbtype(dt DataTypes) (string, error) {

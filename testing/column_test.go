@@ -15,6 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// tests for the parser
+var (
+	//go:embed tests.txt
+	parserTests string
+)
+
 func TestRandom(t *testing.T) {
 	n := 100 //000000
 	x := make([]float64, n)
@@ -135,22 +141,17 @@ func TestIf(t *testing.T) {
 		assert.Nil(t, e4)
 		assert.Equal(t, []float64{2, 1, 1, 2, 2, 1},
 			dfx.Column("out").Data().AsAny())
+
+		_, e5 := d.Parse(dfx, "out:=int(if(y==1,mean(yy),0.0)+1.0)")
+		assert.Nil(t, e5)
+		assert.Equal(t, []int{6, 1, 1, 6, 1, 1},
+			dfx.Column("out").Data().AsAny())
 	}
 }
 
-var (
-	//go:embed tests.txt
-	parserTests string
-)
-
 func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
-		if !strings.Contains(which, "post") {
-			continue
-		}
 		dfx := loadData(which)
-		cc := dfx.Column("R")
-		_ = cc
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
 			fmt.Println(test)
@@ -211,7 +212,6 @@ func TestParser(t *testing.T) {
 //			{"var(y)", 0, 16.0},
 //			{"var(x)", 0, 4.175},
 
-// TODO: consider dropping cat counts
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)

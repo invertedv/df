@@ -58,12 +58,6 @@ func NewDFcol(funcs d.Fns, dlct *d.Dialect, qry string, cols ...*Col) (*DF, erro
 		funcs = StandardFunctions(dlct)
 	}
 
-	// HERE
-	//	for ind := 0; ind < len(cols); ind++ {
-	//		d.ColContext(context)(cols[ind].Core())
-	//	}
-	// TODO: fix runs ??
-
 	df := &DF{
 		sourceSQL: qry, // TODO: check
 		orderBy:   "",
@@ -277,7 +271,6 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	return f.Core().AppendColumn(col, replace)
 }
 
-// TODO: think about this and ways it could fail
 func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 	n1 := f.ColumnNames()
 
