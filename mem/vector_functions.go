@@ -522,7 +522,6 @@ func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 // - vector to apply cats to
 // - vector with cats
 // - default if new category
-// TODO: should the default be an existing category?
 func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},

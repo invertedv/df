@@ -294,3 +294,7 @@ func TestApplyCat(t *testing.T) {
 		assert.Equal(t, expected, r5.Column().Data().AsAny())
 	}
 }
+
+// TODO: think about default values
+// TODO: think about float -> string
+// TODO: think about date formats
