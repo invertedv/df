@@ -96,7 +96,7 @@ func sortDF(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 	ascending := true
 	// Any2String will strip out the single quotes
-	if strings.ToLower(toStringX(toCol(df, inputs[0]).SQL())) == "desc" {
+	if toAny(df, inputs[0]).(string) == "desc" {
 		ascending = false
 	}
 

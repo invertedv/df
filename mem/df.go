@@ -570,28 +570,24 @@ func (f *DF) Len() int {
 
 func (f *DF) Less(i, j int) bool {
 	for ind := 0; ind < len(f.orderBy); ind++ {
-		var less bool
+		less := f.orderBy[ind].Less(i, j)
+		greater := f.orderBy[ind].Less(j, i)
+		equal := !less && !greater
+
+		// if equal, keep checking
+		if equal {
+			continue
+		}
+
 		if f.ascending {
-			less = f.orderBy[ind].Less(i, j)
-
-		} else {
-			less = f.orderBy[ind].Less(j, i)
+			return less
 		}
 
-		// if greater, it's false
-		if !less {
-			return false
-		}
-
-		// if < (rather than <=) it's true
-		if f.orderBy[ind].Less(i, j) && !f.orderBy[ind].Less(j, i) {
-			return true
-		}
-
-		// equal -- keep checking
+		return greater
 	}
 
-	return true
+	// all equal, return false
+	return false
 }
 
 func (f *DF) MakeQuery(colNames ...string) string {

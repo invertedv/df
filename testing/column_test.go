@@ -21,6 +21,14 @@ var (
 	parserTests string
 )
 
+func TestTemp(t *testing.T){
+	dfx := loadData(pg+",d1")
+	outDF, e0 := d.Parse(dfx, "by(y,'sx:=sum(x)','count:=count(y)', 'mx:=mean(global(x))', 'mz:=mean(x)')")
+	assert.Nil(t, e0)
+	d := outDF.DF().Column("mx").Data().AsAny()
+	fmt.Println(d)
+
+}
 func TestRandom(t *testing.T) {
 	n := 100 //000000
 	x := make([]float64, n)

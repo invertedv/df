@@ -102,6 +102,8 @@ func (c *Col) Data() *d.Vector {
 		_ = d.ColName(d.RandomLetters(5))(c)
 	}
 
+	q := c.MakeQuery()
+	_ = q
 	if df, e = m.DBLoad(c.MakeQuery(), c.Dialect()); e != nil {
 		panic(e)
 	}
@@ -114,16 +116,16 @@ func (c *Col) Data() *d.Vector {
 	return col.(*m.Col).Data()
 }
 
-func (c *Col) SQL() string {
+func (c *Col) SQL() (snippet string, isFieldName bool) {
 	if c.sql != "" {
 		if c.global {
-			return c.Dialect().Global(c.Parent().(*DF).SourceSQL(), c.sql)
+			return c.Dialect().Global(c.Parent().(*DF).SourceSQL(), c.sql), false
 		}
 
-		return c.sql
+		return c.sql, false
 	}
 
-	return c.Name()
+	return c.Dialect().ToName(c.Name()), true
 }
 
 func (c *Col) Len() int {
@@ -157,7 +159,7 @@ func (c *Col) MakeQuery() string {
 		selectFld = c.Dialect().ToName(c.Name())
 	case c.Name() != "" && c.sql != "":
 		selectFld = fmt.Sprintf("%s AS %s", c.sql, c.Dialect().ToName(c.Name()))
-	case c.Name() != "" && c.sql == "" && !d.Has(c.Name(), df.ColumnNames()):
+	case c.Name() != "" && c.sql == "" && df.Column(c.Name()) == nil:
 		selectFld = fmt.Sprintf("%s AS %s", c.Dialect().ToName(c.Name()), d.RandomLetters(5))
 	default:
 		selectFld = c.Dialect().ToName(c.Name())

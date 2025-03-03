@@ -168,12 +168,17 @@ func TestParse_Table(t *testing.T) {
 func TestParse_Sort(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		outdf, e := d.Parse(dfx, "sort('asc', y, x)")
-		_ = outdf
+		_, e := d.Parse(dfx, "sort('asc', y, x)")
 		assert.Nil(t, e)
 
 		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsAny())
 		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsAny())
+
+		_, e1 := d.Parse(dfx, "sort('desc', y, x)")
+		assert.Nil(t, e1)
+		fmt.Println(which)
+		fmt.Println(dfx.Column("y").Data().AsAny())
+		assert.Equal(t, []int{6, 5, 4, 1, 1, -5}, dfx.Column("y").Data().AsAny())
 	}
 }
 

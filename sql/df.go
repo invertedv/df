@@ -379,8 +379,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	}
 
 	cn := col.Name()
-	// avoiding global with .SQL()
-	colSQL := f.Dialect().NameOrSQL(cn, col.(*Col).sql)
+	colSQL, _ := col.(*Col).SQL()
 	var (
 		tabl d.DF
 		e4   error
@@ -539,7 +538,8 @@ func (f *DF) MakeQuery(colNames ...string) string {
 
 		var field string
 		field = f.Dialect().ToName(cx.Name())
-		if fn := cx.(*Col).SQL(); fn != cx.Name() {
+		//		if fn := cx.(*Col).SQL(); fn != cx.Name() {
+		if fn, isName := cx.(*Col).SQL(); !isName {
 			field = fmt.Sprintf("%s AS %s", fn, f.Dialect().ToName(cx.Name()))
 		}
 
@@ -649,10 +649,11 @@ func (f *DF) Where(col d.Column) (d.DF, error) {
 		return nil, fmt.Errorf("where column must be type DTint")
 	}
 
+	wSQL, _ := col.(*Col).SQL()
 	if dfNew.where != "" {
-		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, col.(*Col).SQL())
+		dfNew.where = fmt.Sprintf("(%s) AND (%s > 0)", dfNew.where, wSQL)
 	} else {
-		dfNew.where = fmt.Sprintf("%s > 0", col.(*Col).SQL())
+		dfNew.where = fmt.Sprintf("%s > 0", wSQL)
 	}
 
 	return dfNew, nil

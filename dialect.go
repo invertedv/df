@@ -525,7 +525,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 //	  2*a AS b
 //
 // which fails.
-func (d *Dialect) NameOrSQL(fieldName, genSQL string) string {
+func (d *Dialect) NameOrSQLXXX(fieldName, genSQL string) string {
 	if fieldName == "" {
 		return genSQL
 	}

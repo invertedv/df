@@ -122,7 +122,7 @@ func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 	fuzz := 1
 	if len(inputs) > 1 {
-		f := toCol(df, inputs[1]).SQL()
+		f := toAny(df, inputs[1])
 
 		var (
 			fa any
@@ -173,7 +173,7 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		defaultValue any
 		ok           bool
 	)
-	if defaultValue, ok = d.ToDataType(newVal.SQL(), newVal.DataType()); !ok {
+	if defaultValue, ok = d.ToDataType(toAny(df, inputs[2]), newVal.DataType()); !ok {
 		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value")}
 	}
 
@@ -202,6 +202,18 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 // ***************** Helpers *****************
 
+func toAny(df d.DF, x any) any {
+	if s, ok := x.(*d.Scalar); ok {
+		return s.Data().Element(0)
+	}
+
+	if s, ok := x.(*Col); ok {
+		return s.Data().Element(0)
+	}
+
+	panic(fmt.Errorf("can't make value"))
+}
+
 // toCol makes a *Col out of x -- this should always be possible
 func toCol(df d.DF, x any) *Col {
 	if c, ok := x.(*Col); ok {
@@ -216,7 +228,8 @@ func toCol(df d.DF, x any) *Col {
 			fld = df.Dialect().ToString(fld)
 		}
 
-		c, _ = NewColSQL(s.DataType(), nil, fld, d.ColName(s.Name()))
+		c, _ = NewColSQL(s.DataType(), nil, fld, d.ColName(s.Name()),
+			d.ColParent(df), d.ColDialect(df.Dialect()))
 
 		return c
 	}
@@ -224,13 +237,12 @@ func toCol(df d.DF, x any) *Col {
 	panic("can't make column")
 }
 
-
 func getSQL(df d.DF, inputs ...any) []string {
 	var sOut []string
 	for ind := 0; ind < len(inputs); ind++ {
 		col := toCol(df, inputs[ind])
-		// don't use SQL() here to avoid getting global return
-		sOut = append(sOut, df.Dialect().NameOrSQL(col.Name(), col.sql))
+		s, _ := col.SQL()
+		sOut = append(sOut, s)
 	}
 
 	return sOut

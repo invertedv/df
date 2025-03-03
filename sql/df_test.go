@@ -215,10 +215,8 @@ func TestRename(t *testing.T) {
 
 func TestCast(t *testing.T) {
 	dfx := testDF(which)
-	out, e := d.Parse(dfx, "string(23)")
+	_, e := d.Parse(dfx, "string(23)")
 	assert.Nil(t, e)
-	_ = out
-	//fmt.Println(dfx.Column("test").(*Col).SQL())
 }
 
 func TestParser(t *testing.T) {
