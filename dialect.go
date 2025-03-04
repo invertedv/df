@@ -68,12 +68,24 @@ type Dialect struct {
 	bufSize int // in MB
 
 	functions Fmap
+
+	defaultInt    int
+	defaultFloat  float64
+	defaultString string
+	defaultDate   time.Time
 }
 
-func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
+func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error) {
 	dialect = strings.ToLower(dialect)
 
-	d := &Dialect{db: db, dialect: dialect, bufSize: 1024}
+	d := &Dialect{db: db,
+		dialect:       dialect,
+		bufSize:       1024,
+		defaultInt:    math.MaxInt,
+		defaultFloat:  math.MaxFloat64,
+		defaultDate:   time.Date(1960, 1, 1, 0, 0, 0, 0, time.UTC),
+		defaultString: "",
+	}
 
 	var types string
 	switch d.dialect {
@@ -110,7 +122,62 @@ func NewDialect(dialect string, db *sql.DB) (*Dialect, error) {
 		d.dbTypes = append(d.dbTypes, t[1])
 	}
 
+	for _, opt := range opts {
+		if e := opt(d); e != nil {
+			return nil, e
+		}
+	}
+
 	return d, nil
+}
+
+// ***************** Setters *****************
+
+type DialectOpt func(d *Dialect) error
+
+func DialectDefaultDate(year, mon, day int) DialectOpt {
+	return func(d *Dialect) error {
+		if year < 1900 || year > 2200 {
+			return fmt.Errorf("invalid year in default date: %d", year)
+		}
+
+		if mon < 1 || mon > 12 {
+			return fmt.Errorf("invalid month in default date: %d", mon)
+		}
+
+		if day < 1 || day > 31 {
+			return fmt.Errorf("invalid day in default date: %d", day)
+		}
+
+		t := time.Date(year, time.Month(mon), day, 0, 0, 0, 0, time.UTC)
+		d.defaultDate = t
+
+		return nil
+	}
+}
+
+func DialectDefaultInt(deflt int) DialectOpt {
+	return func(d *Dialect) error {
+		d.defaultInt = deflt
+
+		return nil
+	}
+}
+
+func DialectDefaultFloat(deflt float64) DialectOpt {
+	return func(d *Dialect) error {
+		d.defaultFloat = deflt
+
+		return nil
+	}
+}
+
+func DialectDefaultString(deflt string) DialectOpt {
+	return func(d *Dialect) error {
+		d.defaultString = deflt
+
+		return nil
+	}
 }
 
 // ***************** Methods *****************
@@ -487,13 +554,13 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 			if z == nil {
 				switch memData[ind].dt {
 				case DTfloat:
-					z = math.MaxFloat64
+					z = d.defaultFloat
 				case DTint:
-					z = math.MaxInt
+					z = d.defaultInt
 				case DTstring:
-					z = "!null"
+					z = d.defaultString
 				case DTdate:
-					z = time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+					z = d.defaultDate
 				}
 			}
 

@@ -91,12 +91,12 @@ func newConnectPG(host, user, password, dbName string) *sql.DB {
 	return db
 }
 
-func loadFile(fileName string) d.DF {
+func loadFile(fileName string, opts ...d.FileOpt) d.DF {
 	var (
 		f  *d.Files
 		e3 error
 	)
-	if f, e3 = d.NewFiles(); e3 != nil {
+	if f, e3 = d.NewFiles(opts...); e3 != nil {
 		panic(e3)
 	}
 

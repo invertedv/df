@@ -91,7 +91,6 @@ func FileDefaultDate(year, mon, day int) FileOpt {
 }
 
 // FileDefaultInt sets the value to use for fields that fail to convert to integer if strict=false.
-// Default: math.MaxInt
 func FileDefaultInt(deflt int) FileOpt {
 	return func(f *Files) error {
 		f.defaultInt = deflt
