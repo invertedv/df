@@ -248,27 +248,14 @@ func (f *DF) Column(colName string) d.Column {
 }
 
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
-	panicer(col)
+	// toCol allows us to append constants
+	colx := toCol(f, col)
 
-	// if col has no parent, make f the parent
-	if col.Parent() == nil {
-		_ = d.ColParent(f)(col)
-	}
-
-	//	if f.groupBy == "" && col.RT() != d.RTcolumn {
-	//		return fmt.Errorf("cannot append summary function without GROUP BY")
-	//	}
-
-	//	if f.groupBy != "" && col.RT() != d.RTscalar {
-	//		return fmt.Errorf("cannot append column to dataframe with GROUP BY")
-	//	}
-
-	if !sameSource(f, col) {
+	if !sameSource(f, colx) {
 		return fmt.Errorf("added column not from same source")
 	}
 
-	_ = d.ColDialect(f.Dialect())(col)
-	return f.Core().AppendColumn(col, replace)
+	return f.Core().AppendColumn(colx, replace)
 }
 
 func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {

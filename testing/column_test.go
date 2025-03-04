@@ -21,8 +21,8 @@ var (
 	parserTests string
 )
 
-func TestTemp(t *testing.T){
-	dfx := loadData(pg+",d1")
+func TestTemp(t *testing.T) {
+	dfx := loadData(pg + ",d1")
 	outDF, e0 := d.Parse(dfx, "by(y,'sx:=sum(x)','count:=count(y)', 'mx:=mean(global(x))', 'mz:=mean(x)')")
 	assert.Nil(t, e0)
 	d := outDF.DF().Column("mx").Data().AsAny()
@@ -157,12 +157,13 @@ func TestIf(t *testing.T) {
 	}
 }
 
+// TODO: Add test:=4 as a test
 func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
-			fmt.Println(test)
+			//fmt.Println(test)
 			vals := strings.Split(strings.ReplaceAll(test, " ", ""), "|")
 			if len(vals) != 4 {
 				continue
@@ -223,9 +224,11 @@ func TestParser(t *testing.T) {
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-
+		_, e6 := d.Parse(dfx, "fuzz := 2")
+		assert.Nil(t, e6)
 		_, e0 := d.Parse(dfx, "dt1:=date(z)")
 		assert.Nil(t, e0)
+
 		// try with DTdate
 		_, e3x := d.Parse(dfx, "test:=cat(dt1)")
 		assert.Nil(t, e3x)
@@ -251,7 +254,7 @@ func TestToCat(t *testing.T) {
 		assert.Equal(t, expected, result)
 
 		// try with fuzz > 1
-		_, e4 := d.Parse(dfx, "test:=cat(y, 2)")
+		_, e4 := d.Parse(dfx, "test:=cat(y, fuzz)")
 		assert.Nil(t, e4)
 		result = dfx.Column("test").Data().AsAny()
 		expected = []int{0, -1, -1, 0, -1, -1}

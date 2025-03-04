@@ -122,7 +122,7 @@ func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 	fuzz := 1
 	if len(inputs) > 1 {
-		f := toAny(df, inputs[1])
+		f := toAny(inputs[1])
 
 		var (
 			fa any
@@ -173,7 +173,7 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		defaultValue any
 		ok           bool
 	)
-	if defaultValue, ok = d.ToDataType(toAny(df, inputs[2]), newVal.DataType()); !ok {
+	if defaultValue, ok = d.ToDataType(toAny(inputs[2]), newVal.DataType()); !ok {
 		return &d.FnReturn{Err: fmt.Errorf("cannot convert default value")}
 	}
 
@@ -202,7 +202,10 @@ func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 // ***************** Helpers *****************
 
-func toAny(df d.DF, x any) any {
+// toAny expects either a *Col or *d.Scalar input
+// If *Col, it returns the first element of its data
+// If *d.Scalar, it returns its value
+func toAny(x any) any {
 	if s, ok := x.(*d.Scalar); ok {
 		return s.Data().Element(0)
 	}
@@ -217,6 +220,14 @@ func toAny(df d.DF, x any) any {
 // toCol makes a *Col out of x -- this should always be possible
 func toCol(df d.DF, x any) *Col {
 	if c, ok := x.(*Col); ok {
+		if c.Parent() == nil {
+			_ = d.ColParent(df)(c)
+		}
+
+		if c.Dialect() == nil {
+			_ = d.ColDialect(df.Dialect())(c)
+		}
+
 		return c
 	}
 

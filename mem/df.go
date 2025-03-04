@@ -196,18 +196,31 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 		return fmt.Errorf("unequal lengths in AppendColumn")
 	}
 
-	colx := col.(*Col)
-	if colx.Len() == 1 {
-		val := colx.Data().Element(0)
-		// should not fail
-		v, _ := d.NewVector(val, colx.DataType())
-		for ind := 1; ind < f.RowCount(); ind++ {
-			if e := v.Append(val); e != nil {
-				return e
-			}
+	var (
+		colx *Col
+		val  any
+	)
+	if cx1, ok := col.(*Col); ok {
+		colx = cx1
+		val = colx.Data().Element(0)
+	}
+
+	// Is this a scalar or one-row Column?
+	if cx2, ok := col.(*d.Scalar); ok || (col.Len() == 1 && f.RowCount() > 1) {
+		if ok {
+			val = cx2.Data().Element(0)
 		}
 
-		colx.Vector = v
+		v := d.MakeVector(col.DataType(), f.RowCount())
+		for ind := 0; ind < v.Len(); ind++ {
+			v.SetAny(val, ind)
+		}
+
+		colx, _ = NewCol(v, col.DataType(), d.ColName(col.Name()))
+	}
+
+	if colx == nil {
+		return fmt.Errorf("bad column to append")
 	}
 
 	if ex := f.DFcore.AppendColumn(colx, replace); ex != nil {
@@ -697,7 +710,9 @@ func (f *DF) Where(indicator d.Column) (d.DF, error) {
 func checkType(cols ...d.Column) error {
 	for _, c := range cols {
 		if _, ok := c.(*Col); !ok {
-			return fmt.Errorf("column is wrong type: need mem/Col")
+			if _, oks := c.(*d.Scalar); !oks {
+				return fmt.Errorf("column is wrong type: need mem/Col")
+			}
 		}
 	}
 

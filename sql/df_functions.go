@@ -91,12 +91,12 @@ func table(info bool, df d.DF, inputs ...any) *d.FnReturn {
 func sortDF(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
-			Output: []d.DataTypes{d.DTnil}, RT: d.RTdf, Varying: true}
+			Output: []d.DataTypes{d.DTnil}, RT: d.RTnone, Varying: true}
 	}
 
 	ascending := true
 	// Any2String will strip out the single quotes
-	if toAny(df, inputs[0]).(string) == "desc" {
+	if toAny(inputs[0]).(string) == "desc" {
 		ascending = false
 	}
 

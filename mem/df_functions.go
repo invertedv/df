@@ -25,7 +25,7 @@ func where(info bool, df d.DF, inputs ...any) *d.FnReturn {
 func sortDF(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "sort", Inputs: [][]d.DataTypes{{d.DTstring}},
-			Output: []d.DataTypes{d.DTnil}, Varying: true}
+			Output: []d.DataTypes{d.DTnil},RT: d.RTnone, Varying: true}
 	}
 
 	ascending := true
