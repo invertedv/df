@@ -9,11 +9,8 @@ import (
 
 	d "github.com/invertedv/df"
 
-	// TOOD: add rate to table and make it so this: x/su
 	m "github.com/invertedv/df/mem"
 )
-
-// TODO: move sourceDF out of DFCore and make it so it copies the source DF so no changes work through
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
 	fns := d.Fns{applyCat,
@@ -23,9 +20,6 @@ func StandardFunctions(dlct *d.Dialect) d.Fns {
 
 	return fns
 }
-
-// TODO: make mem work like this
-// TODO: If col to append has no parent, set parentCheck dependencies?
 
 // DF is the implementation of DF for SQL.
 type DF struct {
@@ -42,8 +36,7 @@ type DF struct {
 }
 
 // ***************** DF - Create *****************
-// TODO: delete or fix this
-func NewDFcol(funcs d.Fns, dlct *d.Dialect, qry string, cols ...*Col) (*DF, error) {
+func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDFcol")
 	}
@@ -54,33 +47,40 @@ func NewDFcol(funcs d.Fns, dlct *d.Dialect, qry string, cols ...*Col) (*DF, erro
 		}
 	}
 
-	if funcs == nil {
-		funcs = StandardFunctions(dlct)
-	}
-
 	df := &DF{
-		sourceSQL: qry, // TODO: check
+		sourceSQL: cols[0].Parent().MakeQuery(),
 		orderBy:   "",
 		where:     "",
 		DFcore:    nil,
 	}
 
-	var cstd []d.Column
-	for ind := 0; ind < len(cols); ind++ {
-		cstd = append(cstd, cols[ind])
+	dlct := cols[0].Dialect()
+	if funcs == nil {
+		funcs = StandardFunctions(dlct)
 	}
 
 	var (
 		tmp *d.DFcore
 		e   error
 	)
-	if tmp, e = d.NewDF(funcs, cstd); e != nil {
+
+	var colsx []d.Column
+	for ind := 0; ind < len(cols); ind++ {
+		colsx = append(colsx, cols[ind])
+	}
+	if tmp, e = d.NewDF(funcs, colsx); e != nil {
 		return nil, e
 	}
 
 	df.DFcore = tmp
 
 	_ = d.DFdialect(dlct)(df)
+
+	for _, opt := range opts {
+		if ex := opt(df); ex != nil {
+			return nil, ex
+		}
+	}
 
 	if ex := df.SetParent(); ex != nil {
 		return nil, ex
@@ -236,12 +236,8 @@ func (f *DF) Column(colName string) d.Column {
 		return c
 	}
 
-	if f.SourceDF() == nil {
-		return nil
-	}
-
-	if c := f.SourceDF().Column(colName); c != nil {
-		return c
+	if f.SourceDF() != nil {
+		return f.SourceDF().Column(colName)
 	}
 
 	return nil

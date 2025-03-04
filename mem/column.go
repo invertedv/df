@@ -51,14 +51,6 @@ func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 
 // ***************** Methods *****************
 
-func (c *Col) AppendRows(col2 d.Column) (d.Column, error) {
-	if e := checkType(col2); e != nil {
-		return nil, e
-	}
-
-	return appendRows(c, col2) // NOTE: , c.Name())
-}
-
 func (c *Col) Copy() d.Column {
 	col := &Col{
 		Vector:  c.Data().Copy(),
@@ -67,7 +59,6 @@ func (c *Col) Copy() d.Column {
 
 	return col
 }
-
 
 func (c *Col) String() string {
 	if c.Name() == "" {
@@ -84,7 +75,7 @@ func (c *Col) String() string {
 				k = "Other"
 			}
 
-			var 				x any
+			var x any
 			x = fmt.Sprintf("%v", x)
 
 			keys = append(keys, x.(string))
@@ -132,23 +123,4 @@ func (c *Col) String() string {
 	header := []string{"metric", "value"}
 
 	return t + d.PrettyPrint(header, cats, vals)
-}
-
-// ***************** Helpers *****************
-
-func appendRows(col1, col2 d.Column) (*Col, error) {
-	if col1.DataType() != col2.DataType() {
-		return nil, fmt.Errorf("append columns must have same type, got %s and %s for %s and %s",
-			col1.DataType(), col2.DataType(), col1.Name(), col2.Name())
-	}
-
-	v := col1.(*Col).Data().Copy()
-	_ = v.AppendVector(col2.(*Col).Data())
-
-	col := &Col{
-		Vector:  v,
-		ColCore: col1.(*Col).Core().Copy(),
-	}
-
-	return col, nil
 }

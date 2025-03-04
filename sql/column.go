@@ -8,7 +8,6 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
-
 type Col struct {
 	sql    string // SQL to generate this column
 	global bool   // permanent signal that this column uses a global query
@@ -39,43 +38,6 @@ func NewColSQL(dt d.DataTypes, dlct *d.Dialect, sqlx string, opts ...d.ColOpt) (
 }
 
 // ***************** SQLCol - Methods *****************
-
-// TODO: test this, doesn't look right
-func (c *Col) AppendRows(col d.Column) (d.Column, error) {
-	panicer(col)
-	if c.DataType() != col.DataType() {
-		return nil, fmt.Errorf("incompatible columns in AppendRows")
-	}
-
-	q1 := c.MakeQuery()
-	cx := col.Copy()
-	if ex := d.ColName(c.Name())(cx); ex != nil {
-		return nil, ex
-	}
-
-	q2 := c.MakeQuery()
-
-	if _, e := c.Dialect().Union(q1, q2, cx.Name()); e != nil {
-		return nil, e
-	}
-
-	var (
-		cc *d.ColCore
-		e  error
-	)
-	if cc, e = d.NewColCore(c.DataType(), d.ColName(c.Name())); e != nil {
-		return nil, e
-	}
-
-	outCol := &Col{
-		sql:     "",
-		ColCore: cc,
-	}
-
-	_ = d.ColDialect(c.Dialect())
-
-	return outCol, nil
-}
 
 func (c *Col) Copy() d.Column {
 	n := &Col{
@@ -186,42 +148,6 @@ func (c *Col) Rename(newName string) error {
 	return nil
 }
 
-// TODO: delete
-func (c *Col) Replace(indicator, replacement d.Column) (d.Column, error) {
-	panicer(indicator, replacement)
-
-	if !sameSource(c, indicator) || !sameSource(c, replacement) {
-		return nil, fmt.Errorf("columns not from same DF in Replace")
-	}
-
-	if c.DataType() != replacement.DataType() {
-		return nil, fmt.Errorf("incompatible columns in Replace")
-	}
-
-	if indicator.DataType() != d.DTint {
-		return nil, fmt.Errorf("indicator not type DTint in Replace")
-	}
-
-	whens := []string{fmt.Sprintf("%s > 0", indicator.Name()), "ELSE"}
-	equalTo := []string{replacement.Name(), c.Name()}
-
-	var (
-		sqlx string
-		e    error
-	)
-	if sqlx, e = c.Dialect().Case(whens, equalTo); e != nil {
-		return nil, e
-	}
-	outCol, _ := NewColSQL(c.DataType(), c.Dialect(), sqlx)
-
-	return outCol, nil
-}
-
-// TODO: get rid of this ... was using d.ToString(x)
-func toStringX(x any) string {
-	return fmt.Sprintf("%v", x)
-}
-
 func (c *Col) String() string {
 	//	if c.Name() == "" {
 	//		panic("column has no name")
@@ -236,7 +162,7 @@ func (c *Col) String() string {
 			if k == nil {
 				k = "Other"
 			}
-			x := toStringX(k) // hmmm, was any? or maybe *string
+			x := fmt.Sprintf("%v", k) //toStringX(k) // hmmm, was any? or maybe *string
 
 			keys = append(keys, x)
 			vals = append(vals, v)
@@ -247,7 +173,7 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		df, _ := NewDFcol(nil, c.Dialect(), c.Parent().MakeQuery(), c)
+		df, _ := NewDFcol(nil, []*Col{c})
 		tab, _ := df.Table(c.Name())
 
 		var (

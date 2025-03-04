@@ -558,24 +558,6 @@ func TestWhere(t *testing.T) {
 	assert.Equal(t, 2, outDF.DF().RowCount())
 }
 
-func TestAppendRows(t *testing.T) {
-	x, _ := NewCol([]float64{1, -2, 3, 0, 2, 3}, d.DTfloat, d.ColName("x"))
-	y, _ := NewCol([]float64{1, 2, 3}, d.DTfloat, d.ColName("x"))
-
-	z, e := appendRows(x, y)
-	assert.Nil(t, e)
-	assert.Equal(t, float64(-2), z.Element(1))
-	assert.Equal(t, float64(3), z.Element(8))
-
-	x, _ = NewCol([]string{"a", "b", "c"}, d.DTstring, d.ColName("x"))
-	y, _ = NewCol([]string{"d", "e", "f"}, d.DTstring, d.ColName("x"))
-
-	z, e = appendRows(x, y)
-	assert.Nil(t, e)
-	assert.Equal(t, "b", z.Element(1))
-	assert.Equal(t, "e", z.Element(4))
-}
-
 func TestMemDF_AppendDF(t *testing.T) {
 	dfx := testDF()
 	dfy := testDF()
