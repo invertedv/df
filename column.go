@@ -6,7 +6,6 @@ import "fmt"
 type Column interface {
 	CC
 
-	AppendRows(col Column) (Column, error)
 	Copy() Column
 	Data() *Vector
 	Len() int

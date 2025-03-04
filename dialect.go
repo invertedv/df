@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-// TODO: Populate parent in mem/df operations
-
 // Can Save any DF to a table
 // Can Load any query to []any
 

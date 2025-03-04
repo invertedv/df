@@ -8,7 +8,6 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
-// TODO: do I really need sourceDF??
 
 type Col struct {
 	sql    string // SQL to generate this column

@@ -6,8 +6,6 @@ import (
 	d "github.com/invertedv/df"
 )
 
-// TODO: am I using RT values anywhere?
-
 func fnDefs(dlct *d.Dialect) d.Fns {
 	var fns d.Fns
 	for _, v := range dlct.Functions() {

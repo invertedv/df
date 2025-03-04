@@ -240,22 +240,24 @@ func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 		return nil, fmt.Errorf("must be *DF to append to *DF")
 	}
 
-	var (
-		dfCore *d.DFcore
-		e      error
-	)
-
-	if dfCore, e = f.AppendDFcore(df.Core()); e != nil {
-		return nil, e
+	if f.ColumnCount() != df.ColumnCount() {
+		return nil, fmt.Errorf("cannot append dataframes - differing columns")
 	}
 
-	ndf := &DF{
-		sourceQuery: "",
-		orderBy:     nil,
-		DFcore:      dfCore,
+	outDF := f.Copy()
+	for _, cn := range f.ColumnNames() {
+		cSource := outDF.Column(cn)
+		var cAppend d.Column
+		if cAppend = df.Column(cn); cAppend == nil {
+			return nil, fmt.Errorf("missing column %s", cn)
+		}
+
+		if e := cSource.Data().AppendVector(cAppend.Data()); e != nil {
+			return nil, e
+		}
 	}
 
-	return ndf, nil
+	return outDF, nil
 }
 
 func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {

@@ -157,7 +157,6 @@ func TestIf(t *testing.T) {
 	}
 }
 
-// TODO: Add test:=4 as a test
 func TestParser(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)

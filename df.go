@@ -26,7 +26,6 @@ type DF interface {
 
 type DC interface {
 	AppendColumn(col Column, replace bool) error
-	AppendDFcore(df2 *DFcore) (*DFcore, error)
 	Column(colName string) Column
 	ColumnCount() int
 	ColumnNames() []string
@@ -179,36 +178,6 @@ func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	tail.next = dfl
 
 	return nil
-}
-
-func (df *DFcore) AppendDFcore(df2 *DFcore) (*DFcore, error) {
-	if df == nil {
-		return nil, nil
-	}
-
-	if df.ColumnCount() != df2.ColumnCount() {
-		return nil, fmt.Errorf("differing column counts in AppendDF")
-	}
-
-	var cols []Column
-
-	for c := df.First(); c != nil; c = df.Next() {
-		var (
-			col2, nc Column
-			e        error
-		)
-		if col2 = df.Column(c.Name()); col2 == nil {
-			return nil, fmt.Errorf("column %s not found", c.Name())
-		}
-
-		if nc, e = c.AppendRows(col2); e != nil {
-			return nil, e
-		}
-
-		cols = append(cols, nc)
-	}
-
-	return NewDF(df.Fns(), cols)
 }
 
 func (df *DFcore) Column(colName string) Column {
