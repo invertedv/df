@@ -162,7 +162,7 @@ func (c *Col) String() string {
 			if k == nil {
 				k = "Other"
 			}
-			x := fmt.Sprintf("%v", k) //toStringX(k) // hmmm, was any? or maybe *string
+			x := fmt.Sprintf("%v", k)
 
 			keys = append(keys, x)
 			vals = append(vals, v)
@@ -188,12 +188,12 @@ func (c *Col) String() string {
 		c := vals.Column("count")
 
 		header := []string{l.Name(), c.Name()}
-		return t + d.PrettyPrint(header, l.(*m.Col).Data(), c.(*m.Col).Data())
+		return t + d.PrettyPrint(header, l.(*m.Col).Data().AsAny(), c.(*m.Col).Data().AsAny())
 	}
 
 	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 
 	header := []string{"metric", "value"}
-	vals, _ := c.Dialect().Summary(c.MakeQuery(), c.Name())
+	vals, _ := c.Dialect().Summary(c.MakeQuery(), c.Dialect().ToName(c.Name()))
 	return t + d.PrettyPrint(header, cols, vals)
 }

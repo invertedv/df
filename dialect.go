@@ -608,9 +608,12 @@ func (d *Dialect) Quantile(col string, q float64) string {
 	var sqlx string
 	if d.DialectName() == ch {
 		sqlx = fmt.Sprintf("quantile(%v)(%s)", q, col)
+		sqlx, _ = d.CastField(sqlx, DTfloat, DTfloat)
 	}
 
-	sqlx, _ = d.CastField(sqlx, DTfloat, DTfloat)
+	if d.DialectName() == pg {
+		sqlx = fmt.Sprintf("percentile_cont(%v) WITHIN GROUP (ORDER BY %s)", q, col)
+	}
 
 	return sqlx
 }
@@ -655,9 +658,9 @@ func (d *Dialect) Summary(qry, col string) ([]float64, error) {
 	const skeleton = "WITH %s AS (%s) SELECT %s FROM %s"
 
 	minX := fmt.Sprintf("min(%s) AS min", col)
-	q25 := d.Quantile(col, 0.25) + "AS q25"
-	q50 := d.Quantile(col, 0.5) + "AS q50"
-	q75 := d.Quantile(col, 0.75) + "AS q75"
+	q25 := d.Quantile(col, 0.25) + " AS q25"
+	q50 := d.Quantile(col, 0.5) + " AS q50"
+	q75 := d.Quantile(col, 0.75) + " AS q75"
 	maxX := fmt.Sprintf("max(%s) AS max", col)
 	mn := fmt.Sprintf("avg(%s) AS mean", col)
 	n, _ := d.CastField("count(*)", DTint, DTfloat)

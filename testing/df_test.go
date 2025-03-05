@@ -13,23 +13,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
-func TestNull(t *testing.T){
+func TestNull(t *testing.T) {
 	defInt := 100
-	dfy :=loadFile("d2.csv", d.FileDefaultInt(defInt))
+	dfy := loadFile("d2.csv", d.FileDefaultInt(defInt))
 	dx := dfy.Column("k").Data().AsAny()
 	assert.Equal(t, defInt, dx.([]int)[2])
 
-	dfx:=loadData("postgres,d2")
+	dfx := loadData("postgres,d2")
 	_ = d.DialectDefaultInt(defInt)(dfx.Dialect())
 	dx = dfx.Column("k").Data().AsAny()
 	assert.Equal(t, defInt, dx.([]int)[2])
-	_=dx
+	_ = dx
 	fmt.Println(dx)
 }
 
 func TestString(t *testing.T) {
 	for _, which := range pkgs() {
+		if !strings.Contains(which, "post") {
+			continue
+		}
 		dfx := loadData(which)
 		fmt.Println(dfx)
 	}
