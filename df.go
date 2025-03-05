@@ -238,10 +238,12 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 
 func (df *DFcore) Copy() *DFcore {
 	var cols []Column
+	save := df.current
 	for c := df.First(); c != nil; c = df.Next() {
 		cols = append(cols, c.Copy())
 	}
 
+	df.current = save
 	var outDF *DFcore
 
 	outDF, _ = NewDF(df.Fns(), cols, DFdialect(df.Dialect()))

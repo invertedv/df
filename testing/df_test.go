@@ -28,13 +28,16 @@ func TestNull(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
+	var s []string
 	for _, which := range pkgs() {
-		if !strings.Contains(which, "post") {
-			continue
-		}
 		dfx := loadData(which)
-		fmt.Println(dfx)
+		s = append(s, dfx.Column("x").String())
+		fmt.Println(which)
+		fmt.Println(dfx.Column("R"))
 	}
+
+	assert.Equal(t, s[0], s[1])
+	assert.Equal(t, s[1], s[2])
 }
 
 func TestSeq(t *testing.T) {

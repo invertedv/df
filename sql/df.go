@@ -333,6 +333,10 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		}
 	}
 
+	if e := dfOut.SetParent(); e != nil {
+		return nil, e
+	}
+
 	return dfOut, nil
 }
 
@@ -670,9 +674,9 @@ func sameSource(s1, s2 any) bool {
 	}
 
 	if df1 != nil && c2 != nil && c2.Parent() == nil {
-		e := d.ColParent(df1)(c2)
-		_ = e
+		_ = d.ColParent(df1)(c2)
 	}
+
 	if df2 != nil && c1 != nil && c1.Parent() == nil {
 		_ = d.ColParent(df2)(c1)
 	}
@@ -680,6 +684,7 @@ func sameSource(s1, s2 any) bool {
 		sql1 = c1.Parent().(*DF).SourceSQL()
 		grp1 = c1.Parent().(*DF).groupBy
 	}
+
 	if c2 != nil {
 		sql2 = c2.Parent().(*DF).SourceSQL()
 		grp2 = c2.Parent().(*DF).groupBy

@@ -607,12 +607,12 @@ func (d *Dialect) NameOrSQLXXX(fieldName, genSQL string) string {
 func (d *Dialect) Quantile(col string, q float64) string {
 	var sqlx string
 	if d.DialectName() == ch {
-		sqlx = fmt.Sprintf("quantile(%v)(%s)", q, col)
+		sqlx = fmt.Sprintf("quantileBFloat16(%v)(%s)", q, col)
 		sqlx, _ = d.CastField(sqlx, DTfloat, DTfloat)
 	}
 
 	if d.DialectName() == pg {
-		sqlx = fmt.Sprintf("percentile_cont(%v) WITHIN GROUP (ORDER BY %s)", q, col)
+		sqlx = fmt.Sprintf("percentile_disc(%v) WITHIN GROUP (ORDER BY %s)", q, col)
 	}
 
 	return sqlx

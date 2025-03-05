@@ -63,8 +63,6 @@ func (c *Col) Data() *d.Vector {
 		_ = d.ColName(d.RandomLetters(5))(c)
 	}
 
-	q := c.MakeQuery()
-	_ = q
 	if df, e = m.DBLoad(c.MakeQuery(), c.Dialect()); e != nil {
 		panic(e)
 	}
@@ -149,10 +147,6 @@ func (c *Col) Rename(newName string) error {
 }
 
 func (c *Col) String() string {
-	//	if c.Name() == "" {
-	//		panic("column has no name")
-	//	}
-
 	t := fmt.Sprintf("column: %s\ntype: %s\n", c.Name(), c.DataType())
 
 	if c.CategoryMap() != nil {
@@ -173,27 +167,30 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		df, _ := NewDFcol(nil, []*Col{c})
-		tab, _ := df.Table(c.Name())
-
 		var (
-			vals *m.DF
-			e    error
+			tab d.DF
+			e   error
 		)
-		if vals, e = m.DBLoad(tab.MakeQuery(), tab.Dialect()); e != nil {
+		if tab, e = c.Parent().Table(c.Name()); e != nil {
 			panic(e)
 		}
 
-		l := vals.Column(c.Name())
-		c := vals.Column("count")
+		tab.Sort(true, c.Name())
+		l := tab.Column(c.Name())
+		cx := tab.Column("count")
 
 		header := []string{l.Name(), c.Name()}
-		return t + d.PrettyPrint(header, l.(*m.Col).Data().AsAny(), c.(*m.Col).Data().AsAny())
+
+		cxi, _ := cx.Data().AsInt()
+		strx, _ := l.Data().AsString()
+
+		return t + d.PrettyPrint(header, strx, cxi)
 	}
 
 	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
 
 	header := []string{"metric", "value"}
 	vals, _ := c.Dialect().Summary(c.MakeQuery(), c.Dialect().ToName(c.Name()))
+
 	return t + d.PrettyPrint(header, cols, vals)
 }

@@ -87,8 +87,6 @@ func (c *Col) String() string {
 	}
 
 	if c.DataType() != d.DTfloat {
-		//		tabx := makeTable(c)
-		//		tab, _ := NewDFcol(nil, tabx)
 		var (
 			tab d.DF
 			e   error
@@ -96,7 +94,7 @@ func (c *Col) String() string {
 		if tab, e = c.Parent().Table(c.Name()); e != nil {
 			panic(e)
 		}
-		//		_ = tab.Sort(false, "count")
+		_ = tab.Sort(true, c.Name())
 		l := tab.Column(c.Name())
 		cx := tab.Column("count")
 
@@ -113,9 +111,9 @@ func (c *Col) String() string {
 	sort.Float64s(x)
 	minx := x[0]
 	maxx := x[len(x)-1]
-	q25 := stat.Quantile(0.25, 4, x, nil)
-	q50 := stat.Quantile(0.5, 4, x, nil)
-	q75 := stat.Quantile(0.75, 4, x, nil)
+	q25 := stat.Quantile(0.25, 1, x, nil)
+	q50 := stat.Quantile(0.5, 1, x, nil)
+	q75 := stat.Quantile(0.75, 1, x, nil)
 	xbar := stat.Mean(x, nil)
 	n := float64(c.Len())
 	cats := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
