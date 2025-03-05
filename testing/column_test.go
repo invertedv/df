@@ -239,7 +239,9 @@ func TestToCat(t *testing.T) {
 		_, e5 := d.Parse(dfx, "cat(x)")
 		assert.NotNil(t, e5)
 
+		fmt.Println(dfx.ColumnNames())
 		_, e1 := d.Parse(dfx, "test:=cat(y)")
+		fmt.Println(dfx.ColumnNames())
 		assert.Nil(t, e1)
 		result := dfx.Column("test").Data().AsAny()
 		expected := []int{1, 0, 4, 1, 2, 3}

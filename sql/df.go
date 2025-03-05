@@ -306,7 +306,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	dfOut := f.Copy().(*DF)
 
 	var e error
-	if dfOut.DFcore, e = f.KeepColumns(flds...); e != nil {
+	if dfOut.DFcore, e = dfOut.KeepColumns(flds...); e != nil {
 		return nil, e
 	}
 	_ = d.DFsetSourceDF(f)(dfOut)
@@ -375,6 +375,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, e4
 	}
 
+	// TODO: do I need this?
 	if e5 := tabl.Sort(true, cn); e5 != nil {
 		return nil, e5
 	}
