@@ -220,7 +220,15 @@ func TestParser(t *testing.T) {
 //			{"var(y)", 0, 16.0},
 //			{"var(x)", 0, 4.175},
 
-// TODO: 
+// TODO: check consistency of paradigm of defining with var() before ifs
+// TODO: check for referencing elements directly not through method
+// TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
+// TODO: revisit sourceDF relative to mem/By
+// TODO: change loops to new format
+//for ind:= range 4 {
+//	fmt.Println("ind: ", ind)
+//}
+//
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {

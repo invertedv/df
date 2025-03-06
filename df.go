@@ -40,7 +40,8 @@ type DC interface {
 
 // *********** DFcore ***********
 
-// DFcore is the nucleus implementation of the DataFrame.  It does not implement all the required methods.
+// DFcore is the nucleus implementation of the DataFrame.  It does not implement all the required methods.  The remaining
+// methods will depend on the implementation.
 type DFcore struct {
 	head *columnList
 

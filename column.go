@@ -1,6 +1,9 @@
 package df
 
-import "fmt"
+import (
+	"fmt"
+	"maps"
+)
 
 // Column interface defines the methods the columns
 type Column interface {
@@ -31,8 +34,8 @@ type ColCore struct {
 	name string
 	dt   DataTypes
 
-	catMap    CategoryMap
-	rawType   DataTypes
+	catMap  CategoryMap
+	rawType DataTypes
 
 	dep []string
 
@@ -136,6 +139,7 @@ func ColRawType(raw DataTypes) ColOpt {
 		}
 
 		c.Core().rawType = raw
+
 		return nil
 	}
 }
@@ -143,6 +147,7 @@ func ColRawType(raw DataTypes) ColOpt {
 func colDependencies(dep []string) ColOpt {
 	return func(c CC) error {
 		c.Core().dep = dep
+
 		return nil
 	}
 }
@@ -154,13 +159,19 @@ func (c *ColCore) CategoryMap() CategoryMap {
 }
 
 func (c *ColCore) Copy() *ColCore {
+	var cm CategoryMap
+	if c.CategoryMap() != nil {
+		cm = make(CategoryMap)
+		maps.Copy(cm, c.CategoryMap())
+	}
+
 	// don't copy parent
 	cx, _ := NewColCore(c.DataType(),
 		ColDialect(c.Dialect()),
 		ColName(c.Name()),
 		colDependencies(c.Dependencies()),
 		ColRawType(c.RawType()),
-		ColCatMap(c.CategoryMap()))
+		ColCatMap(cm))
 
 	return cx
 }
