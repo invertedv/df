@@ -290,7 +290,7 @@ func (f *Files) Open(fileName string) error { //, fieldNames []string, fieldType
 
 	f.rdr = bufio.NewReader(f.file)
 
-	if f.FieldNames() == nil && !f.header {
+	if len(f.FieldNames()) == 0 && !f.header {
 		return fmt.Errorf("no field names specified and no header")
 	}
 
@@ -301,13 +301,13 @@ func (f *Files) Open(fileName string) error { //, fieldNames []string, fieldType
 		}
 	}
 
-	if f.FieldNames() == nil {
+	if len(f.FieldNames()) == 0 {
 		if e1 := f.readHeader(); e1 != nil {
 			return e1
 		}
 	}
 
-	if f.FieldTypes() == nil {
+	if len(f.FieldTypes()) == 0 {
 		if e2 := f.detect(); e2 != nil {
 			return e2
 		}
@@ -339,7 +339,7 @@ func (f *Files) Read() (any, error) {
 		}
 	}
 
-	if f.FieldTypes() == nil {
+	if len(f.FieldTypes()) == 0 {
 		return vals, nil
 	}
 	var out []any

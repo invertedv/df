@@ -67,7 +67,7 @@ func RunDFfn(fn Fn, df DF, inputs []any) (any, error) {
 }
 
 func okParams(cols []any, inputs [][]DataTypes, outputs []DataTypes) (ok bool, outType DataTypes) {
-	if inputs == nil {
+	if len(inputs) == 0 {
 		return true, outputs[0]
 	}
 

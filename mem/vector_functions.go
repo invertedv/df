@@ -691,6 +691,7 @@ func splitCol(cols []any) (any, []any) {
 	if cols == nil {
 		return nil, nil
 	}
+
 	col0 := cols[0]
 
 	if _, ok := col0.(*d.Scalar); ok {

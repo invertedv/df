@@ -207,7 +207,7 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 		return nil, fmt.Errorf("some columns on in DFcore in ColumnTypes")
 	}
 
-	if colNames == nil {
+	if len(colNames) == 0 {
 		colNames = df.ColumnNames()
 	}
 

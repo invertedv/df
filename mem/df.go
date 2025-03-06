@@ -604,11 +604,6 @@ func (f *DF) Less(i, j int) bool {
 	return false
 }
 
-// TODO: delete
-func (f *DF) MakeQuery1(colNames ...string) string {
-	return ""
-}
-
 func (f *DF) RowCount() int {
 	return f.First().Len()
 }
