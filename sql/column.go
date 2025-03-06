@@ -42,6 +42,7 @@ func NewColSQL(dt d.DataTypes, dlct *d.Dialect, sqlx string, opts ...d.ColOpt) (
 func (c *Col) Copy() d.Column {
 	n := &Col{
 		sql:     c.sql,
+		global:  c.global,
 		ColCore: c.Core().Copy(),
 	}
 

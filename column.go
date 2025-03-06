@@ -22,7 +22,7 @@ type CC interface {
 	Name() string
 	Parent() DF
 	Rename(newName string) error
-	RT() ReturnTypes
+//	RT() ReturnTypes
 }
 
 // *********** ColCore ***********
@@ -31,7 +31,7 @@ type CC interface {
 type ColCore struct {
 	name string
 	dt   DataTypes
-	rt   ReturnTypes
+	rt   ReturnTypes // TODO: where am I using this?
 
 	catMap    CategoryMap
 	catCounts CategoryMap
@@ -189,6 +189,7 @@ func (c *ColCore) CategoryMap() CategoryMap {
 func (c *ColCore) Copy() *ColCore {
 	// don't copy parent
 	cx, _ := NewColCore(c.DataType(),
+		ColDialect(c.Dialect()),
 		ColName(c.Name()),
 		colDependencies(c.Dependencies()),
 		ColRawType(c.RawType()),
@@ -240,6 +241,7 @@ func (c *ColCore) Rename(newName string) error {
 	return nil
 }
 
+// TODO: delete this
 func (c *ColCore) RT() ReturnTypes {
 	return c.rt
 }

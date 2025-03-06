@@ -31,7 +31,7 @@ type DF struct {
 
 	*d.DFcore
 
-	rows *sql.Rows
+	rows *sql.Rows // used by Iter
 	row  []any
 }
 
@@ -305,8 +305,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	flds := strings.Split(groupBy, ",")
 	dfOut := f.Copy().(*DF)
 
-	var e error
-	if dfOut.DFcore, e = dfOut.KeepColumns(flds...); e != nil {
+	if  e := dfOut.KeepColumns(flds...); e != nil {
 		return nil, e
 	}
 	_ = d.DFsetSourceDF(f)(dfOut)

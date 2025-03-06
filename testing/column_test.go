@@ -220,6 +220,10 @@ func TestParser(t *testing.T) {
 //			{"var(y)", 0, 16.0},
 //			{"var(x)", 0, 4.175},
 
+// TODO: review all copy methods & keepColumns
+// TODO: do I need to keep catCounts
+// TODO: check do I need ColumnCount?
+
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
