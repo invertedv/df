@@ -37,7 +37,7 @@ type DC interface {
 	First() Column
 	Fns() Fns
 	HasColumns(cols ...string) bool
-	KeepColumns(keepColumns ...string) (*DFcore, error)
+	KeepColumns(colsToKeep ...string) error
 	Next() Column
 	SourceDF() *DFcore
 }
@@ -246,7 +246,8 @@ func (df *DFcore) Copy() *DFcore {
 	df.current = save
 	var outDF *DFcore
 
-	outDF, _ = NewDF(df.Fns(), cols, DFdialect(df.Dialect()))
+	outDF, _ = NewDF(df.Fns(), cols,
+		DFdialect(df.Dialect()), DFsetSourceDF(df.SourceDF()))
 
 	return outDF
 }
@@ -337,39 +338,25 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 	return true
 }
 
-func (df *DFcore) KeepColumns(colNames ...string) (*DFcore, error) {
-	var subHead, tail *columnList
-
-	for ind := 0; ind < len(colNames); ind++ {
-		var col Column
-
-		if col = df.Column(colNames[ind]); col == nil {
-			return nil, fmt.Errorf("column %s not found", colNames[ind])
+func (df *DFcore) KeepColumns(colNames ...string) error {
+	cns := df.ColumnNames()
+	for _, cn := range colNames {
+		if !Has(cn, cns) {
+			return fmt.Errorf("no such column: %s", cn)
 		}
+	}
 
-		newNode := &columnList{
-			col:   col,
-			prior: nil,
-			next:  nil,
-		}
-
-		if subHead == nil {
-			subHead, tail = newNode, newNode
+	for col := df.First(); col != nil; col = df.Next() {
+		if Has(col.Name(), colNames) {
 			continue
 		}
 
-		newNode.prior = tail
-		tail.next = newNode
-		tail = newNode
+		if e := df.DropColumns(col.Name()); e != nil {
+			return e
+		}
 	}
 
-	subsetDF := &DFcore{
-		head:     subHead,
-		appFuncs: df.appFuncs,
-		dlct:     df.Dialect(),
-	}
-
-	return subsetDF, nil
+	return nil
 }
 
 func (df *DFcore) Next() Column {
