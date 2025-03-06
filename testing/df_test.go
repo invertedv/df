@@ -232,8 +232,6 @@ func TestAppendDF(t *testing.T) {
 		dfx := loadData(which)
 		dfy := loadData(which)
 		dfOut, e := dfx.AppendDF(dfy)
-		q := dfOut.MakeQuery()
-		_ = q
 		assert.Nil(t, e)
 		exp := dfx.RowCount() + dfy.RowCount()
 		assert.Equal(t, exp, dfOut.RowCount())

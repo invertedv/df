@@ -3,7 +3,6 @@ package df
 import (
 	_ "embed"
 	"fmt"
-	"strings"
 )
 
 type DF interface {
@@ -15,7 +14,6 @@ type DF interface {
 	Copy() DF
 	Iter(reset bool) (row []any, err error)
 	Join(df DF, joinOn string) (DF, error)
-	MakeQuery(colNames ...string) string
 	RowCount() int
 	SetParent() error
 	Sort(ascending bool, keys ...string) error
@@ -30,7 +28,6 @@ type DC interface {
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
 	Core() *DFcore
-	CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error
 	Dialect() *Dialect
 	DropColumns(colNames ...string) error
 	First() Column
@@ -246,31 +243,6 @@ func (df *DFcore) Core() *DFcore {
 	return df
 }
 
-func (df *DFcore) CreateTable(tableName, orderBy string, overwrite bool, cols ...string) error {
-	if df.Dialect() == nil {
-		return fmt.Errorf("no database defined")
-	}
-
-	if cols == nil {
-		cols = df.ColumnNames()
-	}
-
-	noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
-	if orderBy != "" && !df.HasColumns(strings.Split(noDesc, ",")...) {
-		return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
-	}
-
-	var (
-		e   error
-		dts []DataTypes
-	)
-	if dts, e = df.ColumnTypes(cols...); e != nil {
-		return e
-	}
-
-	return df.Dialect().Create(tableName, noDesc, cols, dts, overwrite)
-}
-
 func (df *DFcore) Dialect() *Dialect {
 	return df.dlct
 }
@@ -329,11 +301,8 @@ func (df *DFcore) HasColumns(cols ...string) bool {
 }
 
 func (df *DFcore) KeepColumns(colNames ...string) error {
-	cns := df.ColumnNames()
-	for _, cn := range colNames {
-		if !Has(cn, cns) {
-			return fmt.Errorf("no such column: %s", cn)
-		}
+	if !df.HasColumns(colNames...) {
+		return fmt.Errorf("missing columns in KeepColumns")
 	}
 
 	for col := df.First(); col != nil; col = df.Next() {

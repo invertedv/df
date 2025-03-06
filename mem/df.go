@@ -604,7 +604,8 @@ func (f *DF) Less(i, j int) bool {
 	return false
 }
 
-func (f *DF) MakeQuery(colNames ...string) string {
+// TODO: delete
+func (f *DF) MakeQuery1(colNames ...string) string {
 	return ""
 }
 

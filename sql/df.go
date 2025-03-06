@@ -48,7 +48,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	}
 
 	df := &DF{
-		sourceSQL: cols[0].Parent().MakeQuery(),
+		sourceSQL: cols[0].Parent().(*DF).MakeQuery(),
 		orderBy:   "",
 		where:     "",
 		DFcore:    nil,
@@ -512,7 +512,7 @@ func (f *DF) Iter(reset bool) (row []any, err error) {
 func (f *DF) MakeQuery(colNames ...string) string {
 	var fields []string
 
-	if colNames == nil {
+	if len(colNames) == 0 {
 		colNames = f.ColumnNames()
 	}
 

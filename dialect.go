@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -694,13 +695,17 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF, options
 		return e
 	}
 
-	if qry := df.MakeQuery(); qry != "" {
+	// If there's a MakeQuery method, use that
+	t := reflect.TypeOf(df)
+	if m, ok := t.MethodByName("MakeQuery"); ok {
+		args := []reflect.Value{reflect.ValueOf(df)}
+		qry := m.Func.Call(args)[0].String()
 		colNames := df.ColumnNames()
 		for ind, cn := range colNames {
 			colNames[ind] = d.ToName(cn)
 		}
 
-		return d.Insert(tableName, df.MakeQuery(), strings.Join(colNames, ","))
+		return d.Insert(tableName, qry, strings.Join(colNames, ","))
 	}
 
 	return d.IterSave(tableName, df)
