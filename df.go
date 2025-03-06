@@ -27,7 +27,6 @@ type DF interface {
 type DC interface {
 	AppendColumn(col Column, replace bool) error
 	Column(colName string) Column
-	ColumnCount() int
 	ColumnNames() []string
 	ColumnTypes(cols ...string) ([]DataTypes, error)
 	Core() *DFcore
@@ -192,15 +191,6 @@ func (df *DFcore) Column(colName string) Column {
 	}
 
 	return nil
-}
-
-func (df *DFcore) ColumnCount() int {
-	cols := 0
-	for c := df.head; c != nil; c = c.next {
-		cols++
-	}
-
-	return cols
 }
 
 func (df *DFcore) ColumnNames() []string {

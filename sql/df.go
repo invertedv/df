@@ -305,7 +305,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	flds := strings.Split(groupBy, ",")
 	dfOut := f.Copy().(*DF)
 
-	if  e := dfOut.KeepColumns(flds...); e != nil {
+	if e := dfOut.KeepColumns(flds...); e != nil {
 		return nil, e
 	}
 	_ = d.DFsetSourceDF(f)(dfOut)
@@ -450,7 +450,6 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 
 	outCol, _ := NewColSQL(d.DTcategorical, f.Dialect(), sql1)
 	_ = d.ColRawType(col.DataType())(outCol.Core())
-	_ = d.ColCatCounts(cnts)(outCol.Core())
 	_ = d.ColCatMap(toMap)(outCol.Core())
 
 	return outCol, nil

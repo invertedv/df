@@ -240,7 +240,7 @@ func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 		return nil, fmt.Errorf("must be *DF to append to *DF")
 	}
 
-	if f.ColumnCount() != df.ColumnCount() {
+	if len(f.ColumnNames()) != len(df.ColumnNames()) {
 		return nil, fmt.Errorf("cannot append dataframes - differing columns")
 	}
 
@@ -452,7 +452,6 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 
 	_ = d.ColDataType(d.DTcategorical)(outCol.ColCore)
 	_ = d.ColCatMap(toMap)(outCol.ColCore)
-	_ = d.ColCatCounts(cnts)(outCol.ColCore)
 
 	return outCol, nil
 }

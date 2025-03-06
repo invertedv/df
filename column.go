@@ -22,7 +22,6 @@ type CC interface {
 	Name() string
 	Parent() DF
 	Rename(newName string) error
-//	RT() ReturnTypes
 }
 
 // *********** ColCore ***********
@@ -31,10 +30,8 @@ type CC interface {
 type ColCore struct {
 	name string
 	dt   DataTypes
-	rt   ReturnTypes // TODO: where am I using this?
 
 	catMap    CategoryMap
-	catCounts CategoryMap
 	rawType   DataTypes
 
 	dep []string
@@ -44,7 +41,7 @@ type ColCore struct {
 }
 
 func NewColCore(dt DataTypes, ops ...ColOpt) (*ColCore, error) {
-	c := &ColCore{dt: dt, rt: RTcolumn}
+	c := &ColCore{dt: dt}
 
 	for _, op := range ops {
 		if e := op(c); e != nil {
@@ -58,17 +55,6 @@ func NewColCore(dt DataTypes, ops ...ColOpt) (*ColCore, error) {
 // *********** Setters ***********
 
 type ColOpt func(c CC) error
-
-func ColCatCounts(ct CategoryMap) ColOpt {
-	return func(c CC) error {
-		if c == nil {
-			return fmt.Errorf("nil column to ColCatCounts")
-		}
-
-		c.Core().catCounts = ct
-		return nil
-	}
-}
 
 func ColCatMap(cm CategoryMap) ColOpt {
 	return func(c CC) error {
@@ -143,28 +129,13 @@ func ColParent(df DF) ColOpt {
 	}
 }
 
-func ColRawType(rt DataTypes) ColOpt {
+func ColRawType(raw DataTypes) ColOpt {
 	return func(c CC) error {
 		if c == nil {
 			return fmt.Errorf("nil column to ColRawType")
 		}
 
-		c.Core().rawType = rt
-		return nil
-	}
-}
-
-func ColReturnType(rt ReturnTypes) ColOpt {
-	return func(c CC) error {
-		if c == nil {
-			return fmt.Errorf("nil column to ColRawType")
-		}
-		if rt != RTcolumn && rt != RTscalar {
-			return fmt.Errorf("invalid column return type: %v", rt)
-		}
-
-		c.Core().rt = rt
-
+		c.Core().rawType = raw
 		return nil
 	}
 }
@@ -178,10 +149,6 @@ func colDependencies(dep []string) ColOpt {
 
 // *********** Methods ***********
 
-func (c *ColCore) CategoryCounts() CategoryMap {
-	return c.catCounts
-}
-
 func (c *ColCore) CategoryMap() CategoryMap {
 	return c.catMap
 }
@@ -193,9 +160,7 @@ func (c *ColCore) Copy() *ColCore {
 		ColName(c.Name()),
 		colDependencies(c.Dependencies()),
 		ColRawType(c.RawType()),
-		ColCatMap(c.CategoryMap()),
-		ColReturnType(c.RT()),
-		ColCatCounts(c.CategoryCounts()))
+		ColCatMap(c.CategoryMap()))
 
 	return cx
 }
@@ -239,11 +204,6 @@ func (c *ColCore) Rename(newName string) error {
 	c.name = newName
 
 	return nil
-}
-
-// TODO: delete this
-func (c *ColCore) RT() ReturnTypes {
-	return c.rt
 }
 
 // *********** Category Map ***********

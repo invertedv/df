@@ -356,31 +356,6 @@ func TestParserS(t *testing.T) {
 	fmt.Println("# tests: ", cnt)
 }
 
-/*
-// TODO: implement SORT
-func TestSQLdf_Table(t *testing.T) {
-	dfx := testDF()
-	dfTable, e := dfx.Parse("table(y,yy)")
-	assert.Nil(t, e)
-	e = dfTable.DF().Sort(true, "count")
-	assert.Nil(t, e)
-	outCol := checker(dfTable.DF(), "count", nil, -1)
-	assert.Equal(t, []int{1, 1, 1, 1, 2}, outCol)
-}
-
-func TestSQLcol_String(t *testing.T) {
-	dfx := testDF()
-	fmt.Println(dfx)
-	/*	cx, _ := dfx.Column("x")
-		fmt.Println(cx)
-
-		cx, _ = dfx.Column("y")
-		fmt.Println(cx)
-
-		cx, _ = dfx.Column("dt")
-		fmt.Println(cx)
-
-*/
 
 /*
 func TestSQLdf_AppendDF(t *testing.T) {

@@ -162,7 +162,7 @@ func TestParser(t *testing.T) {
 		dfx := loadData(which)
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
-			//fmt.Println(test)
+			//fmt.Println(test, which)
 			vals := strings.Split(strings.ReplaceAll(test, " ", ""), "|")
 			if len(vals) != 4 {
 				continue
@@ -219,10 +219,6 @@ func TestParser(t *testing.T) {
 //			{"sdev(x)", 0, 2.043},
 //			{"var(y)", 0, 16.0},
 //			{"var(x)", 0, 4.175},
-
-// TODO: review all copy methods & keepColumns
-// TODO: do I need to keep catCounts
-// TODO: check do I need ColumnCount?
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
@@ -311,6 +307,5 @@ func TestApplyCat(t *testing.T) {
 	}
 }
 
-// TODO: think about default values
 // TODO: think about float -> string
 // TODO: think about date formats

@@ -62,7 +62,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 			sqlOut, _ = df.Dialect().CastField(sqlOut, d.DTany, d.DTfloat)
 		}
 
-		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut, d.ColReturnType(rt))
+		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
 		outCol.global = glb
 
 		_ = d.ColParent(df)(outCol)
@@ -81,7 +81,7 @@ func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 	sqls := getSQL(df, inputs...)
 	dts := getDataTypes(df, inputs...)
-	outCol, _ := NewColSQL(dts[0], df.Dialect(), sqls[0], d.ColReturnType(d.RTcolumn), d.ColParent(df))
+	outCol, _ := NewColSQL(dts[0], df.Dialect(), sqls[0],  d.ColParent(df))
 	// sends the signal back that this is a global query
 	outCol.gf = true
 
