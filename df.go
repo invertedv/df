@@ -69,7 +69,7 @@ func NewDF(funcs Fns, cols []Column, opts ...DFopt) (df *DFcore, err error) {
 	outDF := &DFcore{appFuncs: funcs}
 
 	var head, priorNode *columnList
-	for ind := 0; ind < len(cols); ind++ {
+	for ind := range len(cols) {
 		node := &columnList{
 			col: cols[ind],
 
@@ -212,7 +212,7 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 		colNames = df.ColumnNames()
 	}
 
-	for ind := 0; ind < len(colNames); ind++ {
+	for ind := range len(colNames){
 		var c Column
 		if c = df.Column(colNames[ind]); c == nil {
 			return nil, fmt.Errorf("column %s not found", colNames[ind])

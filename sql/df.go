@@ -65,7 +65,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	)
 
 	var colsx []d.Column
-	for ind := 0; ind < len(cols); ind++ {
+	for ind := range len(cols) {
 		colsx = append(colsx, cols[ind])
 	}
 	if tmp, e = d.NewDF(funcs, colsx); e != nil {
@@ -150,7 +150,7 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 		sourceSQL: query,
 	}
 
-	for ind := 0; ind < len(colTypes); ind++ {
+	for ind := range len(colTypes) {
 		var (
 			cc *d.ColCore
 			e1 error
@@ -197,7 +197,7 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 	leftNames, rightNames := f.ColumnNames(), df.ColumnNames()
 
 	var rNames []string
-	for ind := 0; ind < len(rightNames); ind++ {
+	for ind := range len(rightNames) {
 		rn := rightNames[ind]
 		// don't keep join columns for right
 		if d.Has(rn, jCols) {
@@ -403,7 +403,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	cnts := make(d.CategoryMap)
 	caseNo := 0
 	var whens, equalTo []string
-	for ind := 0; ind < inCol.Len(); ind++ {
+	for ind := range inCol.Len() {
 		outVal := caseNo
 		val := inCol.(*m.Col).Element(ind)
 		ct := counts.(*m.Col).Element(ind).(int)
@@ -516,7 +516,7 @@ func (f *DF) MakeQuery(colNames ...string) string {
 		colNames = f.ColumnNames()
 	}
 
-	for ind := 0; ind < len(colNames); ind++ {
+	for ind := range len(colNames) {
 		var cx d.Column
 		if cx = f.Column(colNames[ind]); cx == nil {
 			panic(fmt.Errorf("missing name %s", colNames[ind]))
@@ -581,7 +581,7 @@ func (f *DF) Sort(ascending bool, keys ...string) error {
 	}
 
 	if !ascending {
-		for ind := 0; ind < len(keys); ind++ {
+		for ind := range len(keys) {
 			keys[ind] += " DESC"
 		}
 	}

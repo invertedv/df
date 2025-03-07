@@ -28,7 +28,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 		dts := getDataTypes(df, inputs...)
 
 		var sa []any
-		for j := 0; j < len(sqls); j++ {
+		for j := range len(sqls) {
 			sa = append(sa, sqls[j])
 		}
 
@@ -42,9 +42,9 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 
 		outType := outp[0]
 		// output type
-		for ind := 0; ind < len(inp); ind++ {
+		for ind := range len(inp) {
 			ok := true
-			for j := 0; j < len(dts); j++ {
+			for j := range len(dts) {
 				if dts[j] != inp[ind][j] {
 					ok = false
 					break
@@ -248,7 +248,7 @@ func toCol(df d.DF, x any) *Col {
 
 func getSQL(df d.DF, inputs ...any) []string {
 	var sOut []string
-	for ind := 0; ind < len(inputs); ind++ {
+	for ind := range len(inputs) {
 		col := toCol(df, inputs[ind])
 		s, _ := col.SQL()
 		sOut = append(sOut, s)
@@ -260,7 +260,7 @@ func getSQL(df d.DF, inputs ...any) []string {
 // getDataTypes returns the d.DataTypes of the columns
 func getDataTypes(df d.DF, inputs ...any) []d.DataTypes {
 	var sOut []d.DataTypes
-	for ind := 0; ind < len(inputs); ind++ {
+	for ind := range len(inputs) {
 		sOut = append(sOut, toCol(df, inputs[ind]).DataType())
 	}
 
@@ -269,7 +269,7 @@ func getDataTypes(df d.DF, inputs ...any) []d.DataTypes {
 
 // getGlobal returns true if any of the inputs has a gf signal (gf=used global() function)
 func getGlobal(inputs ...any) bool {
-	for ind := 0; ind < len(inputs); ind++ {
+	for ind := range len(inputs) {
 		if col, ok := inputs[ind].(*Col); ok && col.gf {
 			return col.gf
 		}

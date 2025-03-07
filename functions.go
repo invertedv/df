@@ -71,9 +71,9 @@ func okParams(cols []any, inputs [][]DataTypes, outputs []DataTypes) (ok bool, o
 		return true, outputs[0]
 	}
 
-	for j := 0; j < len(inputs); j++ {
+	for j := range len(inputs) {
 		ok = true
-		for k := 0; k < len(inputs[j]); k++ {
+		for k := range len(inputs[j]) {
 			if _, isCol := cols[k].(Column); isCol && inputs[j][k] != DTany && cols[k].(Column).DataType() != inputs[j][k] {
 				ok = false
 				break
@@ -144,7 +144,7 @@ func parseOutputs1(outp string) []DataTypes {
 	var outDT []DataTypes
 
 	outs := strings.Split(outp, ",")
-	for ind := 0; ind < len(outs); ind++ {
+	for ind := range len(outs) {
 		outDT = append(outDT, DTFromString("DT"+outs[ind]))
 	}
 

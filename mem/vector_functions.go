@@ -162,7 +162,7 @@ func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 	for _, fn := range fns {
 		rfn := reflect.TypeOf(fn)
 		ok := true
-		for ind := 0; ind < rfn.NumIn(); ind++ {
+		for ind := range  rfn.NumIn(){
 			if GetKind(rfn.In(ind)) != targetIns[ind] {
 				ok = false
 				break
@@ -579,7 +579,7 @@ func increment(len1 int) int {
 func dofn0[T frameTypes | any](out []T, fn any) error {
 	switch fnx := fn.(type) {
 	case func(int) T:
-		for ind := 0; ind < len(out); ind++ {
+		for ind := range len(out) {
 			out[ind] = fnx(ind)
 		}
 	case func() T:
@@ -596,13 +596,13 @@ func dofn1[T frameTypes, S frameTypes | any](a []T, out []S, fn any) error {
 	n := max(len(a), len(out))
 	switch fnx := fn.(type) {
 	case func(T) S:
-		for ind := 0; ind < n; ind++ {
+		for ind := range n {
 			out[ind] = fnx(a[indx])
 			indx += incr
 		}
 	case func(T) (S, error):
 		var e error
-		for ind := 0; ind < n; ind++ {
+		for ind := range n {
 			if out[ind], e = fnx(a[indx]); e != nil {
 				return e
 			}
@@ -629,14 +629,14 @@ func dofn2[T, S frameTypes, U frameTypes | any](a []T, b []S, out []U, fn any) e
 	n := max(len(a), len(b), len(out))
 	switch fnx := fn.(type) {
 	case func(a T, b S) U:
-		for ind := 0; ind < n; ind++ {
+		for ind := range n {
 			out[ind] = fnx(a[indx1], b[indx2])
 			indx1 += incr1
 			indx2 += incr2
 		}
 	case func(a T, b S) (U, error):
 		var e error
-		for ind := 0; ind < n; ind++ {
+		for ind := range n {
 			if out[ind], e = fnx(a[indx1], b[indx2]); e != nil {
 				return e
 			}
@@ -664,7 +664,7 @@ func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V,
 	n := max(len(a), len(b), len(c), len(out))
 	switch fnx := fn.(type) {
 	case func(a T, b S, C U) V:
-		for ind := 0; ind < n; ind++ {
+		for ind := range n {
 			out[ind] = fnx(a[indx1], b[indx2], c[indx3])
 			indx1 += incr1
 			indx2 += incr2
@@ -672,7 +672,7 @@ func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V,
 		}
 	case func(a T, b S, c U) (V, error):
 		var e error
-		for ind := 0; ind < n; ind++ {
+		for ind := range n {
 			if out[ind], e = fnx(a[indx1], b[indx2], c[indx3]); e != nil {
 				return e
 			}

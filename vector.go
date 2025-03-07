@@ -120,7 +120,7 @@ func (v *Vector) AsString() ([]string, error) {
 }
 
 func (v *Vector) Coerce(to DataTypes) (*Vector, error) {
-	for ind := 0; ind < v.Len(); ind++ {
+	for  range v.Len() {
 		switch to {
 		case DTfloat:
 			var (
@@ -359,7 +359,7 @@ func (v *Vector) SetString(val string, indx int) error {
 
 func (v *Vector) StringX() string {
 	s := fmt.Sprintf("type: %v\nlength: %d\n\nElements:\n", v.VectorType(), v.Len())
-	for ind := 0; ind < min(5, v.Len()); ind++ {
+	for ind := range min(5, v.Len()) {
 		v, _ := v.ElementString(ind)
 		s += fmt.Sprintf("%s\n", *v)
 	}
@@ -392,7 +392,7 @@ func (v *Vector) VectorType() DataTypes {
 
 func (v *Vector) Where(indic *Vector) *Vector {
 	outVec := MakeVector(v.VectorType(), 0)
-	for ind := 0; ind < v.Len(); ind++ {
+	for ind := range v.Len() {
 		i, _ := indic.ElementInt(ind)
 		if *i > 0 {
 			_ = outVec.Append(v.Element(ind))

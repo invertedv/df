@@ -84,7 +84,7 @@ func by(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		eqns []string
 	)
 	onCols := true
-	for ind := 0; ind < len(inputs); ind++ {
+	for ind := range len(inputs) {
 		if sc, ok := inputs[ind].(*d.Scalar); ok {
 			onCols = false
 			var (

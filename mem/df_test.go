@@ -101,7 +101,7 @@ func TestRowNumber(t *testing.T) {
 	x3 := make([]int, n)
 	x4 := make([]int, n)
 	x5 := make([]string, n)
-	for ind := 0; ind < n; ind++ {
+	for ind := range n{
 		x1[ind] = float64(ind+1) + 0.123456
 		x2[ind] = float64(-ind)
 		x3[ind] = ind
@@ -266,7 +266,7 @@ func TestParser(t *testing.T) {
 	}
 
 	cnt := 0
-	for ind := 0; ind < len(x); ind++ {
+	for ind := range len(x) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
@@ -588,7 +588,7 @@ func TestMemDF_Table(t *testing.T) {
 	tab, e = dfx.Table("x", "y")
 	assert.Nil(t, e)
 	cNames := tab.ColumnNames()
-	for ind := 0; ind < len(cNames); ind++ {
+	for ind := range len(cNames) {
 		col := tab.Column(cNames[ind])
 		fmt.Println(cNames[ind])
 		fmt.Println(col.Data())

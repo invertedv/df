@@ -193,16 +193,16 @@ func DialectDefaultString(deflt string) DialectOpt {
 func (d *Dialect) Join(leftSQL, rightSQL string, leftFields, rightFields, joinFields []string) string {
 	leftAlias := d.WithName()
 	rightAlias := d.WithName()
-	for ind := 0; ind < len(joinFields); ind++ {
+	for ind := range len(joinFields) {
 		jn := joinFields[ind]
 		joinFields[ind] = fmt.Sprintf("%s.%s = %s.%s", leftAlias, jn, rightAlias, jn)
 	}
 
-	for ind := 0; ind < len(leftFields); ind++ {
+	for ind := range len(leftFields) {
 		leftFields[ind] = fmt.Sprintf("%s.%s", leftAlias, d.ToName(leftFields[ind]))
 	}
 
-	for ind := 0; ind < len(rightFields); ind++ {
+	for ind := range len(rightFields) {
 		rightFields[ind] = fmt.Sprintf("%s.%s", rightAlias, d.ToName(rightFields[ind]))
 	}
 
@@ -231,7 +231,7 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 	if d.DialectName() == ch || d.DialectName() == pg {
 		e = nil
 		s = "CASE\n"
-		for ind := 0; ind < len(whens); ind++ {
+		for ind := range len(whens) {
 			when := fmt.Sprintf("WHEN %s THEN %s\n", whens[ind], vals[ind])
 			if strings.EqualFold(whens[ind], "ELSE") {
 				when = fmt.Sprintf("ELSE %s\n", vals[ind])
@@ -307,7 +307,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 		}
 
 		var flds []string
-		for ind := 0; ind < len(fields); ind++ {
+		for ind := range len(fields) {
 			var (
 				dbType string
 				ex     error
@@ -480,7 +480,7 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 		}
 
 		buffer = append(buffer, bOpen)
-		for ind := 0; ind < len(row); ind++ {
+		for ind := range len(row) {
 			var x any
 			switch xx := row[ind].(type) {
 			case int, float64, string, time.Time:
@@ -532,7 +532,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 		return nil, nil, nil, e2
 	}
 
-	for ind := 0; ind < len(fieldTypes); ind++ {
+	for ind := range len(fieldTypes) {
 		memData = append(memData, MakeVector(fieldTypes[ind], n))
 	}
 
@@ -550,7 +550,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 			return nil, nil, nil, e4
 		}
 
-		for ind := 0; ind < len(memData); ind++ {
+		for ind := range len(memData) {
 			var z = *row2read[ind].(*any)
 			if z == nil {
 				switch memData[ind].dt {
@@ -572,7 +572,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 	}
 
 	// change any dates to midnight UTC o.w. comparisons may not work
-	for c := 0; c < len(memData); c++ {
+	for c := range len(memData) {
 		if fieldTypes[c] != DTdate {
 			continue
 		}
@@ -793,7 +793,7 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	_ = a
 
 	var ry []any
-	for ind := 0; ind < len(ct); ind++ {
+	for range len(ct) {
 		var x any
 		ry = append(ry, &x)
 	}
@@ -808,7 +808,7 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		dts   []DataTypes
 	)
 
-	for ind := 0; ind < len(ry); ind++ {
+	for ind := range len(ry) {
 		names = append(names, ct[ind].Name())
 		var dt DataTypes
 

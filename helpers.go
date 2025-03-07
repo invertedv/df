@@ -29,13 +29,13 @@ func Position[C comparable](needle C, haystack []C) int {
 func PrettyPrint(header []string, cols ...any) string {
 	var colsS [][]string
 
-	for ind := 0; ind < len(cols); ind++ {
+	for ind := range len(cols) {
 		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
 	}
 
 	out := ""
-	for row := 0; row < len(colsS[0]); row++ {
-		for c := 0; c < len(colsS); c++ {
+	for row := range len(colsS[0]) {
+		for c := range len(colsS) {
 			out += colsS[c][row]
 		}
 		out += "\n"
@@ -57,7 +57,7 @@ func RandomLetters(length int) string {
 	}
 
 	name := ""
-	for ind := 0; ind < length; ind++ {
+	for ind := range length {
 		name += letters[randN[ind] : randN[ind]+1]
 	}
 
@@ -302,7 +302,7 @@ func toSlc(xIn any, target DataTypes) (any, bool) {
 	toFn := toFns[indx]
 	var xOut reflect.Value
 	if x.Kind() == reflect.Slice {
-		for ind := 0; ind < x.Len(); ind++ {
+		for ind := range x.Len() {
 			r := x.Index(ind).Interface()
 			if ind == 0 {
 				xOut = reflect.MakeSlice(outType, x.Len(), x.Len())
@@ -356,7 +356,7 @@ func randUnifInt(n, upper int) ([]int64, error) {
 	outInts := make([]int64, n)
 	rdr := bytes.NewReader(b1)
 
-	for ind := 0; ind < n; ind++ {
+	for ind := range n {
 		r, e := rand.Int(rdr, big.NewInt(int64(upper)))
 		if e != nil {
 			return nil, e
@@ -405,7 +405,7 @@ func stringSlice(header string, inVal any) []string {
 	}
 
 	maxLen := len(header)
-	for ind := 0; ind < n; ind++ {
+	for ind := range n {
 		var el string
 		switch x := inVal.(type) {
 		case []float64:

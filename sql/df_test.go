@@ -300,7 +300,7 @@ func TestParser(t *testing.T) {
 	}
 
 	cnt := 0
-	for ind := 0; ind < len(x); ind++ {
+	for ind := range len(x) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
@@ -339,7 +339,7 @@ func TestParserS(t *testing.T) {
 	}
 
 	cnt := 0
-	for ind := 0; ind < len(x); ind++ {
+	for ind := range len(x) {
 		cnt++
 		eqn := x[ind][0].(string)
 		fmt.Println(eqn)
@@ -355,7 +355,6 @@ func TestParserS(t *testing.T) {
 
 	fmt.Println("# tests: ", cnt)
 }
-
 
 /*
 func TestSQLdf_AppendDF(t *testing.T) {

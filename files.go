@@ -239,7 +239,7 @@ func FileStringDelim(delim byte) FileOpt {
 func (f *Files) Load() ([]*Vector, error) {
 	defer func() { _ = f.Close() }()
 	var memData []*Vector
-	for ind := 0; ind < len(f.FieldNames()); ind++ {
+	for ind := range  len(f.FieldNames()) {
 		memData = append(memData, MakeVector(f.FieldTypes()[ind], 0))
 	}
 
@@ -258,7 +258,7 @@ func (f *Files) Load() ([]*Vector, error) {
 		}
 
 		r := row.([]any)
-		for ind := 0; ind < len(r); ind++ {
+		for ind := range len(r){
 			if e := memData[ind].Append(r[ind]); e != nil {
 				return nil, e
 			}
@@ -344,7 +344,7 @@ func (f *Files) Read() (any, error) {
 	}
 	var out []any
 
-	for ind := 0; ind < len(f.FieldNames()); ind++ {
+	for ind := range len(f.FieldNames()) {
 		var (
 			x  any
 			ok bool
@@ -456,7 +456,7 @@ func (f *Files) Save(fileName string, df DF) error {
 
 func (f *Files) Write(v []any) error {
 	var line []byte
-	for ind := 0; ind < len(v); ind++ {
+	for ind :=range len(v){
 		var lx []byte
 
 		//		var z any = *v[ind].(*any)
@@ -579,7 +579,7 @@ func (f *Files) detect() error {
 			return fmt.Errorf("inconsistent # of fields in file")
 		}
 
-		for ind := 0; ind < len(vals); ind++ {
+		for ind :=range len(vals) {
 			var (
 				dt DataTypes
 				e3 error
@@ -610,7 +610,7 @@ func (f *Files) detect() error {
 		}
 	}
 
-	for ind := 0; ind < len(counts); ind++ {
+	for ind := range len(counts) {
 		f.fieldTypes = append(f.fieldTypes, counts[ind].max())
 	}
 
@@ -643,7 +643,7 @@ func (f *Files) splitSep(line string) []string {
 	var split []string
 	in := false
 	start := 0
-	for ind := 0; ind < len(line); ind++ {
+	for ind := range len(line) {
 		if f.stringDelim != 0 && line[ind] == f.stringDelim {
 			in = !in
 		}
@@ -662,7 +662,7 @@ func (f *Files) splitSep(line string) []string {
 func (f *Files) splitFixed(b []byte) []string {
 	var out []string
 	start := 0
-	for ind := 0; ind < len(f.FieldWidths()); ind++ {
+	for ind := range len(f.FieldWidths()) {
 		fld := strings.Trim(string(b[start:start+f.FieldWidths()[ind]]), " ")
 		out = append(out, fld)
 		start += f.FieldWidths()[ind]

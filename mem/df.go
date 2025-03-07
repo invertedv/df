@@ -48,7 +48,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 
 	rowCount := cols[0].Len()
 	var cc []d.Column
-	for ind := 0; ind < len(cols); ind++ {
+	for ind := range len(cols) {
 		if rc := cols[ind].Len(); rc > 1 && rc != rowCount {
 			return nil, fmt.Errorf("all MemCols must have same length")
 		}
@@ -90,7 +90,7 @@ func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) (*DF, error) {
 	}
 
 	data := make([]int, n)
-	for ind := 0; ind < n; ind++ {
+	for ind := range n {
 		data[ind] = ind
 	}
 
@@ -120,7 +120,7 @@ func DBLoad(qry string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	}
 
 	var memDF *DF
-	for ind := 0; ind < len(columnTypes); ind++ {
+	for ind := range len(columnTypes) {
 		var col *Col
 
 		if col, e = NewCol(memData[ind], columnTypes[ind], d.ColName(columnNames[ind])); e != nil {
@@ -159,7 +159,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 	}
 
 	var memDF *DF
-	for ind := 0; ind < len(f.FieldNames()); ind++ {
+	for ind := range len(f.FieldNames()) {
 		var col *Col
 
 		if col, e = NewCol(memData[ind], f.FieldTypes()[ind], d.ColName(f.FieldNames()[ind])); e != nil {
@@ -212,7 +212,7 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 		}
 
 		v := d.MakeVector(col.DataType(), f.RowCount())
-		for ind := 0; ind < v.Len(); ind++ {
+		for ind := range v.Len() {
 			v.SetAny(val, ind)
 		}
 
@@ -273,7 +273,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	var gCol []*Col
 
 	var outVecs []*d.Vector
-	for ind := 0; ind < len(flds); ind++ {
+	for ind := range len(flds) {
 		var col d.Column
 		cName := strings.ReplaceAll(flds[ind], " ", "")
 		if col = f.Column(cName); col == nil {
@@ -293,16 +293,16 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	}
 
 	var left []string
-	for ind := 0; ind < len(fns); ind++ {
+	for ind := range len(fns) {
 		lr := strings.Split(fns[ind], ":=")
 		left = append(left, strings.ReplaceAll(lr[0], " ", ""))
 	}
 
 	for _, v := range grp {
-		for ind := 0; ind < len(fns); ind++ {
+		for ind := range len(fns) {
 			// create group columns on first pass
 			if ind == 0 {
-				for ind1 := 0; ind1 < len(gCol); ind1++ {
+				for ind1 := range len(gCol) {
 					if e5 := outVecs[ind1].Append(v.row[ind1]); e5 != nil {
 						return nil, e5
 					}
@@ -328,7 +328,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 
 	var cols []*Col
 	names := append(flds, left...)
-	for ind := 0; ind < len(outVecs); ind++ {
+	for ind := range len(outVecs) {
 		var (
 			col *Col
 			e3  error
@@ -402,7 +402,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 
 	lvls := tab.Column(colName)
 	cs := tab.Column("count")
-	for ind := 0; ind < tab.RowCount(); ind++ {
+	for ind := range tab.RowCount() {
 		lvl := lvls.(*Col).Element(ind)
 		cnt, _ := cs.(*Col).ElementInt(ind)
 		if levels != nil && !d.Has(lvl, levels) {
@@ -423,7 +423,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 
 	vec := d.MakeVector(d.DTint, 0)
 
-	for ind := 0; ind < col.Len(); ind++ {
+	for ind := range col.Len() {
 		inVal := col.(*Col).Element(ind)
 
 		var (
@@ -508,7 +508,7 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 
 	// location of the join fields in both dataframes
 	var colsLeft, colsRight []int
-	for ind := 0; ind < len(jCols); ind++ {
+	for ind := range len(jCols) {
 		colsLeft = append(colsLeft, d.Position(jCols[ind], leftNames))
 		colsRight = append(colsRight, d.Position(jCols[ind], rightNames))
 	}
@@ -583,7 +583,7 @@ func (f *DF) Len() int {
 }
 
 func (f *DF) Less(i, j int) bool {
-	for ind := 0; ind < len(f.orderBy); ind++ {
+	for ind := range len(f.orderBy) {
 		less := f.orderBy[ind].Less(i, j)
 		greater := f.orderBy[ind].Less(j, i)
 		equal := !less && !greater
@@ -621,7 +621,7 @@ func (f *DF) SetParent() error {
 func (f *DF) Sort(ascending bool, cols ...string) error {
 	var byCols []*Col
 
-	for ind := 0; ind < len(cols); ind++ {
+	for ind := range len(cols) {
 		var x d.Column
 		if x = f.Column(cols[ind]); x == nil {
 			return fmt.Errorf("column %s not found", cols[ind])
@@ -729,7 +729,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	ct, _ := df.ColumnTypes()
 
 	var inVecs []*d.Vector
-	for ind := 0; ind < len(cn); ind++ {
+	for ind := range len(cn) {
 		inVecs = append(inVecs, df.Column(cn[ind]).Data())
 	}
 
@@ -741,7 +741,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 
 	// nextIndx is the next index value to use for each column
 	nextIndx := make([]int64, len(gbCol))
-	for ind := 0; ind < len(gbCol); ind++ {
+	for range len(gbCol) {
 		mps = append(mps, make(oneD))
 	}
 
@@ -754,14 +754,14 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	h := fnv.New64()
 
 	// scan the rows to build the table
-	for rowNum := 0; rowNum < gbCol[0].Len(); rowNum++ {
+	for rowNum := range gbCol[0].Len() {
 		// str is the byte array that is hashed, its length is 8 times the # of columns
 		var str []byte
 
 		// rowVal holds the values of the columns for that row of the table
 		var rowVal []any
 		// build hash value from the values of the grouping columns
-		for c := 0; c < len(gbCol); c++ {
+		for c := range len(gbCol) {
 			val := gbCol[c].Element(rowNum)
 			rowVal = append(rowVal, val)
 			var (
@@ -793,7 +793,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 		// need a new entry?
 		if _, ok := tabMap[entryx]; !ok {
 			var vecs []*d.Vector
-			for ind := 0; ind < len(cn); ind++ {
+			for ind := range len(cn) {
 				vecs = append(vecs, d.MakeVector(ct[ind], 0))
 			}
 
@@ -805,7 +805,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 
 		// put the data in the entry
 		v := tabMap[entryx]
-		for ind := 0; ind < len(cn); ind++ {
+		for ind := range len(cn) {
 			if e := v.cols[ind].Append(inVecs[ind].Element(rowNum)); e != nil {
 				return nil, e
 			}
@@ -817,7 +817,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	grp := make(groups)
 	for k, v := range tabMap {
 		var cols []*Col
-		for ind := 0; ind < len(cn); ind++ {
+		for ind := range  len(cn) {
 			var (
 				col *Col
 				e1  error
@@ -869,7 +869,7 @@ func rowCompare(rowLeft, rowRight []any, comp string) bool {
 		panic(fmt.Errorf("unsupported comparison in rowCompare"))
 	}
 
-	for ind := 0; ind < len(rowLeft); ind++ {
+	for ind := range len(rowLeft) {
 		switch left := rowLeft[ind].(type) {
 		case float64:
 			fn := compFns[0].(func(float64, float64) int)
@@ -901,7 +901,7 @@ func rowCompare(rowLeft, rowRight []any, comp string) bool {
 // subset returns elements of row whose index is in cols, conceptually row[cols]
 func subset(row []any, cols []int) []any {
 	var out []any
-	for ind := 0; ind < len(cols); ind++ {
+	for ind := range len(cols) {
 		out = append(out, row[cols[ind]])
 	}
 
@@ -911,14 +911,14 @@ func subset(row []any, cols []int) []any {
 // appendRow appends a row to cols.  The values are the union of left and right.  The columns of right whose
 // indices in rightExclude are exluded.
 func appendRow(cols []*Col, left, right []any, rightExclude []int) error {
-	for ind := 0; ind < len(left); ind++ {
+	for ind := range len(left) {
 		if e := cols[ind].Data().Append(left[ind]); e != nil {
 			return e
 		}
 	}
 
 	colInd := len(left)
-	for ind := 0; ind < len(right); ind++ {
+	for ind := range len(right) {
 		if d.Has(ind, rightExclude) {
 			continue
 		}
@@ -938,7 +938,7 @@ func appendRow(cols []*Col, left, right []any, rightExclude []int) error {
 // columns with names in dups have "DUP" appended to their name
 func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 	names := df.ColumnNames()
-	for ind := 0; ind < len(names); ind++ {
+	for ind := range len(names) {
 		src := df.Column(names[ind])
 		cn := names[ind]
 		if exclude != nil && d.Has(cn, exclude) {

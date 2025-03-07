@@ -66,7 +66,7 @@ func getNames(startInd int, cols ...any) ([]string, error) {
 
 func loopDim(inputs ...any) int {
 	n := 1
-	for j := 0; j < len(inputs); j++ {
+	for j := range len(inputs) {
 		if col, isCol := inputs[j].(*Col); isCol {
 			if nn := col.Len(); nn > n {
 				n = nn
@@ -78,9 +78,9 @@ func loopDim(inputs ...any) int {
 }
 
 func signature(target [][]d.DataTypes, cols []any) int {
-	for j := 0; j < len(target); j++ {
+	for j := range len(target) {
 		ind := j
-		for k := 0; k < len(target[j]); k++ {
+		for k := range len(target[j]) {
 			var trg d.DataTypes
 			if col, ok := cols[k].(d.Column); ok {
 				trg = col.DataType()

@@ -36,7 +36,7 @@ func TestRandom(t *testing.T) {
 	z := make([]float64, n)
 	s := make([]string, n)
 	//	dt := make([]time.Time, n)
-	for ind := 0; ind < n; ind++ {
+	for ind := range n{
 		x[ind] = float64(-ind + 1)
 		y[ind] = float64(-ind + 1)
 		z[ind] = float64(ind)
@@ -74,13 +74,13 @@ func TestRandom(t *testing.T) {
 	fmt.Println(t1, " seconds")
 	tx = time.Now()
 	//	m := x[0]
-	//	for ind := 0; ind < n; ind++ {
+	//	for ind := range < n {
 	//		//z[ind] = x[ind] - y[ind] // x[ind] + y[ind]
 	//		if x[ind] > m {
 	//			m = x[ind]
 	//		}
 	//	}
-	for ind := 0; ind < n; ind++ {
+	for ind := range n {
 		//z[ind] = x[ind] - y[ind] // x[ind] + y[ind]
 		z[ind] = x[ind] + y[ind] + y[ind]
 	}

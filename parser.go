@@ -92,7 +92,7 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 	}
 
 	var vals []any
-	for ind := 0; ind < len(inputs); ind++ {
+	for ind := range len(inputs) {
 		switch inputs[ind].Which() {
 		case RTdf:
 			return nil, fmt.Errorf("cannot take DF as function input")
@@ -179,7 +179,7 @@ func newOperations() operations {
 	var order [][]string
 	work := []string{l1, l2, l3, l4, l5, l6, l7}
 
-	for ind := 0; ind < len(work); ind++ {
+	for ind := range len(work) {
 		order = append(order, strings.Split(work[ind], ","))
 	}
 
@@ -264,14 +264,14 @@ func (ot *opTree) eval(df DF) error {
 
 	// handle function call
 	if ot.fnName != "" {
-		for ind := 0; ind < len(ot.inputs); ind++ {
+		for ind := range len(ot.inputs) {
 			if e := ot.inputs[ind].eval(df); e != nil {
 				return e
 			}
 		}
 
 		var inp []*Parsed
-		for ind := 0; ind < len(ot.inputs); ind++ {
+		for ind := range len(ot.inputs) {
 			inp = append(inp, ot.inputs[ind].value)
 			ot.dependencies = nodupAppend(ot.dependencies, ot.inputs[ind].dependencies...)
 		}
@@ -355,7 +355,7 @@ func (ot *opTree) outerParen(s string) string {
 	}
 
 	depth, haveQuote := 0, false
-	for ind := 0; ind < len(s); ind++ {
+	for ind := range len(s) {
 		depth, haveQuote = parenDepth(s[ind], depth, haveQuote)
 
 		if depth == 0 {
@@ -430,7 +430,7 @@ func (ot *opTree) args(xIn string) ([]string, error) {
 		arg  string
 	)
 	depth, start, haveQuote := 0, 0, false
-	for ind := 0; ind < len(xIn); ind++ {
+	for ind := range len(xIn) {
 		depth, haveQuote = parenDepth(xIn[ind], depth, haveQuote)
 
 		if depth == 0 && xIn[ind] == ',' {
@@ -468,7 +468,7 @@ func (ot *opTree) makeFn(fnName string) error {
 
 	ot.fnName, ot.op = fnName[:len(fnName)-1], ""
 
-	for ind := 0; ind < len(x); ind++ {
+	for ind := range len(x) {
 		if x[ind] == "" {
 			continue
 		}
@@ -487,7 +487,7 @@ func (ot *opTree) makeFn(fnName string) error {
 
 func (ot *opTree) parenError() error {
 	haveQuote, count := false, 0
-	for ind := 0; ind < len(ot.expr); ind++ {
+	for ind := range len(ot.expr) {
 		char := ot.expr[ind : ind+1]
 		if char == "'" {
 			haveQuote = !haveQuote
@@ -517,8 +517,8 @@ func (ot *opTree) parenError() error {
 
 // trailingOp checks whether the end of expr is an operation
 func (oper operations) trailingOp(expr string) bool {
-	for j := 0; j < len(oper); j++ {
-		for k := 0; k < len(oper[j]); k++ {
+	for j := range len(oper) {
+		for k := range len(oper[j]) {
 			if loc := strings.LastIndex(expr, oper[j][k]); loc >= 0 && loc+len(oper[j][k]) == len(expr) {
 				return true
 			}
@@ -534,8 +534,8 @@ func (oper operations) find(expr string) (left, right, op string, leadingOp bool
 		return "", "", "", false
 	}
 
-	for j := 0; j < len(oper); j++ {
-		for k := 0; k < len(oper[j]); k++ {
+	for j := range len(oper) {
+		for k := range len(oper[j]) {
 			depth, haveQuote := 0, false
 			for loc := len(expr) - 1; loc >= 0; loc-- {
 				depth, haveQuote = parenDepth(expr[loc], depth, haveQuote)
@@ -635,7 +635,7 @@ func smartFind(s, sub, escape string) int {
 	inQ := false
 	pattern := make([]byte, len(s))
 	// only fill in the characters outside of the escape string
-	for ind := 0; ind < len(s); ind++ {
+	for ind := range len(s) {
 		if s[ind:ind+1] == escape {
 			inQ = !inQ
 		}
