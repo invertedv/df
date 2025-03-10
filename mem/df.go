@@ -35,7 +35,7 @@ type groupVal struct {
 
 func StandardFunctions() d.Fns {
 	// DF returns
-	fns := d.Fns{sortDF, table, where, toCat, applyCat, global, by}
+	fns := d.Fns{toCat, applyCat, global}
 	fns = append(fns, vectorFunctions()...)
 
 	return fns
@@ -278,6 +278,10 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		cName := strings.ReplaceAll(flds[ind], " ", "")
 		if col = f.Column(cName); col == nil {
 			return nil, fmt.Errorf("missing column %s in By", cName)
+		}
+
+		if col.DataType() == d.DTfloat {
+			return nil, fmt.Errorf("cannot group by float column %s", col.Name())
 		}
 
 		gCol = append(gCol, col.(*Col))
@@ -675,9 +679,18 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 	return dfOut, nil
 }
 
-func (f *DF) Where(indicator d.Column) (d.DF, error) {
-	if e := checkType(indicator); e != nil {
+func (f *DF) Where(condition string) (d.DF, error) {
+	var (
+		indc *d.Parsed
+		e error
+	)
+	if indc, e = d.Parse(f, condition); e!=nil {
 		return nil, e
+	}
+
+	indicator := indc.Column()
+	if e1 := checkType(indicator); e1 != nil {
+		return nil, e1
 	}
 
 	if indicator.Len() != f.RowCount() {
@@ -817,7 +830,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	grp := make(groups)
 	for k, v := range tabMap {
 		var cols []*Col
-		for ind := range  len(cn) {
+		for ind := range len(cn) {
 			var (
 				col *Col
 				e1  error

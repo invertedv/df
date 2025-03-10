@@ -1,8 +1,6 @@
 package df
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // DataTypes are the types of data that the package supports
 type DataTypes uint8

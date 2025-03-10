@@ -161,40 +161,6 @@ func TestSQLcol_Data(t *testing.T) {
 	fmt.Println(c.Data().AsAny())
 }
 
-func TestWhere(t *testing.T) {
-	dfx := testDF(which)
-	owner := os.Getenv("user")
-	tablespace := os.Getenv("tablespace")
-
-	out, e := d.Parse(dfx, "y == 1 || z == '20060310'")
-	assert.Nil(t, e)
-	result := checker(dfx, "test", out.Column(), -1)
-	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, result)
-	assert.Equal(t, []int{1, 0, 0, 1, 0, 1}, out.Column().Data().AsAny())
-
-	expr := "where(y == 1)"
-	out, e = d.Parse(dfx, expr)
-	assert.Nil(t, e)
-	_ = out
-
-	outDF := out.DF().(*DF)
-	fmt.Println(outDF.MakeQuery())
-	// save to a table
-	var outTable string
-	var options []string
-	switch which {
-	case ch:
-		outTable = os.Getenv("chTemp")
-	case pg:
-		outTable = os.Getenv("pgTemp")
-		options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
-	}
-	e = outDF.Dialect().Save(outTable, "", true, outDF, options...)
-	assert.Nil(t, e)
-	assert.Equal(t, 2, outDF.RowCount())
-
-}
-
 func TestRename(t *testing.T) {
 	dfx := testDF(which)
 	e := dfx.Column("x").Rename("yyz")

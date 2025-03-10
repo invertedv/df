@@ -1,10 +1,6 @@
 package df
 
-import (
-	"fmt"
-
-	d "github.com/invertedv/df"
-)
+import d "github.com/invertedv/df"
 
 func toCol(x any) *Col {
 	if c, ok := x.(*Col); ok {
@@ -47,21 +43,6 @@ func returnCol(data any) *d.FnReturn {
 	}
 
 	return &d.FnReturn{Value: outCol}
-}
-
-// getNames returns the names of the input Columns starting with startInd element
-func getNames(startInd int, cols ...any) ([]string, error) {
-	var colNames []string
-	for ind := startInd; ind < len(cols); ind++ {
-		var cn string
-		if cn = cols[ind].(*Col).Name(); cn == "" {
-			return nil, fmt.Errorf("column with no name in table")
-		}
-
-		colNames = append(colNames, cn)
-	}
-
-	return colNames, nil
 }
 
 func loopDim(inputs ...any) int {

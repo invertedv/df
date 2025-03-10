@@ -158,26 +158,6 @@ func TestRowNumber(t *testing.T) {
 	*/
 }
 
-func TestParse_Sort(t *testing.T) {
-	dfx := testDF()
-	_, e := d.Parse(dfx, "sort('asc', y, x)")
-	assert.Nil(t, e)
-	assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, inter(dfx.Column("y")))
-	assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, inter(dfx.Column("yy")))
-}
-
-func TestParse_Table(t *testing.T) {
-	dfx := testDF()
-	df1, e := d.Parse(dfx, "table(y,yy)")
-	assert.Nil(t, e)
-	fmt.Println(df1.DF().Column("count"))
-	col := df1.DF().Column("count")
-	assert.Equal(t, []int{2, 1, 1, 1, 1}, inter(col))
-	e = df1.DF().Sort(true, "y", "yy")
-	assert.Nil(t, e)
-	fmt.Println(df1.DF().Column("y"))
-}
-
 func TestParser(t *testing.T) {
 	dfx := testDF()
 	colx, e := d.Parse(dfx, "date(z)")
@@ -540,22 +520,6 @@ func TestVector(t *testing.T) {
 	assert.Nil(t, e)
 	vx, _ := d.NewVector(str, d.DTstring) // v.Coerce(d.DTstring)
 	assert.NotNil(t, vx)
-}
-
-func TestWhere(t *testing.T) {
-	dfx := testDF()
-	expr := "where(y>1)"
-	outDF, e := d.Parse(dfx, expr)
-	assert.Nil(t, e)
-	assert.Equal(t, 3, outDF.DF().RowCount())
-
-	outDF, e = d.Parse(dfx, "where(x >= 1.0)")
-	assert.Nil(t, e)
-	assert.Equal(t, 4, outDF.DF().RowCount())
-
-	outDF, e = d.Parse(outDF.DF(), "where( x>=3.0)")
-	assert.Nil(t, e)
-	assert.Equal(t, 2, outDF.DF().RowCount())
 }
 
 func TestMemDF_AppendDF(t *testing.T) {

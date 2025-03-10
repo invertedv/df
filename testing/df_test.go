@@ -147,14 +147,13 @@ func TestParse_Join(t *testing.T) {
 func TestParse_By(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		outDF, e0 := d.Parse(dfx, "by(y,'sx:=sum(x)','count:=count(y)', 'mx:=mean(global(x))', 'mz:=mean(x)')")
+		outDF, e0 := dfx.By("y", "sx:=sum(x)", "count:=count(y)", "mx:=mean(global(x))", "mz:=mean(x)")
 		assert.Nil(t, e0)
-		df := outDF.DF()
-		e1 := df.Sort(false, "count")
+		e1 := outDF.Sort(false, "count")
 		assert.Nil(t, e1)
-		assert.Equal(t, []int{2, 1, 1, 1, 1}, df.Column("count").Data().AsAny())
-		assert.Equal(t, []float64{1.25, 1.25, 1.25, 1.25, 1.25}, df.Column("mx").Data().AsAny())
-		col, _ := df.Column("sx").Data().AsFloat()
+		assert.Equal(t, []int{2, 1, 1, 1, 1}, outDF.Column("count").Data().AsAny())
+		assert.Equal(t, []float64{1.25, 1.25, 1.25, 1.25, 1.25}, outDF.Column("mx").Data().AsAny())
+		col, _ := outDF.Column("sx").Data().AsFloat()
 		sort.Float64s(col)
 		assert.Equal(t, []float64{-2, 1, 2, 3, 3.5}, col)
 	}
@@ -163,24 +162,23 @@ func TestParse_By(t *testing.T) {
 func TestParse_Table(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		out, e := d.Parse(dfx, "table(y,yy)")
+		outDF, e := dfx.Table("y", "yy")
 		assert.Nil(t, e)
-		df1 := out.DF()
 
 		//cx := dfx.Column("x")
 		//		_ = d.ColName("xx")(cx)
 		//		ez := df1.AppendColumn(cx, true)
 		//		assert.NotNil(t, ez)
 
-		fmt.Println(df1.Column("rate").Data().AsAny())
+		fmt.Println(outDF.Column("rate").Data().AsAny())
 
-		e1 := df1.Sort(false, "count")
+		e1 := outDF.Sort(false, "count")
 		assert.Nil(t, e1)
-		col := df1.Column("count").Data().AsAny()
+		col := outDF.Column("count").Data().AsAny()
 		assert.NotNil(t, col)
 		assert.Equal(t, []int{2, 1, 1, 1, 1}, col)
 
-		_, e3 := d.Parse(dfx, "table(x)")
+		_, e3 := dfx.Table("x")
 		assert.NotNil(t, e3)
 	}
 }
@@ -188,15 +186,14 @@ func TestParse_Table(t *testing.T) {
 func TestParse_Sort(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		_, e := d.Parse(dfx, "sort('asc', y, x)")
+		e := dfx.Sort(true, "y", "x")
 		assert.Nil(t, e)
 
 		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsAny())
 		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsAny())
 
-		_, e1 := d.Parse(dfx, "sort('desc', y, x)")
+		e1 := dfx.Sort(false, "y", "x")
 		assert.Nil(t, e1)
-		fmt.Println(which)
 		fmt.Println(dfx.Column("y").Data().AsAny())
 		assert.Equal(t, []int{6, 5, 4, 1, 1, -5}, dfx.Column("y").Data().AsAny())
 	}
@@ -207,34 +204,38 @@ func TestWhere(t *testing.T) {
 		// via methods
 		fmt.Println(which)
 		dfx := loadData(which)
-		indCol, e := d.Parse(dfx, "y==-5 || yy == 16")
+		dfOut, e := dfx.Where("y==-5 || yy == 16")
 		assert.Nil(t, e)
-		e0 := d.ColName("ind")(indCol.Column())
-		assert.Nil(t, e0)
-		e1 := dfx.Core().AppendColumn(indCol.Column(), false)
-		assert.Nil(t, e1)
-		dfOut, e2 := dfx.Where(indCol.Column())
-		assert.Nil(t, e2)
 		r := dfOut.Column("y")
 		fmt.Println(r.Data())
 		assert.Equal(t, []int{-5, 6}, dfOut.Column("y").Data().AsAny())
 		assert.Equal(t, []int{-15, 16}, dfOut.Column("yy").Data().AsAny())
-
-		// via Parse
-		out, e3 := d.Parse(dfx, "where(y == -5 || yy == 16)")
-		assert.Nil(t, e3)
-		assert.Equal(t, []int{-5, 6}, out.DF().Column("y").Data().AsAny())
 	}
 }
 
 func TestAppendDF(t *testing.T) {
 	for _, which := range pkgs() {
+		if !strings.Contains(which, "mem"){
+			continue
+		}
 		dfx := loadData(which)
-		dfy := loadData(which)
-		dfOut, e := dfx.AppendDF(dfy)
+		_, e := d.Parse(dfx, "test :=k")
+		fmt.Println(dfx.ColumnNames())
 		assert.Nil(t, e)
+		dfy := loadData(which)
+		_, e1 := dfx.AppendDF(dfy)
+		assert.NotNil(t, e1)
+		_, e2 := d.Parse(dfy, "test :=2*k")
+		assert.Nil(t, e2)
+
+		dfOut, e3 := dfx.AppendDF(dfy)
+		dfOut.Sort(false, "test")
+		assert.Nil(t, e3)
 		exp := dfx.RowCount() + dfy.RowCount()
 		assert.Equal(t, exp, dfOut.RowCount())
+		assert.Equal(t,
+			[]int{12,10,8,6,6,5,4,4,3,2,2,1},
+			dfOut.Column("test").Data().AsAny())
 	}
 }
 

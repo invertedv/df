@@ -65,6 +65,11 @@ func Parse(df DF, expr string) (*Parsed, error) {
 
 	// Assign parent and dialect
 	if ot.value.col != nil {
+		// If the parent isn't nil, that means we have a direct assignment like "a:=b" and we need to copy the column
+		if ot.value.Column().Parent() != nil {
+			ot.value.col = ot.value.Column().Copy()
+		}
+
 		_ = ColParent(df)(ot.value.col)
 		_ = ColDialect(df.Dialect())(ot.value.col)
 	}
@@ -74,7 +79,12 @@ func Parse(df DF, expr string) (*Parsed, error) {
 	}
 
 	if ot.value.Column() != nil {
-		if e := ColName(left)(ot.value.Column()); e != nil {
+		// Parse will replace the column if it already exists
+		if df.Column(left) != nil {
+			_ = df.DropColumns(left)
+		}
+
+		if e := ot.value.Column().Rename(left); e != nil {
 			return nil, e
 		}
 

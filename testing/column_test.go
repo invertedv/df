@@ -23,11 +23,10 @@ var (
 
 func TestTemp(t *testing.T) {
 	dfx := loadData(pg + ",d1")
-	outDF, e0 := d.Parse(dfx, "by(y,'sx:=sum(x)','count:=count(y)', 'mx:=mean(global(x))', 'mz:=mean(x)')")
+	outDF, e0 := dfx.By("y", "sx:=sum(x)", "count:=count(y)", "mx:=mean(global(x))", "mz:=mean(x)")
 	assert.Nil(t, e0)
-	d := outDF.DF().Column("mx").Data().AsAny()
+	d := outDF.Column("mx").Data().AsAny()
 	fmt.Println(d)
-
 }
 func TestRandom(t *testing.T) {
 	n := 100 //000000
@@ -36,7 +35,7 @@ func TestRandom(t *testing.T) {
 	z := make([]float64, n)
 	s := make([]string, n)
 	//	dt := make([]time.Time, n)
-	for ind := range n{
+	for ind := range n {
 		x[ind] = float64(-ind + 1)
 		y[ind] = float64(-ind + 1)
 		z[ind] = float64(ind)
@@ -224,11 +223,9 @@ func TestParser(t *testing.T) {
 // TODO: check for referencing elements directly not through method
 // TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
 // TODO: revisit sourceDF relative to mem/By
-// TODO: change loops to new format
-//for ind:= range 4 {
-//	fmt.Println("ind: ", ind)
-//}
 //
+// TODO: is there a way to get rid of ReturnTypes? weirdness with DataTypes
+// TODO: rething parse return -- no need for DF return
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {

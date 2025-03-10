@@ -19,7 +19,7 @@ type DF interface {
 	Sort(ascending bool, keys ...string) error
 	String() string
 	Table(cols ...string) (DF, error)
-	Where(indicator Column) (DF, error)
+	Where(condition string) (DF, error)
 }
 
 type DC interface {

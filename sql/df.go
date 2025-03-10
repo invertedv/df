@@ -13,9 +13,7 @@ import (
 )
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
-	fns := d.Fns{applyCat,
-		global,
-		sortDF, table, toCat, where, by}
+	fns := d.Fns{applyCat, global, toCat}
 	fns = append(fns, fnDefs(dlct)...)
 
 	return fns
@@ -309,6 +307,12 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		return nil, e
 	}
 	_ = d.DFsetSourceDF(f)(dfOut)
+
+	for _, cn := range dfOut.ColumnNames() {
+		if dfOut.Column(cn).DataType() == d.DTfloat {
+			return nil, fmt.Errorf("cannot group by float column %s", cn)
+		}
+	}
 
 	dfOut.groupBy = groupBy
 
@@ -623,8 +627,16 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 	return dfOut, nil
 }
 
-func (f *DF) Where(col d.Column) (d.DF, error) {
-	panicer(col)
+func (f *DF) Where(condition string) (d.DF, error) {
+	var (
+		indc *d.Parsed
+		e    error
+	)
+	if indc, e = d.Parse(f, condition); e != nil {
+		return nil, e
+	}
+
+	col := indc.Column()
 	if col == nil {
 		return nil, fmt.Errorf("where column is nil")
 	}
@@ -690,12 +702,4 @@ func sameSource(s1, s2 any) bool {
 	}
 
 	return sql1 == sql2 && grp1 == grp2
-}
-
-func panicer(cols ...d.Column) {
-	for _, c := range cols {
-		if _, ok := c.(*Col); !ok {
-			panic("non sql.*Col argument")
-		}
-	}
 }
