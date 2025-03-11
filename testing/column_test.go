@@ -224,9 +224,6 @@ func TestParser(t *testing.T) {
 // TODO: check for referencing elements directly not through method
 // TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
 // TODO: revisit sourceDF relative to mem/By
-//
-// TODO: is there a way to get rid of ReturnTypes? weirdness with DataTypes
-// TODO: rethink parse return -- no need for ANY return.
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
