@@ -8,13 +8,13 @@ import (
 
 type Parsed struct {
 	col Column
-	df  DF
+	// df  DF
 }
 
 func (p *Parsed) Value() any {
-	if p.df != nil {
-		return p.df
-	}
+	//	if p.df != nil {
+	//		return p.df
+	//	}
 
 	if p.col != nil {
 		return p.col
@@ -23,18 +23,18 @@ func (p *Parsed) Value() any {
 	return nil
 }
 
-func (p *Parsed) DF() DF {
-	return p.df
-}
+//func (p *Parsed) DF() DF {
+//	return p.df
+//}
 
 func (p *Parsed) Column() Column {
 	return p.col
 }
 
 func (p *Parsed) Which() ReturnTypes {
-	if p.df != nil {
-		return RTdf
-	}
+	//	if p.df != nil {
+	//		return RTdf
+	//	}
 
 	if p.col != nil {
 		return RTcolumn
@@ -44,14 +44,20 @@ func (p *Parsed) Which() ReturnTypes {
 }
 
 func Parse(df DF, expr string) error {
-	var left string
+	var (
+		left string
+		indx int
+	)
+
 	right := expr
 
-	if indx := smartFind(expr, ":=", "'"); indx > 0 {
-		left = expr[:indx]
-		right = expr[indx+2:]
-		left = strings.ReplaceAll(left, " ", "")
+	if indx = smartFind(expr, ":=", "'"); indx < 0 {
+		return fmt.Errorf("expression has no assignment")
 	}
+
+	left = expr[:indx]
+	right = expr[indx+2:]
+	left = strings.ReplaceAll(left, " ", "")
 
 	ot := newOpTree(right, df.Fns())
 
@@ -63,35 +69,30 @@ func Parse(df DF, expr string) error {
 		return ex
 	}
 
+	if ot.value.col == nil {
+		return fmt.Errorf("parse error")
+	}
+
 	// Assign parent and dialect
-	if ot.value.col != nil {
-		// If the parent isn't nil, that means we have a direct assignment like "a:=b" and we need to copy the column
-		if ot.value.Column().Parent() != nil {
-			ot.value.col = ot.value.Column().Copy()
-		}
-
-		_ = ColParent(df)(ot.value.col)
-		_ = ColDialect(df.Dialect())(ot.value.col)
+	// If the parent isn't nil, that means we have a direct assignment like "a:=b" and we need to copy the column
+	if ot.value.Column().Parent() != nil {
+		ot.value.col = ot.value.Column().Copy()
 	}
 
-	if left == "" || ot.value.DF() != nil {
-		return nil
+	// need to assign parent here so AppendColumns will work for sql
+	_ = ColParent(df)(ot.value.col)
+	_ = ColDialect(df.Dialect())(ot.value.col)
+
+	// Need to drop existing column here so Rename will work
+	if df.Column(left) != nil {
+		_ = df.DropColumns(left)
 	}
 
-	if ot.value.Column() != nil {
-		// Parse will replace the column if it already exists
-		if df.Column(left) != nil {
-			_ = df.DropColumns(left)
-		}
-
-		if e := ot.value.Column().Rename(left); e != nil {
-			return e
-		}
-
-		return df.AppendColumn(ot.value.Column(), true)
+	if e := ot.value.Column().Rename(left); e != nil {
+		return e
 	}
 
-	return fmt.Errorf("error in Parse")
+	return df.AppendColumn(ot.value.Column(), false)
 }
 
 func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
@@ -151,14 +152,10 @@ func newParsed(value any, dependencies ...string) *Parsed {
 		return p
 	}
 
-	if _, ok := value.(DF); ok {
-		p.df = value.(DF)
-		return p
-	}
-
 	if col, ok := value.(Column); ok {
-		_ = colDependencies(dependencies)(col) //(value.(Column).Core())
+		_ = colDependencies(dependencies)(col)
 		p.col = col
+
 		return p
 	}
 
