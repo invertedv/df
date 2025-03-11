@@ -81,13 +81,12 @@ func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 	sqls := getSQL(df, inputs...)
 	dts := getDataTypes(df, inputs...)
-	outCol, _ := NewColSQL(dts[0], df.Dialect(), sqls[0],  d.ColParent(df))
+	outCol, _ := NewColSQL(dts[0], df.Dialect(), sqls[0], d.ColParent(df))
 	// sends the signal back that this is a global query
 	outCol.gf = true
 
 	return &d.FnReturn{Value: outCol}
 }
-
 
 // ***************** categorical Operations *****************
 
@@ -221,6 +220,10 @@ func toCol(df d.DF, x any) *Col {
 		fld := *xx
 		if s.DataType() == d.DTstring {
 			fld = df.Dialect().ToString(fld)
+		}
+		// we may need to explicitly cast float fields as float
+		if s.DataType() == d.DTfloat && df.Dialect().CastFloat() {
+			fld, _ = df.Dialect().CastField(fld, d.DTany, d.DTfloat)
 		}
 
 		c, _ = NewColSQL(s.DataType(), nil, fld, d.ColName(s.Name()),

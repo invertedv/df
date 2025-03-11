@@ -312,9 +312,8 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 					}
 				}
 			}
-			var e1 error
 
-			if _, e1 = d.Parse(v.groupDF, fns[ind]); e1 != nil {
+			if  e1 := d.Parse(v.groupDF, fns[ind]); e1 != nil {
 				return nil, e1
 			}
 
@@ -680,19 +679,11 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 }
 
 func (f *DF) Where(condition string) (d.DF, error) {
-	var (
-		indc *d.Parsed
-		e error
-	)
-	if indc, e = d.Parse(f, condition); e!=nil {
+	if  e := d.Parse(f, "wherec:="+condition); e != nil {
 		return nil, e
 	}
 
-	indicator := indc.Column()
-	if e1 := checkType(indicator); e1 != nil {
-		return nil, e1
-	}
-
+	indicator := f.Column("wherec")
 	if indicator.Len() != f.RowCount() {
 		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), f.RowCount())
 	}

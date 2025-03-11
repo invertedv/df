@@ -99,9 +99,9 @@ func TestFileSave(t *testing.T) {
 
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		_, e0 := d.Parse(dfx, "a := 2*y")
+		 e0 := d.Parse(dfx, "a := 2*y")
 		assert.Nil(t, e0)
-		_, e3 := d.Parse(dfx, "b := 2*a")
+		 e3 := d.Parse(dfx, "b := 2*a")
 		assert.Nil(t, e3)
 		f1, _ := d.NewFiles()
 
@@ -124,7 +124,7 @@ func TestFileSave(t *testing.T) {
 func TestParse_Join(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		_, e := d.Parse(dfx, "y1:=2*k")
+		 e := d.Parse(dfx, "y1:=2*k")
 		assert.Nil(t, e)
 		dfy := dfx.Copy()
 		_ = dfy.Column("x").Rename("xx")
@@ -219,13 +219,13 @@ func TestAppendDF(t *testing.T) {
 			continue
 		}
 		dfx := loadData(which)
-		_, e := d.Parse(dfx, "test :=k")
+		 e := d.Parse(dfx, "test :=k")
 		fmt.Println(dfx.ColumnNames())
 		assert.Nil(t, e)
 		dfy := loadData(which)
 		_, e1 := dfx.AppendDF(dfy)
 		assert.NotNil(t, e1)
-		_, e2 := d.Parse(dfy, "test :=2*k")
+		 e2 := d.Parse(dfy, "test :=2*k")
 		assert.Nil(t, e2)
 
 		dfOut, e3 := dfx.AppendDF(dfy)

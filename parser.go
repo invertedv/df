@@ -43,7 +43,7 @@ func (p *Parsed) Which() ReturnTypes {
 	return RTnone
 }
 
-func Parse(df DF, expr string) (*Parsed, error) {
+func Parse(df DF, expr string) error {
 	var left string
 	right := expr
 
@@ -56,11 +56,11 @@ func Parse(df DF, expr string) (*Parsed, error) {
 	ot := newOpTree(right, df.Fns())
 
 	if ex := ot.build(); ex != nil {
-		return nil, ex
+		return ex
 	}
 
 	if ex := ot.eval(df); ex != nil {
-		return nil, ex
+		return ex
 	}
 
 	// Assign parent and dialect
@@ -75,7 +75,7 @@ func Parse(df DF, expr string) (*Parsed, error) {
 	}
 
 	if left == "" || ot.value.DF() != nil {
-		return ot.value, nil
+		return nil
 	}
 
 	if ot.value.Column() != nil {
@@ -85,13 +85,13 @@ func Parse(df DF, expr string) (*Parsed, error) {
 		}
 
 		if e := ot.value.Column().Rename(left); e != nil {
-			return nil, e
+			return e
 		}
 
-		return nil, df.AppendColumn(ot.value.Column(), true)
+		return df.AppendColumn(ot.value.Column(), true)
 	}
 
-	return nil, fmt.Errorf("error in Parse")
+	return fmt.Errorf("error in Parse")
 }
 
 func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {

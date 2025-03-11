@@ -316,24 +316,11 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 
 	dfOut.groupBy = groupBy
 
-	for ind, fn := range fns {
-		var (
-			out *d.Parsed
-			e1  error
-		)
-		if out, e1 = d.Parse(dfOut, fn); e1 != nil {
+	for _, fn := range fns {
+		if e1 := d.Parse(dfOut, fn); e1 != nil {
 			return nil, e1
 		}
 
-		if out != nil {
-			if e2 := d.ColName(fmt.Sprintf("c%d", ind))(out.Column()); e2 != nil {
-				return nil, e2
-			}
-
-			if e2 := dfOut.AppendColumn(out.Column(), false); e2 != nil {
-				return nil, e2
-			}
-		}
 	}
 
 	if e := dfOut.SetParent(); e != nil {
@@ -528,7 +515,6 @@ func (f *DF) MakeQuery(colNames ...string) string {
 
 		var field string
 		field = f.Dialect().ToName(cx.Name())
-		//		if fn := cx.(*Col).SQL(); fn != cx.Name() {
 		if fn, isName := cx.(*Col).SQL(); !isName {
 			field = fmt.Sprintf("%s AS %s", fn, f.Dialect().ToName(cx.Name()))
 		}
@@ -628,18 +614,11 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 }
 
 func (f *DF) Where(condition string) (d.DF, error) {
-	var (
-		indc *d.Parsed
-		e    error
-	)
-	if indc, e = d.Parse(f, condition); e != nil {
+	if  e := d.Parse(f, "wherec:=" + condition); e != nil {
 		return nil, e
 	}
 
-	col := indc.Column()
-	if col == nil {
-		return nil, fmt.Errorf("where column is nil")
-	}
+	col := f.Column("wherec")
 
 	dfNew := f.Copy().(*DF)
 

@@ -789,9 +789,6 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		return nil, nil, nil, e1
 	}
 
-	a := ct[0].DatabaseTypeName()
-	_ = a
-
 	var ry []any
 	for range len(ct) {
 		var x any
