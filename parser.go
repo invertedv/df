@@ -1,47 +1,9 @@
 package df
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 )
-
-type Parsed struct {
-	col Column
-	// df  DF
-}
-
-func (p *Parsed) Value() any {
-	//	if p.df != nil {
-	//		return p.df
-	//	}
-
-	if p.col != nil {
-		return p.col
-	}
-
-	return nil
-}
-
-//func (p *Parsed) DF() DF {
-//	return p.df
-//}
-
-func (p *Parsed) Column() Column {
-	return p.col
-}
-
-func (p *Parsed) Which() ReturnTypes {
-	//	if p.df != nil {
-	//		return RTdf
-	//	}
-
-	if p.col != nil {
-		return RTcolumn
-	}
-
-	return RTnone
-}
 
 func Parse(df DF, expr string) error {
 	var (
@@ -50,8 +12,7 @@ func Parse(df DF, expr string) error {
 	)
 
 	right := expr
-
-	if indx = smartFind(expr, ":=", "'"); indx < 0 {
+	if indx = strings.Index(expr, ":="); indx < 0 {
 		return fmt.Errorf("expression has no assignment")
 	}
 
@@ -69,33 +30,33 @@ func Parse(df DF, expr string) error {
 		return ex
 	}
 
-	if ot.value.col == nil {
+	if ot.value == nil {
 		return fmt.Errorf("parse error")
 	}
 
 	// Assign parent and dialect
 	// If the parent isn't nil, that means we have a direct assignment like "a:=b" and we need to copy the column
-	if ot.value.Column().Parent() != nil {
-		ot.value.col = ot.value.Column().Copy()
+	if ot.value.Parent() != nil {
+		ot.value = ot.value.Copy()
 	}
 
 	// need to assign parent here so AppendColumns will work for sql
-	_ = ColParent(df)(ot.value.col)
-	_ = ColDialect(df.Dialect())(ot.value.col)
+	_ = ColParent(df)(ot.value)
+	_ = ColDialect(df.Dialect())(ot.value)
 
 	// Need to drop existing column here so Rename will work
 	if df.Column(left) != nil {
 		_ = df.DropColumns(left)
 	}
 
-	if e := ot.value.Column().Rename(left); e != nil {
+	if e := ot.value.Rename(left); e != nil {
 		return e
 	}
 
-	return df.AppendColumn(ot.value.Column(), false)
+	return df.AppendColumn(ot.value, false)
 }
 
-func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
+func doOp(df DF, opName string, inputs ...Column) (any, error) {
 	var fn Fn
 
 	if fn = df.Fns().Get(opName); fn == nil {
@@ -104,12 +65,8 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 
 	var vals []any
 	for ind := range len(inputs) {
-		switch inputs[ind].Which() {
-		case RTdf:
-			return nil, fmt.Errorf("cannot take DF as function input")
-		case RTcolumn:
-			vals = append(vals, inputs[ind].Column())
-		}
+		vals = append(vals, inputs[ind])
+
 	}
 
 	var (
@@ -124,7 +81,7 @@ func doOp(df DF, opName string, inputs ...*Parsed) (any, error) {
 }
 
 type opTree struct {
-	value *Parsed
+	value Column
 
 	expr string
 
@@ -145,18 +102,15 @@ type opTree struct {
 
 type operations [][]string
 
-func newParsed(value any, dependencies ...string) *Parsed {
-	p := &Parsed{}
-
+func newParsed(value any, dependencies ...string) Column {
 	if value == nil {
-		return p
+		return nil
 	}
 
 	if col, ok := value.(Column); ok {
 		_ = colDependencies(dependencies)(col)
-		p.col = col
 
-		return p
+		return col
 	}
 
 	return nil
@@ -277,7 +231,7 @@ func (ot *opTree) eval(df DF) error {
 			}
 		}
 
-		var inp []*Parsed
+		var inp []Column
 		for ind := range len(ot.inputs) {
 			inp = append(inp, ot.inputs[ind].value)
 			ot.dependencies = nodupAppend(ot.dependencies, ot.inputs[ind].dependencies...)
@@ -304,13 +258,13 @@ func (ot *opTree) eval(df DF) error {
 	}
 
 	// handle the usual ops
-	var vl *Parsed
+	var vl Column
 	if ot.left != nil {
 		vl = ot.left.value
 		ot.dependencies = nodupAppend(ot.dependencies, ot.left.dependencies...)
 	}
 
-	var vr *Parsed
+	var vr Column
 	if ot.right != nil {
 		vr = ot.right.value
 		ot.dependencies = nodupAppend(ot.dependencies, ot.right.dependencies...)
@@ -329,7 +283,7 @@ func (ot *opTree) eval(df DF) error {
 
 // constant handles the leaf of the opTree when it is a constant.
 // strings are surrounded by single quotes
-func (ot *opTree) constant(xIn string) (*Parsed, error) {
+func (ot *opTree) constant(xIn string) (Column, error) {
 	if xIn == "" {
 		return nil, nil
 	}
@@ -635,22 +589,4 @@ func nodupAppend(x []string, xadd ...string) []string {
 	}
 
 	return x
-}
-
-// smartFind looks for sub in s outside of characters in single quotes
-func smartFind(s, sub, escape string) int {
-	inQ := false
-	pattern := make([]byte, len(s))
-	// only fill in the characters outside of the escape string
-	for ind := range len(s) {
-		if s[ind:ind+1] == escape {
-			inQ = !inQ
-		}
-
-		if !inQ {
-			pattern[ind] = s[ind]
-		}
-	}
-
-	return bytes.Index(pattern, []byte(sub))
 }
