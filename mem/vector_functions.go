@@ -90,7 +90,7 @@ func vectorFunctions() d.Fns {
 	for _, spec := range specs {
 		fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
 			if info {
-				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs, RT: spec.RT}
+				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs,IsScalar: spec.IsScalar}
 			}
 
 			fnUse := spec.Fns[0]
@@ -107,8 +107,8 @@ func vectorFunctions() d.Fns {
 				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
 			}
 
-			// scalar, nil and plot returns take the whole vector as inputs
-			if spec.RT == d.RTscalar || spec.RT == d.RTnone {
+			// scalar returns take the whole vector as inputs
+			if spec.IsScalar {
 				n = 1
 			}
 
@@ -461,7 +461,7 @@ func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
 		inTypes := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}, {d.DTcategorical}}
 		outTypes := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate, d.DTcategorical}
-		return &d.FnReturn{Name: "global", Inputs: inTypes, Output: outTypes, RT: d.RTcolumn}
+		return &d.FnReturn{Name: "global", Inputs: inTypes, Output: outTypes, IsScalar: false}
 	}
 
 	// if there is a SourceDF, get the data from there.

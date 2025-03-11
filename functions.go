@@ -28,21 +28,11 @@ type FnReturn struct {
 
 	Varying bool
 
-	RT ReturnTypes
+	//RT ReturnTypes
+	IsScalar bool
 
 	Err error
 }
-
-type ReturnTypes rune
-
-const (
-	RTscalar ReturnTypes = 'S'
-	RTcolumn ReturnTypes = 'C'
-	RTdf     ReturnTypes = 'D'
-	RTnone               = 'N'
-)
-
-//go:generate stringer -type=ReturnTypes
 
 func RunDFfn(fn Fn, df DF, inputs []any) (any, error) {
 	info := fn(true, nil)
@@ -95,7 +85,7 @@ type FnSpec struct {
 	FnDetail string
 	Inputs   [][]DataTypes
 	Outputs  []DataTypes
-	RT       ReturnTypes
+	IsScalar bool
 	Fns      []any
 }
 
@@ -110,14 +100,15 @@ func LoadFunctions(fns string) Fmap {
 			continue
 		}
 
-		rt := rune(details[4][0])
+		//		rt := rune(details[4][0])
 
 		s := &FnSpec{
 			Name:     details[0],
 			FnDetail: details[1],
 			Inputs:   parseInputs1(details[2]),
 			Outputs:  parseOutputs1(details[3]),
-			RT:       ReturnTypes(rt),
+			//			RT:       ReturnTypes(rt),
+			IsScalar: details[4][0] == 'S',
 		}
 
 		m[s.Name] = s

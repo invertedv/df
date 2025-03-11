@@ -10,16 +10,16 @@ func fnDefs(dlct *d.Dialect) d.Fns {
 	var fns d.Fns
 	for _, v := range dlct.Functions() {
 		fns = append(fns,
-			buildFn(v.Name, v.FnDetail, v.Inputs, v.Outputs, v.RT))
+			buildFn(v.Name, v.FnDetail, v.Inputs, v.Outputs, v.IsScalar))
 	}
 
 	return fns
 }
 
-func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.ReturnTypes) d.Fn {
+func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar bool) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
 		if info {
-			return &d.FnReturn{Name: name, Inputs: inp, Output: outp, RT: rt}
+			return &d.FnReturn{Name: name, Inputs: inp, Output: outp, IsScalar: scalar}
 		}
 
 		// glb flags if this is a global query, only meaningful if we have a GROUP BY
@@ -36,7 +36,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 
 		// if this returns a scalar, but there is no GROUP BY, then make a column of the global value
 		// if you want to return the global value within a GROUP BY, put it within the function "global"
-		if rt == d.RTscalar && df.(*DF).groupBy == "" {
+		if scalar && df.(*DF).groupBy == "" {
 			sqlOut = df.Dialect().Global(df.(*DF).SourceSQL(), sqlOut)
 		}
 
@@ -76,7 +76,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, rt d.Ret
 
 func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTany}}, Output: []d.DataTypes{d.DTany}, RT: d.RTcolumn}
+		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTany}}, Output: []d.DataTypes{d.DTany}, IsScalar: false}
 	}
 
 	sqls := getSQL(df, inputs...)
