@@ -268,8 +268,7 @@ func (f *Files) Load() ([]*Vector, error) {
 	return memData, nil
 }
 
-func (f *Files) Open(fileName string) error { //, fieldNames []string, fieldTypes []DataTypes, fieldWidths []int) error {
-	var e error
+func (f *Files) Open(fileName string) error { 
 	if f.fieldNames != nil && f.fieldTypes != nil && len(f.fieldNames) != len(f.fieldTypes) {
 		return fmt.Errorf("fieldNames and fieldTypes not same length in Open")
 	}
@@ -284,6 +283,7 @@ func (f *Files) Open(fileName string) error { //, fieldNames []string, fieldType
 
 	f.fileName = fileName
 
+	var e error
 	if f.file, e = os.Open(fileName); e != nil {
 		return e
 	}
@@ -308,8 +308,8 @@ func (f *Files) Open(fileName string) error { //, fieldNames []string, fieldType
 	}
 
 	if len(f.FieldTypes()) == 0 {
-		if e2 := f.detect(); e2 != nil {
-			return e2
+		if e1 := f.detect(); e1 != nil {
+			return e1
 		}
 	}
 
@@ -459,7 +459,6 @@ func (f *Files) Write(v []any) error {
 	for ind :=range len(v){
 		var lx []byte
 
-		//		var z any = *v[ind].(*any)
 		switch d := v[ind].(type) {
 		case float64:
 			lx = []byte(fmt.Sprintf(f.floatFormat, d))
@@ -562,15 +561,14 @@ func (f *Files) detect() error {
 		var (
 			v    any
 			vals []string
-			e2   error
+			e1   error
 		)
-
-		if v, e2 = f.Read(); e2 != nil {
-			if e2 == io.EOF {
+		if v, e1 = f.Read(); e1 != nil {
+			if e1 == io.EOF {
 				break
 			}
 
-			return e2
+			return e1
 		}
 
 		vals = v.([]string)
@@ -582,10 +580,10 @@ func (f *Files) detect() error {
 		for ind :=range len(vals) {
 			var (
 				dt DataTypes
-				e3 error
+				e2 error
 			)
-			if _, dt, e3 = bestType(vals[ind], true); e3 != nil {
-				return e3
+			if _, dt, e2 = bestType(vals[ind], true); e2 != nil {
+				return e2
 			}
 
 			if len(counts) < ind+1 {
@@ -615,6 +613,7 @@ func (f *Files) detect() error {
 	}
 
 	_ = f.Close()
+
 	return f.Open(f.fileName)
 }
 
@@ -632,6 +631,7 @@ func (f *Files) smartTrim(line string, dt DataTypes) string {
 	}
 
 	x := strings.Trim(line, string(f.stringDelim)+" ")
+
 	return x
 }
 
