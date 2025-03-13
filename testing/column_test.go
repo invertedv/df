@@ -90,11 +90,12 @@ func TestRandom(t *testing.T) {
 
 func TestRename(t *testing.T) {
 	for _, which := range pkgs() {
-		if which != "clickhouse,d1" {
-			continue
-		}
-
 		dfx := loadData(which)
+
+		dfy := dfx.Copy()
+		x := dfy.Column("x")
+		xx := x.Parent()
+		_=xx
 		e := dfx.Column("y").Rename("x")
 		assert.NotNil(t, e)
 		e = dfx.Column("y").Rename("aa")
@@ -224,6 +225,7 @@ func TestParser(t *testing.T) {
 // TODO: check for referencing elements directly not through method
 // TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
 // TODO: revisit sourceDF relative to mem/By
+// TODO: add dropping "wherec" from df.Where
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {

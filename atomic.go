@@ -13,9 +13,6 @@ const (
 	DTint
 	DTcategorical
 	DTdate
-	DTnil
-	DTdf
-	DTplot
 	DTany // keep as last entry
 )
 

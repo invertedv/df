@@ -265,8 +265,6 @@ func WhatAmI(val any) DataTypes {
 		return DTstring
 	case time.Time, []time.Time:
 		return DTdate
-	case DF:
-		return DTdf
 	default:
 		return DTunknown
 	}

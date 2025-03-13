@@ -313,7 +313,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 				}
 			}
 
-			if  e1 := d.Parse(v.groupDF, fns[ind]); e1 != nil {
+			if e1 := d.Parse(v.groupDF, fns[ind]); e1 != nil {
 				return nil, e1
 			}
 
@@ -468,6 +468,8 @@ func (f *DF) Copy() d.DF {
 		ascending:   false,
 		DFcore:      dfC,
 	}
+
+	_ = mNew.SetParent()
 
 	return mNew
 }
@@ -679,7 +681,7 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 }
 
 func (f *DF) Where(condition string) (d.DF, error) {
-	if  e := d.Parse(f, "wherec:="+condition); e != nil {
+	if e := d.Parse(f, "wherec:="+condition); e != nil {
 		return nil, e
 	}
 

@@ -50,7 +50,6 @@ var (
 const (
 	ch = "clickhouse"
 	pg = "postgres"
-	ms = "mysql"
 )
 
 type Dialect struct {
@@ -98,8 +97,6 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 		d.create, d.fields, d.dropIf, d.insert = pgCreate, pgFields, pgDropIf, pgInsert
 		types = pgTypes
 		d.functions = LoadFunctions(pgFunctions)
-	case ms:
-		d.create = ""
 	default:
 		return nil, fmt.Errorf("no skeletons for database %s", dialect)
 	}
@@ -135,6 +132,19 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 // ***************** Setters *****************
 
 type DialectOpt func(d *Dialect) error
+
+// DialectBuffSize sets the buffer size (in MB) for accumulating inserts 
+func DialectBuffSize(bufMB int) DialectOpt {
+	return func(d *Dialect) error {
+		if bufMB <= 0 {
+			return fmt.Errorf("bad buffer size in Dialect")
+		}
+
+		d.bufSize = bufMB
+
+		return nil
+	}
+}
 
 func DialectDefaultDate(year, mon, day int) DialectOpt {
 	return func(d *Dialect) error {
@@ -182,37 +192,6 @@ func DialectDefaultString(deflt string) DialectOpt {
 }
 
 // ***************** Methods *****************
-
-// Join creates an inner JOIN query.
-//
-//	leftSQL - SQL for left side of join
-//	rightSQL - SQL for right side of join
-//	leftFields - fields to keep from leftSQL
-//	rightFields - fields to keep from rightSQL
-//	joinField - fields to join on
-func (d *Dialect) Join(leftSQL, rightSQL string, leftFields, rightFields, joinFields []string) string {
-	leftAlias := d.WithName()
-	rightAlias := d.WithName()
-	for ind := range len(joinFields) {
-		jn := joinFields[ind]
-		joinFields[ind] = fmt.Sprintf("%s.%s = %s.%s", leftAlias, jn, rightAlias, jn)
-	}
-
-	for ind := range len(leftFields) {
-		leftFields[ind] = fmt.Sprintf("%s.%s", leftAlias, d.ToName(leftFields[ind]))
-	}
-
-	for ind := range len(rightFields) {
-		rightFields[ind] = fmt.Sprintf("%s.%s", rightAlias, d.ToName(rightFields[ind]))
-	}
-
-	selectFields := strings.Join(append(leftFields, rightFields...), ",")
-
-	qry := fmt.Sprintf("SELECT %s FROM (%s) AS %s JOIN (%s) AS %s ON %s", selectFields,
-		leftSQL, leftAlias, rightSQL, rightAlias, strings.Join(joinFields, " AND "))
-
-	return qry
-}
 
 func (d *Dialect) BufSize() int {
 	return d.bufSize
@@ -280,11 +259,6 @@ func (d *Dialect) CastFloat() bool {
 
 func (d *Dialect) Close() error {
 	return d.db.Close()
-}
-
-func (d *Dialect) Count() string {
-	sqlx := "count(*)"
-	return sqlx
 }
 
 // options are in key:value format and are meant to replace placeholders in create.txt
@@ -517,6 +491,37 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 	return nil
 }
 
+// Join creates an inner JOIN query.
+//
+//	leftSQL - SQL for left side of join
+//	rightSQL - SQL for right side of join
+//	leftFields - fields to keep from leftSQL
+//	rightFields - fields to keep from rightSQL
+//	joinField - fields to join on
+func (d *Dialect) Join(leftSQL, rightSQL string, leftFields, rightFields, joinFields []string) string {
+	leftAlias := d.WithName()
+	rightAlias := d.WithName()
+	for ind := range len(joinFields) {
+		jn := joinFields[ind]
+		joinFields[ind] = fmt.Sprintf("%s.%s = %s.%s", leftAlias, jn, rightAlias, jn)
+	}
+
+	for ind := range len(leftFields) {
+		leftFields[ind] = fmt.Sprintf("%s.%s", leftAlias, d.ToName(leftFields[ind]))
+	}
+
+	for ind := range len(rightFields) {
+		rightFields[ind] = fmt.Sprintf("%s.%s", rightAlias, d.ToName(rightFields[ind]))
+	}
+
+	selectFields := strings.Join(append(leftFields, rightFields...), ",")
+
+	qry := fmt.Sprintf("SELECT %s FROM (%s) AS %s JOIN (%s) AS %s ON %s", selectFields,
+		leftSQL, leftAlias, rightSQL, rightAlias, strings.Join(joinFields, " AND "))
+
+	return qry
+}
+
 func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 	fieldNames, fieldTypes, row2read, e1 := d.Types(qry)
 	if e1 != nil {
@@ -583,28 +588,6 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 	return memData, fieldNames, fieldTypes, nil
 }
 
-// NameOrSQL returns the generating SQL for the column if there is any, o.w. the name
-// This can be needed for some DBs, such as Postgres, that can not use the alias of another column, such as:
-//
-//	SELECT
-//	  2*x AS a,
-//	  2*a AS b
-//
-// which fails.
-func (d *Dialect) NameOrSQLXXX(fieldName, genSQL string) string {
-	if fieldName == "" {
-		return genSQL
-	}
-
-	if d.DialectName() == pg {
-		if genSQL != "" && genSQL != fieldName {
-			return genSQL
-		}
-	}
-
-	return d.ToName(fieldName)
-}
-
 func (d *Dialect) Quantile(col string, q float64) string {
 	var sqlx string
 	if d.DialectName() == ch {
@@ -655,30 +638,6 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	return rows, row2Read, fieldNames, nil
 }
 
-func (d *Dialect) Summary(qry, col string) ([]float64, error) {
-	const skeleton = "WITH %s AS (%s) SELECT %s FROM %s"
-
-	minX := fmt.Sprintf("min(%s) AS min", col)
-	q25 := d.Quantile(col, 0.25) + " AS q25"
-	q50 := d.Quantile(col, 0.5) + " AS q50"
-	q75 := d.Quantile(col, 0.75) + " AS q75"
-	maxX := fmt.Sprintf("max(%s) AS max", col)
-	mn := fmt.Sprintf("avg(%s) AS mean", col)
-	n, _ := d.CastField("count(*)", DTint, DTfloat)
-	n += " AS n"
-	flds := strings.Join([]string{minX, q25, q50, mn, q75, maxX, n}, ",")
-
-	sig := d.WithName()
-	q := fmt.Sprintf(skeleton, sig, qry, flds, sig)
-	row := d.db.QueryRow(q)
-	var vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN float64
-	if e := row.Scan(&vMinX, &vQ25, &vQ50, &vMn, &vQ75, &vMaxX, &vN); e != nil {
-		return nil, e
-	}
-
-	return []float64{vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN}, nil
-}
-
 func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF, options ...string) error {
 	exists := d.Exists(tableName)
 	if exists && !overwrite {
@@ -727,8 +686,28 @@ func (d *Dialect) Seq(n int) string {
 	panic(fmt.Errorf("unsupported dialect for Seq"))
 }
 
-func (d *Dialect) SetBufSize(mb int) {
-	d.bufSize = mb
+func (d *Dialect) Summary(qry, col string) ([]float64, error) {
+	const skeleton = "WITH %s AS (%s) SELECT %s FROM %s"
+
+	minX := fmt.Sprintf("min(%s) AS min", col)
+	q25 := d.Quantile(col, 0.25) + " AS q25"
+	q50 := d.Quantile(col, 0.5) + " AS q50"
+	q75 := d.Quantile(col, 0.75) + " AS q75"
+	maxX := fmt.Sprintf("max(%s) AS max", col)
+	mn := fmt.Sprintf("avg(%s) AS mean", col)
+	n, _ := d.CastField("count(*)", DTint, DTfloat)
+	n += " AS n"
+	flds := strings.Join([]string{minX, q25, q50, mn, q75, maxX, n}, ",")
+
+	sig := d.WithName()
+	q := fmt.Sprintf(skeleton, sig, qry, flds, sig)
+	row := d.db.QueryRow(q)
+	var vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN float64
+	if e := row.Scan(&vMinX, &vQ25, &vQ50, &vMn, &vQ75, &vMaxX, &vN); e != nil {
+		return nil, e
+	}
+
+	return []float64{vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN}, nil
 }
 
 // ToName converts the raw field name to what's need for a interaction with the database.

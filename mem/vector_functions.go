@@ -90,7 +90,7 @@ func vectorFunctions() d.Fns {
 	for _, spec := range specs {
 		fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
 			if info {
-				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs,IsScalar: spec.IsScalar}
+				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs, IsScalar: spec.IsScalar}
 			}
 
 			fnUse := spec.Fns[0]
@@ -114,11 +114,8 @@ func vectorFunctions() d.Fns {
 
 			var oas any
 
-			var outVec *d.Vector
-			if spec.Outputs[ind] != d.DTnil {
-				outVec = d.MakeVector(spec.Outputs[ind], n)
-				oas = outVec.AsAny()
-			}
+			outVec := d.MakeVector(spec.Outputs[ind], n)
+			oas = outVec.AsAny()
 
 			if e := level0(oas, fnUse, inputs); e != nil {
 				return &d.FnReturn{Err: e}
@@ -162,15 +159,11 @@ func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 	for _, fn := range fns {
 		rfn := reflect.TypeOf(fn)
 		ok := true
-		for ind := range  rfn.NumIn(){
+		for ind := range rfn.NumIn() {
 			if GetKind(rfn.In(ind)) != targetIns[ind] {
 				ok = false
 				break
 			}
-		}
-
-		if ok && rfn.NumOut() == 0 && targOut == d.DTnil {
-			return fn
 		}
 
 		if ok && rfn.NumOut() > 0 && GetKind(rfn.Out(0)) == targOut {
