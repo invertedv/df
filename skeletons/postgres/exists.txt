@@ -1,0 +1,1 @@
+SELECT cast(coalesce(cast(to_regclass('public.test') AS text), '') != '' AS int)

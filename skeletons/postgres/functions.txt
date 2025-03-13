@@ -20,7 +20,7 @@ and:cast((%s =1 and %s = 1) AS integer):{int,int}:int:C
 or:cast((%s = 1 or %s = 1) AS integer):{int,int}:int:C
 not:cast(not(%s = 1) AS integer):{int}:int:C
 if:case when %s>0 then %s else %s end:{int,float,float},{int,int,int},{int,string,string},{int,date,date}:float,int,string,date:C
-date:cast(cast(%s as varchar(256)) AS date):{int},{string},{date}:date,date,date:C
+date:cast(cast(%s as text) AS date):{int},{string},{date}:date,date,date:C
 float:cast(%s as double precision):{float},{int},{string}:float,float,float:C
 int:cast(floor(%s) as integer):{float},{int},{string}:int,int,int:C
 string:cast(%s as text):{float},{int},{string},{date}:string,string,string,string:C

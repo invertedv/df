@@ -36,10 +36,20 @@ var (
 	//go:embed skeletons/postgres/dropif.txt
 	pgDropIf string
 
+	//go:embed skeletons/clickhouse/exists.txt
+	chExists string
+	//go:embed skeletons/postgres/exists.txt
+	pgExists string
+
 	//go:embed skeletons/clickhouse/insert.txt
 	chInsert string
 	//go:embed skeletons/postgres/insert.txt
 	pgInsert string
+
+	//go:embed skeletons/clickhouse/seq.txt
+	chSeq string
+	//go:embed skeletons/postgres/seq.txt
+	pgSeq string
 
 	//go:embed skeletons/clickhouse/functions.txt
 	chFunctions string
@@ -62,6 +72,8 @@ type Dialect struct {
 	create string
 	insert string
 	dropIf string
+	exists string
+	seq    string
 
 	fields string
 
@@ -90,11 +102,13 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 	var types string
 	switch d.dialect {
 	case ch:
-		d.create, d.fields, d.dropIf, d.insert = chCreate, chFields, chDropIf, chInsert
+		d.create, d.fields, d.dropIf, d.insert, d.exists = chCreate, chFields, chDropIf, chInsert, chExists
+		d.seq = chSeq
 		types = chTypes
 		d.functions = LoadFunctions(chFunctions)
 	case pg:
-		d.create, d.fields, d.dropIf, d.insert = pgCreate, pgFields, pgDropIf, pgInsert
+		d.create, d.fields, d.dropIf, d.insert, d.exists = pgCreate, pgFields, pgDropIf, pgInsert, pgExists
+		d.seq = pgSeq
 		types = pgTypes
 		d.functions = LoadFunctions(pgFunctions)
 	default:
@@ -133,7 +147,7 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 
 type DialectOpt func(d *Dialect) error
 
-// DialectBuffSize sets the buffer size (in MB) for accumulating inserts 
+// DialectBuffSize sets the buffer size (in MB) for accumulating inserts
 func DialectBuffSize(bufMB int) DialectOpt {
 	return func(d *Dialect) error {
 		if bufMB <= 0 {
@@ -232,23 +246,8 @@ func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr st
 		return "", e
 	}
 
-	if d.DialectName() == ch || d.DialectName() == pg {
-		// is this a constant?
-		if x, ok := toDate(fieldName); ok {
-			sqlStr = fmt.Sprintf("cast('%s' AS %s)", x.(time.Time).Format("2006-01-02"), dbType)
-			return sqlStr, nil
-		}
-
-		if fromDT == DTfloat && toDT == DTstring {
-			sqlStr = fmt.Sprintf("toDecimalString(%s, 2)", fieldName)
-			return sqlStr, nil
-		}
-
-		sqlStr = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
-		return sqlStr, nil
-	}
-
-	return "", fmt.Errorf("unknown error")
+	sqlStr = fmt.Sprintf("cast(%s AS %s)", fieldName, dbType)
+	return sqlStr, nil
 }
 
 // CastFloat says whether floats need to be cast as such.
@@ -263,54 +262,50 @@ func (d *Dialect) Close() error {
 
 // options are in key:value format and are meant to replace placeholders in create.txt
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool, options ...string) error {
-	e := fmt.Errorf("no implemention of Create for %s", d.DialectName())
-
-	if d.DialectName() == ch || d.DialectName() == pg {
-		if d.Exists(tableName) && !overwrite {
-			return fmt.Errorf("table %s exists", tableName)
-		}
-
-		if orderBy == "" {
-			orderBy = d.ToName(fields[0])
-		}
-
-		create := strings.ReplaceAll(d.create, "?TableName", tableName)
-		create = strings.Replace(create, "?OrderBy", orderBy, 1)
-		if d.DialectName() == pg {
-			create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
-		}
-
-		var flds []string
-		for ind := range len(fields) {
-			var (
-				dbType string
-				ex     error
-			)
-			if dbType, ex = d.dbtype(types[ind]); ex != nil {
-				return ex
-			}
-
-			field := strings.ReplaceAll(d.fields, "?Field", d.ToName(fields[ind]))
-			field = strings.ReplaceAll(field, "?Type", dbType)
-			flds = append(flds, field)
-		}
-
-		create = strings.Replace(create, "?fields", strings.Join(flds, ","), 1)
-		for _, opt := range options {
-			kv := strings.Split(opt, ":")
-			if len(kv) != 2 {
-				return fmt.Errorf("invalid option in Dialect.Create: %s", opt)
-			}
-
-			create = strings.ReplaceAll(create, "?"+kv[0], kv[1])
-		}
-
-		if strings.Contains(create, "?") {
-			return fmt.Errorf("create still has placeholders: %s", create)
-		}
-
-		_, e = d.db.Exec(create)
+	if d.Exists(tableName) && !overwrite {
+		return fmt.Errorf("table %s exists", tableName)
 	}
+
+	if orderBy == "" {
+		orderBy = d.ToName(fields[0])
+	}
+
+	create := strings.ReplaceAll(d.create, "?TableName", tableName)
+	create = strings.Replace(create, "?OrderBy", orderBy, 1)
+	if d.DialectName() == pg {
+		create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
+	}
+
+	var flds []string
+	for ind := range len(fields) {
+		var (
+			dbType string
+			ex     error
+		)
+		if dbType, ex = d.dbtype(types[ind]); ex != nil {
+			return ex
+		}
+
+		field := strings.ReplaceAll(d.fields, "?Field", d.ToName(fields[ind]))
+		field = strings.ReplaceAll(field, "?Type", dbType)
+		flds = append(flds, field)
+	}
+
+	create = strings.Replace(create, "?fields", strings.Join(flds, ","), 1)
+	for _, opt := range options {
+		kv := strings.Split(opt, ":")
+		if len(kv) != 2 {
+			return fmt.Errorf("invalid option in Dialect.Create: %s", opt)
+		}
+
+		create = strings.ReplaceAll(create, "?"+kv[0], kv[1])
+	}
+
+	if strings.Contains(create, "?") {
+		return fmt.Errorf("create still has placeholders: %s", create)
+	}
+
+	_, e := d.db.Exec(create)
 
 	return e
 }
@@ -323,19 +318,15 @@ func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF, 
 
 	cols := df.ColumnNames()
 
-	if d.DialectName() == ch || d.DialectName() == pg {
-		noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
-		if orderBy != "" && !df.Core().HasColumns(strings.Split(noDesc, ",")...) {
-			return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
-		}
-
-		if dts, e = df.ColumnTypes(cols...); e != nil {
-			return e
-		}
-		return d.Create(tableName, noDesc, cols, dts, overwrite, options...)
+	noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
+	if orderBy != "" && !df.Core().HasColumns(strings.Split(noDesc, ",")...) {
+		return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
 	}
 
-	return fmt.Errorf("unknown error")
+	if dts, e = df.ColumnTypes(cols...); e != nil {
+		return e
+	}
+	return d.Create(tableName, noDesc, cols, dts, overwrite, options...)
 }
 
 func (d *Dialect) DB() *sql.DB {
@@ -363,44 +354,28 @@ func (d *Dialect) Exists(tableName string) bool {
 		e   error
 	)
 
-	if d.DialectName() == ch {
-		qry := fmt.Sprintf("EXISTS TABLE %s", tableName)
+	qry := strings.ReplaceAll(d.exists, "?TableName", tableName)
 
-		if res, e = d.DB().Query(qry); e != nil {
-			panic(e)
-		}
-
-		defer func() { _ = res.Close() }()
-
-		var exist uint8
-		res.Next()
-		if ex := res.Scan(&exist); ex != nil {
-			panic(ex)
-		}
-
-		if exist == 1 {
-			return true
-		}
+	if res, e = d.DB().Query(qry); e != nil {
+		panic(e)
 	}
 
-	if d.DialectName() == pg {
-		qry := fmt.Sprintf("SELECT to_regclass('%s')", tableName)
-		if res, e = d.DB().Query(qry); e != nil {
-			panic(e)
-		}
+	defer func() { _ = res.Close() }()
 
-		res.Next()
-		var exist any
-		if ex := res.Scan(&exist); ex != nil {
-			panic(ex)
-		}
-
-		if exist != nil {
-			return true
-		}
+	var exist any
+	res.Next()
+	if ex := res.Scan(&exist); ex != nil {
+		panic(ex)
 	}
 
-	return false
+	switch x := exist.(type) {
+	case int64:
+		return x == 1 // for pg
+	case uint8:
+		return x == 1 // for ch
+	}
+
+	return (exist.(int64) == 1)
 }
 
 func (d *Dialect) Functions() Fmap {
@@ -414,26 +389,18 @@ func (d *Dialect) Global(sourceSQL, colSQL string) string {
 }
 
 func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
-	e := fmt.Errorf("db not implemented")
+	qry := strings.Replace(d.insert, "?TableName", tableName, 1)
+	qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)
+	qry = strings.Replace(qry, "?Fields", fields, 1)
 
-	if d.DialectName() == ch || d.DialectName() == pg {
-		qry := strings.Replace(d.insert, "?TableName", tableName, 1)
-		qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)
-		qry = strings.Replace(qry, "?Fields", fields, 1)
-
-		_, e = d.db.Exec(qry)
-	}
+	_, e := d.db.Exec(qry)
 
 	return e
 }
 
 func (d *Dialect) InsertValues(tableName string, values []byte) error {
-	e := fmt.Errorf("db not implemented")
-
-	if d.DialectName() == ch || d.DialectName() == pg {
-		qry := fmt.Sprintf("INSERT INTO %s VALUES ", tableName) + string(values)
-		_, e = d.db.Exec(qry)
-	}
+	qry := fmt.Sprintf("INSERT INTO %s VALUES ", tableName) + string(values)
+	_, e := d.db.Exec(qry)
 
 	return e
 }
@@ -603,11 +570,7 @@ func (d *Dialect) Quantile(col string, q float64) string {
 }
 
 func (d *Dialect) Quote() string {
-	if d.DialectName() == ch || d.DialectName() == pg {
-		return "'"
-	}
-
-	return ""
+	return "'"
 }
 
 func (d *Dialect) RowCount(qry string) (int, error) {
@@ -675,15 +638,7 @@ func (d *Dialect) Seq(n int) string {
 		return ""
 	}
 
-	if d.DialectName() == ch {
-		return fmt.Sprintf("toInt32(arrayJoin(range(0,%d)))", n)
-	}
-
-	if d.DialectName() == pg {
-		return fmt.Sprintf("generate_series(0,%d)", n-1)
-	}
-
-	panic(fmt.Errorf("unsupported dialect for Seq"))
+	return strings.ReplaceAll(d.seq, "?Upper", fmt.Sprintf("%d", n))
 }
 
 func (d *Dialect) Summary(qry, col string) ([]float64, error) {
@@ -724,24 +679,20 @@ func (d *Dialect) ToName(fieldName string) string {
 
 // ToString returns a string version of val that can be placed into SQL
 func (d *Dialect) ToString(val any) string {
-	if d.DialectName() == ch || d.DialectName() == pg {
-		var (
-			xv any
-			ok bool
-		)
-		if xv, ok = toString(val); !ok {
-			panic(fmt.Errorf("can't make string"))
-		}
-
-		x := xv.(string)
-		if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
-			x = fmt.Sprintf("'%s'", x)
-		}
-
-		return x
+	var (
+		xv any
+		ok bool
+	)
+	if xv, ok = toString(val); !ok {
+		panic(fmt.Errorf("can't make string"))
 	}
 
-	panic(fmt.Errorf("unsupported db dialect"))
+	x := xv.(string)
+	if WhatAmI(val) == DTdate || WhatAmI(val) == DTstring {
+		x = fmt.Sprintf("'%s'", x)
+	}
+
+	return x
 }
 
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, row2read []any, err error) {
@@ -751,9 +702,8 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	q := fmt.Sprintf(skeleton, sig, qry, sig)
 
 	var (
-		r      *sql.Rows
-		ct     []*sql.ColumnType
-		e0, e1 error
+		r  *sql.Rows
+		e0 error
 	)
 	if r, e0 = d.db.Query(q); e0 != nil {
 		return nil, nil, nil, e0
@@ -764,6 +714,10 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		}
 	}()
 
+	var (
+		ct []*sql.ColumnType
+		e1 error
+	)
 	if ct, e1 = r.ColumnTypes(); e1 != nil {
 		return nil, nil, nil, e1
 	}
@@ -922,5 +876,4 @@ func utc(v *Vector) {
 	for rx := 0; rx < v.Len(); rx++ {
 		col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
 	}
-
 }

@@ -1,0 +1,1 @@
+toInt32(arrayJoin(range(0,?Upper)))

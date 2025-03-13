@@ -686,9 +686,6 @@ func (f *DF) Where(condition string) (d.DF, error) {
 	}
 
 	indicator := f.Column("wherec")
-	if indicator.Len() != f.RowCount() {
-		return nil, fmt.Errorf("indicator column wrong length. Got %d needed %d", indicator.Len(), f.RowCount())
-	}
 
 	if indicator.DataType() != d.DTint {
 		return nil, fmt.Errorf("argument to Where must be int")
@@ -704,6 +701,8 @@ func (f *DF) Where(condition string) (d.DF, error) {
 			return nil, fmt.Errorf("no data after applying where")
 		}
 	}
+
+	_ = dfNew.DropColumns("wherec")
 
 	return dfNew, nil
 }

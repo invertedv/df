@@ -614,7 +614,7 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 }
 
 func (f *DF) Where(condition string) (d.DF, error) {
-	if  e := d.Parse(f, "wherec:=" + condition); e != nil {
+	if e := d.Parse(f, "wherec:="+condition); e != nil {
 		return nil, e
 	}
 
@@ -632,6 +632,8 @@ func (f *DF) Where(condition string) (d.DF, error) {
 	} else {
 		dfNew.where = fmt.Sprintf("%s > 0", wSQL)
 	}
+
+	_ = dfNew.DropColumns("wherec")
 
 	return dfNew, nil
 }

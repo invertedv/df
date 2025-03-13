@@ -9,6 +9,7 @@ import (
 	"time"
 
 	m "github.com/invertedv/df/mem"
+	s "github.com/invertedv/df/sql"
 
 	d "github.com/invertedv/df"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,21 @@ var (
 	//go:embed tests.txt
 	parserTests string
 )
+
+func TestCast(t *testing.T) {
+	for _, which := range pkgs() {
+		dfx := loadData(which)
+		e:=d.Parse(dfx, "test:=date('2020-12-31')")
+		assert.Nil(t, e)
+		dx:=dfx.Column("test").Data().AsAny()
+		_=dx
+		if col, ok := dfx.Column("test").(*s.Col); ok {
+			q := col.MakeQuery()
+			fmt.Println(q)
+		}
+		fmt.Println(dx)
+	}
+}
 
 func TestTemp(t *testing.T) {
 	dfx := loadData(pg + ",d1")
@@ -225,7 +241,6 @@ func TestParser(t *testing.T) {
 // TODO: check for referencing elements directly not through method
 // TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
 // TODO: revisit sourceDF relative to mem/By
-// TODO: add dropping "wherec" from df.Where
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
