@@ -88,7 +88,7 @@ func vectorFunctions() d.Fns {
 
 	var outFns d.Fns
 	for _, spec := range specs {
-		fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
+		fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 			if info {
 				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs, IsScalar: spec.IsScalar}
 			}
@@ -450,7 +450,7 @@ func countFn[T frameTypes](x []T) int {
 	return len(x)
 }
 
-func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
+func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		inTypes := [][]d.DataTypes{{d.DTfloat}, {d.DTint}, {d.DTstring}, {d.DTdate}, {d.DTcategorical}}
 		outTypes := []d.DataTypes{d.DTfloat, d.DTint, d.DTstring, d.DTdate, d.DTcategorical}
@@ -473,7 +473,7 @@ func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 // ***************** Categorical Operations *****************
 
-func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
+func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
 			Output:  []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical},
@@ -515,7 +515,7 @@ func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 // - vector to apply cats to
 // - vector with cats
 // - default if new category
-func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
+func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
 			{d.DTstring, d.DTcategorical, d.DTstring}, {d.DTdate, d.DTcategorical, d.DTdate}},
@@ -680,7 +680,7 @@ func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V,
 	return nil
 }
 
-func splitCol(cols []any) (any, []any) {
+func splitCol(cols []d.Column) (d.Column, []d.Column) {
 	if cols == nil {
 		return nil, nil
 	}
@@ -698,7 +698,7 @@ func splitCol(cols []any) (any, []any) {
 	return col0, cols[1:]
 }
 
-func level0(out, fn any, cols []any) error {
+func level0(out, fn any, cols []d.Column) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
@@ -733,7 +733,7 @@ func level0(out, fn any, cols []any) error {
 	return nil
 }
 
-func level1[T frameTypes](a []T, out, fn any, cols []any) error {
+func level1[T frameTypes](a []T, out, fn any, cols []d.Column) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
@@ -768,7 +768,7 @@ func level1[T frameTypes](a []T, out, fn any, cols []any) error {
 	return nil
 }
 
-func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []any) error {
+func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []d.Column) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:
@@ -803,7 +803,7 @@ func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []any) error {
 	return nil
 }
 
-func level3[T, S, U frameTypes](a []T, b []S, c []U, out, fn any, cols []any) error {
+func level3[T, S, U frameTypes](a []T, b []S, c []U, out, fn any, cols []d.Column) error {
 	if cols == nil {
 		switch outx := out.(type) {
 		case []float64:

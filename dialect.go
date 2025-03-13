@@ -115,8 +115,7 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 		return nil, fmt.Errorf("no skeletons for database %s", dialect)
 	}
 
-	l := strings.Split(types, "\n")
-	for _, lm := range l {
+	for lm := range strings.SplitSeq(types, "\n") {
 		if strings.Trim(lm, " ") == "" {
 			continue
 		}

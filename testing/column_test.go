@@ -24,10 +24,10 @@ var (
 func TestCast(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		e:=d.Parse(dfx, "test:=date('2020-12-31')")
+		e := d.Parse(dfx, "test:=date('2020-12-31')")
 		assert.Nil(t, e)
-		dx:=dfx.Column("test").Data().AsAny()
-		_=dx
+		dx := dfx.Column("test").Data().AsAny()
+		_ = dx
 		if col, ok := dfx.Column("test").(*s.Col); ok {
 			q := col.MakeQuery()
 			fmt.Println(q)
@@ -111,7 +111,7 @@ func TestRename(t *testing.T) {
 		dfy := dfx.Copy()
 		x := dfy.Column("x")
 		xx := x.Parent()
-		_=xx
+		_ = xx
 		e := dfx.Column("y").Rename("x")
 		assert.NotNil(t, e)
 		e = dfx.Column("y").Rename("aa")
@@ -138,7 +138,7 @@ func TestRowNumber(t *testing.T) {
 
 func TestIf(t *testing.T) {
 	for _, which := range pkgs() {
-		if !strings.Contains(which, "mem"){
+		if !strings.Contains(which, "mem") {
 			continue
 		}
 		dfx := loadData(which)
@@ -241,6 +241,7 @@ func TestParser(t *testing.T) {
 // TODO: check for referencing elements directly not through method
 // TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
 // TODO: revisit sourceDF relative to mem/By
+// TODO: think about mem.NewCol when feeding a Vector
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {

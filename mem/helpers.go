@@ -45,7 +45,7 @@ func returnCol(data any) *d.FnReturn {
 	return &d.FnReturn{Value: outCol}
 }
 
-func loopDim(inputs ...any) int {
+func loopDim(inputs ...d.Column) int {
 	n := 1
 	for j := range len(inputs) {
 		if col, isCol := inputs[j].(*Col); isCol {
@@ -58,7 +58,7 @@ func loopDim(inputs ...any) int {
 	return n
 }
 
-func signature(target [][]d.DataTypes, cols []any) int {
+func signature(target [][]d.DataTypes, cols []d.Column) int {
 	for j := range len(target) {
 		ind := j
 		for k := range len(target[j]) {

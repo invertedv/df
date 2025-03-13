@@ -56,28 +56,14 @@ func Parse(df DF, expr string) error {
 	return df.AppendColumn(ot.value, false)
 }
 
-func doOp(df DF, opName string, inputs ...Column) (any, error) {
+func doOp(df DF, opName string, inputs ...Column) (Column, error) {
 	var fn Fn
 
 	if fn = df.Fns().Get(opName); fn == nil {
 		return nil, fmt.Errorf("op %s not defined, operation skipped", opName)
 	}
 
-	var vals []any
-	for ind := range len(inputs) {
-		vals = append(vals, inputs[ind])
-
-	}
-
-	var (
-		col any
-		e   error
-	)
-	if col, e = RunDFfn(fn, df, vals); e != nil {
-		return nil, e
-	}
-
-	return col, nil
+	return RunDFfn(fn, df, inputs)
 }
 
 type opTree struct {

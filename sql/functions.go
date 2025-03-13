@@ -17,7 +17,7 @@ func fnDefs(dlct *d.Dialect) d.Fns {
 }
 
 func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar bool) d.Fn {
-	fn := func(info bool, df d.DF, inputs ...any) *d.FnReturn {
+	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
 			return &d.FnReturn{Name: name, Inputs: inp, Output: outp, IsScalar: scalar}
 		}
@@ -74,7 +74,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 	return fn
 }
 
-func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
+func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTany}}, Output: []d.DataTypes{d.DTany}, IsScalar: false}
 	}
@@ -90,7 +90,7 @@ func global(info bool, df d.DF, inputs ...any) *d.FnReturn {
 
 // ***************** categorical Operations *****************
 
-func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
+func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
 			Output:  []d.DataTypes{d.DTcategorical, d.DTcategorical, d.DTcategorical},
@@ -133,7 +133,7 @@ func toCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
 	return &d.FnReturn{Value: outCol}
 }
 
-func applyCat(info bool, df d.DF, inputs ...any) *d.FnReturn {
+func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
 			{d.DTstring, d.DTcategorical, d.DTstring}, {d.DTdate, d.DTcategorical, d.DTdate}},
@@ -235,7 +235,7 @@ func toCol(df d.DF, x any) *Col {
 	panic("can't make column")
 }
 
-func getSQL(df d.DF, inputs ...any) []string {
+func getSQL(df d.DF, inputs ...d.Column) []string {
 	var sOut []string
 	for ind := range len(inputs) {
 		col := toCol(df, inputs[ind])
@@ -247,7 +247,7 @@ func getSQL(df d.DF, inputs ...any) []string {
 }
 
 // getDataTypes returns the d.DataTypes of the columns
-func getDataTypes(df d.DF, inputs ...any) []d.DataTypes {
+func getDataTypes(df d.DF, inputs ...d.Column) []d.DataTypes {
 	var sOut []d.DataTypes
 	for ind := range len(inputs) {
 		sOut = append(sOut, toCol(df, inputs[ind]).DataType())
@@ -257,7 +257,7 @@ func getDataTypes(df d.DF, inputs ...any) []d.DataTypes {
 }
 
 // getGlobal returns true if any of the inputs has a gf signal (gf=used global() function)
-func getGlobal(inputs ...any) bool {
+func getGlobal(inputs ...d.Column) bool {
 	for ind := range len(inputs) {
 		if col, ok := inputs[ind].(*Col); ok && col.gf {
 			return col.gf
