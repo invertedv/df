@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"iter"
 	"maps"
 	"strings"
 
@@ -184,6 +185,46 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 }
 
 // ***************** DF - Methods *****************
+
+func (f *DF) AllRows() iter.Seq2[int, []any] {
+	return func(yield func(int, []any) bool) {
+
+		qry := f.MakeQuery()
+		var (
+			rows     *sql.Rows
+			row2Read []any
+			e        error
+		)
+		if rows, row2Read, _, e = f.Dialect().Rows(qry); e != nil {
+			panic(e)
+		}
+		defer func() {
+			_ = rows.Close()
+		}()
+
+		rowNum := 0
+		for rows.Next() {
+			if ex := rows.Scan(row2Read...); ex != nil {
+				_ = rows.Close()
+				return
+			}
+
+			// f.row elements are pointers to interface, remove the "pointer" part
+			row := make([]any, len(row2Read))
+			for ind, x := range row2Read {
+				var z any = *x.(*any)
+				row[ind] = z
+			}
+
+			if !yield(rowNum, row) {
+				return
+			}
+
+			rowNum++
+		}
+	}
+}
+
 func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
 

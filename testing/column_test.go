@@ -3,7 +3,6 @@ package testing
 import (
 	_ "embed"
 	"fmt"
-	"iter"
 	"strconv"
 	"strings"
 	"testing"
@@ -37,66 +36,28 @@ func TestCast(t *testing.T) {
 	}
 }
 
-func keys[Map ~map[K]V, K comparable, V any](m Map) iter.Seq[K] {
-	return func(yield func(K) bool) {
-		for k := range m {
-			if !yield(k) {
-				return
-			}
-		}
-	}
-}
-
-func i1[Slc ~[]int](s Slc) iter.Seq[int] {
-	f := func(yield func(int) bool) {
-		for _, x := range s {
-			fmt.Println("x ", x)
-			if x == 1 {
-				return
-			}
-			if !yield(x) {
-				return
-			}
-		}
-	}
-	return f
-}
-
 func TestTemp(t *testing.T) {
-	s := []int{3, 2} //, 1, 1, 2, 3}
-
-	f := func(yield func(int) bool) {
-		for _, x := range s {
-			fmt.Println("xxxxx ", x)
-			if x == 1 {
-				return
-			}
-			if !yield(x) {
-				return
-			}
+	for _, which := range pkgs() {
+		dfx := loadData(pg + ",d1")
+		fmt.Println("WHICH ", which)
+		for row, r := range dfx.AllRows() {
+			fmt.Println("row: ", row)
+			fmt.Println(r)
 		}
 	}
-	y := func(x int) bool { return x == 2 }
-	f(y)
 
-	for x := range i1(s) {
-		fmt.Println(x)
-	}
-	m := make(map[int]string)
-	m[0] = "hi"
-	m[1] = "bye"
-	for k := range keys(m) {
-		fmt.Println(k)
-	}
-	dfx := loadData(pg + ",d1")
-	for col := range dfx.Core().AllColumns() {
-		fmt.Println(col.Name())
-	}
-	outDF, e0 := dfx.By("y", "sx:=sum(x)", "count:=count(y)", "mx:=mean(global(x))", "mz:=mean(x)")
-	assert.Nil(t, e0)
-	d := outDF.Column("mx").Data().AsAny()
-	fmt.Println(d)
+	/*
+	   	for col := range dfx.Core().AllColumns() {
+	   		fmt.Println(col.Name())
+	   	}
+
+	   outDF, e0 := dfx.By("y", "sx:=sum(x)", "count:=count(y)", "mx:=mean(global(x))", "mz:=mean(x)")
+	   assert.Nil(t, e0)
+	   d := outDF.Column("mx").Data().AsAny()
+	   fmt.Println(d)
+	*/
 }
+
 func TestRandom(t *testing.T) {
 	n := 100 //000000
 	x := make([]float64, n)
@@ -297,6 +258,9 @@ func TestParser(t *testing.T) {
 // TODO: revisit sourceDF relative to mem/By
 // TODO: think about mem.NewCol when feeding a Vector
 // TODO: think about how iterators work...can I do that?
+
+// TODO: check interface arguments are actually the correct type
+// TODO: update join to use AllRows
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {

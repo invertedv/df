@@ -9,11 +9,12 @@ import (
 type DF interface {
 	DC
 
+	AllRows() iter.Seq2[int, []any]
 	AppendDF(df DF) (DF, error)
 	By(groupBy string, fns ...string) (DF, error)
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Copy() DF
-	Iter(reset bool) (row []any, err error)
+//	Iter(reset bool) (row []any, err error)
 	Join(df DF, joinOn string) (DF, error)
 	RowCount() int
 	SetParent() error

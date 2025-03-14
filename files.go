@@ -239,7 +239,7 @@ func FileStringDelim(delim byte) FileOpt {
 func (f *Files) Load() ([]*Vector, error) {
 	defer func() { _ = f.Close() }()
 	var memData []*Vector
-	for ind := range  len(f.FieldNames()) {
+	for ind := range len(f.FieldNames()) {
 		memData = append(memData, MakeVector(f.FieldTypes()[ind], 0))
 	}
 
@@ -258,7 +258,7 @@ func (f *Files) Load() ([]*Vector, error) {
 		}
 
 		r := row.([]any)
-		for ind := range len(r){
+		for ind := range len(r) {
 			if e := memData[ind].Append(r[ind]); e != nil {
 				return nil, e
 			}
@@ -268,7 +268,7 @@ func (f *Files) Load() ([]*Vector, error) {
 	return memData, nil
 }
 
-func (f *Files) Open(fileName string) error { 
+func (f *Files) Open(fileName string) error {
 	if f.fieldNames != nil && f.fieldTypes != nil && len(f.fieldNames) != len(f.fieldTypes) {
 		return fmt.Errorf("fieldNames and fieldTypes not same length in Open")
 	}
@@ -445,7 +445,7 @@ func (f *Files) Save(fileName string, df DF) error {
 		return ex
 	}
 
-	for row, eof := df.Iter(true); eof == nil; row, eof = df.Iter(false) {
+	for _, row := range df.AllRows() {
 		if ex := f.Write(row); ex != nil {
 			return ex
 		}
@@ -456,7 +456,7 @@ func (f *Files) Save(fileName string, df DF) error {
 
 func (f *Files) Write(v []any) error {
 	var line []byte
-	for ind :=range len(v){
+	for ind := range len(v) {
 		var lx []byte
 
 		switch d := v[ind].(type) {
@@ -577,7 +577,7 @@ func (f *Files) detect() error {
 			return fmt.Errorf("inconsistent # of fields in file")
 		}
 
-		for ind :=range len(vals) {
+		for ind := range len(vals) {
 			var (
 				dt DataTypes
 				e2 error

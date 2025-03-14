@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
-	"io"
+	"iter"
 	"maps"
 	"sort"
 	"strings"
@@ -474,25 +474,31 @@ func (f *DF) Copy() d.DF {
 	return mNew
 }
 
-func (f *DF) Iter(reset bool) (row []any, err error) {
-	if reset {
-		f.row = 0
+func (f *DF) AllRows() iter.Seq2[int, []any] {
+	return func(yield func(int, []any) bool) {
+		for ind := 0; ind < f.RowCount(); ind++ {
+			var row []any
+			for c := range f.AllColumns() {
+				row = append(row, c.(*Col).Element(ind))
+			}
+
+			if !yield(ind, row) {
+				return
+			}
+		}
 	}
-
-	if f.row+1 > f.RowCount() {
-		return nil, io.EOF
-	}
-
-	for c := range f.AllColumns() {
-		row = append(row, c.(*Col).Element(f.row))
-	}
-
-	f.row++
-
-	return row, nil
 }
 
 func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
+	var (
+		fRight *DF
+		ok     bool
+	)
+	// TODO: replace with load if sql?
+	if fRight, ok = df.(*DF); !ok {
+		return nil, fmt.Errorf("must be mem.*DF to join")
+	}
+
 	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
 	if !f.HasColumns(jCols...) || !df.HasColumns(jCols...) {
 		return nil, fmt.Errorf("missing some join columns")
@@ -518,9 +524,12 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 		colsRight = append(colsRight, d.Position(jCols[ind], rightNames))
 	}
 
+	indLeft, indRight := 0, 0
 	// pull first rows from both
-	leftRow, eof := f.Iter(true)
-	rightRow, _ := df.Iter(true)
+	leftRow := f.Row(indLeft)
+	rightRow := fRight.Row(indRight)
+	indLeft++
+	indRight++
 
 	// subset the rows to the values we're joining on
 	leftJoin := subset(leftRow, colsLeft)
@@ -528,11 +537,12 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 
 	// rh is the row number of the first row of right that matches the current row of left
 	rh := -1
-	for eof == nil {
+	// TODO: len(leftRow) != 0
+	for len(leftRow) > 0 && len(rightRow) > 0 {
 		if rowCompare(leftJoin, rightJoin, "eq") {
 			// append
 			if rh == -1 {
-				rh = df.(*DF).row - 1 // df.row has already been incremented
+				rh = indRight - 1
 			}
 
 			if e := appendRow(outCols, leftRow, rightRow, colsRight); e != nil {
@@ -540,9 +550,10 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 			}
 
 			// get next row from right side
-			if rightRow, eof = df.Iter(false); eof != nil {
+			if rightRow = fRight.Row(indRight); rightRow == nil {
 				continue
 			}
+			indRight++
 
 			rightJoin = subset(rightRow, colsRight)
 			continue
@@ -551,15 +562,17 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 		// if left is less than right, increment left
 		if rowCompare(leftJoin, rightJoin, "lt") {
 			leftJoinHold := leftJoin
-			if leftRow, eof = f.Iter(false); eof != nil {
+			if leftRow = f.Row(indLeft); leftRow == nil {
 				continue
 			}
+
+			indLeft++
 			leftJoin = subset(leftRow, colsLeft)
 
 			// if the next row of left is identical on the join fields, then back up to start of matching df rows on right
 			if rh >= 0 && rowCompare(leftJoin, leftJoinHold, "eq") {
-				df.(*DF).row = rh
-				rightRow, _ = df.Iter(false)
+				indRight = rh
+				rightRow = fRight.Row(indRight)
 				rightJoin = subset(rightRow, colsRight)
 			}
 
@@ -569,11 +582,12 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 
 		// if left is greater than right, increment right
 		if rowCompare(leftJoin, rightJoin, "gt") {
-			if rightRow, eof = df.Iter(false); eof != nil {
+			if rightRow = fRight.Row(indRight); rightRow == nil {
 				continue
 			}
 
 			rightJoin = subset(rightRow, colsRight)
+			indRight++
 		}
 	}
 
@@ -609,9 +623,22 @@ func (f *DF) Less(i, j int) bool {
 	return false
 }
 
+// TODO: consider adding to interface?
+func (f *DF) Row(rowNum int) []any {
+	if rowNum < 0 || rowNum >= f.RowCount() {
+		return nil
+	}
+
+	var row []any
+	for c := range f.AllColumns() {
+		row = append(row, c.(*Col).Element(rowNum))
+	}
+
+	return row
+}
+
 func (f *DF) RowCount() int {
 	return f.Column(f.ColumnNames()[0]).Len()
-//	return f.First().Len()
 }
 
 func (f *DF) SetParent() error {
@@ -657,7 +684,7 @@ func (f *DF) String() string {
 }
 
 func (f *DF) Swap(i, j int) {
-	for h:=range f.AllColumns(){
+	for h := range f.AllColumns() {
 		h.(*Col).Swap(i, j)
 	}
 }
@@ -694,7 +721,7 @@ func (f *DF) Where(condition string) (d.DF, error) {
 
 	dfNew := f.Copy()
 	i1 := indicator.(*Col)
-	for col := range dfNew.AllColumns(){
+	for col := range dfNew.AllColumns() {
 		cx := col.(*Col)
 		cx.Vector = cx.Where(i1.Vector)
 		if cx.Len() == 0 {
