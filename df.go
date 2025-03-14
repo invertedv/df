@@ -14,7 +14,7 @@ type DF interface {
 	By(groupBy string, fns ...string) (DF, error)
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Copy() DF
-//	Iter(reset bool) (row []any, err error)
+	//	Iter(reset bool) (row []any, err error)
 	Join(df DF, joinOn string) (DF, error)
 	RowCount() int
 	SetParent() error
@@ -193,9 +193,9 @@ func (df *DFcore) Column(colName string) Column {
 		return nil
 	}
 
-	for h := df.head; h != nil; h = h.next {
-		if (h.col).Name() == colName {
-			return h.col
+	for col := range df.AllColumns() {
+		if col.Name() == colName {
+			return col
 		}
 	}
 
@@ -205,8 +205,8 @@ func (df *DFcore) Column(colName string) Column {
 func (df *DFcore) ColumnNames() []string {
 	var names []string
 
-	for h := df.head; h != nil; h = h.next {
-		names = append(names, h.col.Name())
+	for col := range df.AllColumns() {
+		names = append(names, col.Name())
 	}
 
 	return names

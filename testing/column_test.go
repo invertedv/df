@@ -257,7 +257,6 @@ func TestParser(t *testing.T) {
 // TODO: think about how iterators work...can I do that?
 
 // TODO: check interface arguments are actually the correct type
-// TODO: update join to use AllRows
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {

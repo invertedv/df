@@ -219,6 +219,10 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 }
 
 func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
+	if _, ok := df.(*DF); !ok {
+		return nil, fmt.Errorf("must be *sql.DF to join")
+	}
+
 	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
 
 	if !f.HasColumns(jCols...) || !df.HasColumns(jCols...) {
@@ -287,6 +291,10 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 }
 
 func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
+	if _, ok := dfNew.(*DF); !ok {
+		return nil, fmt.Errorf("must be *sql.DF to join")
+	}
+
 	n1 := f.ColumnNames()
 
 	if len(n1) != len(dfNew.ColumnNames()) {

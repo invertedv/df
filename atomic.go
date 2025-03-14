@@ -25,7 +25,7 @@ func DTFromString(nm string) DataTypes {
 	const skeleton = "%v"
 
 	var nms []string
-	for ind := DataTypes(0); ind <= MaxDT; ind++ {
+	for ind := range MaxDT {
 		nms = append(nms, fmt.Sprintf(skeleton, ind))
 	}
 
