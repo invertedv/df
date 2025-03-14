@@ -3,6 +3,7 @@ package df
 import (
 	_ "embed"
 	"fmt"
+	"iter"
 )
 
 type DF interface {
@@ -23,6 +24,7 @@ type DF interface {
 }
 
 type DC interface {
+	AllColumns() iter.Seq[Column]
 	AppendColumn(col Column, replace bool) error
 	Column(colName string) Column
 	ColumnNames() []string
@@ -30,11 +32,9 @@ type DC interface {
 	Core() *DFcore
 	Dialect() *Dialect
 	DropColumns(colNames ...string) error
-	First() Column
 	Fns() Fns
 	HasColumns(cols ...string) bool
 	KeepColumns(colsToKeep ...string) error
-	Next() Column
 	SourceDF() *DFcore
 }
 
@@ -152,6 +152,16 @@ func DFsetSourceDF(source DC) DFopt {
 
 // *********** Methods ***********
 
+func (df *DFcore) AllColumns() iter.Seq[Column] {
+	return func(yield func(Column) bool) {
+		for col := df.head; col != nil; col = col.next {
+			if !yield(col.col) {
+				return
+			}
+		}
+	}
+}
+
 func (df *DFcore) AppendColumn(col Column, replace bool) error {
 	if df.Column(col.Name()) != nil {
 		if replace {
@@ -212,7 +222,7 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 		colNames = df.ColumnNames()
 	}
 
-	for ind := range len(colNames){
+	for ind := range len(colNames) {
 		var c Column
 		if c = df.Column(colNames[ind]); c == nil {
 			return nil, fmt.Errorf("column %s not found", colNames[ind])
@@ -226,12 +236,15 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 
 func (df *DFcore) Copy() *DFcore {
 	var cols []Column
-	save := df.current
-	for c := df.First(); c != nil; c = df.Next() {
+	//	save := df.current
+	//	for c := df.First(); c != nil; c = df.Next() {
+	//		cols = append(cols, c.Copy())
+	//	}
+	for c := range df.AllColumns() {
 		cols = append(cols, c.Copy())
 	}
 
-	df.current = save
+	//df.current = save
 	var outDF *DFcore
 
 	outDF, _ = NewDF(df.Fns(), cols,
@@ -281,11 +294,6 @@ func (df *DFcore) DropColumns(colNames ...string) error {
 	return nil
 }
 
-func (df *DFcore) First() Column {
-	df.current = df.head
-	return df.head.col
-}
-
 func (df *DFcore) Fns() Fns {
 	return df.appFuncs
 }
@@ -306,7 +314,7 @@ func (df *DFcore) KeepColumns(colNames ...string) error {
 		return fmt.Errorf("missing columns in KeepColumns")
 	}
 
-	for col := df.First(); col != nil; col = df.Next() {
+	for col := range df.AllColumns() {
 		if Has(col.Name(), colNames) {
 			continue
 		}
@@ -315,11 +323,21 @@ func (df *DFcore) KeepColumns(colNames ...string) error {
 			return e
 		}
 	}
+	/*
+		for col := df.First(); col != nil; col = df.Next() {
+			if Has(col.Name(), colNames) {
+				continue
+			}
+
+			if e := df.DropColumns(col.Name()); e != nil {
+				return e
+			}
+		}*/
 
 	return nil
 }
 
-func (df *DFcore) Next() Column {
+func (df *DFcore) NextXXX() Column {
 	if df.current.next == nil {
 		df.current = nil
 		return nil

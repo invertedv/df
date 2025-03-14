@@ -62,10 +62,7 @@ func signature(target [][]d.DataTypes, cols []d.Column) int {
 	for j := range len(target) {
 		ind := j
 		for k := range len(target[j]) {
-			var trg d.DataTypes
-			if col, ok := cols[k].(d.Column); ok {
-				trg = col.DataType()
-			}
+			trg := cols[k].DataType()
 
 			if trg == d.DTcategorical {
 				trg = d.DTint

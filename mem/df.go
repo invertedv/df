@@ -483,7 +483,11 @@ func (f *DF) Iter(reset bool) (row []any, err error) {
 		return nil, io.EOF
 	}
 
-	for c := f.First(); c != nil; c = f.Next() {
+	//	for c := f.First(); c != nil; c = f.Next() {
+	//		row = append(row, c.(*Col).Element(f.row))
+	//	}
+
+	for c := range f.AllColumns() {
 		row = append(row, c.(*Col).Element(f.row))
 	}
 
@@ -610,11 +614,18 @@ func (f *DF) Less(i, j int) bool {
 }
 
 func (f *DF) RowCount() int {
-	return f.First().Len()
+	return f.Column(f.ColumnNames()[0]).Len()
+//	return f.First().Len()
 }
 
 func (f *DF) SetParent() error {
-	for c := f.First(); c != nil; c = f.Next() {
+	//	for c := f.First(); c != nil; c = f.Next() {
+	//		if e := d.ColParent(f)(c); e != nil {
+	//			return e
+	//		}
+	//	}
+
+	for c := range f.AllColumns() {
 		if e := d.ColParent(f)(c); e != nil {
 			return e
 		}
@@ -648,7 +659,10 @@ func (f *DF) SourceQuery() string {
 
 func (f *DF) String() string {
 	var sx string
-	for c := f.First(); c != nil; c = f.Next() {
+	//	for c := f.First(); c != nil; c = f.Next() {
+	//		sx += c.String() + "\n"
+	//	}
+	for c := range f.AllColumns() {
 		sx += c.String() + "\n"
 	}
 
@@ -656,7 +670,10 @@ func (f *DF) String() string {
 }
 
 func (f *DF) Swap(i, j int) {
-	for h := f.First(); h != nil; h = f.Next() {
+//	for h := f.First(); h != nil; h = f.Next() {
+//		h.(*Col).Swap(i, j)
+//	}
+	for h:=range f.AllColumns(){
 		h.(*Col).Swap(i, j)
 	}
 }
@@ -694,7 +711,14 @@ func (f *DF) Where(condition string) (d.DF, error) {
 	dfNew := f.Copy()
 	i1 := indicator.(*Col)
 
-	for col := dfNew.First(); col != nil; col = dfNew.Next() {
+//	for col := dfNew.First(); col != nil; col = dfNew.Next() {
+//		cx := col.(*Col)
+//		cx.Vector = cx.Where(i1.Vector)
+//		if cx.Len() == 0 {
+//			return nil, fmt.Errorf("no data after applying where")
+//		}
+//	}
+	for col := range dfNew.AllColumns(){
 		cx := col.(*Col)
 		cx.Vector = cx.Where(i1.Vector)
 		if cx.Len() == 0 {

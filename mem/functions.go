@@ -460,7 +460,7 @@ func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	// if there is a SourceDF, get the data from there.
 	if df.SourceDF() != nil {
 		var col d.Column
-		name := inputs[0].(d.Column).Name()
+		name := inputs[0].Name()
 		if col = df.SourceDF().Column(name); col == nil {
 			return &d.FnReturn{Err: fmt.Errorf("no such column in sourceDF: %s", name)}
 		}
