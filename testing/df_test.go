@@ -215,9 +215,6 @@ func TestWhere(t *testing.T) {
 
 func TestAppendDF(t *testing.T) {
 	for _, which := range pkgs() {
-		if !strings.Contains(which, "mem"){
-			continue
-		}
 		dfx := loadData(which)
 		 e := d.Parse(dfx, "test :=k")
 		fmt.Println(dfx.ColumnNames())

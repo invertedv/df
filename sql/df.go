@@ -3,7 +3,6 @@ package sql
 import (
 	"database/sql"
 	"fmt"
-	"io"
 	"iter"
 	"maps"
 	"strings"
@@ -29,9 +28,6 @@ type DF struct {
 	groupBy string
 
 	*d.DFcore
-
-	rows *sql.Rows // used by Iter
-	row  []any
 }
 
 // ***************** DF - Create *****************
@@ -119,9 +115,6 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 		where:     "",
 		groupBy:   "",
 		DFcore:    dfc,
-
-		rows: nil,
-		row:  nil,
 	}
 
 	_ = d.DFdialect(dlct)(df)
@@ -509,36 +502,6 @@ func (f *DF) DropColumns(colNames ...string) error {
 
 func (f *DF) GroupBy() string {
 	return f.groupBy
-}
-
-func (f *DF) Iter(reset bool) (row []any, err error) {
-	if reset {
-		qry := f.MakeQuery()
-		var e error
-		f.rows, f.row, _, e = f.Dialect().Rows(qry)
-		if e != nil {
-			_ = f.rows.Close()
-			return nil, e
-		}
-	}
-
-	if ok := f.rows.Next(); !ok {
-		return nil, io.EOF
-	}
-
-	if ex := f.rows.Scan(f.row...); ex != nil {
-		_ = f.rows.Close()
-		return nil, io.EOF
-	}
-
-	// f.row elements are pointers to interface, remove the "pointer" part
-	newRow := make([]any, len(f.row))
-	for ind, x := range f.row {
-		var z any = *x.(*any)
-		newRow[ind] = z
-	}
-
-	return newRow, nil
 }
 
 func (f *DF) MakeQuery(colNames ...string) string {

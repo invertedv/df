@@ -153,9 +153,6 @@ func TestRowNumber(t *testing.T) {
 
 func TestIf(t *testing.T) {
 	for _, which := range pkgs() {
-		if !strings.Contains(which, "mem") {
-			continue
-		}
 		dfx := loadData(which)
 		e := d.Parse(dfx, "out:=if(y==-5,yy,y)")
 		assert.Nil(t, e)

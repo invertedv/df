@@ -537,7 +537,7 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 
 	// rh is the row number of the first row of right that matches the current row of left
 	rh := -1
-	// TODO: len(leftRow) != 0
+
 	for len(leftRow) > 0 && len(rightRow) > 0 {
 		if rowCompare(leftJoin, rightJoin, "eq") {
 			// append
