@@ -236,10 +236,6 @@ func (df *DFcore) ColumnTypes(colNames ...string) ([]DataTypes, error) {
 
 func (df *DFcore) Copy() *DFcore {
 	var cols []Column
-	//	save := df.current
-	//	for c := df.First(); c != nil; c = df.Next() {
-	//		cols = append(cols, c.Copy())
-	//	}
 	for c := range df.AllColumns() {
 		cols = append(cols, c.Copy())
 	}
@@ -323,16 +319,6 @@ func (df *DFcore) KeepColumns(colNames ...string) error {
 			return e
 		}
 	}
-	/*
-		for col := df.First(); col != nil; col = df.Next() {
-			if Has(col.Name(), colNames) {
-				continue
-			}
-
-			if e := df.DropColumns(col.Name()); e != nil {
-				return e
-			}
-		}*/
 
 	return nil
 }

@@ -259,7 +259,6 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 		return nil, fmt.Errorf("dataframes cannot be appended")
 	}
 
-	// for c := f.First(); c != nil; c = f.Next() {
 	for c := range f.AllColumns() {
 		var cNew d.Column
 		if cNew = dfNew.Column(c.Name()); cNew == nil {
@@ -553,7 +552,6 @@ func (f *DF) RowCount() int {
 }
 
 func (f *DF) SetParent() error {
-	//for c := f.First(); c != nil; c = f.Next() {
 	for c := range f.AllColumns() {
 		if e := d.ColParent(f)(c); e != nil {
 			return e
@@ -589,7 +587,6 @@ func (f *DF) SourceSQL() string {
 
 func (f *DF) String() string {
 	var sx string
-	// for c := f.First(); c != nil; c = f.Next() {
 	for c := range f.AllColumns() {
 		sx += c.String() + "\n"
 	}
