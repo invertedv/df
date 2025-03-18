@@ -407,7 +407,6 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, e4
 	}
 
-	// TODO: do I need this?
 	if e5 := tabl.Sort(true, cn); e5 != nil {
 		return nil, e5
 	}
@@ -510,6 +509,33 @@ func (f *DF) DropColumns(colNames ...string) error {
 
 func (f *DF) GroupBy() string {
 	return f.groupBy
+}
+
+func (f *DF) Interp(iDF d.DF, xSField, xIfield, yfield, outField string) (d.DF, error) {
+	var (
+		idf *DF
+		ok  bool
+	)
+	if idf, ok = iDF.(*DF); !ok {
+		return nil, fmt.Errorf("iDF argument to iterp is not *sql.DF")
+	}
+
+	// TODO: check for fields
+
+	sQry := f.MakeQuery()
+	iQry := idf.MakeQuery()
+
+	qry := f.Dialect().Interp(sQry, iQry, xSField, xIfield, yfield, outField)
+
+	var (
+		df *DF
+		e  error
+	)
+	if df, e = DBload(qry, f.Dialect(), f.Fns()...); e != nil {
+		return nil, e
+	}
+
+	return df, nil
 }
 
 func (f *DF) MakeQuery(colNames ...string) string {

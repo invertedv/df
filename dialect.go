@@ -41,6 +41,11 @@ var (
 	//go:embed skeletons/postgres/exists.txt
 	pgExists string
 
+	//go:embed skeletons/clickhouse/interp.txt
+	chInterp string
+	//go:embed skeletons/postgres/interp.txt
+	pgInterp string
+
 	//go:embed skeletons/clickhouse/insert.txt
 	chInsert string
 	//go:embed skeletons/postgres/insert.txt
@@ -71,6 +76,7 @@ type Dialect struct {
 
 	create string
 	insert string
+	interp string
 	dropIf string
 	exists string
 	seq    string
@@ -103,12 +109,12 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 	switch d.dialect {
 	case ch:
 		d.create, d.fields, d.dropIf, d.insert, d.exists = chCreate, chFields, chDropIf, chInsert, chExists
-		d.seq = chSeq
+		d.seq, d.interp = chSeq, chInterp
 		types = chTypes
 		d.functions = LoadFunctions(chFunctions)
 	case pg:
 		d.create, d.fields, d.dropIf, d.insert, d.exists = pgCreate, pgFields, pgDropIf, pgInsert, pgExists
-		d.seq = pgSeq
+		d.seq, d.interp = pgSeq, pgInterp
 		types = pgTypes
 		d.functions = LoadFunctions(pgFunctions)
 	default:
@@ -402,6 +408,18 @@ func (d *Dialect) InsertValues(tableName string, values []byte) error {
 	_, e := d.db.Exec(qry)
 
 	return e
+}
+
+// TODO: make yField a slice!
+func (d *Dialect) Interp(sourceSQL, interpSQL, xSfield, xIfield, yField, outField string) string {
+	qry := strings.ReplaceAll(d.interp, "?Source", sourceSQL)
+	qry = strings.ReplaceAll(qry, "?Interp", interpSQL)
+	qry = strings.ReplaceAll(qry, "?XSfield", xSfield)
+	qry = strings.ReplaceAll(qry, "?XIfield", xIfield)
+	qry = strings.ReplaceAll(qry, "?Yfield", yField)
+	qry = strings.ReplaceAll(qry, "?OutField", outField)
+
+	return qry
 }
 
 func (d *Dialect) IterSave(tableName string, df DF) error {

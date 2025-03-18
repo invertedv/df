@@ -13,6 +13,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestInterp(t *testing.T) {
+	for _, which := range pkgs() {
+		if !strings.Contains(which, "post") {
+			continue
+		}
+
+		dfx := loadData(which)
+		dfI, e := s.NewDFseq(nil, dfx.Dialect(), 15)
+		assert.Nil(t, e)
+		e = d.Parse(dfI, "kx := float(seq) + 0.5")
+		assert.Nil(t, e)
+		dfS := dfx.(*s.DF)
+//		qry := dfx.Dialect().Interp(dfS.MakeQuery(), dfI.MakeQuery(), "k", "kx", "x", "xhat")
+//		fmt.Println(qry)
+
+		dfOut, e1 := dfS.Interp(dfI, "k", "kx", "x", "xhat")
+		assert.Nil(t, e1)
+		fmt.Println(dfOut.ColumnNames())
+		fmt.Println(dfOut.Column("seq").Data().AsAny())
+		fmt.Println(dfOut.Column("xhat").Data().AsAny())
+	}
+}
+
 func TestNull(t *testing.T) {
 	defInt := 100
 	dfy := loadFile("d2.csv", d.FileDefaultInt(defInt))
@@ -99,9 +122,9 @@ func TestFileSave(t *testing.T) {
 
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		 e0 := d.Parse(dfx, "a := 2*y")
+		e0 := d.Parse(dfx, "a := 2*y")
 		assert.Nil(t, e0)
-		 e3 := d.Parse(dfx, "b := 2*a")
+		e3 := d.Parse(dfx, "b := 2*a")
 		assert.Nil(t, e3)
 		f1, _ := d.NewFiles()
 
@@ -124,7 +147,7 @@ func TestFileSave(t *testing.T) {
 func TestParse_Join(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		 e := d.Parse(dfx, "y1:=2*k")
+		e := d.Parse(dfx, "y1:=2*k")
 		assert.Nil(t, e)
 		dfy := dfx.Copy()
 		_ = dfy.Column("x").Rename("xx")
@@ -216,13 +239,13 @@ func TestWhere(t *testing.T) {
 func TestAppendDF(t *testing.T) {
 	for _, which := range pkgs() {
 		dfx := loadData(which)
-		 e := d.Parse(dfx, "test :=k")
+		e := d.Parse(dfx, "test :=k")
 		fmt.Println(dfx.ColumnNames())
 		assert.Nil(t, e)
 		dfy := loadData(which)
 		_, e1 := dfx.AppendDF(dfy)
 		assert.NotNil(t, e1)
-		 e2 := d.Parse(dfy, "test :=2*k")
+		e2 := d.Parse(dfy, "test :=2*k")
 		assert.Nil(t, e2)
 
 		dfOut, e3 := dfx.AppendDF(dfy)
@@ -231,7 +254,7 @@ func TestAppendDF(t *testing.T) {
 		exp := dfx.RowCount() + dfy.RowCount()
 		assert.Equal(t, exp, dfOut.RowCount())
 		assert.Equal(t,
-			[]int{12,10,8,6,6,5,4,4,3,2,2,1},
+			[]int{12, 10, 8, 6, 6, 5, 4, 4, 3, 2, 2, 1},
 			dfOut.Column("test").Data().AsAny())
 	}
 }

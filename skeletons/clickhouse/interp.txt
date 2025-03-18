@@ -1,0 +1,29 @@
+WITH source AS (
+    ?Source
+),
+interp AS (
+    ?Interp
+),
+e AS (
+SELECT
+    ?XSfield AS k0,
+    max(?XSfield) OVER (ORDER BY ?XSfield ROWS BETWEEN CURRENT ROW and 1 FOLLOWING ) AS k1,
+    max(?Yfield) OVER (ORDER BY ?XSfield ROWS BETWEEN CURRENT ROW AND CURRENT ROW) AS x0,
+    max(?Yfield) OVER (ORDER BY ?XSfield ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING) AS x1,
+    count(*) OVER (ORDER BY ?XSfield ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS c
+FROM source
+  )
+SELECT
+  d.*,
+  CASE
+    WHEN c = 2 THEN (k1-?XIfield)/(k1-k0) * x0 + (?XIfield-k0)/(k1-k0) * x1
+    ELSE x0
+  END AS ?OutField
+FROM
+  e
+JOIN
+  interp AS d
+ON
+  TRUE
+WHERE k1!=k0 AND ((?XIfield - k0)/(k1-k0) >=0 AND (?XIfield - k0)/(k1-k0) < 1)
+  OR (?XIfield=k1 AND c=1)

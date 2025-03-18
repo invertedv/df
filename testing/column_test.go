@@ -250,11 +250,12 @@ func TestParser(t *testing.T) {
 //			{"var(x)", 0, 4.175},
 
 // TODO: check for referencing elements directly not through method
-// TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
 // TODO: revisit sourceDF relative to mem/By
 // TODO: fix stringers
 
-// TODO: check interface arguments are actually the correct type
+// TODO: how would you do interp for sql?
+// TODO: optional name to DFSeq for the column
+
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs() {
