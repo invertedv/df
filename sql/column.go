@@ -19,11 +19,13 @@ type Col struct {
 // ***************** Col - Create *****************
 
 func NewColSQL(dt d.DataTypes, dlct *d.Dialect, sqlx string, opts ...d.ColOpt) (*Col, error) {
+	opts = append(opts, d.ColDataType(dt))
+
 	var (
 		cc *d.ColCore
 		e  error
 	)
-	if cc, e = d.NewColCore(dt, opts...); e != nil {
+	if cc, e = d.NewColCore(opts...); e != nil {
 		return nil, e
 	}
 

@@ -94,7 +94,7 @@ func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) (*DF, error) {
 		data[ind] = ind
 	}
 
-	col, _ := NewCol(data, d.DTint, d.ColName("seq"))
+	col, _ := NewCol(data, d.ColName("seq"))
 
 	df, _ := NewDFcol(funcs, []*Col{col})
 
@@ -123,7 +123,7 @@ func DBLoad(qry string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	for ind := range len(columnTypes) {
 		var col *Col
 
-		if col, e = NewCol(memData[ind], columnTypes[ind], d.ColName(columnNames[ind])); e != nil {
+		if col, e = NewCol(memData[ind],  d.ColName(columnNames[ind])); e != nil {
 			return nil, e
 		}
 
@@ -162,7 +162,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 	for ind := range len(f.FieldNames()) {
 		var col *Col
 
-		if col, e = NewCol(memData[ind], f.FieldTypes()[ind], d.ColName(f.FieldNames()[ind])); e != nil {
+		if col, e = NewCol(memData[ind],  d.ColName(f.FieldNames()[ind])); e != nil {
 			return nil, e
 		}
 
@@ -216,7 +216,7 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 			v.SetAny(val, ind)
 		}
 
-		colx, _ = NewCol(v, col.DataType(), d.ColName(col.Name()))
+		colx, _ = NewCol(v,  d.ColName(col.Name()))
 	}
 
 	if colx == nil {
@@ -337,7 +337,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 			e3  error
 		)
 
-		if col, e3 = NewCol(outVecs[ind], d.DTany, d.ColName(names[ind])); e3 != nil {
+		if col, e3 = NewCol(outVecs[ind],  d.ColName(names[ind])); e3 != nil {
 			return nil, e3
 		}
 
@@ -449,7 +449,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		e      error
 	)
 
-	if outCol, e = NewCol(vec, vec.VectorType()); e != nil {
+	if outCol, e = NewCol(vec); e != nil {
 		return nil, e
 	}
 
@@ -871,7 +871,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 				col *Col
 				e1  error
 			)
-			if col, e1 = NewCol(v.cols[ind], ct[ind], d.ColName(cn[ind])); e1 != nil {
+			if col, e1 = NewCol(v.cols[ind],  d.ColName(cn[ind])); e1 != nil {
 				return nil, e1
 			}
 
@@ -1002,7 +1002,7 @@ func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 			col *Col
 			e0  error
 		)
-		if col, e0 = NewCol(data, d.DTany, d.ColName(cn)); e0 != nil {
+		if col, e0 = NewCol(data, d.ColName(cn)); e0 != nil {
 			panic(e0)
 		}
 

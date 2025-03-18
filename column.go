@@ -43,11 +43,11 @@ type ColCore struct {
 	parent DF
 }
 
-func NewColCore(dt DataTypes, ops ...ColOpt) (*ColCore, error) {
-	c := &ColCore{dt: dt}
+func NewColCore(opts ...ColOpt) (*ColCore, error) {
+	c := &ColCore{}
 
-	for _, op := range ops {
-		if e := op(c); e != nil {
+	for _, opt := range opts {
+		if e := opt(c); e != nil {
 			return nil, e
 		}
 	}
@@ -166,7 +166,7 @@ func (c *ColCore) Copy() *ColCore {
 	}
 
 	// don't copy parent
-	cx, _ := NewColCore(c.DataType(),
+	cx, _ := NewColCore(ColDataType(c.DataType()),
 		ColDialect(c.Dialect()),
 		ColName(c.Name()),
 		colDependencies(c.Dependencies()),

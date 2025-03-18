@@ -14,17 +14,20 @@ type Col struct {
 	*d.ColCore
 }
 
-func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
+func NewCol(data any, opts ...d.ColOpt) (*Col, error) {
 	var col *Col
 	if v, ok := data.(*d.Vector); ok {
-		cx, _ := d.NewColCore(v.VectorType())
+		cx, _ := d.NewColCore(d.ColDataType(v.VectorType()))
 		col = &Col{
 			Vector:  v,
 			ColCore: cx,
 		}
-	}
+	} else {
+		var dt d.DataTypes
+		if dt = d.WhatAmI(data); dt == d.DTunknown {
+			return nil, fmt.Errorf("unsupported data type")
+		}
 
-	if col == nil {
 		var (
 			v *d.Vector
 			e error
@@ -33,7 +36,7 @@ func NewCol(data any, dt d.DataTypes, opts ...d.ColOpt) (*Col, error) {
 			return nil, e
 		}
 
-		cy, _ := d.NewColCore(dt)
+		cy, _ := d.NewColCore(d.ColDataType(dt))
 		col = &Col{
 			Vector:  v,
 			ColCore: cy,

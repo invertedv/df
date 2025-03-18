@@ -56,7 +56,9 @@ func NewScalar(val any, opts ...ColOpt) (*Scalar, error) {
 		cc *ColCore
 		e  error
 	)
-	if cc, e = NewColCore(dt, opts...); e != nil {
+	opts = append(opts, ColDataType(dt))
+
+	if cc, e = NewColCore(opts...); e != nil {
 		return nil, e
 	}
 

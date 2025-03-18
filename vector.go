@@ -198,10 +198,6 @@ func (v *Vector) Data() *Vector {
 	return v
 }
 
-func (v *Vector) Vtype() DataTypes {
-	return v.dt
-}
-
 func (v *Vector) Element(indx int) any {
 	// handles ops like x/2 where x is a vector
 	if v.Len() == 1 {

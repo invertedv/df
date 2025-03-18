@@ -95,7 +95,7 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 		cc *d.ColCore
 		e  error
 	)
-	if cc, e = d.NewColCore(d.DTint, d.ColName("seq")); e != nil {
+	if cc, e = d.NewColCore(d.ColDataType(d.DTint), d.ColName("seq")); e != nil {
 		return nil, e
 	}
 
@@ -147,7 +147,7 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 			cc *d.ColCore
 			e1 error
 		)
-		if cc, e1 = d.NewColCore(colTypes[ind], d.ColName(colNames[ind])); e1 != nil {
+		if cc, e1 = d.NewColCore(d.ColDataType(colTypes[ind]), d.ColName(colNames[ind])); e1 != nil {
 			return nil, e1
 		}
 

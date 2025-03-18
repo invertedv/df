@@ -81,13 +81,13 @@ func TestRandom(t *testing.T) {
 	vz, _ := d.NewVector(z, d.DTfloat)
 	vs, _ := d.NewVector(s, d.DTstring)
 	//	vdt := d.NewVector(dt, 0)
-	colx, ex := m.NewCol(vx, vx.VectorType(), d.ColName("x"))
+	colx, ex := m.NewCol(vx,  d.ColName("x"))
 	assert.Nil(t, ex)
-	coly, ey := m.NewCol(vy, vy.VectorType(), d.ColName("y"))
+	coly, ey := m.NewCol(vy,  d.ColName("y"))
 	assert.Nil(t, ey)
-	colz, ez := m.NewCol(vz, vz.VectorType(), d.ColName("z"))
+	colz, ez := m.NewCol(vz,  d.ColName("z"))
 	assert.Nil(t, ez)
-	cols, es := m.NewCol(vs, vs.VectorType(), d.ColName("s"))
+	cols, es := m.NewCol(vs,  d.ColName("s"))
 	assert.Nil(t, es)
 	//	coldt, edt := m.NewCol(vdt, d.ColName("dt"))
 	//	assert.Nil(t, edt)
@@ -252,7 +252,6 @@ func TestParser(t *testing.T) {
 // TODO: check for referencing elements directly not through method
 // TODO: in mem there's some weirdness in NewCol if data is a Vector -- don't need datatype then
 // TODO: revisit sourceDF relative to mem/By
-// TODO: think about mem.NewCol when feeding a Vector
 // TODO: fix stringers
 
 // TODO: check interface arguments are actually the correct type
