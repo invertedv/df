@@ -536,7 +536,7 @@ func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
 				}
 			}
 
-			assign(memData[ind], z, indx)
+			d.assign(memData[ind], z, indx)
 		}
 
 		indx++
@@ -795,71 +795,142 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 }
 
 // assign assigns the indx vector of v to be val
-func assign(v *Vector, val any, indx int) {
-	switch x := val.(type) {
-	case float32:
-		_ = v.SetFloat(float64(x), indx)
-	case float64:
-		_ = v.SetFloat(x, indx)
-	case *float32:
-		_ = v.SetFloat(float64(*x), indx)
-	case *float64:
-		_ = v.SetFloat(*x, indx)
-	case *uint:
-		_ = v.SetInt(int(*x), indx)
-	case *uint8:
-		_ = v.SetInt(int(*x), indx)
-	case *uint16:
-		_ = v.SetInt(int(*x), indx)
-	case *uint32:
-		_ = v.SetInt(int(*x), indx)
-	case *uint64:
-		_ = v.SetInt(int(*x), indx)
-
-	case uint:
-		_ = v.SetInt(int(x), indx)
-	case uint8:
-		_ = v.SetInt(int(x), indx)
-	case uint16:
-		_ = v.SetInt(int(x), indx)
-	case uint32:
-		_ = v.SetInt(int(x), indx)
-	case uint64:
-		_ = v.SetInt(int(x), indx)
-
-	case *int:
-		_ = v.SetInt(int(*x), indx)
-	case *int8:
-		_ = v.SetInt(int(*x), indx)
-	case *int16:
-		_ = v.SetInt(int(*x), indx)
-	case *int32:
-		_ = v.SetInt(int(*x), indx)
-	case *int64:
-		_ = v.SetInt(int(*x), indx)
-
-	case int:
-		_ = v.SetInt(int(x), indx)
-	case int8:
-		_ = v.SetInt(int(x), indx)
-	case int16:
-		_ = v.SetInt(int(x), indx)
-	case int32:
-		_ = v.SetInt(int(x), indx)
-	case int64:
-		_ = v.SetInt(int(x), indx)
-
-	case string:
-		_ = v.SetString(x, indx)
-	case *string:
-		_ = v.SetString(*x, indx)
-	case time.Time:
-		_ = v.SetDate(x, indx)
-	case *time.Time:
-		_ = v.SetDate(*x, indx)
-	default:
-		panic(fmt.Errorf("unsupported data type in dialect.Load"))
+func (d *Dialect) assign(v *Vector, val any, indx int) {
+	var e error
+	switch v.DT() {
+	case DTfloat:
+		e = v.SetFloat(d.Convert(val).(float64), indx)
+	case DTint:
+		e = v.SetInt(d.Convert(val).(int), indx)
+	case DTstring:
+		e = v.SetString(d.Convert(val).(string), indx)
+	case DTdate:
+		e = v.SetDate(d.Convert(val).(time.Time), indx)
 	}
+
+	if e != nil {
+		panic(e)
+	}
+
+	/*
+	   switch x := val.(type) {
+	   case float32:
+
+	   	_ = v.SetFloat(float64(x), indx)
+
+	   case float64:
+
+	   	_ = v.SetFloat(x, indx)
+
+	   case *float32:
+
+	   	_ = v.SetFloat(float64(*x), indx)
+
+	   case *float64:
+
+	   	_ = v.SetFloat(*x, indx)
+
+	   case *uint:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *uint8:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *uint16:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *uint32:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *uint64:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case uint:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case uint8:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case uint16:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case uint32:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case uint64:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case *int:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *int8:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *int16:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *int32:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case *int64:
+
+	   	_ = v.SetInt(int(*x), indx)
+
+	   case int:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case int8:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case int16:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case int32:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case int64:
+
+	   	_ = v.SetInt(int(x), indx)
+
+	   case string:
+
+	   	_ = v.SetString(x, indx)
+
+	   case *string:
+
+	   	_ = v.SetString(*x, indx)
+
+	   case time.Time:
+
+	   	_ = v.SetDate(x, indx)
+
+	   case *time.Time:
+
+	   	_ = v.SetDate(*x, indx)
+
+	   default:
+
+	   		panic(fmt.Errorf("unsupported data type in dialect.Load"))
+	   	}
+	*/
 }
 
 // utc changes the entries of date slices to be midnight UTC
@@ -874,5 +945,73 @@ func utc(v *Vector) {
 
 	for rx := 0; rx < v.Len(); rx++ {
 		col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
+	}
+}
+
+// assign assigns the indx vector of v to be val
+func (d *Dialect) Convert(val any) any {
+	switch x := val.(type) {
+	case float32:
+		return float64(x)
+	case float64:
+		return x
+	case *float32:
+		return float64(*x)
+	case *float64:
+		return *x
+	case *uint:
+		return int(*x)
+	case *uint8:
+		return int(*x)
+	case *uint16:
+		return int(*x)
+	case *uint32:
+		return int(*x)
+	case *uint64:
+		return int(*x)
+
+	case uint:
+		return int(x)
+	case uint8:
+		return int(x)
+	case uint16:
+		return int(x)
+	case uint32:
+		return int(x)
+	case uint64:
+		return int(x)
+
+	case *int:
+		return int(*x)
+	case *int8:
+		return int(*x)
+	case *int16:
+		return int(*x)
+	case *int32:
+		return int(*x)
+	case *int64:
+		return int(*x)
+
+	case int:
+		return int(x)
+	case int8:
+		return int(x)
+	case int16:
+		return int(x)
+	case int32:
+		return int(x)
+	case int64:
+		return int(x)
+
+	case string:
+		return x
+	case *string:
+		return *x
+	case time.Time:
+		return x
+	case *time.Time:
+		return *x
+	default:
+		panic(fmt.Errorf("unsupported data type in dialect.Load"))
 	}
 }

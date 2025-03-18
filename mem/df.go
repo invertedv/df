@@ -675,12 +675,29 @@ func (f *DF) SourceQuery() string {
 }
 
 func (f *DF) String() string {
-	var sx string
-	for c := range f.AllColumns() {
-		sx += c.String() + "\n"
+	// TODO : fix this
+	// TODO: generates a name collision if try to print a table
+	outs := strings.Join(f.ColumnNames(), " ") + "\n"
+
+	for ind := range min(10, f.RowCount()) {
+		row := f.Row(ind)
+		var r []string
+		for ind1 := range len(row) {
+			r = append(r, fmt.Sprintf("%v", row[ind1]))
+		}
+
+		outs = outs + "\n" + strings.Join(r, " ")
 	}
 
-	return sx
+	return outs
+
+	/*	var sx string
+		for c := range f.AllColumns() {
+			sx += c.String() + "\n"
+		}
+
+		return sx
+	*/
 }
 
 func (f *DF) Swap(i, j int) {

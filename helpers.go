@@ -92,7 +92,7 @@ func ToDataType(x any, dt DataTypes) (any, bool) {
 // ***************** Not exported *****************
 
 var DateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
-	"Jan 2 2006", "January 2 2006", "2006-01-02"}
+	"Jan 2 2006", "January 2 2006", "2006-01-02", "01/02/06"}
 
 // *********** Conversions ***********
 

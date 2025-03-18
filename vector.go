@@ -120,7 +120,7 @@ func (v *Vector) AsString() ([]string, error) {
 }
 
 func (v *Vector) Coerce(to DataTypes) (*Vector, error) {
-	for  range v.Len() {
+	for range v.Len() {
 		switch to {
 		case DTfloat:
 			var (
@@ -196,6 +196,10 @@ func (v *Vector) Copy() *Vector {
 
 func (v *Vector) Data() *Vector {
 	return v
+}
+
+func (v *Vector) DT() DataTypes {
+	return v.dt
 }
 
 func (v *Vector) Element(indx int) any {

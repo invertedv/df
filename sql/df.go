@@ -206,7 +206,7 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 			row := make([]any, len(row2Read))
 			for ind, x := range row2Read {
 				var z any = *x.(*any)
-				row[ind] = z
+				row[ind] = f.Dialect().Convert(z)
 			}
 
 			if !yield(rowNum, row) {
