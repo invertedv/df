@@ -198,7 +198,7 @@ func (v *Vector) Data() *Vector {
 	return v
 }
 
-func (v *Vector) DT() DataTypes {
+func (v *Vector) Vtype() DataTypes {
 	return v.dt
 }
 

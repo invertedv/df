@@ -797,7 +797,7 @@ func (d *Dialect) dbtype(dt DataTypes) (string, error) {
 // assign assigns the indx vector of v to be val
 func (d *Dialect) assign(v *Vector, val any, indx int) {
 	var e error
-	switch v.DT() {
+	switch v.Vtype() {
 	case DTfloat:
 		e = v.SetFloat(d.Convert(val).(float64), indx)
 	case DTint:
