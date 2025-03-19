@@ -22,7 +22,7 @@ var (
 )
 
 func TestCast(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := d.Parse(dfx, "test:=date('2020-12-31')")
 		assert.Nil(t, e)
@@ -37,7 +37,7 @@ func TestCast(t *testing.T) {
 }
 
 func TestTemp(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(pg + ",d1")
 		fmt.Println("WHICH ", which)
 		for row, r := range dfx.AllRows() {
@@ -120,7 +120,7 @@ func TestRandom(t *testing.T) {
 }
 
 func TestRename(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 
 		dfy := dfx.Copy()
@@ -143,7 +143,7 @@ func TestRename(t *testing.T) {
 }
 
 func TestRowNumber(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := d.Parse(dfx, "rn:=rowNumber()")
 		assert.Nil(t, e)
@@ -152,7 +152,7 @@ func TestRowNumber(t *testing.T) {
 }
 
 func TestIf(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := d.Parse(dfx, "out:=if(y==-5,yy,y)")
 		assert.Nil(t, e)
@@ -187,7 +187,7 @@ func TestIf(t *testing.T) {
 }
 
 func TestParser(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
@@ -256,9 +256,11 @@ func TestParser(t *testing.T) {
 // TODO: how would you do interp for sql?
 // TODO: optional name to DFSeq for the column
 
+// TODO: in joining/interp in *sql, need to check that db's are the same
+
 
 func TestToCat(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e6 := d.Parse(dfx, "fuzz := 2")
 		assert.Nil(t, e6)
@@ -309,7 +311,7 @@ func TestToCat(t *testing.T) {
 }
 
 func TestApplyCat(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 
 		e := d.Parse(dfx, "caty:=cat(y)")

@@ -123,7 +123,7 @@ func DBLoad(qry string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	for ind := range len(columnTypes) {
 		var col *Col
 
-		if col, e = NewCol(memData[ind],  d.ColName(columnNames[ind])); e != nil {
+		if col, e = NewCol(memData[ind], d.ColName(columnNames[ind])); e != nil {
 			return nil, e
 		}
 
@@ -162,7 +162,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 	for ind := range len(f.FieldNames()) {
 		var col *Col
 
-		if col, e = NewCol(memData[ind],  d.ColName(f.FieldNames()[ind])); e != nil {
+		if col, e = NewCol(memData[ind], d.ColName(f.FieldNames()[ind])); e != nil {
 			return nil, e
 		}
 
@@ -216,7 +216,7 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 			v.SetAny(val, ind)
 		}
 
-		colx, _ = NewCol(v,  d.ColName(col.Name()))
+		colx, _ = NewCol(v, d.ColName(col.Name()))
 	}
 
 	if colx == nil {
@@ -280,10 +280,6 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 			return nil, fmt.Errorf("missing column %s in By", cName)
 		}
 
-		if col.DataType() == d.DTfloat {
-			return nil, fmt.Errorf("cannot group by float column %s", col.Name())
-		}
-
 		gCol = append(gCol, col.(*Col))
 		outVecs = append(outVecs, d.MakeVector(col.DataType(), 0))
 	}
@@ -337,7 +333,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 			e3  error
 		)
 
-		if col, e3 = NewCol(outVecs[ind],  d.ColName(names[ind])); e3 != nil {
+		if col, e3 = NewCol(outVecs[ind], d.ColName(names[ind])); e3 != nil {
 			return nil, e3
 		}
 
@@ -487,6 +483,135 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 			}
 		}
 	}
+}
+
+// allow for repeats in x?
+func findIndx(x []float64, xLoc float64, indStart int) int {
+	if indStart >= len(x) {
+		return len(x)
+	}
+
+	indStart = max(0, indStart)
+	if xLoc < x[indStart] {
+		return -1
+	}
+
+	if xLoc > x[len(x)-1] {
+		return len(x)
+	}
+
+	for ind := indStart; ind < len(x)-1; ind++ {
+		if xLoc >= x[ind] && xLoc <= x[ind+1] {
+			return ind
+		}
+	}
+
+	return len(x) - 1
+}
+
+func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, error) {
+	var (
+		idf *DF
+		ok  bool
+	)
+	if idf, ok = iDF.(*DF); !ok {
+		return nil, fmt.Errorf("iDF argument to iterp is not *mem.DF")
+	}
+
+	if c := f.Column(xSfield); c == nil || c.DataType() != d.DTfloat {
+		return nil, fmt.Errorf("invalid source X in Interp")
+	}
+
+	if c := f.Column(yfield); c == nil || c.DataType() != d.DTfloat {
+		return nil, fmt.Errorf("invalid source Y in Interp")
+	}
+
+	if c := idf.Column(xIfield); c == nil || c.DataType() != d.DTfloat {
+		return nil, fmt.Errorf("invalid interp X in Interp")
+	}
+
+	var (
+		favg d.DF
+		e    error
+	)
+	if favg, e = f.By(xSfield, "y:=mean("+yfield+")"); e != nil {
+		return nil, e
+	}
+
+	if e := favg.Sort(true, xSfield); e != nil {
+		return nil, e
+	}
+
+	if e := idf.Sort(true, xIfield); e != nil {
+		return nil, e
+	}
+
+	xI := idf.Column(xIfield).Data().AsAny().([]float64)
+	xS := favg.Column(xSfield).Data().AsAny().([]float64)
+	yS := favg.Column("y").Data().AsAny().([]float64)
+	yOut := make([]float64, len(xI))
+	iOut := make([]int, len(xI))
+
+	indSource := 0
+	for ind := range len(xI) {
+		indSource = findIndx(xS, xI[ind], indSource)
+		// out of range
+		if indSource < 0 || indSource == len(xS) {
+			continue
+		}
+
+		// max element
+		if ind == len(xI)-1 {
+			yOut[ind] = xS[indSource]
+			iOut[ind] = 1
+			continue
+		}
+
+		var width float64
+		if width = (xS[indSource+1] - xS[indSource]); width == 0 {
+			continue
+		}
+
+		w := (xS[indSource+1] - xI[ind]) / width
+		yOut[ind] = w*yS[indSource] + (1-w)*yS[indSource+1]
+		iOut[ind] = 1
+	}
+
+	var (
+		colX, colI *Col
+		eX, eI     error
+	)
+
+	if colX, eX = NewCol(yOut, d.ColName(outField), d.ColParent(idf)); eX != nil {
+		return nil, eX
+	}
+
+	iCN := outField + "IndOK"
+	if colI, eI = NewCol(iOut, d.ColName(iCN), d.ColParent(idf)); eI != nil {
+		return nil, eI
+	}
+
+	if e := idf.AppendColumn(colX, false); e != nil {
+		return nil, e
+	}
+
+	if e := idf.AppendColumn(colI, false); e != nil {
+		return nil, e
+	}
+
+	var (
+		dfOut d.DF
+		eOut  error
+	)
+	if dfOut, eOut = idf.Where(iCN + "==1"); eOut != nil {
+		return nil, eOut
+	}
+
+	if ed := dfOut.DropColumns(iCN); ed != nil {
+		return nil, ed
+	}
+
+	return dfOut, nil
 }
 
 func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
@@ -871,7 +996,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 				col *Col
 				e1  error
 			)
-			if col, e1 = NewCol(v.cols[ind],  d.ColName(cn[ind])); e1 != nil {
+			if col, e1 = NewCol(v.cols[ind], d.ColName(cn[ind])); e1 != nil {
 				return nil, e1
 			}
 

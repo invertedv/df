@@ -350,12 +350,6 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	}
 	_ = d.DFsetSourceDF(f)(dfOut)
 
-	for _, cn := range dfOut.ColumnNames() {
-		if dfOut.Column(cn).DataType() == d.DTfloat {
-			return nil, fmt.Errorf("cannot group by float column %s", cn)
-		}
-	}
-
 	dfOut.groupBy = groupBy
 
 	for _, fn := range fns {
@@ -511,7 +505,7 @@ func (f *DF) GroupBy() string {
 	return f.groupBy
 }
 
-func (f *DF) Interp(iDF d.DF, xSField, xIfield, yfield, outField string) (d.DF, error) {
+func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, error) {
 	var (
 		idf *DF
 		ok  bool
@@ -520,12 +514,39 @@ func (f *DF) Interp(iDF d.DF, xSField, xIfield, yfield, outField string) (d.DF, 
 		return nil, fmt.Errorf("iDF argument to iterp is not *sql.DF")
 	}
 
-	// TODO: check for fields
+	if c := f.Column(xSfield); c == nil || c.DataType() != d.DTfloat {
+		return nil, fmt.Errorf("invalid source X in Interp")
+	}
 
-	sQry := f.MakeQuery()
+	if c := f.Column(yfield); c == nil || c.DataType() != d.DTfloat {
+		return nil, fmt.Errorf("invalid source Y in Interp")
+	}
+
+	if c := idf.Column(xIfield); c == nil || c.DataType() != d.DTfloat {
+		return nil, fmt.Errorf("invalid interp X in Interp")
+	}
+
+	var (
+		favg d.DF
+		eavg   error
+	)
+	fld := f.Dialect().WithName()
+	if favg, eavg = f.By(xSfield, fld+":=mean("+yfield+")"); eavg != nil {
+		return nil, eavg
+	}
+
+	if es := favg.Sort(true, xSfield); es != nil {
+		return nil, es
+	}
+
+	if es := idf.Sort(true, xIfield); es != nil {
+		return nil, es
+	}
+
+	sQry := favg.(*DF).MakeQuery()
 	iQry := idf.MakeQuery()
 
-	qry := f.Dialect().Interp(sQry, iQry, xSField, xIfield, yfield, outField)
+	qry := f.Dialect().Interp(sQry, iQry, xSfield, xIfield, fld, outField)
 
 	var (
 		df *DF

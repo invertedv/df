@@ -36,14 +36,11 @@ const (
 //   - pgTemp - name of Postgres temp table to use in testing
 
 // list of packages to test
-func pkgs() []string {
+func pkgs(src string) []string {
 	dbs := []string{pg, mem, ch}
-	srcs := strings.Split(sources, ",")
 	var choices []string
 	for _, db := range dbs {
-		for _, src := range srcs {
-			choices = append(choices, db+","+src)
-		}
+		choices = append(choices, db+","+src)
 	}
 
 	return choices

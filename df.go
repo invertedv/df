@@ -14,7 +14,7 @@ type DF interface {
 	By(groupBy string, fns ...string) (DF, error)
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 	Copy() DF
-	//	Iter(reset bool) (row []any, err error)
+	Interp(iDF DF, xSfield, xIfield, yfield, outField string) (DF, error)
 	Join(df DF, joinOn string) (DF, error)
 	RowCount() int
 	SetParent() error

@@ -13,26 +13,42 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: call to NewDFseq not the same between mem and sql
 func TestInterp(t *testing.T) {
-	for _, which := range pkgs() {
-		if !strings.Contains(which, "post") {
-			continue
-		}
+	for _, which := range pkgs("d1") {
+		//		if !strings.Contains(which, "click") {
+		//			continue
+		//		}
 
 		dfx := loadData(which)
-		dfI, e := s.NewDFseq(nil, dfx.Dialect(), 15)
-		assert.Nil(t, e)
-		e = d.Parse(dfI, "kx := float(seq) + 0.5")
-		assert.Nil(t, e)
-		dfS := dfx.(*s.DF)
-//		qry := dfx.Dialect().Interp(dfS.MakeQuery(), dfI.MakeQuery(), "k", "kx", "x", "xhat")
-//		fmt.Println(qry)
+		var (
+			dfI d.DF
+			e   error
+		)
+		if strings.Contains(which, "mem") {
+			dfI, e = m.NewDFseq(nil, 15)
 
-		dfOut, e1 := dfS.Interp(dfI, "k", "kx", "x", "xhat")
+		} else {
+			dfI, e = s.NewDFseq(nil, dfx.Dialect(), 15)
+		}
+		assert.Nil(t, e)
+
+		e = d.Parse(dfx, "kk := float(y)")
+		assert.Nil(t, e)
+		e = d.Parse(dfI, "kx := float(seq) ")
+		assert.Nil(t, e)
+
+		dfOut, e1 := dfx.Interp(dfI, "kk", "kx", "x", "xhat")
 		assert.Nil(t, e1)
+		fmt.Println(which)
 		fmt.Println(dfOut.ColumnNames())
 		fmt.Println(dfOut.Column("seq").Data().AsAny())
 		fmt.Println(dfOut.Column("xhat").Data().AsAny())
+		exp := []float64{0.08333333333333337, 0.5, 1, 1.5, 2, 3.5, 3}
+		act := dfOut.Column("xhat").Data().AsAny().([]float64)
+		for ind, xexp := range exp {
+			assert.InEpsilon(t, xexp, act[ind], .00001)
+		}
 	}
 }
 
@@ -52,7 +68,7 @@ func TestNull(t *testing.T) {
 
 func TestString(t *testing.T) {
 	var s []string
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		s = append(s, dfx.Column("x").String())
 		fmt.Println(which)
@@ -64,7 +80,7 @@ func TestString(t *testing.T) {
 }
 
 func TestSeq(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		var (
 			df d.DF
@@ -91,7 +107,7 @@ func TestSQLsave(t *testing.T) {
 	owner := os.Getenv("user")
 	tablespace := os.Getenv("tablespace")
 
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		dlct := dfx.Dialect()
 		src := strings.Split(which, ",")[0]
@@ -120,7 +136,7 @@ func TestSQLsave(t *testing.T) {
 func TestFileSave(t *testing.T) {
 	const coln = "b"
 
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e0 := d.Parse(dfx, "a := 2*y")
 		assert.Nil(t, e0)
@@ -145,7 +161,7 @@ func TestFileSave(t *testing.T) {
 }
 
 func TestParse_Join(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := d.Parse(dfx, "y1:=2*k")
 		assert.Nil(t, e)
@@ -168,7 +184,7 @@ func TestParse_Join(t *testing.T) {
 }
 
 func TestParse_By(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		outDF, e0 := dfx.By("y", "sx:=sum(x)", "count:=count(y)", "mx:=mean(global(x))", "mz:=mean(x)")
 		assert.Nil(t, e0)
@@ -183,7 +199,7 @@ func TestParse_By(t *testing.T) {
 }
 
 func TestParse_Table(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		outDF, e := dfx.Table("y", "yy")
 		assert.Nil(t, e)
@@ -207,7 +223,7 @@ func TestParse_Table(t *testing.T) {
 }
 
 func TestParse_Sort(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := dfx.Sort(true, "y", "x")
 		assert.Nil(t, e)
@@ -223,7 +239,7 @@ func TestParse_Sort(t *testing.T) {
 }
 
 func TestWhere(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		// via methods
 		fmt.Println(which)
 		dfx := loadData(which)
@@ -237,7 +253,7 @@ func TestWhere(t *testing.T) {
 }
 
 func TestAppendDF(t *testing.T) {
-	for _, which := range pkgs() {
+	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := d.Parse(dfx, "test :=k")
 		fmt.Println(dfx.ColumnNames())
