@@ -63,7 +63,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	for ind := range len(cols) {
 		colsx = append(colsx, cols[ind])
 	}
-	if tmp, e = d.NewDF(funcs, colsx); e != nil {
+	if tmp, e = d.NewDFcore(funcs, colsx); e != nil {
 		return nil, e
 	}
 
@@ -104,7 +104,7 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 		ColCore: cc,
 	}
 
-	dfc, ex := d.NewDF(funcs, []d.Column{col})
+	dfc, ex := d.NewDFcore(funcs, []d.Column{col})
 	if ex != nil {
 		panic(ex)
 	}
@@ -163,7 +163,7 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	if fns == nil {
 		fns = StandardFunctions(dlct)
 	}
-	if tmp, e = d.NewDF(fns, cols); e != nil {
+	if tmp, e = d.NewDFcore(fns, cols); e != nil {
 		return nil, e
 	}
 	df.DFcore = tmp
@@ -528,7 +528,7 @@ func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, 
 
 	var (
 		favg d.DF
-		eavg   error
+		eavg error
 	)
 	fld := f.Dialect().WithName()
 	if favg, eavg = f.By(xSfield, fld+":=mean("+yfield+")"); eavg != nil {
@@ -645,12 +645,40 @@ func (f *DF) SourceSQL() string {
 }
 
 func (f *DF) String() string {
-	var sx string
-	for c := range f.AllColumns() {
-		sx += c.String() + "\n"
+	const padLen = 5
+	var (
+		sc  [][]string
+		cat string
+	)
+
+	for col := range f.AllColumns() {
+		if col.DataType() == d.DTcategorical {
+			cat += col.String()
+			continue
+		}
+
+		sc = append(sc, d.StringSlice("", strings.Split(col.String(), "\n")))
 	}
 
-	return sx
+	out := fmt.Sprintf("Rows: %d\n", f.RowCount())
+	pad := strings.Repeat(" ", padLen)
+	for ind := 0; ind < len(sc); ind = ind + 3 {
+		var s string
+		for k := 0; k < len(sc[ind]); k++ {
+			s += sc[ind][k] + pad
+			if ind+1 < len(sc) {
+				s += sc[ind+1][k] + pad
+			}
+			if ind+2 < len(sc) {
+				s += sc[ind+2][k]
+			}
+
+			s += "\n"
+		}
+		out += s
+	}
+
+	return out + cat
 }
 
 func (f *DF) Table(cols ...string) (d.DF, error) {

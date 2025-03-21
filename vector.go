@@ -357,15 +357,11 @@ func (v *Vector) SetString(val string, indx int) error {
 	return nil
 }
 
-func (v *Vector) StringX() string {
-	s := fmt.Sprintf("type: %v\nlength: %d\n\nElements:\n", v.VectorType(), v.Len())
+func (v *Vector) String() string {
+	s := "" //fmt.Sprintf("type: %v\nlength: %d\n\nElements:\n", v.VectorType(), v.Len())
 	for ind := range min(5, v.Len()) {
 		v, _ := v.ElementString(ind)
 		s += fmt.Sprintf("%s\n", *v)
-	}
-
-	if v.Len() > 5 {
-		s += ".\n.\n.\n"
 	}
 
 	return s

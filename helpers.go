@@ -30,7 +30,7 @@ func PrettyPrint(header []string, cols ...any) string {
 	var colsS [][]string
 
 	for ind := range len(cols) {
-		colsS = append(colsS, stringSlice(header[ind], cols[ind]))
+		colsS = append(colsS, StringSlice(header[ind], cols[ind]))
 	}
 
 	out := ""
@@ -375,7 +375,7 @@ func validName(name string) error {
 	return nil
 }
 
-func stringSlice(header string, inVal any) []string {
+func StringSlice(header string, inVal any) []string {
 	const pad = 3
 	c := []string{header}
 

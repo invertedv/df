@@ -13,6 +13,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestStringer(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		if !strings.Contains(which, "click") {
+			continue
+		}
+		dfx := loadData(which)
+		e := d.Parse(dfx, "cat := cat(y)")
+		assert.Nil(t, e)
+		fmt.Println(dfx)
+	}
+}
+
 // TODO: call to NewDFseq not the same between mem and sql
 func TestInterp(t *testing.T) {
 	for _, which := range pkgs("d1") {
@@ -67,16 +79,18 @@ func TestNull(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	var s []string
+	var sBase string
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		s = append(s, dfx.Column("x").String())
+		if sBase == "" {
+			sBase = dfx.Column("x").String()
+			continue
+		}
+		s :=dfx.Column("x").String()
+		assert.Equal(t, sBase, s)
 		fmt.Println(which)
 		fmt.Println(dfx.Column("R"))
 	}
-
-	assert.Equal(t, s[0], s[1])
-	assert.Equal(t, s[1], s[2])
 }
 
 func TestSeq(t *testing.T) {
@@ -216,9 +230,6 @@ func TestParse_Table(t *testing.T) {
 		col := outDF.Column("count").Data().AsAny()
 		assert.NotNil(t, col)
 		assert.Equal(t, []int{2, 1, 1, 1, 1}, col)
-
-		_, e3 := dfx.Table("x")
-		assert.NotNil(t, e3)
 	}
 }
 

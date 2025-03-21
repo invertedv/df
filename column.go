@@ -221,6 +221,27 @@ func (c *ColCore) Rename(newName string) error {
 
 type CategoryMap map[any]int
 
+func (cm CategoryMap) String() string {
+	var keys []string
+	var vals []int
+	for k, v := range cm {
+		if k == nil {
+			continue
+		}
+
+		var x any = fmt.Sprintf("%v", k)
+
+		keys = append(keys, x.(string))
+		vals = append(vals, v)
+	}
+	keys = append(keys, "Other")
+	vals = append(vals, -1)
+
+	header := []string{"source", "mapped to"}
+
+	return PrettyPrint(header, keys, vals) + "\n"
+}
+
 func (cm CategoryMap) Max() int {
 	var maxVal *int
 	for k, v := range cm {

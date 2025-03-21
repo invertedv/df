@@ -56,6 +56,36 @@ func (c *Col) Core() *d.ColCore {
 }
 
 func (c *Col) Data() *d.Vector {
+	return c.DataLimit(0)
+	/*
+		var (
+
+			df *m.DF
+			e  error
+
+		)
+
+		// give it a random name if it does not have one
+
+			if c.Name() == "" {
+				_ = d.ColName(d.RandomLetters(5))(c)
+			}
+
+			if df, e = m.DBLoad(c.MakeQuery(), c.Dialect()); e != nil {
+				panic(e)
+			}
+
+		var col d.Column
+
+			if col = df.Column(c.Name()); col == nil {
+				panic(fmt.Errorf("missing column?"))
+			}
+
+		return col.(*m.Col).Data()
+	*/
+}
+
+func (c *Col) DataLimit(limit int) *d.Vector {
 	var (
 		df *m.DF
 		e  error
@@ -66,7 +96,12 @@ func (c *Col) Data() *d.Vector {
 		_ = d.ColName(d.RandomLetters(5))(c)
 	}
 
-	if df, e = m.DBLoad(c.MakeQuery(), c.Dialect()); e != nil {
+	mq := c.MakeQuery()
+	if limit > 0 {
+		mq += fmt.Sprintf(" LIMIT %d", limit)
+	}
+
+	if df, e = m.DBLoad(mq, c.Dialect()); e != nil {
 		panic(e)
 	}
 
@@ -150,50 +185,11 @@ func (c *Col) Rename(newName string) error {
 }
 
 func (c *Col) String() string {
-	t := fmt.Sprintf("column: %s\ntype: %s\n", c.Name(), c.DataType())
+	t := fmt.Sprintf("column: %s\ntype: %s\nlength %d\n", c.Name(), c.DataType(), c.Len())
 
-	if c.CategoryMap() != nil {
-		var keys []string
-		var vals []int
-		for k, v := range c.CategoryMap() {
-			if k == nil {
-				k = "Other"
-			}
-			x := fmt.Sprintf("%v", k)
-
-			keys = append(keys, x)
-			vals = append(vals, v)
-		}
-
-		header := []string{"source", "mapped to"}
-		t = t + d.PrettyPrint(header, keys, vals) + "\n"
+	if cm := c.CategoryMap(); cm != nil {
+		return t + cm.String()
 	}
 
-	if c.DataType() != d.DTfloat {
-		var (
-			tab d.DF
-			e   error
-		)
-		if tab, e = c.Parent().Table(c.Name()); e != nil {
-			panic(e)
-		}
-
-		tab.Sort(true, c.Name())
-		l := tab.Column(c.Name())
-		cx := tab.Column("count")
-
-		header := []string{l.Name(), c.Name()}
-
-		cxi, _ := cx.Data().AsInt()
-		strx, _ := l.Data().AsString()
-
-		return t + d.PrettyPrint(header, strx, cxi)
-	}
-
-	cols := []string{"min", "lq", "median", "mean", "uq", "max", "n"}
-
-	header := []string{"metric", "value"}
-	vals, _ := c.Dialect().Summary(c.MakeQuery(), c.Dialect().ToName(c.Name()))
-
-	return t + d.PrettyPrint(header, cols, vals)
+	return t + c.DataLimit(5).String()
 }

@@ -61,7 +61,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 		e  error
 	)
 
-	if df, e = d.NewDF(funcs, cc); e != nil {
+	if df, e = d.NewDFcore(funcs, cc); e != nil {
 		return nil, e
 	}
 
@@ -534,7 +534,8 @@ func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, 
 		favg d.DF
 		e    error
 	)
-	if favg, e = f.By(xSfield, "y:=mean("+yfield+")"); e != nil {
+	fld := d.RandomLetters(4)
+	if favg, e = f.By(xSfield, fld+":=mean("+yfield+")"); e != nil {
 		return nil, e
 	}
 
@@ -548,7 +549,7 @@ func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, 
 
 	xI := idf.Column(xIfield).Data().AsAny().([]float64)
 	xS := favg.Column(xSfield).Data().AsAny().([]float64)
-	yS := favg.Column("y").Data().AsAny().([]float64)
+	yS := favg.Column(fld).Data().AsAny().([]float64)
 	yOut := make([]float64, len(xI))
 	iOut := make([]int, len(xI))
 
@@ -800,29 +801,40 @@ func (f *DF) SourceQuery() string {
 }
 
 func (f *DF) String() string {
-	// TODO : fix this
-	// TODO: generates a name collision if try to print a table
-	outs := strings.Join(f.ColumnNames(), " ") + "\n"
+	const padLen = 5
+	var (
+		sc  [][]string
+		cat string
+	)
 
-	for ind := range min(10, f.RowCount()) {
-		row := f.Row(ind)
-		var r []string
-		for ind1 := range len(row) {
-			r = append(r, fmt.Sprintf("%v", row[ind1]))
+	for col := range f.AllColumns() {
+		if col.DataType() == d.DTcategorical {
+			cat += col.String()
+			continue
 		}
 
-		outs = outs + "\n" + strings.Join(r, " ")
+		sc = append(sc, d.StringSlice("", strings.Split(col.String(), "\n")))
 	}
 
-	return outs
+	out := fmt.Sprintf("Rows: %d\n", f.RowCount())
+	pad := strings.Repeat(" ", padLen)
+	for ind := 0; ind < len(sc); ind = ind + 3 {
+		var s string
+		for k := 0; k < len(sc[ind]); k++ {
+			s += sc[ind][k] + pad
+			if ind+1 < len(sc) {
+				s += sc[ind+1][k] + pad
+			}
+			if ind+2 < len(sc) {
+				s += sc[ind+2][k]
+			}
 
-	/*	var sx string
-		for c := range f.AllColumns() {
-			sx += c.String() + "\n"
+			s += "\n"
 		}
+		out += s
+	}
 
-		return sx
-	*/
+	return out + cat
 }
 
 func (f *DF) Swap(i, j int) {

@@ -62,7 +62,8 @@ type columnList struct {
 	next  *columnList
 }
 
-func NewDF(funcs Fns, cols []Column, opts ...DFopt) (df *DFcore, err error) {
+// TODO: rename new DFcore
+func NewDFcore(funcs Fns, cols []Column, opts ...DFopt) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
@@ -244,7 +245,7 @@ func (df *DFcore) Copy() *DFcore {
 	//df.current = save
 	var outDF *DFcore
 
-	outDF, _ = NewDF(df.Fns(), cols,
+	outDF, _ = NewDFcore(df.Fns(), cols,
 		DFdialect(df.Dialect()), DFsetSourceDF(df.SourceDF()))
 
 	return outDF
