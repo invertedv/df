@@ -35,3 +35,4 @@ lq:github.com/invertedv/df/mem.lqFn[...]:{float},{int}:float,float:S
 uq:github.com/invertedv/df/mem.uqFn[...]:{float},{int}:float,float:S
 max:github.com/invertedv/df/mem.maxFn[...]:{float},{int},{string},{date}:float,int,string,date:S
 min:github.com/invertedv/df/mem.minFn[...]:{float},{int},{string},{date}:float,int,string,date:S
+substr:github.com/invertedv/df/mem.substrFn:{string,int,int}:string:C

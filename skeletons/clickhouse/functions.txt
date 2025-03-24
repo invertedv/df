@@ -27,3 +27,4 @@ string:toString(%s):{float},{int},{string},{date}:string,string,string,string:C
 mean:avg(%s):{int},{float}:float,float:S
 sum:sum(%s):{int},{float}:int,float:S
 count:count(%s):{float},{int},{string},{date},{categorical}:int,int,int,int,int:S
+substr:substr(%s,%s+1,%s):{string,int,int}:string:C

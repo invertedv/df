@@ -209,6 +209,10 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	if cx2, ok := col.(*d.Scalar); ok || (col.Len() == 1 && f.RowCount() > 1) {
 		if ok {
 			val = cx2.Data().Element(0)
+			// a double single quote means keep a single quote in the string
+			if s, ok := val.(string); ok {
+				val = strings.ReplaceAll(s, "''", "'")
+			}
 		}
 
 		v := d.MakeVector(col.DataType(), f.RowCount())
@@ -620,7 +624,6 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 		fRight *DF
 		ok     bool
 	)
-	// TODO: replace with load if sql?
 	if fRight, ok = df.(*DF); !ok {
 		return nil, fmt.Errorf("must be mem.*DF to join")
 	}

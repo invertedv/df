@@ -44,6 +44,65 @@ func PrettyPrint(header []string, cols ...any) string {
 	return out
 }
 
+func StringSlice(header string, inVal any) []string {
+	const pad = 3
+	c := []string{header}
+
+	format := ""
+	n := 0
+	var dt DataTypes
+	switch x := inVal.(type) {
+	case []float64:
+		format = selectFormat(x)
+		n = len(x)
+		dt = DTfloat
+	case []int:
+		format = "%d"
+		n = len(x)
+		dt = DTint
+	case []string:
+		format = "%s"
+		n = len(x)
+		dt = DTstring
+	case []time.Time:
+		n = len(x)
+		dt = DTdate
+	default:
+		panic(fmt.Errorf("unsupported data type"))
+	}
+
+	maxLen := len(header)
+	for ind := range n {
+		var el string
+		switch x := inVal.(type) {
+		case []float64:
+			el = fmt.Sprintf(format, x[ind])
+		case []int:
+			el = fmt.Sprintf(format, x[ind])
+		case []string:
+			el = x[ind]
+		case []time.Time:
+			el = x[ind].Format("20060102")
+		}
+
+		if l := len(el); l > maxLen {
+			maxLen = l
+		}
+
+		c = append(c, el)
+	}
+
+	for ind, cx := range c {
+		padded := cx + strings.Repeat(" ", maxLen-len(cx)+pad)
+		if dt == DTint || dt == DTfloat {
+			padded = strings.Repeat(" ", maxLen-len(cx)+pad) + cx
+		}
+		c[ind] = padded
+	}
+
+	return c
+}
+
 // randomLetters generates a string of length "length" by randomly choosing from a-z
 func RandomLetters(length int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz"
@@ -373,65 +432,6 @@ func validName(name string) error {
 	}
 
 	return nil
-}
-
-func StringSlice(header string, inVal any) []string {
-	const pad = 3
-	c := []string{header}
-
-	format := ""
-	n := 0
-	var dt DataTypes
-	switch x := inVal.(type) {
-	case []float64:
-		format = selectFormat(x)
-		n = len(x)
-		dt = DTfloat
-	case []int:
-		format = "%d"
-		n = len(x)
-		dt = DTint
-	case []string:
-		format = "%s"
-		n = len(x)
-		dt = DTstring
-	case []time.Time:
-		n = len(x)
-		dt = DTdate
-	default:
-		panic(fmt.Errorf("unsupported data type"))
-	}
-
-	maxLen := len(header)
-	for ind := range n {
-		var el string
-		switch x := inVal.(type) {
-		case []float64:
-			el = fmt.Sprintf(format, x[ind])
-		case []int:
-			el = fmt.Sprintf(format, x[ind])
-		case []string:
-			el = x[ind]
-		case []time.Time:
-			el = x[ind].Format("20060102")
-		}
-
-		if l := len(el); l > maxLen {
-			maxLen = l
-		}
-
-		c = append(c, el)
-	}
-
-	for ind, cx := range c {
-		padded := cx + strings.Repeat(" ", maxLen-len(cx)+pad)
-		if dt == DTint || dt == DTfloat {
-			padded = strings.Repeat(" ", maxLen-len(cx)+pad) + cx
-		}
-		c[ind] = padded
-	}
-
-	return c
 }
 
 func selectFormat(x []float64) string {

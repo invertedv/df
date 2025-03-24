@@ -21,6 +21,18 @@ var (
 	parserTests string
 )
 
+func TestX(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		//		if !strings.Contains(which, "click") {
+		//			continue
+		//		}
+
+		dfx := loadData(which)
+		e := d.Parse(dfx, "test:='hello'' world'")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("test").Data().AsAny(), which)
+	}
+}
 func TestCast(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
@@ -81,13 +93,13 @@ func TestRandom(t *testing.T) {
 	vz, _ := d.NewVector(z, d.DTfloat)
 	vs, _ := d.NewVector(s, d.DTstring)
 	//	vdt := d.NewVector(dt, 0)
-	colx, ex := m.NewCol(vx,  d.ColName("x"))
+	colx, ex := m.NewCol(vx, d.ColName("x"))
 	assert.Nil(t, ex)
-	coly, ey := m.NewCol(vy,  d.ColName("y"))
+	coly, ey := m.NewCol(vy, d.ColName("y"))
 	assert.Nil(t, ey)
-	colz, ez := m.NewCol(vz,  d.ColName("z"))
+	colz, ez := m.NewCol(vz, d.ColName("z"))
 	assert.Nil(t, ez)
-	cols, es := m.NewCol(vs,  d.ColName("s"))
+	cols, es := m.NewCol(vs, d.ColName("s"))
 	assert.Nil(t, es)
 	//	coldt, edt := m.NewCol(vdt, d.ColName("dt"))
 	//	assert.Nil(t, edt)
@@ -257,7 +269,6 @@ func TestParser(t *testing.T) {
 // TODO: optional name to DFSeq for the column
 
 // TODO: in joining/interp in *sql, need to check that db's are the same
-
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs("d1") {

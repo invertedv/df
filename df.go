@@ -62,7 +62,6 @@ type columnList struct {
 	next  *columnList
 }
 
-// TODO: rename new DFcore
 func NewDFcore(funcs Fns, cols []Column, opts ...DFopt) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")

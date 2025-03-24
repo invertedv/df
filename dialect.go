@@ -410,7 +410,6 @@ func (d *Dialect) InsertValues(tableName string, values []byte) error {
 	return e
 }
 
-// TODO: make yField a slice!
 func (d *Dialect) Interp(sourceSQL, interpSQL, xSfield, xIfield, yField, outField string) string {
 	qry := strings.ReplaceAll(d.interp, "?Source", sourceSQL)
 	qry = strings.ReplaceAll(qry, "?Interp", interpSQL)
@@ -656,30 +655,6 @@ func (d *Dialect) Seq(n int) string {
 	}
 
 	return strings.ReplaceAll(d.seq, "?Upper", fmt.Sprintf("%d", n))
-}
-
-func (d *Dialect) Summary(qry, col string) ([]float64, error) {
-	const skeleton = "WITH %s AS (%s) SELECT %s FROM %s"
-
-	minX := fmt.Sprintf("min(%s) AS min", col)
-	q25 := d.Quantile(col, 0.25) + " AS q25"
-	q50 := d.Quantile(col, 0.5) + " AS q50"
-	q75 := d.Quantile(col, 0.75) + " AS q75"
-	maxX := fmt.Sprintf("max(%s) AS max", col)
-	mn := fmt.Sprintf("avg(%s) AS mean", col)
-	n, _ := d.CastField("count(*)", DTint, DTfloat)
-	n += " AS n"
-	flds := strings.Join([]string{minX, q25, q50, mn, q75, maxX, n}, ",")
-
-	sig := d.WithName()
-	q := fmt.Sprintf(skeleton, sig, qry, flds, sig)
-	row := d.db.QueryRow(q)
-	var vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN float64
-	if e := row.Scan(&vMinX, &vQ25, &vQ50, &vMn, &vQ75, &vMaxX, &vN); e != nil {
-		return nil, e
-	}
-
-	return []float64{vMinX, vQ25, vQ50, vMn, vQ75, vMaxX, vN}, nil
 }
 
 // ToName converts the raw field name to what's need for a interaction with the database.

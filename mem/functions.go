@@ -65,8 +65,9 @@ func rawFuncs() []any {
 		sumFn[float64], sumFn[int],
 		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
 		printFn[float64], printFn[int], printFn[string], printFn[time.Time],
+		substrFn,
 	}
-
+	// TODO: drop printFn
 	return fns
 }
 
@@ -182,6 +183,13 @@ func elemFn[T frameTypes](x []T, ind []int) (T, error) {
 	}
 
 	return x[ind[0]], nil
+}
+
+func substrFn(x string, start, length int) string {
+	start = min(max(start, 0), len(x)-1)
+	length = min(length, len(x)-start)
+
+	return x[start : start+length]
 }
 
 func quantileFn[T float64 | int](x []T, p []float64) float64 {

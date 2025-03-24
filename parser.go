@@ -103,7 +103,7 @@ func newParsed(value any, dependencies ...string) Column {
 }
 
 func newOpTree(expression string, funcs Fns) *opTree {
-	expression = strings.ReplaceAll(expression, " ", "")
+	expression = compress(expression, " ")
 	var fns []string
 	for _, fn := range funcs {
 		fns = append(fns, fn(true, nil, nil).Name+"(")
@@ -575,4 +575,22 @@ func nodupAppend(x []string, xadd ...string) []string {
 	}
 
 	return x
+}
+
+// compress removes target from x except when it's between single quotes
+func compress(x, target string) string {
+	out := ""
+	hasQuote := false
+	for ind := range len(x) {
+		char := x[ind : ind+1]
+		if char == "'" {
+			hasQuote = !hasQuote
+		}
+
+		if hasQuote || (!hasQuote && char != target) {
+			out += char
+		}
+	}
+
+	return out
 }

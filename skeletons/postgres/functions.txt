@@ -27,3 +27,5 @@ string:cast(%s as text):{float},{int},{string},{date}:string,string,string,strin
 sum:sum(%s):{int},{float}:int,float:S
 mean:avg(%s):{int},{float}:float,float:S
 count:count(%s):{float},{int},{string},{date},{categorical}:int,int,int,int,int:S
+substr:github.com/invertedv/df/mem.substrFn:{string,int,int}:string:C
+substr:substr(%s,%s+1,%s):{string,int,int}:string:C
