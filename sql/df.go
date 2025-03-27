@@ -32,6 +32,27 @@ type DF struct {
 
 // ***************** DF - Create *****************
 
+func NewDF(funcs d.Fns, dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
+	switch inp := input.(type) {
+	case *DF:
+		return inp, nil
+	case d.HasIter:
+		if dlct == nil {
+			return nil, fmt.Errorf("missing dialect sql NewDF")
+		}
+
+		tn := dlct.WithName()
+		if e := dlct.Save(tn, "", true, true, inp); e != nil {
+			return nil, e
+		}
+
+		qry := fmt.Sprintf("SELECT * FROM %s", tn)
+		return DBload(qry, dlct, funcs...)
+	default:
+		return nil, fmt.Errorf("unsupported input to sql NewDF")
+	}
+}
+
 func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDFcol")

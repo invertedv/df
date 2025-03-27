@@ -23,10 +23,6 @@ var (
 
 func TestX(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		//		if !strings.Contains(which, "click") {
-		//			continue
-		//		}
-
 		dfx := loadData(which)
 		e := d.Parse(dfx, "test:='hello'' world'")
 		assert.Nil(t, e)

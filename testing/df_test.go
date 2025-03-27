@@ -13,11 +13,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestNewDF(t *testing.T) {
+	coln := "x"
+	for _, which := range pkgs("d1") {
+		dfx := loadData(which)
+		dlct := dfx.Dialect()
+		dfy, e := s.NewDF(nil, dlct, dfx)
+		assert.Nil(t, e)
+		for _, cn := range dfx.ColumnNames() {
+			assert.ElementsMatch(t, dfx.Column(cn).Data().AsAny(), dfy.Column(cn).Data().AsAny())
+		}
+
+		dfy, e = s.NewDF(nil, dlct, dfx.Column(coln))
+		assert.Nil(t, e)
+		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column(coln).Data().AsAny())
+
+		dfy, e = s.NewDF(nil, dlct, dfx.Column(coln).Data())
+		assert.Nil(t, e)
+		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column("col").Data().AsAny())
+	}
+}
+
 func TestStringer(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "click") {
-			continue
-		}
 		dfx := loadData(which)
 		e := d.Parse(dfx, "cat := cat(y)")
 		assert.Nil(t, e)
@@ -124,7 +142,7 @@ func TestSQLsave(t *testing.T) {
 	const coln = "x"
 
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "click"){
+		if !strings.Contains(which, "click") {
 			continue
 		}
 		dfx := loadData(which)

@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// The hasIter interface restricts to types that have an iterator through the rows of the data.
+// The HasIter interface restricts to types that have an iterator through the rows of the data.
 // Save only requires an iterator to move through the rows
-type hasIter interface {
+type HasIter interface {
 	AllRows() iter.Seq2[int, []any]
 }
 
@@ -389,7 +389,7 @@ func (d *Dialect) Exists(tableName string) bool {
 		case bool:
 			if x {
 				return true
-			}  // for pg
+			} // for pg
 		case uint8:
 			if x == 1 {
 				return true
@@ -438,7 +438,7 @@ func (d *Dialect) Interp(sourceSQL, interpSQL, xSfield, xIfield, yField, outFiel
 	return qry
 }
 
-func (d *Dialect) IterSave(tableName string, df hasIter) error {
+func (d *Dialect) IterSave(tableName string, df HasIter) error {
 	const (
 		bSep   = byte(',')
 		bOpen  = byte('(')
@@ -635,7 +635,7 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	return rows, row2Read, fieldNames, nil
 }
 
-func (d *Dialect) Save(tableName, orderBy string, overwrite, temp bool, toSave hasIter, options ...string) error {
+func (d *Dialect) Save(tableName, orderBy string, overwrite, temp bool, toSave HasIter, options ...string) error {
 	var (
 		fieldNames []string
 		fieldTypes []DataTypes
@@ -923,4 +923,10 @@ func (d *Dialect) Convert(val any) any {
 	default:
 		panic(fmt.Errorf("unsupported data type in dialect.Load"))
 	}
+}
+
+func HasMakeQuery(s any) bool {
+	t := reflect.TypeOf(s)
+	_, ok := t.MethodByName("MakeQuery")
+	return ok
 }
