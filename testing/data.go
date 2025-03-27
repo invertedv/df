@@ -32,8 +32,6 @@ const (
 //   - password: ClickHouse password
 //   - datapath: path to data directory in this project (df/data)
 //   - tablespace: Postgres tablespace
-//   - chTemp - name of Clickhouse temp table to use in testing
-//   - pgTemp - name of Postgres temp table to use in testing
 
 // list of packages to test
 func pkgs(src string) []string {
@@ -172,7 +170,7 @@ func loadData(which string) d.DF {
 			opts = append(opts, "TableSpace:"+ts)
 		}
 
-		if e := dialect.Save(tableName, "k", true, dfl, opts...); e != nil {
+		if e := dialect.Save(tableName, "k", true, false, dfl, opts...); e != nil {
 			panic(e)
 		}
 

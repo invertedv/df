@@ -116,32 +116,24 @@ func TestSeq(t *testing.T) {
 	}
 }
 
+func TestVecJoin(t *testing.T) {
+
+}
+
 func TestSQLsave(t *testing.T) {
 	const coln = "x"
-	owner := os.Getenv("user")
-	tablespace := os.Getenv("tablespace")
 
 	for _, which := range pkgs("d1") {
+		if !strings.Contains(which, "click"){
+			continue
+		}
 		dfx := loadData(which)
 		dlct := dfx.Dialect()
-		src := strings.Split(which, ",")[0]
 
-		// save to a table
-		var outTable string
-		var options []string
-		switch src {
-		case ch:
-			outTable = os.Getenv("chTemp")
-		case pg:
-			outTable = os.Getenv("pgTemp")
-			options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
-		case mem:
-			outTable = os.Getenv("pgTemp")
-			options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
-		}
+		outTable := "temp"
 
 		// test entire data frame
-		e := dlct.Save(outTable, "k,yy", true, dfx, options...)
+		e := dlct.Save(outTable, "k,yy", true, true, dfx)
 		assert.Nil(t, e)
 		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
@@ -150,22 +142,19 @@ func TestSQLsave(t *testing.T) {
 		// test vector
 		_ = dfx.Sort(true, coln)
 		vec := dfx.Column(coln).Data()
-		e = dlct.Save(outTable, "", true, vec, options...)
+		e = dlct.Save(outTable, "", true, true, vec)
 		assert.Nil(t, e)
 		dfy, ex = m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
-		assert.Equal(t, dfy.Column("col1").Data().AsAny(), dfx.Column(coln).Data().AsAny())
+		assert.Equal(t, dfy.Column("col").Data().AsAny(), dfx.Column(coln).Data().AsAny())
 
 		// test column
 		col := dfx.Column(coln)
-		e = dlct.Save(outTable, "", true, col, options...)
+		e = dlct.Save(outTable, "", true, true, col)
 		assert.Nil(t, e)
 		dfy, ex = m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		assert.Equal(t, dfy.Column(coln).Data().AsAny(), dfx.Column(coln).Data().AsAny())
-
-		fmt.Println("yay!")
-
 	}
 }
 

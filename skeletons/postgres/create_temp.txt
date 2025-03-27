@@ -1,0 +1,9 @@
+CREATE TEMPORARY TABLE ?TableName
+(
+  ?fields
+);
+
+CREATE INDEX IF NOT EXISTS ?IndexName
+    ON ?TableName USING btree
+    (?OrderBy)
+    WITH (deduplicate_items=True)

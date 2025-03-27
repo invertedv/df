@@ -32,21 +32,6 @@ type DF struct {
 
 // ***************** DF - Create *****************
 
-func NewDF(funcs d.Fns, basis any, opts ...d.DFopt) (*DF, error) {
-	/*
-		[]*Col,
-		*Col,
-		[]*m.Col
-		*m.Col
-		[]*d.Vector
-		*d.Vector
-		*DF
-		*m.DF
-	*/
-	return nil, nil
-
-}
-
 func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDFcol")
@@ -527,7 +512,7 @@ func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, 
 		ok  bool
 	)
 	if idf, ok = iDF.(*DF); !ok {
-		return nil, fmt.Errorf("iDF argument to iterp is not *sql.DF")
+		return nil, fmt.Errorf("iDF argument to Interp is not *sql.DF")
 	}
 
 	if c := f.Column(xSfield); c == nil || c.DataType() != d.DTfloat {

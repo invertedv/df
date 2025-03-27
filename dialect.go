@@ -28,6 +28,11 @@ var (
 	//go:embed skeletons/postgres/create.txt
 	pgCreate string
 
+	//go:embed skeletons/clickhouse/create_temp.txt
+	chCreateTemp string
+	//go:embed skeletons/postgres/create_temp.txt
+	pgCreateTemp string
+
 	//go:embed skeletons/clickhouse/types.txt
 	chTypes string
 	//go:embed skeletons/postgres/types.txt
@@ -47,6 +52,11 @@ var (
 	chExists string
 	//go:embed skeletons/postgres/exists.txt
 	pgExists string
+
+	//go:embed skeletons/clickhouse/exists_temp.txt
+	chExistsTemp string
+	//go:embed skeletons/postgres/exists_temp.txt
+	pgExistsTemp string
 
 	//go:embed skeletons/clickhouse/interp.txt
 	chInterp string
@@ -81,12 +91,14 @@ type Dialect struct {
 	dtTypes []string
 	dbTypes []string
 
-	create string
-	insert string
-	interp string
-	dropIf string
-	exists string
-	seq    string
+	create     string
+	createTemp string
+	insert     string
+	interp     string
+	dropIf     string
+	exists     string
+	existsTemp string
+	seq        string
 
 	fields string
 
@@ -115,13 +127,13 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 	var types string
 	switch d.dialect {
 	case ch:
-		d.create, d.fields, d.dropIf, d.insert, d.exists = chCreate, chFields, chDropIf, chInsert, chExists
-		d.seq, d.interp = chSeq, chInterp
+		d.create, d.createTemp, d.fields, d.dropIf, d.insert, d.exists = chCreate, chCreateTemp, chFields, chDropIf, chInsert, chExists
+		d.existsTemp, d.seq, d.interp = chExistsTemp, chSeq, chInterp
 		types = chTypes
 		d.functions = LoadFunctions(chFunctions)
 	case pg:
-		d.create, d.fields, d.dropIf, d.insert, d.exists = pgCreate, pgFields, pgDropIf, pgInsert, pgExists
-		d.seq, d.interp = pgSeq, pgInterp
+		d.create, d.createTemp, d.fields, d.dropIf, d.insert, d.exists = pgCreate, pgCreateTemp, pgFields, pgDropIf, pgInsert, pgExists
+		d.existsTemp, d.seq, d.interp = pgExistsTemp, pgSeq, pgInterp
 		types = pgTypes
 		d.functions = LoadFunctions(pgFunctions)
 	default:
@@ -273,20 +285,25 @@ func (d *Dialect) Close() error {
 }
 
 // options are in key:value format and are meant to replace placeholders in create.txt
-func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite bool, options ...string) error {
+func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite, temporary bool, options ...string) error {
 	if d.Exists(tableName) && !overwrite {
 		return fmt.Errorf("table %s exists", tableName)
+	}
+
+	create := d.create
+	if temporary {
+		create = d.createTemp
 	}
 
 	if orderBy == "" {
 		orderBy = d.ToName(fields[0])
 	}
 
-	create := strings.ReplaceAll(d.create, "?TableName", tableName)
+	create = strings.ReplaceAll(create, "?TableName", tableName)
 	create = strings.Replace(create, "?OrderBy", orderBy, 1)
-	if d.DialectName() == pg {
-		create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
-	}
+
+	// for pg
+	create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
 
 	var flds []string
 	for ind := range len(fields) {
@@ -347,28 +364,40 @@ func (d *Dialect) Exists(tableName string) bool {
 		e   error
 	)
 
-	qry := strings.ReplaceAll(d.exists, "?TableName", tableName)
+	// need to check separately for perm and temp tables
+	for ind := range 2 {
+		qry := d.exists
+		if ind == 1 {
+			qry = d.existsTemp
+		}
 
-	if res, e = d.DB().Query(qry); e != nil {
-		panic(e)
+		qry = strings.ReplaceAll(qry, "?TableName", tableName)
+
+		if res, e = d.DB().Query(qry); e != nil {
+			panic(e)
+		}
+
+		defer func() { _ = res.Close() }()
+
+		var exist any
+		res.Next()
+		if ex := res.Scan(&exist); ex != nil {
+			panic(ex)
+		}
+
+		switch x := exist.(type) {
+		case bool:
+			if x {
+				return true
+			}  // for pg
+		case uint8:
+			if x == 1 {
+				return true
+			} // for ch
+		}
 	}
 
-	defer func() { _ = res.Close() }()
-
-	var exist any
-	res.Next()
-	if ex := res.Scan(&exist); ex != nil {
-		panic(ex)
-	}
-
-	switch x := exist.(type) {
-	case int64:
-		return x == 1 // for pg
-	case uint8:
-		return x == 1 // for ch
-	}
-
-	return (exist.(int64) == 1)
+	return false
 }
 
 func (d *Dialect) Functions() Fmap {
@@ -606,7 +635,7 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	return rows, row2Read, fieldNames, nil
 }
 
-func (d *Dialect) Save(tableName, orderBy string, overwrite bool, toSave hasIter, options ...string) error {
+func (d *Dialect) Save(tableName, orderBy string, overwrite, temp bool, toSave hasIter, options ...string) error {
 	var (
 		fieldNames []string
 		fieldTypes []DataTypes
@@ -616,9 +645,9 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, toSave hasIter
 		fieldNames = x.ColumnNames()
 		fieldTypes, _ = x.ColumnTypes()
 	case *Vector:
-		fieldNames = []string{"col1"}
+		fieldNames = []string{"col"}
 		fieldTypes = []DataTypes{x.VectorType()}
-		orderBy = "col1"
+		orderBy = "col"
 	case Column:
 		fieldNames = []string{x.Name()}
 		fieldTypes = []DataTypes{x.DataType()}
@@ -637,7 +666,7 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite bool, toSave hasIter
 		}
 	}
 
-	if e := d.Create(tableName, orderBy, fieldNames, fieldTypes, true, options...); e != nil {
+	if e := d.Create(tableName, orderBy, fieldNames, fieldTypes, true, temp, options...); e != nil {
 		return e
 	}
 
