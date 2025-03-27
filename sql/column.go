@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"iter"
 	"strings"
 
 	d "github.com/invertedv/df"
@@ -40,6 +41,10 @@ func NewColSQL(dt d.DataTypes, dlct *d.Dialect, sqlx string, opts ...d.ColOpt) (
 }
 
 // ***************** SQLCol - Methods *****************
+
+func (c *Col) 	AllRows() iter.Seq2[int, []any] {
+	return c.Data().AllRows()
+}
 
 func (c *Col) Copy() d.Column {
 	n := &Col{

@@ -31,6 +31,22 @@ type DF struct {
 }
 
 // ***************** DF - Create *****************
+
+func NewDF(funcs d.Fns, basis any, opts ...d.DFopt) (*DF, error) {
+	/*
+		[]*Col,
+		*Col,
+		[]*m.Col
+		*m.Col
+		[]*d.Vector
+		*d.Vector
+		*DF
+		*m.DF
+	*/
+	return nil, nil
+
+}
+
 func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDFcol")

@@ -1,6 +1,9 @@
 package df
 
-import "fmt"
+import (
+	"fmt"
+	"iter"
+)
 
 type Scalar struct {
 	atomic any
@@ -8,6 +11,9 @@ type Scalar struct {
 }
 
 // *********** Methods ***********
+func (s *Scalar) AllRows() iter.Seq2[int, []any] {
+	return s.Data().AllRows()
+}
 
 func (s *Scalar) AppendRows(col Column) (Column, error) {
 	return nil, fmt.Errorf("cannot append to scalar")

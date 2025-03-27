@@ -2,6 +2,7 @@ package df
 
 import (
 	"fmt"
+	"iter"
 
 	d "github.com/invertedv/df"
 )
@@ -51,6 +52,9 @@ func NewCol(data any, opts ...d.ColOpt) (*Col, error) {
 }
 
 // ***************** Methods *****************
+func (c *Col) 	AllRows() iter.Seq2[int, []any] {
+	return c.Data().AllRows()
+}
 
 func (c *Col) Copy() d.Column {
 	col := &Col{

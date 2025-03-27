@@ -86,7 +86,7 @@ func TestString(t *testing.T) {
 			sBase = dfx.Column("x").String()
 			continue
 		}
-		s :=dfx.Column("x").String()
+		s := dfx.Column("x").String()
 		assert.Equal(t, sBase, s)
 		fmt.Println(which)
 		fmt.Println(dfx.Column("R"))
@@ -139,11 +139,33 @@ func TestSQLsave(t *testing.T) {
 			outTable = os.Getenv("pgTemp")
 			options = []string{"Owner:" + owner, "TableSpace:" + tablespace}
 		}
+
+		// test entire data frame
 		e := dlct.Save(outTable, "k,yy", true, dfx, options...)
 		assert.Nil(t, e)
 		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		assert.Equal(t, dfy.Column(coln).Data().AsAny(), dfx.Column(coln).Data().AsAny())
+
+		// test vector
+		_ = dfx.Sort(true, coln)
+		vec := dfx.Column(coln).Data()
+		e = dlct.Save(outTable, "", true, vec, options...)
+		assert.Nil(t, e)
+		dfy, ex = m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
+		assert.Nil(t, ex)
+		assert.Equal(t, dfy.Column("col1").Data().AsAny(), dfx.Column(coln).Data().AsAny())
+
+		// test column
+		col := dfx.Column(coln)
+		e = dlct.Save(outTable, "", true, col, options...)
+		assert.Nil(t, e)
+		dfy, ex = m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
+		assert.Nil(t, ex)
+		assert.Equal(t, dfy.Column(coln).Data().AsAny(), dfx.Column(coln).Data().AsAny())
+
+		fmt.Println("yay!")
+
 	}
 }
 

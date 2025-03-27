@@ -4,11 +4,18 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"iter"
 	"math"
 	"reflect"
 	"strings"
 	"time"
 )
+
+// The hasIter interface restricts to types that have an iterator through the rows of the data.
+// Save only requires an iterator to move through the rows
+type hasIter interface {
+	AllRows() iter.Seq2[int, []any]
+}
 
 // Can Save any DF to a table
 // Can Load any query to []any
@@ -315,25 +322,6 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	return e
 }
 
-func (d *Dialect) CreateTable(tableName, orderBy string, overwrite bool, df DF, options ...string) error {
-	var (
-		e   error
-		dts []DataTypes
-	)
-
-	cols := df.ColumnNames()
-
-	noDesc := strings.ReplaceAll(strings.ReplaceAll(orderBy, "DESC", ""), " ", "")
-	if orderBy != "" && !df.Core().HasColumns(strings.Split(noDesc, ",")...) {
-		return fmt.Errorf("not all columns present in OrderBy %s", noDesc)
-	}
-
-	if dts, e = df.ColumnTypes(cols...); e != nil {
-		return e
-	}
-	return d.Create(tableName, noDesc, cols, dts, overwrite, options...)
-}
-
 func (d *Dialect) DB() *sql.DB {
 	return d.db
 }
@@ -421,7 +409,7 @@ func (d *Dialect) Interp(sourceSQL, interpSQL, xSfield, xIfield, yField, outFiel
 	return qry
 }
 
-func (d *Dialect) IterSave(tableName string, df DF) error {
+func (d *Dialect) IterSave(tableName string, df hasIter) error {
 	const (
 		bSep   = byte(',')
 		bOpen  = byte('(')
@@ -451,6 +439,7 @@ func (d *Dialect) IterSave(tableName string, df DF) error {
 			case *time.Time:
 				x = *xx
 			}
+
 			buffer = append(append(buffer, []byte(d.ToString(x))...), bSep)
 		}
 
@@ -617,36 +606,54 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	return rows, row2Read, fieldNames, nil
 }
 
-func (d *Dialect) Save(tableName, orderBy string, overwrite bool, df DF, options ...string) error {
-	exists := d.Exists(tableName)
-	if exists && !overwrite {
-		return fmt.Errorf("table %s exists", tableName)
+func (d *Dialect) Save(tableName, orderBy string, overwrite bool, toSave hasIter, options ...string) error {
+	var (
+		fieldNames []string
+		fieldTypes []DataTypes
+	)
+	switch x := toSave.(type) {
+	case DF:
+		fieldNames = x.ColumnNames()
+		fieldTypes, _ = x.ColumnTypes()
+	case *Vector:
+		fieldNames = []string{"col1"}
+		fieldTypes = []DataTypes{x.VectorType()}
+		orderBy = "col1"
+	case Column:
+		fieldNames = []string{x.Name()}
+		fieldTypes = []DataTypes{x.DataType()}
+		orderBy = x.Name()
+	default:
+		return fmt.Errorf("cannot save type to sql table")
 	}
 
-	if exists {
+	if d.Exists(tableName) {
+		if !overwrite {
+			return fmt.Errorf("table %s exists", tableName)
+		}
+
 		if e := d.DropTable(tableName); e != nil {
 			return e
 		}
 	}
 
-	if e := d.CreateTable(tableName, orderBy, overwrite, df, options...); e != nil {
+	if e := d.Create(tableName, orderBy, fieldNames, fieldTypes, true, options...); e != nil {
 		return e
 	}
 
 	// If there's a MakeQuery method, use that
-	t := reflect.TypeOf(df)
+	t := reflect.TypeOf(toSave)
 	if m, ok := t.MethodByName("MakeQuery"); ok {
-		args := []reflect.Value{reflect.ValueOf(df)}
+		args := []reflect.Value{reflect.ValueOf(toSave)}
 		qry := m.Func.Call(args)[0].String()
-		colNames := df.ColumnNames()
-		for ind, cn := range colNames {
-			colNames[ind] = d.ToName(cn)
+		for ind, cn := range fieldNames {
+			fieldNames[ind] = d.ToName(cn)
 		}
 
-		return d.Insert(tableName, qry, strings.Join(colNames, ","))
+		return d.Insert(tableName, qry, strings.Join(fieldNames, ","))
 	}
 
-	return d.IterSave(tableName, df)
+	return d.IterSave(tableName, toSave)
 }
 
 func (d *Dialect) Seq(n int) string {

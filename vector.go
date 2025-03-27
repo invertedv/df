@@ -2,6 +2,7 @@ package df
 
 import (
 	"fmt"
+	"iter"
 	"time"
 )
 
@@ -39,6 +40,20 @@ func MakeVector(dt DataTypes, n int) *Vector {
 }
 
 // *********** Methods ***********
+// AllRows returns an iterator that move through the data.  It returns a slice rather than a row so that
+// it's compatible with the DF iterator
+func (v *Vector) AllRows() iter.Seq2[int, []any] {
+	return func(yield func(int, []any) bool) {
+		for ind := 0; ind < v.Len(); ind++ {
+			var row []any
+			row = append(row, v.Element(ind))
+
+			if !yield(ind, row) {
+				return
+			}
+		}
+	}
+}
 
 func (v *Vector) Append(data ...any) error {
 	vAdd, ok := toSlc(data, v.VectorType())

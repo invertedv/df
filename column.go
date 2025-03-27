@@ -2,6 +2,7 @@ package df
 
 import (
 	"fmt"
+	"iter"
 	"maps"
 )
 
@@ -9,6 +10,7 @@ import (
 type Column interface {
 	CC
 
+	AllRows() iter.Seq2[int, []any]
 	Copy() Column
 	Data() *Vector
 	Len() int

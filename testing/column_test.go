@@ -261,14 +261,16 @@ func TestParser(t *testing.T) {
 //			{"var(y)", 0, 16.0},
 //			{"var(x)", 0, 4.175},
 
+// TODO: concat function
 // TODO: check for referencing elements directly not through method
 // TODO: revisit sourceDF relative to mem/By
 // TODO: fix stringers
 
-// TODO: how would you do interp for sql?
 // TODO: optional name to DFSeq for the column
 
 // TODO: in joining/interp in *sql, need to check that db's are the same
+
+// TODO: think about vec to df in SQL... NewDFvec....?? Change Interp??
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs("d1") {
