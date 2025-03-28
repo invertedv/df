@@ -99,7 +99,7 @@ func TestRandom(t *testing.T) {
 	assert.Nil(t, es)
 	//	coldt, edt := m.NewCol(vdt, d.ColName("dt"))
 	//	assert.Nil(t, edt)
-	df, ed := m.NewDFcol(m.StandardFunctions(), []*m.Col{colx, coly, colz, cols})
+	df, ed := m.NewDFcol([]*m.Col{colx, coly, colz, cols})
 	assert.Nil(t, ed)
 	tx := time.Now()
 	ep := d.Parse(df, "test:=x+y")

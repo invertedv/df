@@ -42,7 +42,7 @@ func NewColSQL(dt d.DataTypes, dlct *d.Dialect, sqlx string, opts ...d.ColOpt) (
 
 // ***************** SQLCol - Methods *****************
 
-func (c *Col) 	AllRows() iter.Seq2[int, []any] {
+func (c *Col) AllRows() iter.Seq2[int, []any] {
 	return c.Data().AllRows()
 }
 
@@ -106,7 +106,7 @@ func (c *Col) DataLimit(limit int) *d.Vector {
 		mq += fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	if df, e = m.DBLoad(mq, c.Dialect()); e != nil {
+	if df, e = m.DBload(mq, c.Dialect()); e != nil {
 		panic(e)
 	}
 

@@ -62,12 +62,12 @@ type columnList struct {
 	next  *columnList
 }
 
-func NewDFcore(funcs Fns, cols []Column, opts ...DFopt) (df *DFcore, err error) {
+func NewDFcore(cols []Column, opts ...DFopt) (df *DFcore, err error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDF")
 	}
 
-	outDF := &DFcore{appFuncs: funcs}
+	outDF := &DFcore{}
 
 	var head, priorNode *columnList
 	for ind := range len(cols) {
@@ -244,8 +244,8 @@ func (df *DFcore) Copy() *DFcore {
 	//df.current = save
 	var outDF *DFcore
 
-	outDF, _ = NewDFcore(df.Fns(), cols,
-		DFdialect(df.Dialect()), DFsetSourceDF(df.SourceDF()))
+	outDF, _ = NewDFcore(cols,
+		DFdialect(df.Dialect()), DFsetSourceDF(df.SourceDF()), DFsetFns(df.Fns()))
 
 	return outDF
 }

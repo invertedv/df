@@ -13,8 +13,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestNewDFmem(t *testing.T) {
+	const coln = "x"
+	for _, which := range pkgs("d1") {
+		dfx := loadData(which)
+		dfy, e := m.NewDF(dfx)
+		assert.Nil(t, e)
+		for _, cn := range dfx.ColumnNames() {
+			assert.ElementsMatch(t, dfx.Column(cn).Data().AsAny(), dfy.Column(cn).Data().AsAny())
+		}
+
+		dfy, e = m.NewDF(dfx.Column(coln))
+		assert.Nil(t, e)
+		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column(coln).Data().AsAny())
+
+		dfy, e = m.NewDF(dfx.Column(coln).Data())
+		assert.Nil(t, e)
+		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column("col").Data().AsAny())
+	}
+}
+
 func TestNewDF(t *testing.T) {
-	coln := "x"
+	const coln = "x"
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		dlct := dfx.Dialect()
@@ -56,10 +76,10 @@ func TestInterp(t *testing.T) {
 			e   error
 		)
 		if strings.Contains(which, "mem") {
-			dfI, e = m.NewDFseq(nil, 15)
+			dfI, e = m.NewDFseq(15)
 
 		} else {
-			dfI, e = s.NewDFseq(nil, dfx.Dialect(), 15)
+			dfI, e = s.NewDFseq(dfx.Dialect(), 15)
 		}
 		assert.Nil(t, e)
 
@@ -121,10 +141,10 @@ func TestSeq(t *testing.T) {
 
 		switch which {
 		case mem:
-			df, e = m.NewDFseq(nil, 5)
+			df, e = m.NewDFseq(5)
 			assert.Nil(t, e)
 		default:
-			df, e = s.NewDFseq(nil, dfx.Dialect(), 5)
+			df, e = s.NewDFseq(dfx.Dialect(), 5)
 			assert.Nil(t, e)
 		}
 
@@ -153,7 +173,7 @@ func TestSQLsave(t *testing.T) {
 		// test entire data frame
 		e := dlct.Save(outTable, "k,yy", true, true, dfx)
 		assert.Nil(t, e)
-		dfy, ex := m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
+		dfy, ex := m.DBload("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		assert.Equal(t, dfy.Column(coln).Data().AsAny(), dfx.Column(coln).Data().AsAny())
 
@@ -162,7 +182,7 @@ func TestSQLsave(t *testing.T) {
 		vec := dfx.Column(coln).Data()
 		e = dlct.Save(outTable, "", true, true, vec)
 		assert.Nil(t, e)
-		dfy, ex = m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
+		dfy, ex = m.DBload("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		assert.Equal(t, dfy.Column("col").Data().AsAny(), dfx.Column(coln).Data().AsAny())
 
@@ -170,7 +190,7 @@ func TestSQLsave(t *testing.T) {
 		col := dfx.Column(coln)
 		e = dlct.Save(outTable, "", true, true, col)
 		assert.Nil(t, e)
-		dfy, ex = m.DBLoad("SELECT * FROM "+outTable, dfx.Dialect())
+		dfy, ex = m.DBload("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		assert.Equal(t, dfy.Column(coln).Data().AsAny(), dfx.Column(coln).Data().AsAny())
 	}

@@ -34,18 +34,62 @@ type groupVal struct {
 }
 
 func StandardFunctions() d.Fns {
-	// DF returns
 	fns := d.Fns{toCat, applyCat, global}
 	fns = append(fns, vectorFunctions()...)
 
 	return fns
 }
 
-func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
-	if funcs == nil {
-		funcs = StandardFunctions()
+func NewDF(input any, opts ...d.DFopt) (*DF, error) {
+	var df *DF
+	switch inp := input.(type) {
+	case *DF:
+		df = inp
+		for _, opt := range opts {
+			if e := opt(df); e != nil {
+				return nil, e
+			}
+		}
+	case d.Column:
+		data := inp.Data()
+		var (
+			col    *Col
+			ec, ed error
+		)
+		if col, ec = NewCol(data, d.ColName(inp.Name())); ec != nil {
+			return nil, ec
+		}
+
+		if df, ed = NewDFcol([]*Col{col}, opts...); ed != nil {
+			return nil, ed
+		}
+	case *d.Vector:
+		var (
+			col    *Col
+			ec, ed error
+		)
+		if col, ec = NewCol(inp, d.ColName("col")); ec != nil {
+			return nil, ec
+		}
+
+		if df, ed = NewDFcol([]*Col{col}, opts...); ed != nil {
+			return nil, ed
+		}
+	case d.HasMQDlct:
+		if inp, ok := input.(d.HasMQDlct); ok {
+			var e error
+			if df, e = DBload(inp.MakeQuery(), inp.Dialect(), opts...); e != nil {
+				return nil, e
+			}
+		}
+	default:
+		return nil, fmt.Errorf("can't make *mem.DF from input in NewDf")
 	}
 
+	return df, nil
+}
+
+func NewDFcol(cols []*Col, opts ...d.DFopt) (*DF, error) {
 	rowCount := cols[0].Len()
 	var cc []d.Column
 	for ind := range len(cols) {
@@ -61,7 +105,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 		e  error
 	)
 
-	if df, e = d.NewDFcore(funcs, cc); e != nil {
+	if df, e = d.NewDFcore(cc); e != nil {
 		return nil, e
 	}
 
@@ -77,16 +121,16 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 		return nil, ex
 	}
 
+	if outDF.Fns() == nil {
+		_ = d.DFsetFns(StandardFunctions())(outDF)
+	}
+
 	return outDF, nil
 }
 
-func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) (*DF, error) {
+func NewDFseq(n int, opts ...d.DFopt) (*DF, error) {
 	if n <= 0 {
 		return nil, fmt.Errorf("n must be positive in NewDFseq")
-	}
-
-	if funcs == nil {
-		funcs = StandardFunctions()
 	}
 
 	data := make([]int, n)
@@ -96,18 +140,12 @@ func NewDFseq(funcs d.Fns, n int, opts ...d.DFopt) (*DF, error) {
 
 	col, _ := NewCol(data, d.ColName("seq"))
 
-	df, _ := NewDFcol(funcs, []*Col{col})
-
-	for _, opt := range opts {
-		if e := opt(df); e != nil {
-			return nil, e
-		}
-	}
+	df, _ := NewDFcol([]*Col{col}, opts...)
 
 	return df, nil
 }
 
-func DBLoad(qry string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
+func DBload(qry string, dlct *d.Dialect, opts ...d.DFopt) (*DF, error) {
 	var (
 		columnNames []string
 		columnTypes []d.DataTypes
@@ -128,10 +166,7 @@ func DBLoad(qry string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if fns == nil {
-				fns = StandardFunctions()
-			}
-			if memDF, e = NewDFcol(fns, []*Col{col}); e != nil {
+			if memDF, e = NewDFcol([]*Col{col}, opts...); e != nil {
 				return nil, e
 			}
 
@@ -149,7 +184,7 @@ func DBLoad(qry string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	return memDF, nil
 }
 
-func FileLoad(f *d.Files) (*DF, error) {
+func FileLoad(f *d.Files, opts ...d.DFopt) (*DF, error) {
 	var (
 		memData []*d.Vector
 		e       error
@@ -167,7 +202,7 @@ func FileLoad(f *d.Files) (*DF, error) {
 		}
 
 		if ind == 0 {
-			if memDF, e = NewDFcol(StandardFunctions(), []*Col{col}); e != nil {
+			if memDF, e = NewDFcol([]*Col{col}, opts...); e != nil {
 				return nil, e
 			}
 
@@ -348,7 +383,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		outDF *DF
 		e4    error
 	)
-	if outDF, e4 = NewDFcol(f.Fns(), cols); e4 != nil {
+	if outDF, e4 = NewDFcol(cols, d.DFsetFns(f.Fns())); e4 != nil {
 		return nil, e4
 	}
 
@@ -720,7 +755,7 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 		}
 	}
 
-	outDF, e1 := NewDFcol(f.Fns(), outCols)
+	outDF, e1 := NewDFcol(outCols, d.DFsetFns(f.Fns()))
 
 	return outDF, e1
 }
@@ -1022,7 +1057,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 			dfg *DF
 			e2  error
 		)
-		if dfg, e2 = NewDFcol(nil, cols); e2 != nil {
+		if dfg, e2 = NewDFcol(cols); e2 != nil {
 			return nil, e2
 		}
 

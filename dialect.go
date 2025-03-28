@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"iter"
 	"math"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -15,6 +14,11 @@ import (
 // Save only requires an iterator to move through the rows
 type HasIter interface {
 	AllRows() iter.Seq2[int, []any]
+}
+
+type HasMQDlct interface {
+	MakeQuery(colNames ...string) string
+	Dialect() *Dialect
 }
 
 // Can Save any DF to a table
@@ -671,10 +675,8 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite, temp bool, toSave H
 	}
 
 	// If there's a MakeQuery method, use that
-	t := reflect.TypeOf(toSave)
-	if m, ok := t.MethodByName("MakeQuery"); ok {
-		args := []reflect.Value{reflect.ValueOf(toSave)}
-		qry := m.Func.Call(args)[0].String()
+	if df, ok := toSave.(HasMQDlct); ok {
+		qry := df.MakeQuery()
 		for ind, cn := range fieldNames {
 			fieldNames[ind] = d.ToName(cn)
 		}
@@ -923,10 +925,4 @@ func (d *Dialect) Convert(val any) any {
 	default:
 		panic(fmt.Errorf("unsupported data type in dialect.Load"))
 	}
-}
-
-func HasMakeQuery(s any) bool {
-	t := reflect.TypeOf(s)
-	_, ok := t.MethodByName("MakeQuery")
-	return ok
 }

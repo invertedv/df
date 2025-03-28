@@ -47,13 +47,14 @@ func NewDF(funcs d.Fns, dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF,
 		}
 
 		qry := fmt.Sprintf("SELECT * FROM %s", tn)
-		return DBload(qry, dlct, funcs...)
+		return DBload(qry, dlct, d.DFsetFns(funcs))
 	default:
 		return nil, fmt.Errorf("unsupported input to sql NewDF")
 	}
 }
 
-func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
+// TODO: unused...need?
+func NewDFcolXXX(cols []*Col, opts ...d.DFopt) (*DF, error) {
 	if cols == nil {
 		return nil, fmt.Errorf("no columns in NewDFcol")
 	}
@@ -72,9 +73,6 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	}
 
 	dlct := cols[0].Dialect()
-	if funcs == nil {
-		funcs = StandardFunctions(dlct)
-	}
 
 	var (
 		tmp *d.DFcore
@@ -85,7 +83,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	for ind := range len(cols) {
 		colsx = append(colsx, cols[ind])
 	}
-	if tmp, e = d.NewDFcore(funcs, colsx); e != nil {
+	if tmp, e = d.NewDFcore(colsx); e != nil {
 		return nil, e
 	}
 
@@ -106,11 +104,7 @@ func NewDFcol(funcs d.Fns, cols []*Col, opts ...d.DFopt) (*DF, error) {
 	return df, nil
 }
 
-func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
-	if funcs == nil {
-		funcs = StandardFunctions(dlct)
-	}
-
+func NewDFseq(dlct *d.Dialect, n int, opts ...d.DFopt) (*DF, error) {
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
 
 	var (
@@ -126,7 +120,7 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 		ColCore: cc,
 	}
 
-	dfc, ex := d.NewDFcore(funcs, []d.Column{col})
+	dfc, ex := d.NewDFcore([]d.Column{col})
 	if ex != nil {
 		panic(ex)
 	}
@@ -139,6 +133,16 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 		DFcore:    dfc,
 	}
 
+	for _, opt := range opts {
+		if ex := opt(df); ex != nil {
+			return nil, ex
+		}
+	}
+
+	if df.Fns() == nil {
+		_ = d.DFsetFns(StandardFunctions(dlct))(df)
+	}
+
 	_ = d.DFdialect(dlct)(df)
 
 	if ey := df.SetParent(); ey != nil {
@@ -148,7 +152,7 @@ func NewDFseq(funcs d.Fns, dlct *d.Dialect, n int) (*DF, error) {
 	return df, nil
 }
 
-func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
+func DBload(query string, dlct *d.Dialect, opts ...d.DFopt) (*DF, error) {
 	var (
 		e        error
 		colTypes []d.DataTypes
@@ -182,15 +186,22 @@ func DBload(query string, dlct *d.Dialect, fns ...d.Fn) (*DF, error) {
 	}
 
 	var tmp *d.DFcore
-	if fns == nil {
-		fns = StandardFunctions(dlct)
-	}
-	if tmp, e = d.NewDFcore(fns, cols); e != nil {
+	if tmp, e = d.NewDFcore(cols); e != nil {
 		return nil, e
 	}
 	df.DFcore = tmp
 
 	_ = d.DFdialect(dlct)(df)
+
+	for _, opt := range opts {
+		if ex := opt(df); ex != nil {
+			return nil, ex
+		}
+	}
+
+	if df.Fns() == nil {
+		_ = d.DFsetFns(StandardFunctions(dlct))(df)
+	}
 
 	if ex := df.SetParent(); ex != nil {
 		return nil, ex
@@ -278,7 +289,7 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 		outDF *DF
 		e     error
 	)
-	if outDF, e = DBload(qry, f.Dialect(), f.Fns()...); e != nil {
+	if outDF, e = DBload(qry, f.Dialect(), d.DFsetFns(f.Fns())); e != nil {
 		return nil, e
 	}
 
@@ -432,7 +443,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		mDF *m.DF
 		e1  error
 	)
-	if mDF, e1 = m.DBLoad(x, f.Dialect()); e1 != nil {
+	if mDF, e1 = m.DBload(x, f.Dialect()); e1 != nil {
 		return nil, e1
 	}
 
@@ -574,7 +585,7 @@ func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, 
 		df *DF
 		e  error
 	)
-	if df, e = DBload(qry, f.Dialect(), f.Fns()...); e != nil {
+	if df, e = DBload(qry, f.Dialect(), d.DFsetFns(f.Fns())); e != nil {
 		return nil, e
 	}
 
