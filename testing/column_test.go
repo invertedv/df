@@ -268,6 +268,9 @@ func TestParser(t *testing.T) {
 
 // TODO: think about vec to df in SQL... NewDFvec....?? Change Interp??
 
+// TODO: NEXT modify join, interp to take an "any" and use NewDF
+// TODO: are there more func parameters to get rid of?
+
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)

@@ -44,12 +44,17 @@ func NewDF(input any, opts ...d.DFopt) (*DF, error) {
 	var df *DF
 	switch inp := input.(type) {
 	case *DF:
-		df = inp
+		df = inp.Copy().(*DF)
 		for _, opt := range opts {
 			if e := opt(df); e != nil {
 				return nil, e
 			}
 		}
+	case *Col:
+		// need to copy the data
+		data := inp.Copy().(*Col)
+
+		return NewDFcol([]*Col{data}, opts...)
 	case d.Column:
 		data := inp.Data()
 		var (
@@ -75,15 +80,29 @@ func NewDF(input any, opts ...d.DFopt) (*DF, error) {
 		if df, ed = NewDFcol([]*Col{col}, opts...); ed != nil {
 			return nil, ed
 		}
-	case d.HasMQDlct:
-		if inp, ok := input.(d.HasMQDlct); ok {
-			var e error
-			if df, e = DBload(inp.MakeQuery(), inp.Dialect(), opts...); e != nil {
+	case d.HasMQdlct:
+		// more efficient than the next case
+		var e error
+		if df, e = DBload(inp.MakeQuery(), inp.Dialect(), opts...); e != nil {
+			return nil, e
+		}
+	case d.DF:
+		var cols []*Col
+		for col := range inp.AllColumns() {
+			var (
+				c *Col
+				e error
+			)
+			if c, e = NewCol(col.Data(), d.ColName(col.Name())); e != nil {
 				return nil, e
 			}
+
+			cols = append(cols, c)
 		}
+
+		return NewDFcol(cols, opts...)
 	default:
-		return nil, fmt.Errorf("can't make *mem.DF from input in NewDf")
+		return nil, fmt.Errorf("can't make *mem.DF from input in NewDF")
 	}
 
 	return df, nil

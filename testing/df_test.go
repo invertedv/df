@@ -38,17 +38,17 @@ func TestNewDF(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		dlct := dfx.Dialect()
-		dfy, e := s.NewDF(nil, dlct, dfx)
+		dfy, e := s.NewDF( dlct, dfx)
 		assert.Nil(t, e)
 		for _, cn := range dfx.ColumnNames() {
 			assert.ElementsMatch(t, dfx.Column(cn).Data().AsAny(), dfy.Column(cn).Data().AsAny())
 		}
 
-		dfy, e = s.NewDF(nil, dlct, dfx.Column(coln))
+		dfy, e = s.NewDF( dlct, dfx.Column(coln))
 		assert.Nil(t, e)
 		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column(coln).Data().AsAny())
 
-		dfy, e = s.NewDF(nil, dlct, dfx.Column(coln).Data())
+		dfy, e = s.NewDF( dlct, dfx.Column(coln).Data())
 		assert.Nil(t, e)
 		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column("col").Data().AsAny())
 	}

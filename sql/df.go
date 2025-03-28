@@ -32,7 +32,7 @@ type DF struct {
 
 // ***************** DF - Create *****************
 
-func NewDF(funcs d.Fns, dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
+func NewDF(dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
 	switch inp := input.(type) {
 	case *DF:
 		return inp, nil
@@ -47,7 +47,7 @@ func NewDF(funcs d.Fns, dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF,
 		}
 
 		qry := fmt.Sprintf("SELECT * FROM %s", tn)
-		return DBload(qry, dlct, d.DFsetFns(funcs))
+		return DBload(qry, dlct, opts...)
 	default:
 		return nil, fmt.Errorf("unsupported input to sql NewDF")
 	}

@@ -16,7 +16,7 @@ type HasIter interface {
 	AllRows() iter.Seq2[int, []any]
 }
 
-type HasMQDlct interface {
+type HasMQdlct interface {
 	MakeQuery(colNames ...string) string
 	Dialect() *Dialect
 }
@@ -675,7 +675,7 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite, temp bool, toSave H
 	}
 
 	// If there's a MakeQuery method, use that
-	if df, ok := toSave.(HasMQDlct); ok {
+	if df, ok := toSave.(HasMQdlct); ok {
 		qry := df.MakeQuery()
 		for ind, cn := range fieldNames {
 			fieldNames[ind] = d.ToName(cn)
