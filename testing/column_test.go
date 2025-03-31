@@ -29,6 +29,7 @@ func TestX(t *testing.T) {
 		fmt.Println(dfx.Column("test").Data().AsAny(), which)
 	}
 }
+
 func TestCast(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
@@ -196,10 +197,13 @@ func TestIf(t *testing.T) {
 
 func TestParser(t *testing.T) {
 	for _, which := range pkgs("d1") {
+		//		if !strings.Contains(which, "mem") {
+		//			continue
+		//		}
 		dfx := loadData(which)
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
-			fmt.Println(test, which)
+			//			fmt.Println(test, which)
 			vals := strings.Split(strings.ReplaceAll(test, " ", ""), "|")
 			if len(vals) != 4 {
 				continue
@@ -260,16 +264,36 @@ func TestParser(t *testing.T) {
 // TODO: concat function
 // TODO: check for referencing elements directly not through method
 // TODO: revisit sourceDF relative to mem/By
-// TODO: fix stringers
 
 // TODO: optional name to DFSeq for the column
 
-// TODO: in joining/interp in *sql, need to check that db's are the same
-
-// TODO: think about vec to df in SQL... NewDFvec....?? Change Interp??
-
-// TODO: NEXT modify join, interp to take an "any" and use NewDF
 // TODO: are there more func parameters to get rid of?
+/*
+trig:
+  sin
+  cos
+  tan
+  asin
+  acos
+  atan
+
+math:
+  round
+  isNan
+  isInf
+  gamma fn
+  column-wise max, min, avg, std
+
+statistical
+
+vector
+  diff
+  lag
+  lead
+
+
+
+*/
 
 func TestToCat(t *testing.T) {
 	for _, which := range pkgs("d1") {

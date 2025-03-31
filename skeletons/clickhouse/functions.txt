@@ -4,7 +4,6 @@ subtract:(%s - %s):{int,int},{float,float}:int,float:C
 multiply:(%s * %s):{int,int},{float,float}:int,float:C
 divide:(%s / %s):{int,int},{float,float}:int,float:C
 
-dot:sum(%s*%s):{float,float},{int,int}:float,float:S
 exp:exp(%s):{float}:float:C
 log:log(%s):{float}:float:C
 abs:abs(%s):{float},{int}:float,int:C
@@ -24,7 +23,25 @@ date:cast(toString(%s) AS date):{int},{string},{date}:date,date,date:C
 float:toFloat64(%s):{float},{int},{string}:float,float,float:C
 int:toInt32(%s):{float},{int},{string}:int,int,int:C
 string:toString(%s):{float},{int},{string},{date}:string,string,string,string:C
+substr:substr(%s,%s+1,%s):{string,int,int}:string:C
+sqrt:sqrt(%s):{float},{int}:float,float:C
+pi:3.141592654::float:C
+sign:sign(%s):{float},{int}:int,int:C
+mod:mod(%s,%s):{int,int}:int:C
+pow:pow(%s,%s):{float,float},{float,int},{int,float},{int,int}:float,float,float,float:C
+round:round(%s):{float}:float:C
+
 mean:avg(%s):{int},{float}:float,float:S
 sum:sum(%s):{int},{float}:int,float:S
 count:count(%s):{float},{int},{string},{date},{categorical}:int,int,int,int,int:S
-substr:substr(%s,%s+1,%s):{string,int,int}:string:C
+max:max(%s):{float},{int},{string},{date}:float,int,string,date:S
+min:min(%s):{float},{int},{string},{date}:float,int,string,date:S
+quantile:quantileBFloat16(%s)(%s):{float,float},{float,int}:float,float:S
+median:quantileBFloat16(0.5)(%s):{float},{int}:float,float:S
+lq:quantileBFloat16(0.25)(%s):{float},{int}:float,float:S
+uq:quantileBFloat16(0.75)(%s):{float},{int}:float,float:S
+var:varSampStable(%s):{float},{int}:float,float:S
+std:stddevSampStable(%s):{float},{int}:float,float:S
+
+
+dot:sum(%s*%s):{float,float},{int,int}:float,float:S

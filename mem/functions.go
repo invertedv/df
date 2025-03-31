@@ -27,10 +27,6 @@ var (
 	functions string
 )
 
-func printFn[T frameTypes](a []T) {
-	fmt.Println(a[0])
-}
-
 // each function here must have an entry in functions.txt
 func rawFuncs() []any {
 	fns := []any{rowNumberFn,
@@ -45,6 +41,10 @@ func rawFuncs() []any {
 		multiplyFn[float64], multiplyFn[int],
 		divideFn[float64], divideFn[int],
 		absFn[float64], absFn[int],
+		sqrtFn[float64], sqrtFn[int],
+		signFn[float64], signFn[int],
+		modFn,
+		powFn[float64, float64], powFn[float64, int], powFn[int, float64], powFn[int, int],
 		andFn, orFn, notFn,
 		gtFn[float64], gtFn[int], gtFn[string], gtFn[time.Time],
 		ltFn[float64], ltFn[int], ltFn[string], ltFn[time.Time],
@@ -56,19 +56,24 @@ func rawFuncs() []any {
 		minFn[float64], minFn[int], minFn[string], minFn[time.Time],
 		ifFn[float64], ifFn[int], ifFn[string], ifFn[time.Time],
 		elemFn[float64], elemFn[int], elemFn[string], elemFn[time.Time],
-		math.Exp, math.Log,
+		math.Exp, math.Log, math.Round,
 		quantileFn[float64], quantileFn[int],
 		lqFn[float64], lqFn[int],
 		medianFn[float64], medianFn[int],
 		uqFn[float64], uqFn[int],
 		meanFn[float64], meanFn[int],
+		varFn[float64], varFn[int],
+		stdFn[float64], stdFn[int],
 		sumFn[float64], sumFn[int],
 		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
-		printFn[float64], printFn[int], printFn[string], printFn[time.Time],
-		substrFn,
+		substrFn, pi,
 	}
-	// TODO: drop printFn
+
 	return fns
+}
+
+func pi() float64 {
+	return math.Pi
 }
 
 func vectorFunctions() d.Fns {
@@ -192,17 +197,17 @@ func substrFn(x string, start, length int) string {
 	return x[start : start+length]
 }
 
-func quantileFn[T float64 | int](x []T, p []float64) float64 {
+func quantileFn[T float64 | int](p []float64, x []T) float64 {
 	var y any = x
 	if xFlt, ok := y.([]float64); ok {
 		if sort.Float64sAreSorted(xFlt) {
-			return stat.Quantile(p[0], stat.LinInterp, xFlt, nil)
+			return stat.Quantile(p[0], stat.Empirical, xFlt, nil) //stat.LinInterp
 		}
 
 		vSort := make([]float64, len(x))
 		copy(vSort, xFlt)
 		sort.Float64s(vSort)
-		return stat.Quantile(p[0], stat.LinInterp, vSort, nil)
+		return stat.Quantile(p[0], stat.Empirical, vSort, nil)
 	}
 
 	xFlt := make([]float64, len(x))
@@ -210,19 +215,19 @@ func quantileFn[T float64 | int](x []T, p []float64) float64 {
 		xFlt[ind] = float64(xx)
 	}
 
-	return quantileFn(xFlt, p)
+	return quantileFn(p, xFlt)
 }
 
 func lqFn[T float64 | int](a []T) float64 {
-	return quantileFn(a, []float64{0.25}) // had quantileFn[T]
+	return quantileFn([]float64{0.25}, a) // had quantileFn[T]
 }
 
 func medianFn[T float64 | int](a []T) float64 {
-	return quantileFn(a, []float64{0.5}) // had quantileFn[T]
+	return quantileFn([]float64{0.5}, a) // had quantileFn[T]
 }
 
 func uqFn[T float64 | int](a []T) float64 {
-	return quantileFn(a, []float64{0.75}) // had quantileFn[T]
+	return quantileFn([]float64{0.75}, a) // had quantileFn[T]
 }
 
 func maxFn[T frameTypes](a []T) T {
@@ -297,6 +302,34 @@ func absFn[T float64 | int](a T) T {
 	}
 
 	return -a
+}
+
+func sqrtFn[T float64 | int](a T) (float64, error) {
+	r := float64(a)
+	if r < 0 {
+		return 0, fmt.Errorf("sqrt of negative number")
+	}
+
+	return math.Sqrt(r), nil
+}
+
+func signFn[T float64 | int](a T) int {
+	switch {
+	case a == 0:
+		return 0
+	case a < 0:
+		return -1
+	default:
+		return 1
+	}
+}
+
+func modFn(a, b int) int {
+	return a % b
+}
+
+func powFn[S, T float64 | int](a S, b T) float64 {
+	return math.Pow(float64(a), float64(b))
 }
 
 func bToI(a bool) int {
@@ -452,6 +485,34 @@ func meanFn[T float64 | int](x []T) (float64, error) {
 	}
 
 	return 0, fmt.Errorf("error in mean")
+}
+
+func varFn[T float64 | int](x []T) float64 {
+	n := len(x)
+	if n == 1 {
+		return 0
+	}
+
+	var xx any = x
+	switch v := xx.(type) {
+	case []float64:
+		return stat.Variance(v, nil)
+	case []int:
+		mn, _ := meanFn(x)
+		t := 0.0
+		for _, xr := range v {
+			res := float64(xr) - mn
+			t += res * res
+		}
+
+		return t / float64(n-1)
+	}
+
+	return 0
+}
+
+func stdFn[T float64 | int](x []T) float64 {
+	return math.Sqrt(varFn(x))
 }
 
 func countFn[T frameTypes](x []T) int {
