@@ -567,13 +567,25 @@ func findIndx(x []float64, xLoc float64, indStart int) int {
 	return len(x) - 1
 }
 
-func (f *DF) Interp(iDF d.DF, xSfield, xIfield, yfield, outField string) (d.DF, error) {
+func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string) (d.DF, error) {
 	var (
 		idf *DF
-		ok  bool
+		e1  error
 	)
-	if idf, ok = iDF.(*DF); !ok {
-		return nil, fmt.Errorf("iDF argument to iterp is not *mem.DF")
+	if idf, e1 = NewDF(points, d.DFsetFns(f.Fns())); e1 != nil {
+		return nil, e1
+	}
+
+	// if points isn't a d.DF or d.Column, then idf will have the column name "col"
+	_, isDF := points.(d.DF)
+	_, isCol := points.(d.Column)
+	if !isDF && !isCol {
+		col := idf.Column("col")
+		if col == nil {
+			return nil, fmt.Errorf("interp unexpected error")
+		}
+
+		_ = col.Rename(xIfield)
 	}
 
 	if c := f.Column(xSfield); c == nil || c.DataType() != d.DTfloat {

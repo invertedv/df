@@ -38,17 +38,17 @@ func TestNewDF(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		dlct := dfx.Dialect()
-		dfy, e := s.NewDF( dlct, dfx)
+		dfy, e := s.NewDF(dlct, dfx)
 		assert.Nil(t, e)
 		for _, cn := range dfx.ColumnNames() {
 			assert.ElementsMatch(t, dfx.Column(cn).Data().AsAny(), dfy.Column(cn).Data().AsAny())
 		}
 
-		dfy, e = s.NewDF( dlct, dfx.Column(coln))
+		dfy, e = s.NewDF(dlct, dfx.Column(coln))
 		assert.Nil(t, e)
 		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column(coln).Data().AsAny())
 
-		dfy, e = s.NewDF( dlct, dfx.Column(coln).Data())
+		dfy, e = s.NewDF(dlct, dfx.Column(coln).Data())
 		assert.Nil(t, e)
 		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column("col").Data().AsAny())
 	}
@@ -63,43 +63,70 @@ func TestStringer(t *testing.T) {
 	}
 }
 
-// TODO: call to NewDFseq not the same between mem and sql
 func TestInterp(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		//		if !strings.Contains(which, "click") {
-		//			continue
-		//		}
+		for choice := range 5 {
+			dfx := loadData(which)
+			var points d.HasIter
 
-		dfx := loadData(which)
-		var (
-			dfI d.DF
-			e   error
-		)
-		if strings.Contains(which, "mem") {
-			dfI, e = m.NewDFseq(15)
+			switch choice {
+			case 0:
+				var tmp d.DF
+				tmp, e := s.NewDFseq(dfx.Dialect(), 15)
+				assert.Nil(t, e)
+				e = d.Parse(tmp, "kx := float(seq) ")
+				assert.Nil(t, e)
+				points = tmp
+			case 1:
+				var tmp d.DF
+				tmp, e := m.NewDFseq(15)
+				assert.Nil(t, e)
+				e = d.Parse(tmp, "kx := float(seq) ")
+				assert.Nil(t, e)
+				points = tmp
+			case 2:
+				var e error
+				x := make([]float64, 15)
+				for ind := range 15 {
+					x[ind] = float64(ind)
+				}
 
-		} else {
-			dfI, e = s.NewDFseq(dfx.Dialect(), 15)
-		}
-		assert.Nil(t, e)
+				points, e = d.NewVector(x, d.DTfloat)
+				assert.Nil(t, e)
+			case 3:
+				var tmp d.DF
+				tmp, e := m.NewDFseq(15)
+				assert.Nil(t, e)
+				e = d.Parse(tmp, "kx := float(seq) ")
+				assert.Nil(t, e)
+				points = tmp.Column("kx")
+			case 4:
+				var tmp d.DF
+				tmp, e := s.NewDFseq(dfx.Dialect(), 15)
+				assert.Nil(t, e)
+				e = d.Parse(tmp, "kx := float(seq) ")
+				assert.Nil(t, e)
+				points = tmp.Column("kx")
+			}
 
-		e = d.Parse(dfx, "kk := float(y)")
-		assert.Nil(t, e)
-		e = d.Parse(dfI, "kx := float(seq) ")
-		assert.Nil(t, e)
+			e := d.Parse(dfx, "kk := float(y)")
+			assert.Nil(t, e)
 
-		dfOut, e1 := dfx.Interp(dfI, "kk", "kx", "x", "xhat")
-		assert.Nil(t, e1)
-		fmt.Println(which)
-		fmt.Println(dfOut.ColumnNames())
-		fmt.Println(dfOut.Column("seq").Data().AsAny())
-		fmt.Println(dfOut.Column("xhat").Data().AsAny())
-		exp := []float64{0.08333333333333337, 0.5, 1, 1.5, 2, 3.5, 3}
-		act := dfOut.Column("xhat").Data().AsAny().([]float64)
-		for ind, xexp := range exp {
-			assert.InEpsilon(t, xexp, act[ind], .00001)
+			dfOut, e1 := dfx.Interp(points, "kk", "kx", "x", "xhat")
+			fmt.Println(dfOut.ColumnNames())
+			assert.Nil(t, e1)
+			fmt.Println(which)
+			fmt.Println(dfOut.ColumnNames())
+			//		fmt.Println(dfOut.Column("seq").Data().AsAny())
+			fmt.Println(dfOut.Column("xhat").Data().AsAny())
+			exp := []float64{0.08333333333333337, 0.5, 1, 1.5, 2, 3.5, 3}
+			act := dfOut.Column("xhat").Data().AsAny().([]float64)
+			for ind, xexp := range exp {
+				assert.InEpsilon(t, xexp, act[ind], .00001)
+			}
 		}
 	}
+
 }
 
 func TestNull(t *testing.T) {
