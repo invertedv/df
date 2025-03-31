@@ -63,6 +63,48 @@ func TestStringer(t *testing.T) {
 	}
 }
 
+func TestJoin(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		for choice := range 2 {
+			dfx := loadData(which)
+			e := d.Parse(dfx, "y1:=2*k")
+			assert.Nil(t, e)
+
+			var dfy d.DF
+
+			switch choice {
+			case 0:
+				if strings.Contains(which, "mem") {
+					dfy = loadData(ch + ",d1")
+					break
+				}
+
+				dfy = loadData(which)
+			case 1:
+				dfy = loadData("mem,d1")
+			}
+
+			_ = dfy.Column("x").Rename("xx")
+			_ = dfy.Column("z").Rename("zz")
+			e = d.Parse(dfy, "y1:=2*k")
+			assert.Nil(t, e)
+
+			outDF, e := dfx.Join(dfy, "y1")
+			assert.Nil(t, e)
+			fmt.Println(outDF.ColumnNames())
+			fmt.Println(outDF.Column("yDUP").Data().AsAny())
+			fmt.Println(outDF.Column("x").Data().AsAny())
+			fmt.Println(outDF.Column("xx").Data().AsAny())
+			assert.Equal(t, outDF.Column("xx").Data().AsAny(),
+				outDF.Column("x").Data().AsAny())
+			assert.Equal(t, outDF.Column("y").Data().AsAny(),
+				outDF.Column("yDUP").Data().AsAny())
+
+		}
+	}
+
+}
+
 func TestInterp(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		for choice := range 5 {
@@ -247,29 +289,6 @@ func TestFileSave(t *testing.T) {
 		cexp := dfx.Column(coln)
 		cact := dfy.Column(coln)
 		assert.Equal(t, cexp.Data(), cact.Data())
-	}
-}
-
-func TestParse_Join(t *testing.T) {
-	for _, which := range pkgs("d1") {
-		dfx := loadData(which)
-		e := d.Parse(dfx, "y1:=2*k")
-		assert.Nil(t, e)
-		dfy := dfx.Copy()
-		_ = dfy.Column("x").Rename("xx")
-		_ = dfy.Column("z").Rename("zz")
-
-		outDF, e := dfx.Join(dfy, "y1")
-		assert.Nil(t, e)
-		fmt.Println(outDF.ColumnNames())
-		fmt.Println(outDF.Column("yDUP").Data().AsAny())
-		fmt.Println(outDF.Column("x").Data().AsAny())
-		fmt.Println(outDF.Column("xx").Data().AsAny())
-		assert.Equal(t, outDF.Column("xx").Data().AsAny(),
-			outDF.Column("x").Data().AsAny())
-		assert.Equal(t, outDF.Column("y").Data().AsAny(),
-			outDF.Column("yDUP").Data().AsAny())
-
 	}
 }
 

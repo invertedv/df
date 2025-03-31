@@ -688,10 +688,11 @@ func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string)
 func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 	var (
 		fRight *DF
-		ok     bool
+		e      error
 	)
-	if fRight, ok = df.(*DF); !ok {
-		return nil, fmt.Errorf("must be mem.*DF to join")
+
+	if fRight, e = NewDF(df, d.DFsetFns(f.Fns())); e != nil {
+		return nil, fmt.Errorf("invalid input to Join")
 	}
 
 	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")

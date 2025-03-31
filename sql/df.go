@@ -35,6 +35,10 @@ type DF struct {
 func NewDF(dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
 	switch inp := input.(type) {
 	case *DF:
+		if dlct.DialectName() != inp.Dialect().DialectName() {
+			return nil, fmt.Errorf("conflicting dialects in NewDF")
+		}
+
 		return inp, nil
 	case d.HasIter:
 		if dlct == nil {
@@ -252,17 +256,20 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 }
 
 func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
-	if _, ok := df.(*DF); !ok {
-		return nil, fmt.Errorf("must be *sql.DF to join")
+	var (
+		dfRight *DF
+		e       error
+	)
+
+	if dfRight, e = NewDF(f.Dialect(), df, d.DFsetFns(f.Fns())); e != nil {
+		return nil, fmt.Errorf("invalid input to Join")
 	}
 
 	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
-
-	if !f.HasColumns(jCols...) || !df.HasColumns(jCols...) {
+	if !f.HasColumns(jCols...) || !dfRight.HasColumns(jCols...) {
 		return nil, fmt.Errorf("missing some join columns")
 	}
 
-	dfR := df.Copy()
 	leftNames, rightNames := f.ColumnNames(), df.ColumnNames()
 
 	var rNames []string
@@ -275,7 +282,7 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 
 		// rename any field names in right that are also in left
 		if d.Has(rn, leftNames) {
-			col := dfR.Column(rn)
+			col := dfRight.Column(rn)
 			rn += "DUP"
 			_ = col.Rename(rn)
 		}
@@ -283,14 +290,14 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 		rNames = append(rNames, rn)
 	}
 
-	qry := f.Dialect().Join(f.MakeQuery(), dfR.(*DF).MakeQuery(), leftNames, rNames, jCols)
+	qry := f.Dialect().Join(f.MakeQuery(), dfRight.MakeQuery(), leftNames, rNames, jCols)
 
 	var (
 		outDF *DF
-		e     error
+		e1     error
 	)
-	if outDF, e = DBload(qry, f.Dialect(), d.DFsetFns(f.Fns())); e != nil {
-		return nil, e
+	if outDF, e1 = DBload(qry, f.Dialect(), d.DFsetFns(f.Fns())); e1 != nil {
+		return nil, e1
 	}
 
 	return outDF, nil
