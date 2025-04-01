@@ -30,6 +30,10 @@ func TestNewDFmem(t *testing.T) {
 		dfy, e = m.NewDF(dfx.Column(coln).Data())
 		assert.Nil(t, e)
 		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column("col").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -51,6 +55,10 @@ func TestNewDF(t *testing.T) {
 		dfy, e = s.NewDF(dlct, dfx.Column(coln).Data())
 		assert.Nil(t, e)
 		assert.ElementsMatch(t, dfx.Column(coln).Data().AsAny(), dfy.Column("col").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -60,6 +68,10 @@ func TestStringer(t *testing.T) {
 		e := d.Parse(dfx, "cat := cat(y)")
 		assert.Nil(t, e)
 		fmt.Println(dfx)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -100,9 +112,11 @@ func TestJoin(t *testing.T) {
 			assert.Equal(t, outDF.Column("y").Data().AsAny(),
 				outDF.Column("yDUP").Data().AsAny())
 
+			if dlct := dfx.Dialect(); dlct != nil {
+				_ = dlct.Close()
+			}
 		}
 	}
-
 }
 
 func TestInterp(t *testing.T) {
@@ -166,11 +180,16 @@ func TestInterp(t *testing.T) {
 			for ind, xexp := range exp {
 				assert.InEpsilon(t, xexp, act[ind], .00001)
 			}
+
+			if dlct := dfx.Dialect(); dlct != nil {
+				_ = dlct.Close()
+			}
 		}
 	}
 
 }
 
+// TODO: add clickhouse..?
 func TestNull(t *testing.T) {
 	defInt := 100
 	dfy := loadFile("d2.csv", d.FileDefaultInt(defInt))
@@ -183,6 +202,9 @@ func TestNull(t *testing.T) {
 	assert.Equal(t, defInt, dx.([]int)[2])
 	_ = dx
 	fmt.Println(dx)
+	if dlct := dfx.Dialect(); dlct != nil {
+		_ = dlct.Close()
+	}
 }
 
 func TestString(t *testing.T) {
@@ -197,6 +219,10 @@ func TestString(t *testing.T) {
 		assert.Equal(t, sBase, s)
 		fmt.Println(which)
 		fmt.Println(dfx.Column("R"))
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -220,6 +246,10 @@ func TestSeq(t *testing.T) {
 		col := df.Column("seq")
 		assert.NotNil(t, col)
 		assert.Equal(t, []int{0, 1, 2, 3, 4}, col.Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -231,9 +261,9 @@ func TestSQLsave(t *testing.T) {
 	const coln = "x"
 
 	for _, which := range pkgs("d1") {
-//		if !strings.Contains(which, "click") {
-//			continue
-//		}
+		//		if !strings.Contains(which, "click") {
+		//			continue
+		//		}
 		dfx := loadData(which)
 		dlct := dfx.Dialect()
 
@@ -262,6 +292,10 @@ func TestSQLsave(t *testing.T) {
 		dfy, ex = m.DBload("SELECT * FROM "+outTable, dfx.Dialect())
 		assert.Nil(t, ex)
 		assert.Equal(t, dfy.Column(coln).Data().AsAny(), dfx.Column(coln).Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -289,6 +323,10 @@ func TestFileSave(t *testing.T) {
 		cexp := dfx.Column(coln)
 		cact := dfy.Column(coln)
 		assert.Equal(t, cexp.Data(), cact.Data())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -304,6 +342,10 @@ func TestParse_By(t *testing.T) {
 		col, _ := outDF.Column("sx").Data().AsFloat()
 		sort.Float64s(col)
 		assert.Equal(t, []float64{-2, 1, 2, 3, 3.5}, col)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -325,6 +367,10 @@ func TestParse_Table(t *testing.T) {
 		col := outDF.Column("count").Data().AsAny()
 		assert.NotNil(t, col)
 		assert.Equal(t, []int{2, 1, 1, 1, 1}, col)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -341,6 +387,10 @@ func TestParse_Sort(t *testing.T) {
 		assert.Nil(t, e1)
 		fmt.Println(dfx.Column("y").Data().AsAny())
 		assert.Equal(t, []int{6, 5, 4, 1, 1, -5}, dfx.Column("y").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -355,6 +405,10 @@ func TestWhere(t *testing.T) {
 		fmt.Println(r.Data())
 		assert.Equal(t, []int{-5, 6}, dfOut.Column("y").Data().AsAny())
 		assert.Equal(t, []int{-15, 16}, dfOut.Column("yy").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -378,6 +432,10 @@ func TestAppendDF(t *testing.T) {
 		assert.Equal(t,
 			[]int{12, 10, 8, 6, 6, 5, 4, 4, 3, 2, 2, 1},
 			dfOut.Column("test").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -448,6 +506,10 @@ func TestFilesOpen(t *testing.T) {
 		cy := df4.Column(cn)
 		assert.NotNil(t, cy)
 		assert.Equal(t, cx.Data(), cy.Data())
+	}
+
+	if dlct := dfx.Dialect(); dlct != nil {
+		_ = dlct.Close()
 	}
 }
 

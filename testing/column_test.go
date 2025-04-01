@@ -21,12 +21,87 @@ var (
 	parserTests string
 )
 
+func TestColumnwise(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		dfx := loadData(which)
+		if !strings.Contains(which, "mem") {
+			continue
+		}
+
+		ex := d.Parse(dfx, "avg := colavg(x,2.0*x,-2.0*x)")
+		assert.Nil(t,ex)
+		fmt.Println(dfx.Column("avg").Data().AsAny())
+
+		e := d.Parse(dfx, "s := 2.0*x")
+		assert.Nil(t, e)
+
+		e = d.Parse(dfx, "v := '20040101'")
+		assert.Nil(t, e)
+
+		e = d.Parse(dfx, "d := date('20040101')")
+		assert.Nil(t, e)
+
+		e = d.Parse(dfx, "g := greatest(y,yy,k)")
+		assert.Nil(t, e)
+		exp := []int{1, 2, 16, 4, 15, 14}
+		assert.ElementsMatch(t, exp, dfx.Column("g").Data().AsAny())
+
+		e = d.Parse(dfx, "l := least(y,yy,k)")
+		assert.Nil(t, e)
+		exp = []int{1, -15, 3, 1, 4, 5}
+		assert.ElementsMatch(t, exp, dfx.Column("l").Data().AsAny())
+
+		e = d.Parse(dfx, "g := greatest(s,x)")
+		assert.Nil(t, e)
+		expF := []float64{2, -2, 6, 0, 4, 7}
+		assert.ElementsMatch(t, expF, dfx.Column("g").Data().AsAny())
+
+		e = d.Parse(dfx, "l := least(s, x)")
+		assert.Nil(t, e)
+		expF = []float64{1, -4, 3, 0, 2, 3.5}
+		assert.ElementsMatch(t, expF, dfx.Column("l").Data().AsAny())
+
+		e = d.Parse(dfx, "g := greatest(z, v)")
+		assert.Nil(t, e)
+		expS := []string{"20221231", "20040101", "20060102", "20060102", "20230915", "20060310"}
+		assert.ElementsMatch(t, expS, dfx.Column("g").Data().AsAny())
+
+		e = d.Parse(dfx, "g := greatest(d, dt)")
+		assert.Nil(t, e)
+		var expD1 []time.Time
+		for ind := range len(expS) {
+			t, _ := time.Parse("20060102", expS[ind])
+			expD1 = append(expD1, t)
+		}
+
+		assert.ElementsMatch(t, expD1, dfx.Column("g").Data().AsAny())
+
+		e = d.Parse(dfx, "l := least(z, v)")
+		assert.Nil(t, e)
+		expS = []string{"20040101", "20000101", "20040101", "20040101", "20040101", "20040101"}
+		assert.ElementsMatch(t, expS, dfx.Column("l").Data().AsAny())
+
+		e = d.Parse(dfx, "l := least(d, dt)")
+		assert.Nil(t, e)
+		var expD []time.Time
+		for ind := range len(expS) {
+			t, _ := time.Parse("20060102", expS[ind])
+			expD = append(expD, t)
+		}
+
+		assert.ElementsMatch(t, expD, dfx.Column("l").Data().AsAny())
+	}
+}
+
 func TestX(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := d.Parse(dfx, "test:='hello'' world'")
 		assert.Nil(t, e)
 		fmt.Println(dfx.Column("test").Data().AsAny(), which)
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -42,6 +117,10 @@ func TestCast(t *testing.T) {
 			fmt.Println(q)
 		}
 		fmt.Println(dx)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -52,6 +131,10 @@ func TestTemp(t *testing.T) {
 		for row, r := range dfx.AllRows() {
 			fmt.Println("row: ", row)
 			fmt.Println(r)
+		}
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
 		}
 	}
 
@@ -148,15 +231,24 @@ func TestRename(t *testing.T) {
 		assert.Equal(t, x1, dfx.Column("xb").Data().AsAny())
 		e = dfx.Column("xb").Rename("x=")
 		assert.NotNil(t, e)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
 func TestRowNumber(t *testing.T) {
 	for _, which := range pkgs("d1") {
+		fmt.Println(which)
 		dfx := loadData(which)
 		e := d.Parse(dfx, "rn:=rowNumber()")
 		assert.Nil(t, e)
 		assert.Equal(t, []int{0, 1, 2, 3, 4, 5}, dfx.Column("rn").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -192,14 +284,15 @@ func TestIf(t *testing.T) {
 		assert.Nil(t, e5)
 		assert.Equal(t, []int{6, 1, 1, 6, 1, 1},
 			dfx.Column("out").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
 func TestParser(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		//		if !strings.Contains(which, "mem") {
-		//			continue
-		//		}
 		dfx := loadData(which)
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
@@ -238,6 +331,10 @@ func TestParser(t *testing.T) {
 			}
 
 			assert.InEpsilon(t, result.(float64), actual.(float64), 0.001)
+		}
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
 		}
 	}
 }
@@ -343,6 +440,9 @@ func TestToCat(t *testing.T) {
 		//		expected = []int{3, 0, 1, 1, 4, 2}
 		//		assert.Equal(t, expected, result)
 
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
@@ -372,6 +472,10 @@ func TestApplyCat(t *testing.T) {
 		assert.Nil(t, e5)
 		expected = []int{0, -1, -1, 0, -1, -1}
 		assert.Equal(t, expected, dfx.Column("test2").Data().AsAny())
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 

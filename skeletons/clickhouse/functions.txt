@@ -1,47 +1,49 @@
 // core functions
-add:(%s + %s):{int,int},{float,float}:int,float:C
-subtract:(%s - %s):{int,int},{float,float}:int,float:C
-multiply:(%s * %s):{int,int},{float,float}:int,float:C
-divide:(%s / %s):{int,int},{float,float}:int,float:C
+add:(%s + %s):{int,int},{float,float}:int,float:C:N
+subtract:(%s - %s):{int,int},{float,float}:int,float:C:N
+multiply:(%s * %s):{int,int},{float,float}:int,float:C:N
+divide:(%s / %s):{int,int},{float,float}:int,float:C:N
 
-exp:exp(%s):{float}:float:C
-log:log(%s):{float}:float:C
-abs:abs(%s):{float},{int}:float,int:C
-rowNumber:toInt32(rowNumberInBlock())::int:C
-eq:(%s == %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
-ne:(%s != %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
-gt:(%s > %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
-ge:(%s >= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
-lt:(%s < %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
-le:(%s <= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C
-neg:-%s:{float},{int}:float,int:C
-and:and(%s,%s):{int,int}:int:C
-or:or(%s,%s):{int,int}:int:C
-not:not(%s):{int}:int:C
-if:if(%s>0,%s,%s):{int,float,float},{int,int,int},{int,string,string},{int,date,date}:float,int,string,date:C
-date:cast(toString(%s) AS date):{int},{string},{date}:date,date,date:C
-float:toFloat64(%s):{float},{int},{string}:float,float,float:C
-int:toInt32(%s):{float},{int},{string}:int,int,int:C
-string:toString(%s):{float},{int},{string},{date}:string,string,string,string:C
-substr:substr(%s,%s+1,%s):{string,int,int}:string:C
-sqrt:sqrt(%s):{float},{int}:float,float:C
-pi:3.141592654::float:C
-sign:sign(%s):{float},{int}:int,int:C
-mod:mod(%s,%s):{int,int}:int:C
-pow:pow(%s,%s):{float,float},{float,int},{int,float},{int,int}:float,float,float,float:C
-round:round(%s):{float}:float:C
+exp:exp(%s):{float}:float:C:N
+log:log(%s):{float}:float:C:N
+abs:abs(%s):{float},{int}:float,int:C:N
+rowNumber:toInt32(rowNumberInBlock())::int:C:N
+eq:(%s == %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
+ne:(%s != %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
+gt:(%s > %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
+ge:(%s >= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
+lt:(%s < %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
+le:(%s <= %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
+neg:-%s:{float},{int}:float,int:C:N
+and:and(%s,%s):{int,int}:int:C:N
+or:or(%s,%s):{int,int}:int:C:N
+not:not(%s):{int}:int:C:N
+if:if(%s>0,%s,%s):{int,float,float},{int,int,int},{int,string,string},{int,date,date}:float,int,string,date:C:N
+date:cast(toString(%s) AS date):{int},{string},{date}:date,date,date:C:N
+float:toFloat64(%s):{float},{int},{string}:float,float,float:C:N
+int:toInt32(%s):{float},{int},{string}:int,int,int:C:N
+string:toString(%s):{float},{int},{string},{date}:string,string,string,string:C:N
+substr:substr(%s,%s+1,%s):{string,int,int}:string:C:N
+sqrt:sqrt(%s):{float},{int}:float,float:C:N
+pi:3.141592654::float:C:N
+sign:sign(%s):{float},{int}:int,int:C:N
+mod:mod(%s,%s):{int,int}:int:C:N
+pow:pow(%s,%s):{float,float},{float,int},{int,float},{int,int}:float,float,float,float:C:N
+round:round(%s):{float}:float:C:N
+greatest:greatest:::C:Y
+least:least:::C:Y
 
-mean:avg(%s):{int},{float}:float,float:S
-sum:sum(%s):{int},{float}:int,float:S
-count:count(%s):{float},{int},{string},{date},{categorical}:int,int,int,int,int:S
-max:max(%s):{float},{int},{string},{date}:float,int,string,date:S
-min:min(%s):{float},{int},{string},{date}:float,int,string,date:S
-quantile:quantileBFloat16(%s)(%s):{float,float},{float,int}:float,float:S
-median:quantileBFloat16(0.5)(%s):{float},{int}:float,float:S
-lq:quantileBFloat16(0.25)(%s):{float},{int}:float,float:S
-uq:quantileBFloat16(0.75)(%s):{float},{int}:float,float:S
-var:varSampStable(%s):{float},{int}:float,float:S
-std:stddevSampStable(%s):{float},{int}:float,float:S
+mean:avg(%s):{int},{float}:float,float:S:N
+sum:sum(%s):{int},{float}:int,float:S:N
+count:count(%s):{float},{int},{string},{date},{categorical}:int,int,int,int,int:S:N
+max:max(%s):{float},{int},{string},{date}:float,int,string,date:S:N
+min:min(%s):{float},{int},{string},{date}:float,int,string,date:S:N
+quantile:quantileBFloat16(%s)(%s):{float,float},{float,int}:float,float:S:N
+median:quantileBFloat16(0.5)(%s):{float},{int}:float,float:S:N
+lq:quantileBFloat16(0.25)(%s):{float},{int}:float,float:S:N
+uq:quantileBFloat16(0.75)(%s):{float},{int}:float,float:S:N
+var:varSampStable(%s):{float},{int}:float,float:S:N
+std:stddevSampStable(%s):{float},{int}:float,float:S:N
 
 
-dot:sum(%s*%s):{float,float},{int,int}:float,float:S
+dot:sum(%s*%s):{float,float},{int,int}:float,float:S:N

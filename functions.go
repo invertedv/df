@@ -59,6 +59,7 @@ type FnSpec struct {
 	Inputs   [][]DataTypes
 	Outputs  []DataTypes
 	IsScalar bool
+	Varying  bool
 	Fns      []any
 }
 
@@ -69,7 +70,7 @@ func LoadFunctions(fns string) Fmap {
 
 	for spec := range strings.SplitSeq(fns, "\n") {
 		details := strings.Split(spec, ":")
-		if len(details) != 5 {
+		if len(details) != 6 {
 			continue
 		}
 
@@ -79,6 +80,7 @@ func LoadFunctions(fns string) Fmap {
 			Inputs:   parseInputs(details[2]),
 			Outputs:  parseOutputs(details[3]),
 			IsScalar: details[4][0] == 'S',
+			Varying:  details[5][0] == 'Y',
 		}
 
 		m[s.Name] = s

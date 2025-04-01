@@ -13,7 +13,7 @@ import (
 )
 
 func StandardFunctions(dlct *d.Dialect) d.Fns {
-	fns := d.Fns{applyCat, global, toCat}
+	fns := d.Fns{applyCat, global, toCat} //, varying("greatest", "greatest")}
 	fns = append(fns, fnDefs(dlct)...)
 
 	return fns
@@ -294,7 +294,7 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 
 	var (
 		outDF *DF
-		e1     error
+		e1    error
 	)
 	if outDF, e1 = DBload(qry, f.Dialect(), d.DFsetFns(f.Fns())); e1 != nil {
 		return nil, e1

@@ -18,6 +18,65 @@ import (
 	d "github.com/invertedv/df"
 )
 
+func varying(spec *d.FnSpec) d.Fn {
+	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: spec.Name, Inputs: nil,
+				Output:  spec.Outputs,
+				Varying: true}
+		}
+
+		var (
+			cols []*Col
+		)
+
+		for ind := range len(inputs) {
+			col := toCol(inputs[ind])
+			cols = append(cols, col)
+
+			if cols[0].DataType() != col.DataType() {
+				return &d.FnReturn{Err: fmt.Errorf("all entries to %s function must be same type", spec.Name)}
+			}
+		}
+
+		var (
+			ind   int
+			fnUse any
+		)
+		if spec.Inputs != nil {
+			ind = signature(spec.Inputs, inputs)
+			if ind < 0 {
+				panic("no signature")
+			}
+
+			fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
+		}
+
+		row := d.MakeVector(cols[0].DataType(), len(cols))
+		inCol, _ := NewCol(row)
+		outData := d.MakeVector(spec.Outputs[ind], df.RowCount())
+		for r := range df.RowCount() {
+			for c := range len(cols) {
+				row.SetAny(cols[c].Data().Element(r), c)
+			}
+
+			out := d.MakeVector(spec.Outputs[ind], 1)
+
+			if e := level0(out.Data().AsAny(), fnUse, []d.Column{inCol}); e != nil {
+				return &d.FnReturn{Err: e}
+			}
+
+			outData.SetAny(out.Element(0), r)
+		}
+
+		outCol, _ := NewCol(outData)
+
+		return &d.FnReturn{Value: outCol}
+	}
+
+	return fn
+}
+
 type frameTypes interface {
 	float64 | int | string | time.Time
 }
@@ -76,6 +135,47 @@ func pi() float64 {
 	return math.Pi
 }
 
+func buildFn(spec *d.FnSpec) d.Fn {
+	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs, IsScalar: spec.IsScalar}
+		}
+
+		fnUse := spec.Fns[0]
+
+		var ind int
+
+		n := df.RowCount()
+		if spec.Inputs != nil {
+			n = loopDim(inputs...)
+			ind = signature(spec.Inputs, inputs)
+			if ind < 0 {
+				panic("no signature")
+			}
+
+			fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
+		}
+
+		// scalar returns take the whole vector as inputs
+		if spec.IsScalar {
+			n = 1
+		}
+
+		var oas any
+
+		outVec := d.MakeVector(spec.Outputs[ind], n)
+		oas = outVec.AsAny()
+
+		if e := level0(oas, fnUse, inputs); e != nil {
+			return &d.FnReturn{Err: e}
+		}
+
+		return returnCol(outVec)
+	}
+
+	return fn
+}
+
 func vectorFunctions() d.Fns {
 	specs := d.LoadFunctions(functions)
 	fns := rawFuncs()
@@ -94,43 +194,12 @@ func vectorFunctions() d.Fns {
 
 	var outFns d.Fns
 	for _, spec := range specs {
-		fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
-			if info {
-				return &d.FnReturn{Name: spec.Name, Inputs: spec.Inputs, Output: spec.Outputs, IsScalar: spec.IsScalar}
-			}
-
-			fnUse := spec.Fns[0]
-
-			var ind int
-
-			n := df.RowCount()
-			if spec.Inputs != nil {
-				n = loopDim(inputs...)
-				ind = signature(spec.Inputs, inputs)
-				if ind < 0 {
-					panic("no signature")
-				}
-				fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
-			}
-
-			// scalar returns take the whole vector as inputs
-			if spec.IsScalar {
-				n = 1
-			}
-
-			var oas any
-
-			outVec := d.MakeVector(spec.Outputs[ind], n)
-			oas = outVec.AsAny()
-
-			if e := level0(oas, fnUse, inputs); e != nil {
-				return &d.FnReturn{Err: e}
-			}
-
-			return returnCol(outVec)
+		if !spec.Varying {
+			outFns = append(outFns, buildFn(spec))
+			continue
 		}
 
-		outFns = append(outFns, fn)
+		outFns = append(outFns, varying(spec))
 	}
 
 	return outFns

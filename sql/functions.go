@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"strings"
 
 	d "github.com/invertedv/df"
 )
@@ -9,11 +10,53 @@ import (
 func fnDefs(dlct *d.Dialect) d.Fns {
 	var fns d.Fns
 	for _, v := range dlct.Functions() {
+		if !v.Varying {
+			fns = append(fns,
+				buildFn(v.Name, v.FnDetail, v.Inputs, v.Outputs, v.IsScalar))
+			continue
+		}
+
 		fns = append(fns,
-			buildFn(v.Name, v.FnDetail, v.Inputs, v.Outputs, v.IsScalar))
+			varying(v.Name, v.FnDetail))
 	}
 
 	return fns
+}
+
+func varying(fnName, sql string) d.Fn {
+	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
+		if info {
+			return &d.FnReturn{Name: fnName, Inputs: nil,
+				Output:  nil,
+				Varying: true}
+		}
+
+		var (
+			cols    []*Col
+			holders []string
+			dts     []d.DataTypes
+		)
+		for ind := range len(inputs) {
+			col := toCol(df, inputs[ind])
+			cols = append(cols, col)
+
+			if ind > 0 {
+				if cols[0].DataType() != col.DataType() {
+					return &d.FnReturn{Err: fmt.Errorf("all entries to %s function must be same type", fnName)}
+				}
+			}
+
+			holders = append(holders, "%s")
+			dts = append(dts, col.DataType())
+		}
+
+		sql := fmt.Sprintf("%s(%s)", sql, strings.Join(holders, ","))
+
+		return buildFn(fnName, sql, [][]d.DataTypes{dts}, []d.DataTypes{cols[0].DataType()}, false)(info, df, inputs...)
+
+	}
+
+	return fn
 }
 
 func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar bool) d.Fn {
