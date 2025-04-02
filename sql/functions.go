@@ -17,13 +17,13 @@ func fnDefs(dlct *d.Dialect) d.Fns {
 		}
 
 		fns = append(fns,
-			varying(v.Name, v.FnDetail))
+			varying(v.Name, v.FnDetail, v.Inputs, v.Outputs))
 	}
 
 	return fns
 }
 
-func varying(fnName, sql string) d.Fn {
+func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
 			return &d.FnReturn{Name: fnName, Inputs: nil,
@@ -32,9 +32,7 @@ func varying(fnName, sql string) d.Fn {
 		}
 
 		var (
-			cols    []*Col
-			holders []string
-			dts     []d.DataTypes
+			cols []*Col
 		)
 		for ind := range len(inputs) {
 			col := toCol(df, inputs[ind])
@@ -45,15 +43,54 @@ func varying(fnName, sql string) d.Fn {
 					return &d.FnReturn{Err: fmt.Errorf("all entries to %s function must be same type", fnName)}
 				}
 			}
-
-			holders = append(holders, "%s")
-			dts = append(dts, col.DataType())
 		}
 
-		sql := fmt.Sprintf("%s(%s)", sql, strings.Join(holders, ","))
+		// TODO: create a global signature check
+		var i []d.DataTypes
+		for ind := range len(inp) {
+			i = append(i, inp[ind][0])
+		}
 
-		return buildFn(fnName, sql, [][]d.DataTypes{dts}, []d.DataTypes{cols[0].DataType()}, false)(info, df, inputs...)
+		sqls := getSQL(df, inputs...)
 
+		ind := d.Position(cols[0].DataType(), i)
+		if ind < 0 {
+			return &d.FnReturn{Err: fmt.Errorf("incompatable type to function %s", fnName)}
+		}
+		outType := outp[ind]
+
+		var sqlOut string
+		switch sql {
+		case "colSum":
+			sqlOut = strings.Join(sqls, "+")
+		case "colMean":
+			sqlOut = fmt.Sprintf("(%s)/%d", strings.Join(sqls, "+"), len(sqls))
+		case "colVar", "colStd":
+			sqlMean := fmt.Sprintf("((%s)/%d)", strings.Join(sqls, "+"), len(sqls))
+			for ind, c := range sqls {
+				sqls[ind] = fmt.Sprintf("(%s-%s)*(%s-%s)", c, sqlMean, c, sqlMean)
+			}
+
+			sqlOut = fmt.Sprintf("(%s)/(%d-1)", strings.Join(sqls, "+"), len(sqls))
+			if sql == "colStd" {
+				sqlOut = fmt.Sprintf("sqrt(%s)", sqlOut)
+			}
+		default:
+			sqlOut = fmt.Sprintf("%s(%s)", sql, strings.Join(sqls, ","))
+
+		}
+
+		// we may need to explicitly cast float fields as float
+		if outType == d.DTfloat && df.Dialect().CastFloat() {
+			sqlOut, _ = df.Dialect().CastField(sqlOut, d.DTany, d.DTfloat)
+		}
+
+		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
+
+		_ = d.ColParent(df)(outCol)
+		_ = d.ColDialect(df.Dialect())(outCol)
+
+		return &d.FnReturn{Value: outCol}
 	}
 
 	return fn

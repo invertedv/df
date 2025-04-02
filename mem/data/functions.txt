@@ -29,9 +29,13 @@ sign:github.com/invertedv/df/mem.signFn[...]:{float},{int}:int,int:C:N
 mod:github.com/invertedv/df/mem.modFn:{int,int}:int:C:N
 pow:github.com/invertedv/df/mem.powFn[...]:{float,float},{float,int},{int,float},{int,int}:float,float,float,float:C:N
 round:math.Round:{float}:float:C:N
-least:github.com/invertedv/df/mem.minFn[...]:{float},{int},{string},{date}:float,int,string,date:C:Y
-greatest:github.com/invertedv/df/mem.maxFn[...]:{float},{int},{string},{date}:float,int,string,date:C:Y
-colavg:github.com/invertedv/df/mem.meanFn[...]:{float},{int}:float,float:C:Y
+colMin:github.com/invertedv/df/mem.minFn[...]:{float},{int},{string},{date}:float,int,string,date:C:Y
+colMax:github.com/invertedv/df/mem.maxFn[...]:{float},{int},{string},{date}:float,int,string,date:C:Y
+colMean:github.com/invertedv/df/mem.meanFn[...]:{float},{int}:float,float:C:Y
+colVar:github.com/invertedv/df/mem.varFn[...]:{float},{int}:float,float:C:Y
+colStd:github.com/invertedv/df/mem.stdFn[...]:{float},{int}:float,float:C:Y
+colSum:github.com/invertedv/df/mem.sumFn[...]:{float},{int}:float,int:C:Y
+colMedian:github.com/invertedv/df/mem.medianFn[...]:{float},{int}:float,float:C:Y
 
 mean:github.com/invertedv/df/mem.meanFn[...]:{float},{int}:float,float:S:N
 sum:github.com/invertedv/df/mem.sumFn[...]:{float},{int}:float,int:S:N

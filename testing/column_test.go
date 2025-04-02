@@ -23,13 +23,13 @@ var (
 
 func TestColumnwise(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		dfx := loadData(which)
-		if !strings.Contains(which, "mem") {
+		if !strings.Contains(which, "post") {
 			continue
 		}
+		dfx := loadData(which)
 
-		ex := d.Parse(dfx, "avg := colavg(x,2.0*x,-2.0*x)")
-		assert.Nil(t,ex)
+		ex := d.Parse(dfx, "avg := colStd(x,2.0*x,-2.0*x)")
+		assert.Nil(t, ex)
 		fmt.Println(dfx.Column("avg").Data().AsAny())
 
 		e := d.Parse(dfx, "s := 2.0*x")
@@ -41,32 +41,32 @@ func TestColumnwise(t *testing.T) {
 		e = d.Parse(dfx, "d := date('20040101')")
 		assert.Nil(t, e)
 
-		e = d.Parse(dfx, "g := greatest(y,yy,k)")
+		e = d.Parse(dfx, "g := colMax(y,yy,k)")
 		assert.Nil(t, e)
 		exp := []int{1, 2, 16, 4, 15, 14}
 		assert.ElementsMatch(t, exp, dfx.Column("g").Data().AsAny())
 
-		e = d.Parse(dfx, "l := least(y,yy,k)")
+		e = d.Parse(dfx, "l := colMin(y,yy,k)")
 		assert.Nil(t, e)
 		exp = []int{1, -15, 3, 1, 4, 5}
 		assert.ElementsMatch(t, exp, dfx.Column("l").Data().AsAny())
 
-		e = d.Parse(dfx, "g := greatest(s,x)")
+		e = d.Parse(dfx, "g := colMax(s,x)")
 		assert.Nil(t, e)
 		expF := []float64{2, -2, 6, 0, 4, 7}
 		assert.ElementsMatch(t, expF, dfx.Column("g").Data().AsAny())
 
-		e = d.Parse(dfx, "l := least(s, x)")
+		e = d.Parse(dfx, "l := colMin(s, x)")
 		assert.Nil(t, e)
 		expF = []float64{1, -4, 3, 0, 2, 3.5}
 		assert.ElementsMatch(t, expF, dfx.Column("l").Data().AsAny())
 
-		e = d.Parse(dfx, "g := greatest(z, v)")
+		e = d.Parse(dfx, "g := colMax(z, v)")
 		assert.Nil(t, e)
 		expS := []string{"20221231", "20040101", "20060102", "20060102", "20230915", "20060310"}
 		assert.ElementsMatch(t, expS, dfx.Column("g").Data().AsAny())
 
-		e = d.Parse(dfx, "g := greatest(d, dt)")
+		e = d.Parse(dfx, "g := colMax(d, dt)")
 		assert.Nil(t, e)
 		var expD1 []time.Time
 		for ind := range len(expS) {
@@ -76,12 +76,12 @@ func TestColumnwise(t *testing.T) {
 
 		assert.ElementsMatch(t, expD1, dfx.Column("g").Data().AsAny())
 
-		e = d.Parse(dfx, "l := least(z, v)")
+		e = d.Parse(dfx, "l := colMin(z, v)")
 		assert.Nil(t, e)
 		expS = []string{"20040101", "20000101", "20040101", "20040101", "20040101", "20040101"}
 		assert.ElementsMatch(t, expS, dfx.Column("l").Data().AsAny())
 
-		e = d.Parse(dfx, "l := least(d, dt)")
+		e = d.Parse(dfx, "l := colMin(d, dt)")
 		assert.Nil(t, e)
 		var expD []time.Time
 		for ind := range len(expS) {
@@ -374,14 +374,15 @@ trig:
   acos
   atan
 
+date functions
+
 math:
-  round
   isNan
   isInf
   gamma fn
   column-wise max, min, avg, std
 
-statistical
+concat
 
 vector
   diff
