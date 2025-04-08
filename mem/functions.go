@@ -68,7 +68,8 @@ func rawFuncs() []any {
 		stdFn[float64], stdFn[int],
 		sumFn[float64], sumFn[int],
 		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
-		substrFn, pi, concatFn,
+		substrFn, pi, concatFn, ageMonths, ageYears,
+		toLastDay, addMonths,
 	}
 
 	return fns
@@ -595,7 +596,67 @@ func concatFn(str []string) string {
 	for ind := range len(str) {
 		out += str[ind]
 	}
+
 	return out
+}
+
+func ageYears(dt1, dt2 time.Time) int {
+	return ageMonths(dt1, dt2) / 12
+}
+
+func ageMonths(dt1, dt2 time.Time) int {
+	y1, m1, d1 := dt1.Year(), int(dt1.Month()), dt1.Day()
+	y2, m2, d2 := dt2.Year(), int(dt2.Month()), dt2.Day()
+	if dt1.After(dt2) {
+		y1, y2 = y2, y1
+		m1, m2 = m2, m1
+		d1, d2 = d2, d1
+	}
+
+	// dt1 is earlier
+	mDiff := 12*(y2-y1) + m2 - m1
+	if d1 > d2 {
+		mDiff--
+	}
+
+	if dt1.After(dt2) {
+		return -mDiff
+	}
+
+	return mDiff
+}
+
+func toLastDay(dt time.Time) time.Time {
+	yr, mon, _ := dt.Date()
+	mon++
+
+	if mon > 12 {
+		mon -= 12
+		yr++
+	}
+
+	dt2 := time.Date(yr, mon, 1, 0, 0, 0, 0, time.UTC)
+	dt3 := dt2.AddDate(0, 0, -1)
+
+	return dt3
+}
+
+func addMonths(dt time.Time, moToAdd int) time.Time {
+	yr, mo, day := dt.Date()
+	yr += moToAdd / 12
+	mon := int(mo) + (moToAdd % 12)
+	if mon > 12 {
+		mon -= 12
+		yr++
+	}
+
+	dtOut := time.Date(yr, time.Month(mon), day, 0, 0, 0, 0, time.UTC)
+
+	if mon == int(dtOut.Month()) {
+		return dtOut
+	}
+
+	return toLastDay(time.Date(yr, time.Month(mon), 1, 0, 0, 0, 0, time.UTC))
 }
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {

@@ -23,14 +23,16 @@ var (
 
 func TestConcat(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		//		if !strings.Contains(which, "post") {
-		//			continue
-		//		}
+		if !strings.Contains(which, "mem") {
+			continue
+		}
 
 		dfx := loadData(which)
-		e := d.Parse(dfx, "con := concat(z,'+++',z)")
+		e := d.Parse(dfx, "dt2 := date('20230131')")
 		assert.Nil(t, e)
-		fmt.Println(dfx.Column("con").Data().AsAny())
+		e = d.Parse(dfx, "ld := addMonths(dt2,1)")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("ld").Data().AsAny())
 	}
 }
 
@@ -383,6 +385,18 @@ func TestParser(t *testing.T) {
 /*
 
 date functions
+  ageDays(begDate, endDate)
+X  ageMonths(begDate, endDate)
+X  ageYears(begDate, endDate)
+  addDays(begDate, days)
+X  addMonths(begDate, months)
+  addYears(begDate, years)
+X  toEndOfMonth()
+  today()
+  month()
+  day()
+  year()
+  mdy()
 
 math:
   isNan

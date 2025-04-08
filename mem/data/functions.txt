@@ -15,6 +15,11 @@ atan:math.Atan:{float}:float:C:N
 atan2:math.Atan2:{float,float}:float:C:N
 abs:github.com/invertedv/df/mem.absFn[...]:{int},{float}:int,float:C:N
 rowNumber:github.com/invertedv/df/mem.rowNumberFn:{}:int:C:N
+ageMonths:github.com/invertedv/df/mem.ageMonths:{date,date}:int:C:N
+ageYears:github.com/invertedv/df/mem.ageYears:{date,date}:int:C:N
+toLastDay:github.com/invertedv/df/mem.toLastDay:{date}:date:C:N
+addMonths:github.com/invertedv/df/mem.addMonths:{date,int}:date:C:N
+
 eq:github.com/invertedv/df/mem.eqFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:github.com/invertedv/df/mem.neFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 gt:github.com/invertedv/df/mem.gtFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

@@ -112,7 +112,15 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 			sa = append(sa, sqls[j])
 		}
 
-		sqlOut := fmt.Sprintf(sql, sa...)
+		sqlOut := sql
+		if strings.Contains(sql, "%s") {
+			sqlOut = fmt.Sprintf(sqlOut, sa...)
+		} else {
+			sqlOut = sql
+			for ind := range len(sa) {
+				sqlOut = strings.ReplaceAll(sqlOut, fmt.Sprintf("#%d", ind), fmt.Sprintf("%s", sa[ind]))
+			}
+		}
 
 		// if this returns a scalar, but there is no GROUP BY, then make a column of the global value
 		// if you want to return the global value within a GROUP BY, put it within the function "global"
