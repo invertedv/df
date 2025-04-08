@@ -307,6 +307,9 @@ func TestIf(t *testing.T) {
 func TestParser(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
+		//		if !strings.Contains(which, "post") {
+		//			continue
+		//		}
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
 			//			fmt.Println(test, which)
@@ -378,13 +381,6 @@ func TestParser(t *testing.T) {
 
 // TODO: are there more func parameters to get rid of?
 /*
-trig:
-  sin
-  cos
-  tan
-  asin
-  acos
-  atan
 
 date functions
 

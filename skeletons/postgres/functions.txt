@@ -6,6 +6,13 @@ divide:(%s / %s):{int,int},{float,float}:int,float:C:N
 
 exp:exp(%s):{float}:float:C:N
 log:ln(%s):{float}:float:C:N
+sin:sin(%s):{float}:float:C:N
+cos:cos(%s):{float}:float:C:N
+tan:tan(%s):{float}:float:C:N
+asin:asin(%s):{float}:float:C:N
+acos:acos(%s):{float}:float:C:N
+atan:atan(%s):{float}:float:C:N
+atan2:atan2(%s,%s):{float,float}:float:C:N
 abs:abs(%s):{float},{int}:float,int:C:N
 rowNumber:cast(row_number() over () as integer)-1::int:C:N
 eq:cast((%s = %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

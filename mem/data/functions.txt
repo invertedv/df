@@ -6,6 +6,13 @@ divide:github.com/invertedv/df/mem.divideFn[...]:{int,int},{float,float}:int,flo
 
 exp:math.Exp:{float}:float:C:N
 log:math.Log:{float}:float:C:N
+sin:math.Sin:{float}:float:C:N
+cos:math.Cos:{float}:float:C:N
+tan:math.Tan:{float}:float:C:N
+asin:math.Asin:{float}:float:C:N
+acos:math.Acos:{float}:float:C:N
+atan:math.Atan:{float}:float:C:N
+atan2:math.Atan2:{float,float}:float:C:N
 abs:github.com/invertedv/df/mem.absFn[...]:{int},{float}:int,float:C:N
 rowNumber:github.com/invertedv/df/mem.rowNumberFn:{}:int:C:N
 eq:github.com/invertedv/df/mem.eqFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

@@ -18,7 +18,6 @@ import (
 	d "github.com/invertedv/df"
 )
 
-
 type frameTypes interface {
 	float64 | int | string | time.Time
 }
@@ -58,6 +57,8 @@ func rawFuncs() []any {
 		ifFn[float64], ifFn[int], ifFn[string], ifFn[time.Time],
 		elemFn[float64], elemFn[int], elemFn[string], elemFn[time.Time],
 		math.Exp, math.Log, math.Round,
+		math.Sin, math.Cos, math.Tan,
+		math.Asin, math.Acos, math.Atan, math.Atan2,
 		quantileFn[float64], quantileFn[int],
 		lqFn[float64], lqFn[int],
 		medianFn[float64], medianFn[int],
@@ -191,7 +192,6 @@ func vectorFunctions() d.Fns {
 
 	var outFns d.Fns
 	for _, spec := range specs {
-		// here Varying=true means that this is a summary across a varying number of columns
 		if !spec.Varying {
 			outFns = append(outFns, buildFn(spec))
 			continue
@@ -592,7 +592,7 @@ func pi() float64 {
 
 func concatFn(str []string) string {
 	out := ""
-	for ind := range len(str){
+	for ind := range len(str) {
 		out += str[ind]
 	}
 	return out
