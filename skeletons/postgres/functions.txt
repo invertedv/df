@@ -30,6 +30,7 @@ sign:cast(sign(%s) AS integer):{float},{int}:int,int:C:N
 mod:mod(%s,%s):{int,int}:int:C:N
 pow:pow(%s,%s):{float,float},{float,int},{int,float},{int,int}:float,float,float,float:C:N
 round:round(%s):{float}:float:C:N
+concat:concat:{string}:string:C:Y
 colMax:greatest:{float},{int},{string},{date}:float,int,string,date:C:Y
 colMin:least:{float},{int},{string},{date}:float,int,string,date:C:Y
 colSum:colSum:{float},{int}:float,int:C:Y

@@ -18,6 +18,61 @@ import (
 	d "github.com/invertedv/df"
 )
 
+
+type frameTypes interface {
+	float64 | int | string | time.Time
+}
+
+var (
+	//go:embed data/functions.txt
+	functions string
+)
+
+// each function here must have an entry in functions.txt
+func rawFuncs() []any {
+	fns := []any{rowNumberFn,
+		isInfFn, isNaNfn,
+		floatFn[float64], floatFn[int], floatFn[string],
+		intFn[float64], intFn[int], intFn[string],
+		stringFn[float64], stringFn[int], stringFn[string], stringFn[time.Time],
+		dateFn[int], dateFn[string], dateFn[time.Time],
+		negFn[float64], negFn[int],
+		addFn[float64], addFn[int],
+		subtractFn[float64], subtractFn[int],
+		multiplyFn[float64], multiplyFn[int],
+		divideFn[float64], divideFn[int],
+		absFn[float64], absFn[int],
+		sqrtFn[float64], sqrtFn[int],
+		signFn[float64], signFn[int],
+		modFn,
+		powFn[float64, float64], powFn[float64, int], powFn[int, float64], powFn[int, int],
+		andFn, orFn, notFn,
+		gtFn[float64], gtFn[int], gtFn[string], gtFn[time.Time],
+		ltFn[float64], ltFn[int], ltFn[string], ltFn[time.Time],
+		geFn[float64], geFn[int], geFn[string], geFn[time.Time],
+		leFn[float64], leFn[int], leFn[string], leFn[time.Time],
+		eqFn[float64], eqFn[int], eqFn[string], eqFn[time.Time],
+		neFn[float64], neFn[int], neFn[string], neFn[time.Time],
+		maxFn[float64], maxFn[int], maxFn[string], maxFn[time.Time],
+		minFn[float64], minFn[int], minFn[string], minFn[time.Time],
+		ifFn[float64], ifFn[int], ifFn[string], ifFn[time.Time],
+		elemFn[float64], elemFn[int], elemFn[string], elemFn[time.Time],
+		math.Exp, math.Log, math.Round,
+		quantileFn[float64], quantileFn[int],
+		lqFn[float64], lqFn[int],
+		medianFn[float64], medianFn[int],
+		uqFn[float64], uqFn[int],
+		meanFn[float64], meanFn[int],
+		varFn[float64], varFn[int],
+		stdFn[float64], stdFn[int],
+		sumFn[float64], sumFn[int],
+		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
+		substrFn, pi, concatFn,
+	}
+
+	return fns
+}
+
 func varying(spec *d.FnSpec) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
@@ -75,64 +130,6 @@ func varying(spec *d.FnSpec) d.Fn {
 	}
 
 	return fn
-}
-
-type frameTypes interface {
-	float64 | int | string | time.Time
-}
-
-var (
-	//go:embed data/functions.txt
-	functions string
-)
-
-// each function here must have an entry in functions.txt
-func rawFuncs() []any {
-	fns := []any{rowNumberFn,
-		isInfFn, isNaNfn,
-		floatFn[float64], floatFn[int], floatFn[string],
-		intFn[float64], intFn[int], intFn[string],
-		stringFn[float64], stringFn[int], stringFn[string], stringFn[time.Time],
-		dateFn[int], dateFn[string], dateFn[time.Time],
-		negFn[float64], negFn[int],
-		addFn[float64], addFn[int],
-		subtractFn[float64], subtractFn[int],
-		multiplyFn[float64], multiplyFn[int],
-		divideFn[float64], divideFn[int],
-		absFn[float64], absFn[int],
-		sqrtFn[float64], sqrtFn[int],
-		signFn[float64], signFn[int],
-		modFn,
-		powFn[float64, float64], powFn[float64, int], powFn[int, float64], powFn[int, int],
-		andFn, orFn, notFn,
-		gtFn[float64], gtFn[int], gtFn[string], gtFn[time.Time],
-		ltFn[float64], ltFn[int], ltFn[string], ltFn[time.Time],
-		geFn[float64], geFn[int], geFn[string], geFn[time.Time],
-		leFn[float64], leFn[int], leFn[string], leFn[time.Time],
-		eqFn[float64], eqFn[int], eqFn[string], eqFn[time.Time],
-		neFn[float64], neFn[int], neFn[string], neFn[time.Time],
-		maxFn[float64], maxFn[int], maxFn[string], maxFn[time.Time],
-		minFn[float64], minFn[int], minFn[string], minFn[time.Time],
-		ifFn[float64], ifFn[int], ifFn[string], ifFn[time.Time],
-		elemFn[float64], elemFn[int], elemFn[string], elemFn[time.Time],
-		math.Exp, math.Log, math.Round,
-		quantileFn[float64], quantileFn[int],
-		lqFn[float64], lqFn[int],
-		medianFn[float64], medianFn[int],
-		uqFn[float64], uqFn[int],
-		meanFn[float64], meanFn[int],
-		varFn[float64], varFn[int],
-		stdFn[float64], stdFn[int],
-		sumFn[float64], sumFn[int],
-		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
-		substrFn, pi,
-	}
-
-	return fns
-}
-
-func pi() float64 {
-	return math.Pi
 }
 
 func buildFn(spec *d.FnSpec) d.Fn {
@@ -194,6 +191,7 @@ func vectorFunctions() d.Fns {
 
 	var outFns d.Fns
 	for _, spec := range specs {
+		// here Varying=true means that this is a summary across a varying number of columns
 		if !spec.Varying {
 			outFns = append(outFns, buildFn(spec))
 			continue
@@ -586,6 +584,18 @@ func stdFn[T float64 | int](x []T) float64 {
 
 func countFn[T frameTypes](x []T) int {
 	return len(x)
+}
+
+func pi() float64 {
+	return math.Pi
+}
+
+func concatFn(str []string) string {
+	out := ""
+	for ind := range len(str){
+		out += str[ind]
+	}
+	return out
 }
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {

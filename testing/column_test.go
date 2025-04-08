@@ -21,11 +21,24 @@ var (
 	parserTests string
 )
 
+func TestConcat(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		//		if !strings.Contains(which, "post") {
+		//			continue
+		//		}
+
+		dfx := loadData(which)
+		e := d.Parse(dfx, "con := concat(z,'+++',z)")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("con").Data().AsAny())
+	}
+}
+
 func TestColumnwise(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "post") {
-			continue
-		}
+		//		if !strings.Contains(which, "post") {
+		//			continue
+		//		}
 		dfx := loadData(which)
 
 		ex := d.Parse(dfx, "avg := colStd(x,2.0*x,-2.0*x)")
@@ -358,7 +371,6 @@ func TestParser(t *testing.T) {
 //			{"var(y)", 0, 16.0},
 //			{"var(x)", 0, 4.175},
 
-// TODO: concat function
 // TODO: check for referencing elements directly not through method
 // TODO: revisit sourceDF relative to mem/By
 
@@ -379,10 +391,6 @@ date functions
 math:
   isNan
   isInf
-  gamma fn
-  column-wise max, min, avg, std
-
-concat
 
 vector
   diff
