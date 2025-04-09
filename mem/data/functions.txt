@@ -17,8 +17,14 @@ abs:github.com/invertedv/df/mem.absFn[...]:{int},{float}:int,float:C:N
 rowNumber:github.com/invertedv/df/mem.rowNumberFn:{}:int:C:N
 ageMonths:github.com/invertedv/df/mem.ageMonths:{date,date}:int:C:N
 ageYears:github.com/invertedv/df/mem.ageYears:{date,date}:int:C:N
-toLastDay:github.com/invertedv/df/mem.toLastDay:{date}:date:C:N
+toEndOfMonth:github.com/invertedv/df/mem.toLastDay:{date}:date:C:N
 addMonths:github.com/invertedv/df/mem.addMonths:{date,int}:date:C:N
+year:github.com/invertedv/df/mem.year:{date}:int:C:N
+month:github.com/invertedv/df/mem.month:{date}:int:C:N
+day:github.com/invertedv/df/mem.day:{date}:int:C:N
+dayOfWeek:github.com/invertedv/df/mem.dayOfWeek:{date}:string:C:N
+makeDate:github.com/invertedv/df/mem.makeDate[...]:{string,string,string},{int,int,int}:date,date:C:N
+
 
 eq:github.com/invertedv/df/mem.eqFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:github.com/invertedv/df/mem.neFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

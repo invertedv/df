@@ -28,11 +28,34 @@ func TestConcat(t *testing.T) {
 		}
 
 		dfx := loadData(which)
-		e := d.Parse(dfx, "dt2 := date('20230131')")
+		e := d.Parse(dfx, "dt2 := date('19600325')")
 		assert.Nil(t, e)
-		e = d.Parse(dfx, "ld := addMonths(dt2,1)")
+		e = d.Parse(dfx, "ld := toEndOfMonth(dt2)")
 		assert.Nil(t, e)
-		fmt.Println(dfx.Column("ld").Data().AsAny())
+		//		fmt.Println(dfx.Column("ld").Data().AsAny())
+		e = d.Parse(dfx, "ld1 := addMonths(ld,1)")
+		assert.Nil(t, e)
+		// fmt.Println(dfx.Column("ld1").Data().AsAny())
+		e = d.Parse(dfx, "xx := year(dt)")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("xx").Data().AsAny())
+
+		e = d.Parse(dfx, "xx := month(dt)")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("xx").Data().AsAny())
+
+		e = d.Parse(dfx, "xx := day(dt)")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("xx").Data().AsAny())
+
+		e = d.Parse(dfx, "day := dayOfWeek(dt)")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("day").Data().AsAny())
+
+		e = d.Parse(dfx, "newDt := makeDate('2024','6','1')")
+		assert.Nil(t, e)
+		fmt.Println(dfx.Column("newDt").Data().AsAny())
+
 	}
 }
 
@@ -382,6 +405,7 @@ func TestParser(t *testing.T) {
 // TODO: optional name to DFSeq for the column
 
 // TODO: are there more func parameters to get rid of?
+// TODO: convert %s to #0, #1,... in functions.txt
 /*
 
 date functions
@@ -393,14 +417,20 @@ X  addMonths(begDate, months)
   addYears(begDate, years)
 X  toEndOfMonth()
   today()
-  month()
-  day()
-  year()
-  mdy()
+X  month()
+X  day()
+X  year()
+X  dayOfWeek()
+X  makeDate()
 
 math:
   isNan
   isInf
+
+statistical
+  pdf,cdf
+  empirical quantile, cdf?
+  random numbers
 
 vector
   diff

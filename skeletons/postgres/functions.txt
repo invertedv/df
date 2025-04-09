@@ -17,6 +17,15 @@ abs:abs(%s):{float},{int}:float,int:C:N
 rowNumber:cast(row_number() over () AS integer)-1::int:C:N
 ageMonths:cast(12 * EXTRACT(YEAR FROM age(#1, #0)) + EXTRACT(MONTH FROM age(#1, #0)) AS integer):{date,date}:int:C:N
 ageYears:cast(EXTRACT(YEAR FROM age(#1, #0)) AS integer):{date,date}:int:C:N
+toEndOfMonth:date_trunc('month',#0) + INTERVAL '1 Month' - INTERVAL '1 Day':{date}:date:C:N
+addMonths:#0 + INTERVAL '#1 Months':{date,int}:date:C:N
+year:EXTRACT(YEAR FROM #0):{date}:int:C:N
+month:EXTRACT(MONTH FROM #0):{date}:int:C:N
+day:EXTRACT(DAY FROM #0):{date}:int:C:N
+dayOfWeek:REPLACE(to_char(#0, 'Day'), ' ', ''):{date}:string:C:N
+makeDate:make_date(cast(#0 AS integer),cast(#1 AS integer), cast(#2 AS integer)):{string,string,string},{int,int,int}:date,date:C:N
+
+
 eq:cast((%s = %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:cast((%s != %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 gt:cast((%s > %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

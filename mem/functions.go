@@ -69,7 +69,7 @@ func rawFuncs() []any {
 		sumFn[float64], sumFn[int],
 		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
 		substrFn, pi, concatFn, ageMonths, ageYears,
-		toLastDay, addMonths,
+		toLastDay, addMonths, year, month, day, dayOfWeek, makeDate[int], makeDate[string],
 	}
 
 	return fns
@@ -657,6 +657,47 @@ func addMonths(dt time.Time, moToAdd int) time.Time {
 	}
 
 	return toLastDay(time.Date(yr, time.Month(mon), 1, 0, 0, 0, 0, time.UTC))
+}
+
+func year(dt time.Time) int {
+	return dt.Year()
+}
+
+func month(dt time.Time) int {
+	return int(dt.Month())
+}
+
+func day(dt time.Time) int {
+	return dt.Day()
+}
+
+func dayOfWeek(dt time.Time) string {
+	return dt.Weekday().String()
+}
+
+func toInt[T int | string](x T) (int, error) {
+	var v any = x
+	switch v1 := v.(type) {
+	case int:
+		return v1, nil
+	case string:
+		v2, e := strconv.ParseInt(v1, 10, 32)
+		return int(v2), e
+	}
+
+	return -1, fmt.Errorf("cannot make int")
+}
+
+func makeDate[T int | string](year, month, day T) (time.Time, error) {
+	y, ey := toInt(year)
+	m, em := toInt(month)
+	d, ed := toInt(day)
+
+	if ey != nil || em != nil || ed != nil {
+		return time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC), fmt.Errorf("invalid inputs to makeDate")
+	}
+
+	return time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC), nil
 }
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {

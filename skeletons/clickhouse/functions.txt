@@ -17,6 +17,14 @@ abs:abs(%s):{float},{int}:float,int:C:N
 rowNumber:toInt32(rowNumberInBlock())::int:C:N
 ageMonths:toInt32(age('month',%s,%s)):{date,date}:int:C:N
 ageYears:toInt32(age('year',#0,#1)):{date,date}:int:C:N
+toEndOfMonth:toLastDayOfMonth(#0):{date}:date:C:N
+addMonths:addMonths(#0,#1):{date,int}:date:C:N
+year:toYear(#0):{date}:int:C:N
+month:toMonth(#0):{date}:int:C:N
+day:toDayOfWeek(#0):{date}:int:C:N
+dayOfWeek:arrayElement(array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), toDayOfWeek(#0)):{date}:string:C:N
+makeDate:makeDate(toInt32(#0),toInt32(#1),toInt32(#2)):{string,string,string},{int,int,int}:date,date:C:N
+
 eq:(%s == %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:(%s != %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 gt:(%s > %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
