@@ -21,7 +21,7 @@ toEndOfMonth:toLastDayOfMonth(#0):{date}:date:C:N
 addMonths:addMonths(#0,#1):{date,int}:date:C:N
 year:toYear(#0):{date}:int:C:N
 month:toMonth(#0):{date}:int:C:N
-day:toDayOfWeek(#0):{date}:int:C:N
+day:toDayOfMonth(#0):{date}:int:C:N
 dayOfWeek:arrayElement(array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), toDayOfWeek(#0)):{date}:string:C:N
 makeDate:makeDate(toInt32(#0),toInt32(#1),toInt32(#2)):{string,string,string},{int,int,int}:date,date:C:N
 

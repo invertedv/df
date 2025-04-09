@@ -1,3 +1,17 @@
+makeDate(2025,10,9) | 0 | date | 2025-10-09
+makeDate('2025','10','9') | 0 | date | 2025-10-09
+dayOfWeek(date('20250409')) | 0 | string | Wednesday
+dayOfWeek(date('20250407')) | 0 | string | Monday
+dayOfWeek(date('20250411')) | 0 | string | Friday
+year(date('20220601')) | 0 | int | 2022
+toEndOfMonth(date('20220215')) | 0 | date | 2022-02-28
+toEndOfMonth(date('20240228')) | 0 | date | 2024-02-29
+addMonths(date('20220315'),13) | 0 | date | 2023-04-15
+addMonths(date('20220331'),13) | 0 | date | 2023-04-30
+ageMonths(date('20220315'), date('20230412')) | 0 | int | 12
+ageMonths(date('20220315'), date('20230415')) | 0 | int | 13
+ageYears(date('20220315'), date('20230312')) | 0 | int | 0
+ageYears(date('20220315'), date('20230315')) | 0 | int | 1
 atan2(1.0, 1.0) | 0 | float | 0.7854
 asin(1.0) | 0 | float | 1.5708
 acos(0.7072) | 0 | float | 0.7854

@@ -332,7 +332,7 @@ func TestIf(t *testing.T) {
 func TestParser(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		//		if !strings.Contains(which, "post") {
+		//		if !strings.Contains(which, "click") {
 		//			continue
 		//		}
 		tests := strings.Split(parserTests, "\n")
@@ -410,22 +410,24 @@ func TestParser(t *testing.T) {
 
 date functions
   ageDays(begDate, endDate)
-X  ageMonths(begDate, endDate)
-X  ageYears(begDate, endDate)
+XX  ageMonths(begDate, endDate)
+XX  ageYears(begDate, endDate)
   addDays(begDate, days)
-X  addMonths(begDate, months)
-  addYears(begDate, years)
+XX  addMonths(begDate, months)
+X  addYears(begDate, years)
 X  toEndOfMonth()
   today()
-X  month()
-X  day()
-X  year()
-X  dayOfWeek()
-X  makeDate()
+XX  month()
+XX  day()
+XX  year()
+XX  dayOfWeek()
+XX  makeDate()
+
 
 math:
   isNan
   isInf
+  isNull
 
 statistical
   pdf,cdf
