@@ -351,7 +351,7 @@ func TestFileSave(t *testing.T) {
 	}
 }
 
-func TestParse_By(t *testing.T) {
+func TestBy(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		outDF, e0 := dfx.By("y", "sx:=sum(x)", "count:=count(y)", "mx:=mean(global(x))", "mz:=mean(x)")
@@ -363,6 +363,21 @@ func TestParse_By(t *testing.T) {
 		col, _ := outDF.Column("sx").Data().AsFloat()
 		sort.Float64s(col)
 		assert.Equal(t, []float64{-2, 1, 2, 3, 3.5}, col)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
+	}
+}
+
+func TestBy_Global(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		dfx := loadData(which)
+		outDF, e0 := dfx.By("", "sx:=sum(x)", "count:=count(y)", "mx:=mean(x)")
+		assert.Nil(t, e0)
+		assert.Equal(t, 6, outDF.Column("count").Data().Element(0))
+		assert.Equal(t, 1.25, outDF.Column("mx").Data().Element(0))
+		assert.Equal(t, 7.5, outDF.Column("sx").Data().Element(0))
 
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()

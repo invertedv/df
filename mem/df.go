@@ -319,18 +319,19 @@ func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 }
 
 func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
-	if groupBy == "" {
-		return nil, fmt.Errorf("must have groupBy in DF.By")
-	}
-
 	if fns == nil {
 		return nil, fmt.Errorf("must have at least on function in By")
 	}
 
-	flds := strings.Split(groupBy, ",")
-	var gCol []*Col
+	var flds []string
+	if groupBy != "" {
+		flds = strings.Split(groupBy, ",")
+	}
 
-	var outVecs []*d.Vector
+	var (
+		gCol    []*Col
+		outVecs []*d.Vector
+	)
 	for ind := range len(flds) {
 		var col d.Column
 		cName := strings.ReplaceAll(flds[ind], " ", "")
@@ -346,8 +347,13 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		grp groups
 		e   error
 	)
-	if grp, e = buildGroups(f, gCol); e != nil {
-		return nil, e
+	if groupBy != "" {
+		if grp, e = buildGroups(f, gCol); e != nil {
+			return nil, e
+		}
+	} else {
+		grp = make(groups)
+		grp[0] = &groupVal{groupDF: f}
 	}
 
 	var left []string

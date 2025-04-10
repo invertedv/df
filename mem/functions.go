@@ -72,7 +72,7 @@ func rawFuncs() []any {
 		substrFn, pi, concatFn, ageMonthsFn, ageYearsFn,
 		toLastDayFn, addMonthsFn, yearFn, monthFn, dayFn, dayOfWeekFn, makeDateFn[int], makeDateFn[string],
 		replaceFn, positionFn,
-		randUnifFn,
+		randUnifFn, randNormFn,
 	}
 
 	return fns
@@ -712,8 +712,11 @@ func positionFn(haystack, needle string) int {
 }
 
 func randUnifFn(ind int) float64 {
-	u := rand.Float64()
-	return u
+	return rand.Float64()
+}
+
+func randNormFn(ind int) float64 {
+	return rand.NormFloat64()
 }
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {

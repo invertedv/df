@@ -409,35 +409,6 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	return dfOut, nil
 }
 
-func (f *DF) By1(groupBy string, fns ...string) (d.DF, error) {
-	if groupBy == "" {
-		return nil, fmt.Errorf("must have groupBy in DF.By")
-	}
-
-	flds := strings.Split(groupBy, ",")
-	dfOut := f.Copy().(*DF)
-
-	if e := dfOut.KeepColumns(flds...); e != nil {
-		return nil, e
-	}
-	_ = d.DFsetSourceDF(f)(dfOut)
-
-	dfOut.groupBy = groupBy
-
-	for _, fn := range fns {
-		if e1 := d.Parse(dfOut, fn); e1 != nil {
-			return nil, e1
-		}
-
-	}
-
-	if e := dfOut.SetParent(); e != nil {
-		return nil, e
-	}
-
-	return dfOut, nil
-}
-
 func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
 	var col d.Column
 	if col = f.Column(colName); col == nil {

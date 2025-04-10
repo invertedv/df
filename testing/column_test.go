@@ -31,32 +31,44 @@ func TestUnifRandomGen(t *testing.T) {
 		for _, v := range vs {
 			assert.Condition(t, func() bool { return v <= 1.0 && v >= 0.0 })
 		}
+		
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
 func TestNormRandomGen(t *testing.T) {
-	const n = 10
+	const n = 100000
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "post") {
-			continue
-		}
 		dfx := loadData(which)
-		dfy, e := s.NewDFseq(dfx.Dialect(), n)
+		var (
+			dfy d.DF
+			e   error
+		)
+
+		if strings.Contains(which, "mem") {
+			dfy, e = m.NewDFseq(n)
+		} else {
+			dfy, e = s.NewDFseq(dfx.Dialect(), n)
+		}
 		assert.Nil(t, e)
 		e = d.Parse(dfy, "k := int(seq/10)")
 		assert.Nil(t, e)
-		e = d.Parse(dfy, "z := randUnif()")
+		e = d.Parse(dfy, "z := randNorm()")
 		assert.Nil(t, e)
-		// e = d.Parse(dfy, "m:=mean(z)")
-		dfz, e1 := dfy.By("", "m:=mean(z)")
-		q := dfz.(*s.DF).MakeQuery()
-		_=q
+		dfz, e1 := dfy.By("", "m:=mean(z)", "c := count(seq)", "s :=std(z)")
 		assert.Nil(t, e1)
-		fmt.Println(dfz.ColumnNames())
-		vs, e2 := dfz.Column("m").Data().AsFloat()
-		assert.Nil(t, e2)
-		_ = vs
-		fmt.Println(vs)
+		m := dfz.Column("m").Data().Element(0).(float64)
+		s := dfz.Column("s").Data().Element(0).(float64)
+		c := dfz.Column("c").Data().Element(0).(int)
+		assert.Equal(t, n, c)
+		assert.InEpsilon(t, s, 1.0, 0.01)
+		assert.InEpsilon(t, m+1, 1.0, 0.01)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
 	}
 }
 
