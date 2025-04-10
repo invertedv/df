@@ -1,3 +1,7 @@
+position(z,'12') | 0 | int | 4
+position(z,'X') | 0 | int | -1
+replace(z,'2022','hello') | 0 | string | hello1231
+replace('abba','a','c') | 0 | string | cbbc
 makeDate(2025,10,9) | 0 | date | 2025-10-09
 makeDate('2025','10','9') | 0 | date | 2025-10-09
 dayOfWeek(date('20250409')) | 0 | string | Wednesday

@@ -24,7 +24,10 @@ month:cast(EXTRACT(MONTH FROM #0) AS integer):{date}:int:C:N
 day:cast(EXTRACT(DAY FROM #0) AS integer):{date}:int:C:N
 dayOfWeek:REPLACE(to_char(#0, 'Day'), ' ', ''):{date}:string:C:N
 makeDate:make_date(cast(#0 AS integer),cast(#1 AS integer), cast(#2 AS integer)):{string,string,string},{int,int,int}:date,date:C:N
-
+replace:replace(#0,#1,#2):{string,string,string}:string:C:N
+position:strpos(#0,#1)-1:{string,string}:int:C:N
+randUnif:random()::float:C:N
+randNorm:sqrt(-2 * ln(random())) * cos(6.283185 * random())::float:C:N
 
 eq:cast((%s = %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:cast((%s != %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

@@ -253,8 +253,29 @@ func TestSeq(t *testing.T) {
 	}
 }
 
-func TestVecJoin(t *testing.T) {
+func TestPermSave(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		dfx := loadData(which)
 
+		e := d.Parse(dfx, "p := position(z, '12')")
+		assert.Nil(t, e)
+
+		dlct := dfx.Dialect()
+		var opts []string
+		table := fmt.Sprintf("%s.dd", os.Getenv("db"))
+
+		if dlct.DialectName() == pg {
+			opt1 := "IndexName:i111"
+			opt2 := fmt.Sprintf("TableSpace:%s", os.Getenv("tablespace"))
+			opt3 := fmt.Sprintf("Owner:%s", os.Getenv("user"))
+			opts = []string{opt1, opt2, opt3}
+			table = "dd"
+		}
+
+		e = dlct.Save(table, "k", true, false, dfx, opts...)
+		assert.Nil(t, e)
+
+	}
 }
 
 func TestSQLsave(t *testing.T) {

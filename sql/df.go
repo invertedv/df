@@ -378,6 +378,38 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 }
 
 func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
+	dfOut := f.Copy().(*DF)
+
+	if groupBy == "" {
+		groupBy = f.Dialect().WithName()
+		if e2 := d.Parse(dfOut, fmt.Sprintf("%s := 1", groupBy)); e2 != nil {
+			return nil, e2
+		}
+	}
+
+	flds := strings.Split(groupBy, ",")
+	if e := dfOut.KeepColumns(flds...); e != nil {
+		return nil, e
+	}
+	_ = d.DFsetSourceDF(f)(dfOut)
+
+	dfOut.groupBy = groupBy
+
+	for _, fn := range fns {
+		if e1 := d.Parse(dfOut, fn); e1 != nil {
+			return nil, e1
+		}
+
+	}
+
+	if e := dfOut.SetParent(); e != nil {
+		return nil, e
+	}
+
+	return dfOut, nil
+}
+
+func (f *DF) By1(groupBy string, fns ...string) (d.DF, error) {
 	if groupBy == "" {
 		return nil, fmt.Errorf("must have groupBy in DF.By")
 	}

@@ -15,16 +15,19 @@ atan:math.Atan:{float}:float:C:N
 atan2:math.Atan2:{float,float}:float:C:N
 abs:github.com/invertedv/df/mem.absFn[...]:{int},{float}:int,float:C:N
 rowNumber:github.com/invertedv/df/mem.rowNumberFn:{}:int:C:N
-ageMonths:github.com/invertedv/df/mem.ageMonths:{date,date}:int:C:N
-ageYears:github.com/invertedv/df/mem.ageYears:{date,date}:int:C:N
-toEndOfMonth:github.com/invertedv/df/mem.toLastDay:{date}:date:C:N
-addMonths:github.com/invertedv/df/mem.addMonths:{date,int}:date:C:N
-year:github.com/invertedv/df/mem.year:{date}:int:C:N
-month:github.com/invertedv/df/mem.month:{date}:int:C:N
-day:github.com/invertedv/df/mem.day:{date}:int:C:N
-dayOfWeek:github.com/invertedv/df/mem.dayOfWeek:{date}:string:C:N
-makeDate:github.com/invertedv/df/mem.makeDate[...]:{string,string,string},{int,int,int}:date,date:C:N
+ageMonths:github.com/invertedv/df/mem.ageMonthsFn:{date,date}:int:C:N
+ageYears:github.com/invertedv/df/mem.ageYearsFn:{date,date}:int:C:N
+toEndOfMonth:github.com/invertedv/df/mem.toLastDayFn:{date}:date:C:N
+addMonths:github.com/invertedv/df/mem.addMonthsFn:{date,int}:date:C:N
+year:github.com/invertedv/df/mem.yearFn:{date}:int:C:N
+month:github.com/invertedv/df/mem.monthFn:{date}:int:C:N
+day:github.com/invertedv/df/mem.dayFn:{date}:int:C:N
+dayOfWeek:github.com/invertedv/df/mem.dayOfWeekFn:{date}:string:C:N
+makeDate:github.com/invertedv/df/mem.makeDateFn[...]:{string,string,string},{int,int,int}:date,date:C:N
+replace:github.com/invertedv/df/mem.replaceFn:{string,string,string}:string:C:N
+position:github.com/invertedv/df/mem.positionFn:{string,string}:int:C:N
 
+randUnif:github.com/invertedv/df/mem.randUnifFn::float:C:N
 
 eq:github.com/invertedv/df/mem.eqFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:github.com/invertedv/df/mem.neFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

@@ -21,41 +21,42 @@ var (
 	parserTests string
 )
 
-func TestConcat(t *testing.T) {
+func TestUnifRandomGen(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "mem") {
+		dfx := loadData(which)
+		e := d.Parse(dfx, "u := randUnif()")
+		assert.Nil(t, e)
+		vs, e1 := dfx.Column("u").Data().AsFloat()
+		assert.Nil(t, e1)
+		for _, v := range vs {
+			assert.Condition(t, func() bool { return v <= 1.0 && v >= 0.0 })
+		}
+	}
+}
+
+func TestNormRandomGen(t *testing.T) {
+	const n = 10
+	for _, which := range pkgs("d1") {
+		if !strings.Contains(which, "post") {
 			continue
 		}
-
 		dfx := loadData(which)
-		e := d.Parse(dfx, "dt2 := date('19600325')")
+		dfy, e := s.NewDFseq(dfx.Dialect(), n)
 		assert.Nil(t, e)
-		e = d.Parse(dfx, "ld := toEndOfMonth(dt2)")
+		e = d.Parse(dfy, "k := int(seq/10)")
 		assert.Nil(t, e)
-		//		fmt.Println(dfx.Column("ld").Data().AsAny())
-		e = d.Parse(dfx, "ld1 := addMonths(ld,1)")
+		e = d.Parse(dfy, "z := randUnif()")
 		assert.Nil(t, e)
-		// fmt.Println(dfx.Column("ld1").Data().AsAny())
-		e = d.Parse(dfx, "xx := year(dt)")
-		assert.Nil(t, e)
-		fmt.Println(dfx.Column("xx").Data().AsAny())
-
-		e = d.Parse(dfx, "xx := month(dt)")
-		assert.Nil(t, e)
-		fmt.Println(dfx.Column("xx").Data().AsAny())
-
-		e = d.Parse(dfx, "xx := day(dt)")
-		assert.Nil(t, e)
-		fmt.Println(dfx.Column("xx").Data().AsAny())
-
-		e = d.Parse(dfx, "day := dayOfWeek(dt)")
-		assert.Nil(t, e)
-		fmt.Println(dfx.Column("day").Data().AsAny())
-
-		e = d.Parse(dfx, "newDt := makeDate('2024','6','1')")
-		assert.Nil(t, e)
-		fmt.Println(dfx.Column("newDt").Data().AsAny())
-
+		// e = d.Parse(dfy, "m:=mean(z)")
+		dfz, e1 := dfy.By("", "m:=mean(z)")
+		q := dfz.(*s.DF).MakeQuery()
+		_=q
+		assert.Nil(t, e1)
+		fmt.Println(dfz.ColumnNames())
+		vs, e2 := dfz.Column("m").Data().AsFloat()
+		assert.Nil(t, e2)
+		_ = vs
+		fmt.Println(vs)
 	}
 }
 
@@ -332,9 +333,9 @@ func TestIf(t *testing.T) {
 func TestParser(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		//		if !strings.Contains(which, "click") {
-		//			continue
-		//		}
+		if !strings.Contains(which, "click") {
+			continue
+		}
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
 			//			fmt.Println(test, which)
@@ -415,13 +416,18 @@ XX  ageYears(begDate, endDate)
   addDays(begDate, days)
 XX  addMonths(begDate, months)
 X  addYears(begDate, years)
-X  toEndOfMonth()
+XX  toEndOfMonth()
   today()
 XX  month()
 XX  day()
 XX  year()
 XX  dayOfWeek()
 XX  makeDate()
+
+string functions:
+XX  position
+XX  replace
+XX  substring
 
 
 math:

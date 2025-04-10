@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"reflect"
 	"runtime"
 	"sort"
@@ -68,8 +69,10 @@ func rawFuncs() []any {
 		stdFn[float64], stdFn[int],
 		sumFn[float64], sumFn[int],
 		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
-		substrFn, pi, concatFn, ageMonths, ageYears,
-		toLastDay, addMonths, year, month, day, dayOfWeek, makeDate[int], makeDate[string],
+		substrFn, pi, concatFn, ageMonthsFn, ageYearsFn,
+		toLastDayFn, addMonthsFn, yearFn, monthFn, dayFn, dayOfWeekFn, makeDateFn[int], makeDateFn[string],
+		replaceFn, positionFn,
+		randUnifFn,
 	}
 
 	return fns
@@ -600,11 +603,11 @@ func concatFn(str []string) string {
 	return out
 }
 
-func ageYears(dt1, dt2 time.Time) int {
-	return ageMonths(dt1, dt2) / 12
+func ageYearsFn(dt1, dt2 time.Time) int {
+	return ageMonthsFn(dt1, dt2) / 12
 }
 
-func ageMonths(dt1, dt2 time.Time) int {
+func ageMonthsFn(dt1, dt2 time.Time) int {
 	y1, m1, d1 := dt1.Year(), int(dt1.Month()), dt1.Day()
 	y2, m2, d2 := dt2.Year(), int(dt2.Month()), dt2.Day()
 	if dt1.After(dt2) {
@@ -626,7 +629,7 @@ func ageMonths(dt1, dt2 time.Time) int {
 	return mDiff
 }
 
-func toLastDay(dt time.Time) time.Time {
+func toLastDayFn(dt time.Time) time.Time {
 	yr, mon, _ := dt.Date()
 	mon++
 
@@ -641,7 +644,7 @@ func toLastDay(dt time.Time) time.Time {
 	return dt3
 }
 
-func addMonths(dt time.Time, moToAdd int) time.Time {
+func addMonthsFn(dt time.Time, moToAdd int) time.Time {
 	yr, mo, day := dt.Date()
 	yr += moToAdd / 12
 	mon := int(mo) + (moToAdd % 12)
@@ -656,22 +659,22 @@ func addMonths(dt time.Time, moToAdd int) time.Time {
 		return dtOut
 	}
 
-	return toLastDay(time.Date(yr, time.Month(mon), 1, 0, 0, 0, 0, time.UTC))
+	return toLastDayFn(time.Date(yr, time.Month(mon), 1, 0, 0, 0, 0, time.UTC))
 }
 
-func year(dt time.Time) int {
+func yearFn(dt time.Time) int {
 	return dt.Year()
 }
 
-func month(dt time.Time) int {
+func monthFn(dt time.Time) int {
 	return int(dt.Month())
 }
 
-func day(dt time.Time) int {
+func dayFn(dt time.Time) int {
 	return dt.Day()
 }
 
-func dayOfWeek(dt time.Time) string {
+func dayOfWeekFn(dt time.Time) string {
 	return dt.Weekday().String()
 }
 
@@ -688,7 +691,7 @@ func toInt[T int | string](x T) (int, error) {
 	return -1, fmt.Errorf("cannot make int")
 }
 
-func makeDate[T int | string](year, month, day T) (time.Time, error) {
+func makeDateFn[T int | string](year, month, day T) (time.Time, error) {
 	y, ey := toInt(year)
 	m, em := toInt(month)
 	d, ed := toInt(day)
@@ -698,6 +701,19 @@ func makeDate[T int | string](year, month, day T) (time.Time, error) {
 	}
 
 	return time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC), nil
+}
+
+func replaceFn(src, in, repl string) string {
+	return strings.ReplaceAll(src, in, repl)
+}
+
+func positionFn(haystack, needle string) int {
+	return strings.Index(haystack, needle)
+}
+
+func randUnifFn(ind int) float64 {
+	u := rand.Float64()
+	return u
 }
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
