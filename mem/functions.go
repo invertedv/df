@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gonum.org/v1/gonum/stat"
+	"gonum.org/v1/gonum/stat/distuv"
 
 	d "github.com/invertedv/df"
 )
@@ -73,6 +74,7 @@ func rawFuncs() []any {
 		toLastDayFn, addMonthsFn, yearFn, monthFn, dayFn, dayOfWeekFn, makeDateFn[int], makeDateFn[string],
 		replaceFn, positionFn,
 		randUnifFn, randNormFn, randBinFn,
+		probNormFn,
 	}
 
 	return fns
@@ -149,7 +151,7 @@ func buildFn(spec *d.FnSpec) d.Fn {
 
 		n := df.RowCount()
 		if spec.Inputs != nil {
-//			n = loopDim(inputs...)  // TODO: check in on this...
+			//			n = loopDim(inputs...)  // TODO: check in on this...
 			ind = signature(spec.Inputs, inputs)
 			if ind < 0 {
 				panic("no signature")
@@ -722,13 +724,17 @@ func randNormFn(ind int) float64 {
 func randBinFn(n int, p float64) int {
 	b := 0
 	for range n {
-		x:=rand.Float64()
+		x := rand.Float64()
 		if x <= p {
 			b++
 		}
 	}
 
 	return b
+}
+
+func probNormFn(x float64) float64 {
+	return distuv.Normal{Mu: 0, Sigma: 1}.CDF(x)
 }
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {

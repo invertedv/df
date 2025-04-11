@@ -22,6 +22,30 @@ var (
 	parserTests string
 )
 
+func TestDistr(t *testing.T) {
+	for _, which := range pkgs("d1") {
+		// not available on postgres
+		if strings.Contains(which, "post") {
+			continue
+		}
+
+		dfx := loadData(which)
+		e := d.Parse(dfx, "p := probNorm(1.96)")
+		assert.Nil(t, e)
+		p := dfx.Column("p").Data().Element(0).(float64)
+		assert.InEpsilon(t, 0.975, p, 0.01)
+
+		e = d.Parse(dfx, "p := probNorm(2.58)")
+		assert.Nil(t, e)
+		p = dfx.Column("p").Data().Element(0).(float64)
+		assert.InEpsilon(t, 0.995, p, 0.01)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
+	}
+}
+
 func TestBinRandomGen(t *testing.T) {
 	const (
 		nRep = 100000
