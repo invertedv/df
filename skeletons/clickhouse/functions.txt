@@ -28,6 +28,7 @@ replace:replace(#0,#1,#2):{string,string,string}:string:C:N
 position:position(#0,#1)-1:{string,string}:int:C:N
 randUnif:randUniform(0,1,rowNumberInBlock())::float:C:N
 randNorm:randNormal(0,1,rowNumberInBlock())::flaot:C:N
+randBin:randBinomial(#0,#1,rowNumberInBlock()):{int,float}:int:C:N
 
 eq:(%s == %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:(%s != %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

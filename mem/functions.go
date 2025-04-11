@@ -72,7 +72,7 @@ func rawFuncs() []any {
 		substrFn, pi, concatFn, ageMonthsFn, ageYearsFn,
 		toLastDayFn, addMonthsFn, yearFn, monthFn, dayFn, dayOfWeekFn, makeDateFn[int], makeDateFn[string],
 		replaceFn, positionFn,
-		randUnifFn, randNormFn,
+		randUnifFn, randNormFn, randBinFn,
 	}
 
 	return fns
@@ -149,7 +149,7 @@ func buildFn(spec *d.FnSpec) d.Fn {
 
 		n := df.RowCount()
 		if spec.Inputs != nil {
-			n = loopDim(inputs...)
+//			n = loopDim(inputs...)  // TODO: check in on this...
 			ind = signature(spec.Inputs, inputs)
 			if ind < 0 {
 				panic("no signature")
@@ -717,6 +717,18 @@ func randUnifFn(ind int) float64 {
 
 func randNormFn(ind int) float64 {
 	return rand.NormFloat64()
+}
+
+func randBinFn(n int, p float64) int {
+	b := 0
+	for range n {
+		x:=rand.Float64()
+		if x <= p {
+			b++
+		}
+	}
+
+	return b
 }
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {

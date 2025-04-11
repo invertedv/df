@@ -3,6 +3,7 @@ package testing
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,17 +22,79 @@ var (
 	parserTests string
 )
 
+func TestBinRandomGen(t *testing.T) {
+	const (
+		nRep = 100000
+		n    = 100
+		p    = 0.25
+	)
+
+	for _, which := range pkgs("d1") {
+		// not available on postgres
+		if strings.Contains(which, "post") {
+			continue
+		}
+
+		dfx := loadData(which)
+		var (
+			dfy d.DF
+			e   error
+		)
+
+		if strings.Contains(which, "mem") {
+			dfy, e = m.NewDFseq(nRep)
+		} else {
+			dfy, e = s.NewDFseq(dfx.Dialect(), nRep)
+		}
+		assert.Nil(t, e)
+
+		e = d.Parse(dfy, fmt.Sprintf("u := randBin(%d,%4.2f)", n, p))
+		assert.Nil(t, e)
+
+		dfz, e1 := dfy.By("", "m:=mean(u)", "c := count(seq)", "v :=var(u)")
+		assert.Nil(t, e1)
+		m := dfz.Column("m").Data().Element(0).(float64)
+		v := dfz.Column("v").Data().Element(0).(float64)
+		c := dfz.Column("c").Data().Element(0).(int)
+		fmt.Println(c, m, v)
+		assert.Equal(t, nRep, c)
+		assert.InEpsilon(t, n*p*(1-p), v, 0.01)
+		assert.InEpsilon(t, n*p, m, 0.01)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
+	}
+}
+
 func TestUnifRandomGen(t *testing.T) {
+	const n = 100000
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		e := d.Parse(dfx, "u := randUnif()")
-		assert.Nil(t, e)
-		vs, e1 := dfx.Column("u").Data().AsFloat()
-		assert.Nil(t, e1)
-		for _, v := range vs {
-			assert.Condition(t, func() bool { return v <= 1.0 && v >= 0.0 })
+		var (
+			dfy d.DF
+			e   error
+		)
+
+		if strings.Contains(which, "mem") {
+			dfy, e = m.NewDFseq(n)
+		} else {
+			dfy, e = s.NewDFseq(dfx.Dialect(), n)
 		}
-		
+		assert.Nil(t, e)
+
+		e = d.Parse(dfy, "u := randUnif()")
+		assert.Nil(t, e)
+
+		dfz, e1 := dfy.By("", "m:=mean(u)", "c := count(seq)", "s :=std(u)")
+		assert.Nil(t, e1)
+		m := dfz.Column("m").Data().Element(0).(float64)
+		s := dfz.Column("s").Data().Element(0).(float64)
+		c := dfz.Column("c").Data().Element(0).(int)
+		assert.Equal(t, c, n)
+		assert.InEpsilon(t, math.Sqrt(1.0/12.0), s, 0.01)
+		assert.InEpsilon(t, 0.5, m, 0.01)
+
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()
 		}
@@ -62,9 +125,9 @@ func TestNormRandomGen(t *testing.T) {
 		m := dfz.Column("m").Data().Element(0).(float64)
 		s := dfz.Column("s").Data().Element(0).(float64)
 		c := dfz.Column("c").Data().Element(0).(int)
-		assert.Equal(t, n, c)
-		assert.InEpsilon(t, s, 1.0, 0.01)
-		assert.InEpsilon(t, m+1, 1.0, 0.01)
+		assert.Equal(t, c, n)
+		assert.InEpsilon(t, 1.0, s, 0.01)
+		assert.InEpsilon(t, 1.0, m+1, 0.01)
 
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()
@@ -451,6 +514,10 @@ statistical
   pdf,cdf
   empirical quantile, cdf?
   random numbers
+     uniform
+	 N(0,1)
+	 Exp(1)
+	 Binomial(n,p)
 
 vector
   diff

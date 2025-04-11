@@ -29,6 +29,7 @@ position:github.com/invertedv/df/mem.positionFn:{string,string}:int:C:N
 
 randUnif:github.com/invertedv/df/mem.randUnifFn::float:C:N
 randNorm:github.com/invertedv/df/mem.randNormFn::float:C:N
+randBin:github.com/invertedv/df/mem.randBinFn:{int,float}:int:C:N
 
 eq:github.com/invertedv/df/mem.eqFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:github.com/invertedv/df/mem.neFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
