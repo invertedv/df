@@ -24,11 +24,6 @@ var (
 
 func TestDistr(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		// not available on postgres
-		if strings.Contains(which, "post") {
-			continue
-		}
-
 		dfx := loadData(which)
 		e := d.Parse(dfx, "p := probNorm(1.96)")
 		assert.Nil(t, e)

@@ -28,6 +28,7 @@ replace:replace(#0,#1,#2):{string,string,string}:string:C:N
 position:strpos(#0,#1)-1:{string,string}:int:C:N
 randUnif:random()::float:C:N
 randNorm:sqrt(-2 * ln(random())) * cos(6.283185 * random())::float:C:N
+probNorm:1 - (1-erf(#0/sqrt(2))) / 2:{float}:float:C:N
 
 eq:cast((%s = %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
 ne:cast((%s != %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
