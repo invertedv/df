@@ -26,8 +26,12 @@ dayOfWeek:REPLACE(to_char(#0, 'Day'), ' ', ''):{date}:string:C:N
 makeDate:make_date(cast(#0 AS integer),cast(#1 AS integer), cast(#2 AS integer)):{string,string,string},{int,int,int}:date,date:C:N
 replace:replace(#0,#1,#2):{string,string,string}:string:C:N
 position:strpos(#0,#1)-1:{string,string}:int:C:N
-randUnif:random()::float:C:N
-randNorm:sqrt(-2 * ln(random())) * cos(6.283185 * random())::float:C:N
+randUnif:random()+#0-#0:{float},{int}:float,float:C:N
+randNorm:random_normal()+#0-#0:{float},{int}:float,float:C:N
+randBin:(SELECT sum(ab) FROM unnest((SELECT array_agg(cast(r+#2-#2<#1 AS integer)) FROM (select random() AS r, generate_series(1,#0) as indx))) as ab):{int,float,float},{int,float,int}:float,float:C:N
+randBern:cast(random()+#1-#1 < #0 AS integer):{float,float},{float,int}:int,int:C:N
+randExp:#1-#1-ln(1-random()) / #0:{float,float},{float,int}:float,float:C:N
+
 probNorm:1 - (1-erf(#0/sqrt(2))) / 2:{float}:float:C:N
 
 eq:cast((%s = %s) AS integer):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

@@ -27,9 +27,11 @@ makeDate:github.com/invertedv/df/mem.makeDateFn[...]:{string,string,string},{int
 replace:github.com/invertedv/df/mem.replaceFn:{string,string,string}:string:C:N
 position:github.com/invertedv/df/mem.positionFn:{string,string}:int:C:N
 
-randUnif:github.com/invertedv/df/mem.randUnifFn::float:C:N
-randNorm:github.com/invertedv/df/mem.randNormFn::float:C:N
-randBin:github.com/invertedv/df/mem.randBinFn:{int,float}:int:C:N
+randUnif:github.com/invertedv/df/mem.randUnifFn[...]:{float},{int}:float,float:C:N
+randNorm:github.com/invertedv/df/mem.randNormFn[...]:{float},{int}:float,float:C:N
+randBin:github.com/invertedv/df/mem.randBinFn[...]:{int,float,float},{int,float,int}:int,int:C:N
+randBern:github.com/invertedv/df/mem.randBern[...]:{float,float},{float,int}:int,int:C:N
+randExp:github.com/invertedv/df/mem.randExp[...]:{float,float},{float,int}:float,float:C:N
 probNorm:github.com/invertedv/df/mem.probNormFn:{float}:float:C:N
 
 eq:github.com/invertedv/df/mem.eqFn[...]:{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N

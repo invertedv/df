@@ -73,7 +73,8 @@ func rawFuncs() []any {
 		substrFn, pi, concatFn, ageMonthsFn, ageYearsFn,
 		toLastDayFn, addMonthsFn, yearFn, monthFn, dayFn, dayOfWeekFn, makeDateFn[int], makeDateFn[string],
 		replaceFn, positionFn,
-		randUnifFn, randNormFn, randBinFn,
+		randUnifFn[float64], randUnifFn[int], randNormFn[float64], randNormFn[int], randBinFn[float64], randBinFn[int],
+		randBern[float64], randBern[int], randExp[float64], randExp[int],
 		probNormFn,
 	}
 
@@ -713,15 +714,15 @@ func positionFn(haystack, needle string) int {
 	return strings.Index(haystack, needle)
 }
 
-func randUnifFn(ind int) float64 {
+func randUnifFn[T float64 | int](unused T) float64 {
 	return rand.Float64()
 }
 
-func randNormFn(ind int) float64 {
+func randNormFn[T float64 | int](unused T) float64 {
 	return rand.NormFloat64()
 }
 
-func randBinFn(n int, p float64) int {
+func randBinFn[T float64 | int](n int, p float64, unused T) int {
 	b := 0
 	for range n {
 		x := rand.Float64()
@@ -731,6 +732,18 @@ func randBinFn(n int, p float64) int {
 	}
 
 	return b
+}
+
+func randBern[T float64 | int](p float64, unused T) int {
+	if rand.Float64() < p {
+		return 1
+	}
+
+	return 0
+}
+
+func randExp[T float64 | int](lambda float64, unused T) float64 {
+	return rand.ExpFloat64() / lambda
 }
 
 func probNormFn(x float64) float64 {

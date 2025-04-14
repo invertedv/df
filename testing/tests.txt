@@ -1,3 +1,5 @@
+probNorm(1.96) | 0 | float | 0.975
+probNorm(2.58) | 0 | float | 0.995
 position(z,'12') | 0 | int | 4
 position(z,'X') | 0 | int | -1
 replace(z,'2022','hello') | 0 | string | hello1231

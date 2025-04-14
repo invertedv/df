@@ -22,7 +22,7 @@ var (
 	parserTests string
 )
 
-func TestDistr(t *testing.T) {
+func TestStuff(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := d.Parse(dfx, "p := probNorm(1.96)")
@@ -42,14 +42,20 @@ func TestDistr(t *testing.T) {
 }
 
 func TestBinRandomGen(t *testing.T) {
+	/*
+		3rd argument:
+		  - mem can be anything, even a constant
+		  - clickhouse any numeric column
+		  - postgres any numeric column that's in the original table
+	*/
 	const (
-		nRep = 100000
+		nRep = 100000 //0000
 		n    = 100
 		p    = 0.25
 	)
 
 	for _, which := range pkgs("d1") {
-		// not available on postgres
+		// slow on postgres so skip
 		if strings.Contains(which, "post") {
 			continue
 		}
@@ -67,7 +73,7 @@ func TestBinRandomGen(t *testing.T) {
 		}
 		assert.Nil(t, e)
 
-		e = d.Parse(dfy, fmt.Sprintf("u := randBin(%d,%4.2f)", n, p))
+		e = d.Parse(dfy, fmt.Sprintf("u := randBin(%d,%4.2f,seq)", n, p))
 		assert.Nil(t, e)
 
 		dfz, e1 := dfy.By("", "m:=mean(u)", "c := count(seq)", "v :=var(u)")
@@ -79,6 +85,84 @@ func TestBinRandomGen(t *testing.T) {
 		assert.Equal(t, nRep, c)
 		assert.InEpsilon(t, n*p*(1-p), v, 0.01)
 		assert.InEpsilon(t, n*p, m, 0.01)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
+	}
+}
+
+func TestBernRandomGen(t *testing.T) {
+	const (
+		nRep = 300000
+		p    = 0.25
+	)
+
+	for _, which := range pkgs("d1") {
+		dfx := loadData(which)
+		var (
+			dfy d.DF
+			e   error
+		)
+
+		if strings.Contains(which, "mem") {
+			dfy, e = m.NewDFseq(nRep)
+		} else {
+			dfy, e = s.NewDFseq(dfx.Dialect(), nRep)
+		}
+		assert.Nil(t, e)
+
+		e = d.Parse(dfy, fmt.Sprintf("u := randBern(%4.2f,seq)", p))
+		assert.Nil(t, e)
+
+		dfz, e1 := dfy.By("", "m:=mean(u)", "c := count(seq)", "v :=var(u)")
+		assert.Nil(t, e1)
+		m := dfz.Column("m").Data().Element(0).(float64)
+		v := dfz.Column("v").Data().Element(0).(float64)
+		c := dfz.Column("c").Data().Element(0).(int)
+		fmt.Println(c, m, v)
+		assert.Equal(t, nRep, c)
+		assert.InEpsilon(t, p*(1-p), v, 0.01)
+		assert.InEpsilon(t, p, m, 0.01)
+
+		if dlct := dfx.Dialect(); dlct != nil {
+			_ = dlct.Close()
+		}
+	}
+}
+
+func TestExpRandomGen(t *testing.T) {
+	const (
+		nRep = 300000
+		lambda = 3.0
+	)
+
+	for _, which := range pkgs("d1") {
+		dfx := loadData(which)
+		var (
+			dfy d.DF
+			e   error
+		)
+
+		if strings.Contains(which, "mem") {
+			dfy, e = m.NewDFseq(nRep)
+		} else {
+			dfy, e = s.NewDFseq(dfx.Dialect(), nRep)
+		}
+		assert.Nil(t, e)
+
+		e = d.Parse(dfy, fmt.Sprintf("u := randExp(%4.2f,seq)", lambda))
+		assert.Nil(t, e)
+
+		dfz, e1 := dfy.By("", "m:=mean(u)", "c := count(seq)", "v :=var(u)")
+		assert.Nil(t, e1)
+		m := dfz.Column("m").Data().Element(0).(float64)
+		v := dfz.Column("v").Data().Element(0).(float64)
+		c := dfz.Column("c").Data().Element(0).(int)
+		fmt.Println(c, m, v)
+		assert.Equal(t, nRep, c)
+		assert.InEpsilon(t, (1/lambda)*(1/lambda), v, 0.01)
+		assert.InEpsilon(t, 1/lambda, m, 0.01)
 
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()
@@ -102,7 +186,7 @@ func TestUnifRandomGen(t *testing.T) {
 		}
 		assert.Nil(t, e)
 
-		e = d.Parse(dfy, "u := randUnif()")
+		e = d.Parse(dfy, "u := randUnif(seq)")
 		assert.Nil(t, e)
 
 		dfz, e1 := dfy.By("", "m:=mean(u)", "c := count(seq)", "s :=std(u)")
@@ -137,7 +221,7 @@ func TestNormRandomGen(t *testing.T) {
 		assert.Nil(t, e)
 		e = d.Parse(dfy, "k := int(seq/10)")
 		assert.Nil(t, e)
-		e = d.Parse(dfy, "z := randNorm()")
+		e = d.Parse(dfy, "z := randNorm(seq)")
 		assert.Nil(t, e)
 		dfz, e1 := dfy.By("", "m:=mean(z)", "c := count(seq)", "s :=std(z)")
 		assert.Nil(t, e1)
@@ -501,6 +585,8 @@ func TestParser(t *testing.T) {
 
 // TODO: are there more func parameters to get rid of?
 // TODO: convert %s to #0, #1,... in functions.txt
+
+// TODO: hats & one-hot
 /*
 
 date functions

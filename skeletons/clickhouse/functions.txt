@@ -26,9 +26,11 @@ dayOfWeek:arrayElement(array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 makeDate:makeDate(toInt32(#0),toInt32(#1),toInt32(#2)):{string,string,string},{int,int,int}:date,date:C:N
 replace:replace(#0,#1,#2):{string,string,string}:string:C:N
 position:position(#0,#1)-1:{string,string}:int:C:N
-randUnif:randUniform(0,1,rowNumberInBlock())::float:C:N
-randNorm:randNormal(0,1,rowNumberInBlock())::float:C:N
-randBin:randBinomial(#0,#1,rowNumberInBlock()):{int,float}:int:C:N
+randUnif:randUniform(0,1,#0):{float},{int}:float,float:C:N
+randNorm:randNormal(0,1,#0):{float},{int}:float,float:C:N
+randBin:randBinomial(#0,#1,#2):{int,float,float},{int,float,int}:int,int:C:N
+randBern:randBernoulli(#0,#1):{float,float},{float,int}:int,int:C:N
+randExp:randExponential(#0,#1):{float,float},{float,int}:float,float:C:N
 probNorm:1 - (1-erf(#0/sqrt(2))) / 2:{float}:float:C:N
 
 eq:(%s == %s):{float,float},{int,int},{string,string},{date,date}:int,int,int,int:C:N
