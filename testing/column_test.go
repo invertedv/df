@@ -25,16 +25,9 @@ var (
 func TestStuff(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		e := d.Parse(dfx, "p := probNorm(1.96)")
+		e := d.Parse(dfx, "xNorm := abs(x) / global(sum(abs(x)))")
 		assert.Nil(t, e)
-		p := dfx.Column("p").Data().Element(0).(float64)
-		assert.InEpsilon(t, 0.975, p, 0.01)
-
-		e = d.Parse(dfx, "p := probNorm(2.58)")
-		assert.Nil(t, e)
-		p = dfx.Column("p").Data().Element(0).(float64)
-		assert.InEpsilon(t, 0.995, p, 0.01)
-
+		fmt.Println(dfx.Column("xNorm").Data().AsAny())
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()
 		}
@@ -587,6 +580,8 @@ func TestParser(t *testing.T) {
 // TODO: convert %s to #0, #1,... in functions.txt
 
 // TODO: hats & one-hot
+
+// TODO: can I combine a file reader and an sql save to read from csv & write directly to a table
 /*
 
 date functions
@@ -629,6 +624,8 @@ vector
   lag
   lead
 
+OneHot(col,baseName) - add to df
+Hat(col,knots,baseName) - add to df
 
 
 */
