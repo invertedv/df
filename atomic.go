@@ -2,10 +2,10 @@ package df
 
 import "fmt"
 
-// DataTypes are the types of data that the package supports
+// DataTypes are the types of data that the package supports for Column elements
 type DataTypes uint8
 
-// values of DataTypes, DTany must be the last value
+// values of DataTypes
 const (
 	DTfloat DataTypes = 0 + iota
 	DTint
@@ -17,12 +17,13 @@ const (
 
 //go:generate stringer -type=DataTypes
 
+// DTFromString returns the DataTypes value as given by nm
+// e.g. Input "DTdate", output 3.
+// Fail behavior is to return DTunknown
 func DTFromString(nm string) DataTypes {
-	const skeleton = "%v"
-
 	var nms []string
 	for ind := range DTunknown {
-		nms = append(nms, fmt.Sprintf(skeleton, ind))
+		nms = append(nms, fmt.Sprintf("%v", ind))
 	}
 
 	pos := Position(nm, nms)
