@@ -7,25 +7,21 @@ type DataTypes uint8
 
 // values of DataTypes, DTany must be the last value
 const (
-	DTunknown DataTypes = 0 + iota
-	DTstring
-	DTfloat
+	DTfloat DataTypes = 0 + iota
 	DTint
-	DTcategorical
+	DTstring
 	DTdate
-	DTany // keep as last entry
+	DTcategorical
+	DTunknown // keep as last entry, OK to put new entries before
 )
 
 //go:generate stringer -type=DataTypes
-
-// MaxDT is max value of DataTypes type
-const MaxDT = DTany
 
 func DTFromString(nm string) DataTypes {
 	const skeleton = "%v"
 
 	var nms []string
-	for ind := range MaxDT {
+	for ind := range DTunknown {
 		nms = append(nms, fmt.Sprintf(skeleton, ind))
 	}
 

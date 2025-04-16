@@ -42,7 +42,7 @@ func TestBinRandomGen(t *testing.T) {
 		  - postgres any numeric column that's in the original table
 	*/
 	const (
-		nRep = 100000 //0000
+		nRep = 400000
 		n    = 100
 		p    = 0.25
 	)
@@ -126,7 +126,7 @@ func TestBernRandomGen(t *testing.T) {
 
 func TestExpRandomGen(t *testing.T) {
 	const (
-		nRep = 300000
+		nRep = 600000
 		lambda = 3.0
 	)
 

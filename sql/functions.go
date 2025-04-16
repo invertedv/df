@@ -82,7 +82,7 @@ func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 
 		// we may need to explicitly cast float fields as float
 		if outType == d.DTfloat && df.Dialect().CastFloat() {
-			sqlOut, _ = df.Dialect().CastField(sqlOut, d.DTany, d.DTfloat)
+			sqlOut, _ = df.Dialect().CastField(sqlOut,  d.DTfloat)
 		}
 
 		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
@@ -147,7 +147,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 
 		// we may need to explicitly cast float fields as float
 		if outType == d.DTfloat && df.Dialect().CastFloat() {
-			sqlOut, _ = df.Dialect().CastField(sqlOut, d.DTany, d.DTfloat)
+			sqlOut, _ = df.Dialect().CastField(sqlOut,  d.DTfloat)
 		}
 
 		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
@@ -164,7 +164,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
-		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTany}}, Output: []d.DataTypes{d.DTany}, IsScalar: false}
+		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTunknown}}, Output: []d.DataTypes{d.DTunknown}, IsScalar: false}
 	}
 
 	sqls := getSQL(df, inputs...)
@@ -311,7 +311,7 @@ func toCol(df d.DF, x any) *Col {
 		}
 		// we may need to explicitly cast float fields as float
 		if s.DataType() == d.DTfloat && df.Dialect().CastFloat() {
-			fld, _ = df.Dialect().CastField(fld, d.DTany, d.DTfloat)
+			fld, _ = df.Dialect().CastField(fld,  d.DTfloat)
 		}
 
 		c, _ = NewColSQL(s.DataType(), nil, fld, d.ColName(s.Name()),

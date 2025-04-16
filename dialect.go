@@ -265,7 +265,7 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 	return s, e
 }
 
-func (d *Dialect) CastField(fieldName string, fromDT, toDT DataTypes) (sqlStr string, err error) {
+func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sqlStr string, err error) {
 	var (
 		dbType string
 		e      error
@@ -597,7 +597,7 @@ func (d *Dialect) Quantile(col string, q float64) string {
 	var sqlx string
 	if d.DialectName() == ch {
 		sqlx = fmt.Sprintf("quantileBFloat16(%v)(%s)", q, col)
-		sqlx, _ = d.CastField(sqlx, DTfloat, DTfloat)
+		sqlx, _ = d.CastField(sqlx, DTfloat)
 	}
 
 	if d.DialectName() == pg {

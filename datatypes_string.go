@@ -8,18 +8,17 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[DTunknown-0]
-	_ = x[DTstring-1]
-	_ = x[DTfloat-2]
-	_ = x[DTint-3]
+	_ = x[DTfloat-0]
+	_ = x[DTint-1]
+	_ = x[DTstring-2]
+	_ = x[DTdate-3]
 	_ = x[DTcategorical-4]
-	_ = x[DTdate-5]
-	_ = x[DTany-6]
+	_ = x[DTunknown-5]
 }
 
-const _DataTypes_name = "DTunknownDTstringDTfloatDTintDTcategoricalDTdateDTany"
+const _DataTypes_name = "DTfloatDTintDTstringDTdateDTcategoricalDTunknown"
 
-var _DataTypes_index = [...]uint8{0, 9, 17, 24, 29, 42, 48, 53}
+var _DataTypes_index = [...]uint8{0, 7, 12, 20, 26, 39, 48}
 
 func (i DataTypes) String() string {
 	if i >= DataTypes(len(_DataTypes_index)-1) {

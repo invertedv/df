@@ -141,7 +141,7 @@ func ToDataType(x any, dt DataTypes) (any, bool) {
 		if v, ok := toString(x); ok {
 			return v.(string), true
 		}
-	case DTany:
+	default:
 		return x, true
 	}
 
@@ -279,7 +279,7 @@ func toDataType(x any, dt DataTypes) (any, bool) {
 		if v, ok := toString(x); ok {
 			return v.(string), true
 		}
-	case DTany:
+	default:
 		return x, true
 	}
 
