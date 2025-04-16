@@ -5,8 +5,7 @@
 
 ### Overview 
 
-Dataframes are a common object used to hold data for analysis. Conceptually, a dataframe consists of a set of columns.  
-Columns, in turn, are arrays of values which are of a common type. The df package provides a flexible and extensable implementation
+Dataframes are a common object used to hold and manipulate data for analysis. Conceptually, a dataframe consists of a set of columns. Columns, in turn, are arrays of values which are of a common type. The df package provides a flexible and extensable implementation
 of dataframes. 
 
 The df package consists of a main package, df, and two sub-packages, df/mem and df/sql.  The main package:
@@ -17,8 +16,7 @@ The df package consists of a main package, df, and two sub-packages, df/mem and 
 - handles file and DB I/O.
 
 Packages df/mem and df/sql implement the full DF and Column interfaces for in-memory data and SQL databases, respectively. The distinction
-here is not the source of the data but where calculations and manipulations are performed.  The df/mem package does this work
-in memory, while the df/sql performs it in the database.  mem/DF dataframes can be read from/saved to a database.
+between df/mem and df/sql is not the source of the data. Package mem/DF dataframes can be read from/saved to a database, for example. The distinction is where the calculations and manipulations are performed.  The df/mem package does this work in memory, while the df/sql performs it in the database.  
 
 
 **Flexible**
@@ -44,61 +42,64 @@ The package may be extended in several directions:
 - Additional database types can be added to the sql package.  This is done by adding support for the new DB type in the Dialect struct.
 The sql package would not need to be modified.
 
-### Structure
+### Package Details
+**df**
 
-The df package defines the DF and Column interfaces in two steps: a "core" and "full" interface.  The core interface defines those methods which
-are independent of the details of the data architecture. The df package provides structs that implement the core DF and Column interfaces.
+The df package defines the DF and Column interfaces in two steps: a "core" (DC, CC, respectively) and "full" interface (DF, Column).  The core interface defines those methods which are independent of the details of the data architecture (*e.g.* drop columns from DF, Column name). The df package provides structs that implement the core DF and Column interfaces (DFcore, ColCore).
 
-The df package files:
-- atomic.go. Defines the basic data type of Columns.
-- column.go. Defines the "core" and "full" Column interfaces and implements the core Column interface as the struct ColCore.
-- df.go. Defines the "core" and "full" DF interfaces and implements the core DF interface as the struct DFCore.
-- dialect.go. Dialect struct handles all I/O with databases.  All of the DB communication occurs through Dialect.
-- files.go. Files struct handles all I/O with files.
-- functions.go. Defines funcs and structs used by Parser to call functions that operate on columns.
-- helpers.go. Helper funcs.
-- parser.go. Defines the Parser func that evaluates expressions that 
-- scalar.go. Implements the full Column interface for scalars.
-- vector.go. Implements an in-memory vector type. This type is the data return type for Columns.
 
-The df/mem package files:
-- column.go. Defines a type that satisfies the full Column interface.
-- df.go. Defines a type that satisfies the full DF interface.
-- functions.go. Defines column-valued functions used by the parser.
+**df/mem**
 
-The df/sql package files:
-- column.go
-- df.go
-- functions.go
+The df/mem package implements the DF and Column interfaces for in-memory objects.
 
-### Data Types
-Four data types are supported for column elements:
+**df/sql**
+
+The package df/sql implements the DF and Column interfaces for SQL databases. It relies on the methods of Dialect to handle the specifics
+of any particular database type.
+
+A basic design philosophy of this package is that the the storage mechanism of the data doesn't matter. A complication is that, though two database packages may use SQL, the details are likely to differ. The Dialect struct and its methods abstract these differences away.  Those methods handle the diffences between databases, hence each DB must specifically be handled there. Currently, Clickhouse and Postgres are supported. Dialect uses the standard Go sql package connector.  All communication with databases occurs through Dialect.
+
+**Data Types**
+Four data types are supported for column elements. By and large, most of the data statisticians work with is covered by these types. The four types are:
+
 - float
 - int
 - string
 - date
 
-There is one additional type, "categorical", which is a mapping of the values of a base data type
-(int, string or date) into int.
+There is one additional type, "categorical", which is a mapping of the values of a source column (of type int, string or date) into int.
 
-By and large, most of the data statisticians work with is covered by these types. 
+Note that the df/mem and df/sql packages strongly type data.  One cannot add a float and an int, for example.
 
-The package strongly types data.  One cannot add a float and an int, for example.
+### Package Files
 
-#### df/mem
+**df package files**
 
-The mem package implements df for in-memory objects. Data can be loaded from files or tables.
+- atomic.go. Defines the basic data type of Columns.
+- column.go. Defines the "core" and "full" Column interfaces and implements the core Column interface as the struct ColCore.
+- df.go. Defines the "core" and "full" DF interfaces and implements the core DF interface as the struct DFCore.
+- dialect.go. Dialect struct handles all I/O with databases.  All of the DB communication occurs through Dialect. The Dialect struct has methods for those SQL functions that vary between databases, such as creating tables.
+- files.go. Files struct handles all I/O with files.
+- functions.go. Defines funcs and structs used by the parser to call functions that operate on columns.
+- helpers.go. Helper funcs.
+- parser.go. Defines the Parser func.
+- scalar.go. Implements the full Column interface for scalars.
+- skeletons/*. There is a subdirectory under skeleton for each database type that is supported -- currently, ClickHouse and Postgres. The files are skeletons (SQL with placeholders) for SQL that varies between databases, such as CREATE queries.  There is an additional file, functions.txt, provides a function mapping for the parser. It maps the function name the parser knows to the SQL equivalent, including input/output types.
+- vector.go. Implements an in-memory vector type. This is the return type for  a Column when accessing their contents (Column.Data()).
 
-#### df/sql
+The df/mem package files:
+- column.go. Defines a type that satisfies the full Column interface.
+- df.go. Defines a type that satisfies the full DF interface.
+- functions.go. Defines functions used by the parser.
+- data/functions.txt. This file provides a function mapping for the parser. It maps the function name the parser knows to the Go function, including input/output types.
 
-A basic design philosophy of this package is that the the storage mechanism of the data doesn't matter.
-A complication is that, though two database packages may use SQL, the details are likely to differ.
-The Dialect struct and its methods abstract these differences away.  Those methods handle the diffences
-between databases, hence each DB must specifically be handled there. Currently, Clickhouse and Postgres are supported.
-Dialect uses the standard Go sql package connector.  All communication with databases occurs through Dialect.
+The df/sql package files:
+- column.go. Defines a type that satisfies the full Column interface.
+- df.go. Defines a type that satisfies the full DF interface.
+- functions.go. Defines functions used by the parser.
 
-The package df/sql implements the full df and column interfaces. It relies on Dialect methods to handle the specifics
-of any particular database type.
+Note that df/sql has no functions.txt.  That file exists in the skeletons directory under the database type.
+
 
 
 
