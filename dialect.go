@@ -115,6 +115,7 @@ type Dialect struct {
 	defaultDate   time.Time // value of date to use if a value is null
 }
 
+// NewDialect creates a *Dialect to manage DB access.
 func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error) {
 	dialect = strings.ToLower(dialect)
 
@@ -175,7 +176,7 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 // DialectOpt functions are used to set Dialect options
 type DialectOpt func(d *Dialect) error
 
-// DialectBuffSize sets the buffer size (in MB) for accumulating inserts
+// DialectBuffSize sets the buffer size (in MB) for accumulating inserts. Default is 1GB.
 func DialectBuffSize(bufMB int) DialectOpt {
 	return func(d *Dialect) error {
 		if bufMB <= 0 {
@@ -188,6 +189,7 @@ func DialectBuffSize(bufMB int) DialectOpt {
 	}
 }
 
+//DialectDefaultDate sets the default date to use if a date is null.  Default is 1/1/1960.
 func DialectDefaultDate(year, mon, day int) DialectOpt {
 	return func(d *Dialect) error {
 		if year < 1900 || year > 2200 {
@@ -209,6 +211,7 @@ func DialectDefaultDate(year, mon, day int) DialectOpt {
 	}
 }
 
+// DialectDefaultInt sets the default int to use if an int is null.  Default is MaxInt.
 func DialectDefaultInt(deflt int) DialectOpt {
 	return func(d *Dialect) error {
 		d.defaultInt = deflt
@@ -217,6 +220,7 @@ func DialectDefaultInt(deflt int) DialectOpt {
 	}
 }
 
+// DialectDefaultFloat sets the default float to use if an int is null.  Default is MaxFloat64.
 func DialectDefaultFloat(deflt float64) DialectOpt {
 	return func(d *Dialect) error {
 		d.defaultFloat = deflt
@@ -225,6 +229,7 @@ func DialectDefaultFloat(deflt float64) DialectOpt {
 	}
 }
 
+// DialectDefaultString sets the default string to use if an int is null.  Default is "".
 func DialectDefaultString(deflt string) DialectOpt {
 	return func(d *Dialect) error {
 		d.defaultString = deflt
@@ -235,6 +240,7 @@ func DialectDefaultString(deflt string) DialectOpt {
 
 // ***************** Methods *****************
 
+// BufSize returns the buffer size for Insert Values queries.
 func (d *Dialect) BufSize() int {
 	return d.bufSize
 }
@@ -266,11 +272,13 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 	return s, e
 }
 
+// CastField casts fieldName to type toDT. 
 func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sqlStr string, err error) {
 	var (
 		dbType string
 		e      error
 	)
+	// Get database type that corresponds to toDT.
 	if dbType, e = d.dbtype(toDT); e != nil {
 		return "", e
 	}
@@ -441,6 +449,7 @@ func (d *Dialect) DropTable(tableName string) error {
 	return e
 }
 
+// Exists returns true if tableName exists on the db.
 func (d *Dialect) Exists(tableName string) bool {
 	var (
 		res *sql.Rows
@@ -483,6 +492,7 @@ func (d *Dialect) Exists(tableName string) bool {
 	return false
 }
 
+// Functions returns a map of functions for the parser.
 func (d *Dialect) Functions() Fmap {
 	return d.functions
 }

@@ -53,18 +53,63 @@ func RunDFfn(fn Fn, df DF, inputs []Column) (Column, error) {
 
 // *********
 
+// FnSpec specifies a function that the parser will have access to.
 type FnSpec struct {
-	Name     string
+	// Name is the name of the function that the parser will recognize in user statements.
+	Name string
+
+	// FnDetail gives the specifics of the function.
+	// For df/sql, this is the SQL that is run.
+	// For df/mem, this is the name of the Go function to call.
 	FnDetail string
-	Inputs   [][]DataTypes
-	Outputs  []DataTypes
+
+	// Inputs is a slice that lists all valid combinations of inputs.
+	Inputs [][]DataTypes
+
+	// Outputs is a slice that lists the outputs corresponding to each element of Inputs.
+	Outputs []DataTypes
+
+	// IsScalar is true if the function reduces a column to a scalar (e.g. mean, sum)
 	IsScalar bool
-	Varying  bool
-	Fns      []any
+
+	// Varying is true if the number of inputs can vary.
+	Varying bool
+
+	// This is a slice of Go functions to call, corresponding to the elements of inputs/outputs.
+	// Not used for df/sql.
+	Fns []any
 }
 
+// Fmap maps the function name to its spec
 type Fmap map[string]*FnSpec
 
+// LoadFunctions loads functions from a string which is an embedded file.
+// LoadFunctions expects functions to be separated by "\n"
+// Within each line there are 6 fields separated by colons. The fields are:
+//
+//	function name
+//	function spec
+//	inputs
+//	outputs
+//	return type (C = column, S = scalar)
+//	varying inputs (Y = yes).
+//
+// Inputs are sets of types with in braces separated by commas.
+//
+//	{int,int},{float,float}
+//
+// specifies the function takes two parameters which can be either {int,int} or {float,float}.
+//
+// Corresponding to each set of inputs is an output type.  In the above example, if the function always
+// returns a float, the output would be:
+//
+//	float,float.
+//
+// Legal types are float, int, string and date.  Categorical inputs are ints.
+//
+// If there is no input parameter, leave the field empty as in:
+//
+//	::
 func LoadFunctions(fns string) Fmap {
 	m := make(Fmap)
 

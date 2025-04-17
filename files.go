@@ -11,10 +11,7 @@ import (
 	"time"
 )
 
-// can Save any DF to file
-// can load any file to []any
-// can have a GENERIC loader that takes an iter
-
+// Files manages interactions with files.
 type Files struct {
 	eol         byte
 	sep         byte
@@ -22,25 +19,27 @@ type Files struct {
 	dateFormat  string
 	floatFormat string
 
-	header bool
-	peek   int
-	strict bool
+	header bool // file has header
+	peek   int  // # of records to look at to determine data types
+	strict bool // enforce field values must be strictly interpretable as the field type. If true, bad data throws an error, o.w. default value is used.
 
-	defaultInt    int
-	defaultFloat  float64
-	defaultString string
-	defaultDate   time.Time
+	defaultInt    int       // default int value when bad data encountered.
+	defaultFloat  float64   // default float value when bad data encountered.
+	defaultString string    // default string value when bad data encountered.
+	defaultDate   time.Time // default date value when bad data encountered.
 
 	fileName    string
 	fieldNames  []string
 	fieldTypes  []DataTypes
-	fieldWidths []int
+	fieldWidths []int // required if this is a flat file
 
-	lineWidth int
-	file      *os.File
-	rdr       *bufio.Reader
+	lineWidth int // required if this is a flat file
+
+	file *os.File
+	rdr  *bufio.Reader
 }
 
+// NewFiles creates a *Files struct for reading/writing files.
 func NewFiles(opts ...FileOpt) (*Files, error) {
 	f := &Files{
 		eol:           byte('\n'),
@@ -67,8 +66,10 @@ func NewFiles(opts ...FileOpt) (*Files, error) {
 
 // ***************** Setters *****************
 
+// FileOpt functions are used to set Files options
 type FileOpt func(f *Files) error
 
+// FileDefaultDate sets the value to use for fields that fail to convert to date if strict=false. Default is 1/1/1960.
 func FileDefaultDate(year, mon, day int) FileOpt {
 	return func(f *Files) error {
 		if year < 1900 || year > 2200 {
@@ -90,7 +91,7 @@ func FileDefaultDate(year, mon, day int) FileOpt {
 	}
 }
 
-// FileDefaultInt sets the value to use for fields that fail to convert to integer if strict=false.
+// FileDefaultInt sets the value to use for fields that fail to convert to integer if strict=false. Default is MaxInt.
 func FileDefaultInt(deflt int) FileOpt {
 	return func(f *Files) error {
 		f.defaultInt = deflt
@@ -99,6 +100,7 @@ func FileDefaultInt(deflt int) FileOpt {
 	}
 }
 
+// FileDefaultFloat sets the value to use for fields that fail to convert to float if strict=false. Default is MaxFloat64.
 func FileDefaultFloat(deflt float64) FileOpt {
 	return func(f *Files) error {
 		f.defaultFloat = deflt
@@ -107,6 +109,7 @@ func FileDefaultFloat(deflt float64) FileOpt {
 	}
 }
 
+// FileDefaultString sets the value to use for fields that fail to convert to string if strict=false. Default is "".
 func FileDefaultString(deflt string) FileOpt {
 	return func(f *Files) error {
 		f.defaultString = deflt
@@ -115,6 +118,7 @@ func FileDefaultString(deflt string) FileOpt {
 	}
 }
 
+// FileDateFormat sets the format for dates in the file. Default is 20060102.
 func FileDateFormat(format string) FileOpt {
 	return func(f *Files) error {
 		if !Has(format, DateFormats) {
@@ -127,6 +131,7 @@ func FileDateFormat(format string) FileOpt {
 	}
 }
 
+// FileEOL sets the end-of-line character.  The default is \n.
 func FileEOL(eol byte) FileOpt {
 	return func(f *Files) error {
 		f.eol = eol
@@ -135,6 +140,7 @@ func FileEOL(eol byte) FileOpt {
 	}
 }
 
+// FileFieldNames sets the field names for the file -- needed if the file has no header.
 func FileFieldNames(fieldNames []string) FileOpt {
 	return func(f *Files) error {
 		for _, fn := range fieldNames {
@@ -149,6 +155,7 @@ func FileFieldNames(fieldNames []string) FileOpt {
 	}
 }
 
+// FileFieldTypes sets the field types for the file--can be used instead of peeking at the file & guessing.
 func FileFieldTypes(fieldTypes []DataTypes) FileOpt {
 	return func(f *Files) error {
 		f.fieldTypes = fieldTypes
@@ -157,6 +164,7 @@ func FileFieldTypes(fieldTypes []DataTypes) FileOpt {
 	}
 }
 
+// FileFieldWidths sets field widths for flat files
 func FileFieldWidths(fieldWidths []int) FileOpt {
 	return func(f *Files) error {
 		tot := 0
@@ -174,6 +182,7 @@ func FileFieldWidths(fieldWidths []int) FileOpt {
 	}
 }
 
+// FileFloatFormat sets the format for writing floats.  Default is %.2f.
 func FileFloatFormat(format string) FileOpt {
 	return func(f *Files) error {
 		if ok, _ := regexp.MatchString("%[0-9]?[0-9]?.[0-9]?[0-9]?f", format); !ok {
@@ -186,6 +195,7 @@ func FileFloatFormat(format string) FileOpt {
 	}
 }
 
+// FileHeader sets true if file has a header. Default is true.
 func FileHeader(hasHeader bool) FileOpt {
 	return func(f *Files) error {
 		f.header = hasHeader
@@ -194,6 +204,8 @@ func FileHeader(hasHeader bool) FileOpt {
 	}
 }
 
+// FilePeek sets the # of lines to examine to determine data types. Default value of 0
+// will examine the entire file.
 func FilePeek(linesToPeek int) FileOpt {
 	return func(f *Files) error {
 		if linesToPeek < 0 {
@@ -206,6 +218,7 @@ func FilePeek(linesToPeek int) FileOpt {
 	}
 }
 
+// FileSep sets the field separator.  Default is a comma.
 func FileSep(sep byte) FileOpt {
 	return func(f *Files) error {
 		f.sep = sep
@@ -215,8 +228,10 @@ func FileSep(sep byte) FileOpt {
 }
 
 // FileStrict sets the action when a field fails to convert to its expected type.
-// If true, then an error results.
-// If false, the default value is substituted.
+//
+//	If true, then an error results.
+//	If false, the default value is substituted.
+//
 // Default: false
 func FileStrict(strict bool) FileOpt {
 	return func(f *Files) error {
@@ -226,6 +241,7 @@ func FileStrict(strict bool) FileOpt {
 	}
 }
 
+// FilesStringDelim sets the string delimiter.  The default is ".
 func FileStringDelim(delim byte) FileOpt {
 	return func(f *Files) error {
 		f.stringDelim = delim
@@ -236,6 +252,7 @@ func FileStringDelim(delim byte) FileOpt {
 
 // ***************** Read Methods *****************
 
+// Load loads the data into a slice of *Vector.
 func (f *Files) Load() ([]*Vector, error) {
 	defer func() { _ = f.Close() }()
 	var memData []*Vector
@@ -249,7 +266,7 @@ func (f *Files) Load() ([]*Vector, error) {
 			e1  error
 		)
 
-		if row, e1 = f.Read(); e1 != nil {
+		if row, e1 = f.read(); e1 != nil {
 			if e1 == io.EOF {
 				break
 			}
@@ -268,6 +285,10 @@ func (f *Files) Load() ([]*Vector, error) {
 	return memData, nil
 }
 
+// TODO: what happens if I write to this?
+
+// Open opens fileName for reading/writing.  It examines the file for consistency with the parameters (e.g has header).
+// If needed, it determines and sets field names and types.
 func (f *Files) Open(fileName string) error {
 	if f.fieldNames != nil && f.fieldTypes != nil && len(f.fieldNames) != len(f.fieldTypes) {
 		return fmt.Errorf("fieldNames and fieldTypes not same length in Open")
@@ -296,7 +317,7 @@ func (f *Files) Open(fileName string) error {
 
 	// skip first line if field names are supplied
 	if f.header && f.FieldNames() != nil {
-		if _, e1 := f.Read(); e1 != nil {
+		if _, e1 := f.read(); e1 != nil {
 			return e1
 		}
 	}
@@ -324,7 +345,8 @@ func (f *Files) Open(fileName string) error {
 	return nil
 }
 
-func (f *Files) Read() (any, error) {
+// read reads a line of the file
+func (f *Files) read() (any, error) {
 	var (
 		vals []string
 		e    error
@@ -394,7 +416,7 @@ func (f *Files) readHeader() error {
 		e error
 	)
 
-	if x, e = f.Read(); e != nil {
+	if x, e = f.read(); e != nil {
 		return e
 	}
 
@@ -422,6 +444,7 @@ func (f *Files) readSep() ([]string, error) {
 
 // ***************** Write Methods *****************
 
+// Create creates fileName on the file system.
 func (f *Files) Create(fileName string) error {
 	var e error
 
@@ -431,6 +454,8 @@ func (f *Files) Create(fileName string) error {
 	return e
 }
 
+// TODO: change df to HasIter
+// Save saves df out to fileName.  The file must be created first.
 func (f *Files) Save(fileName string, df DF) error {
 	defer func() { _ = f.Close() }()
 	f.fieldNames = df.ColumnNames()
@@ -446,7 +471,7 @@ func (f *Files) Save(fileName string, df DF) error {
 	}
 
 	for _, row := range df.AllRows() {
-		if ex := f.Write(row); ex != nil {
+		if ex := f.write(row); ex != nil {
 			return ex
 		}
 	}
@@ -454,7 +479,8 @@ func (f *Files) Save(fileName string, df DF) error {
 	return nil
 }
 
-func (f *Files) Write(v []any) error {
+// write writes a line to the file
+func (f *Files) write(v []any) error {
 	var line []byte
 	for ind := range len(v) {
 		var lx []byte
@@ -536,7 +562,7 @@ func (f *Files) FieldWidths() []int {
 	return f.fieldWidths
 }
 
-// ***************** Unexported Methods *****************
+// ***************** Other Unexported Methods *****************
 
 func (f *Files) defaultValue(dt DataTypes) any {
 	switch dt {
@@ -563,7 +589,7 @@ func (f *Files) detect() error {
 			vals []string
 			e1   error
 		)
-		if v, e1 = f.Read(); e1 != nil {
+		if v, e1 = f.read(); e1 != nil {
 			if e1 == io.EOF {
 				break
 			}

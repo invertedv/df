@@ -1,16 +1,18 @@
 package df
 
 import (
-	"bytes"
-	"crypto/rand"
 	"fmt"
 	"math"
-	"math/big"
+	"math/rand/v2"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// DateFormats is list of available formats for dates.
+var DateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
+	"Jan 2 2006", "January 2 2006", "2006-01-02", "01/02/06"}
 
 func Has[C comparable](needle C, haystack []C) bool {
 	return Position(needle, haystack) >= 0
@@ -107,14 +109,7 @@ func StringSlice(header string, inVal any) []string {
 func RandomLetters(length int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz"
 
-	var (
-		randN []int64
-		e     error
-	)
-	if randN, e = randUnifInt(len(letters), len(letters)); e != nil {
-		panic(e)
-	}
-
+	randN := randUnifInt(len(letters), len(letters))
 	name := ""
 	for ind := range length {
 		name += letters[randN[ind] : randN[ind]+1]
@@ -148,10 +143,22 @@ func ToDataType(x any, dt DataTypes) (any, bool) {
 	return nil, false
 }
 
-// ***************** Not exported *****************
+func WhatAmI(val any) DataTypes {
+	switch val.(type) {
+	case float64, []float64:
+		return DTfloat
+	case int, []int:
+		return DTint
+	case string, []string:
+		return DTstring
+	case time.Time, []time.Time:
+		return DTdate
+	default:
+		return DTunknown
+	}
+}
 
-var DateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
-	"Jan 2 2006", "January 2 2006", "2006-01-02", "01/02/06"}
+
 
 // *********** Conversions ***********
 
@@ -314,21 +321,6 @@ func bestType(xIn any, dtFirst bool) (xOut any, dt DataTypes, err error) {
 	return nil, DTunknown, fmt.Errorf("cannot convert value")
 }
 
-func WhatAmI(val any) DataTypes {
-	switch val.(type) {
-	case float64, []float64:
-		return DTfloat
-	case int, []int:
-		return DTint
-	case string, []string:
-		return DTstring
-	case time.Time, []time.Time:
-		return DTdate
-	default:
-		return DTunknown
-	}
-}
-
 func toSlc(xIn any, target DataTypes) (any, bool) {
 	typSlc := []reflect.Type{reflect.TypeOf([]float64{}), reflect.TypeOf([]int{}), reflect.TypeOf([]string{}), reflect.TypeOf([]time.Time{})}
 	toFns := []func(a any) (any, bool){toFloat, toInt, toString, toDate}
@@ -391,37 +383,16 @@ func toSlc(xIn any, target DataTypes) (any, bool) {
 
 // *********** Other ***********
 
-// slash adds a trailing slash if inStr doesn't end in a slash
-//func slash(inStr string) string {
-//	if inStr[len(inStr)-1] == '/' {
-//		return inStr
-//	}
-//
-//	return inStr + "/"
-//}
-
 // randUnifInt generates a slice whose elements are random U[0,upper) int64's
-func randUnifInt(n, upper int) ([]int64, error) {
-	const bytesPerInt = 8
-
-	// generate random bytes
-	b1 := make([]byte, bytesPerInt*n)
-	if _, e := rand.Read(b1); e != nil {
-		return nil, e
-	}
-
+func randUnifInt(n, upper int) []int64 {
+	upFlt := float64(upper)
 	outInts := make([]int64, n)
-	rdr := bytes.NewReader(b1)
 
 	for ind := range n {
-		r, e := rand.Int(rdr, big.NewInt(int64(upper)))
-		if e != nil {
-			return nil, e
-		}
-		outInts[ind] = r.Int64()
+		outInts[ind] = int64(rand.Float64() * upFlt)
 	}
 
-	return outInts, nil
+	return outInts
 }
 
 func validName(name string) error {
