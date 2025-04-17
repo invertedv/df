@@ -6,43 +6,58 @@ import (
 	"maps"
 )
 
-// Column interface defines the methods the columns
+// The Column interface defines the methods that columns must have.
 type Column interface {
+
+	// Core Methods
 	CC
 
+	// AllRows iterates through the rows of the column.  It returns the row # and the value of the column at that row.
+	// The row value return is a slice, []any, of length 1.  This was done to be consistent with
+	// the AllRows() function of DF which also returns []any.
 	AllRows() iter.Seq2[int, []any]
+
+	// Copy returns a copy of the column.
 	Copy() Column
+
+	// Data returns the contents of the column.  Column implementations that are not stored in memory (e.g. as in a database)
+	//  will have to fetch the data when this method is called.
 	Data() *Vector
+
+	// Len is the length of the column.
 	Len() int
+
+	// Stringer.  This is expected to be a summary of the column.
 	String() string
 }
 
-// CC interface defines the methods of ColCore
+// The CC interface defines the methods of ColCore. These methods are invariant to the data that
+// underlies the column.
 type CC interface {
-	Core() *ColCore
-	CategoryMap() CategoryMap
-	DataType() DataTypes
-	Dependencies() []string
-	Dialect() *Dialect
-	Name() string
-	Parent() DF
-	Rename(newName string) error
+	Core() *ColCore              // Core returns itself.
+	CategoryMap() CategoryMap    // CategoryMap returns a map of original value to category value.  Not nil only for dt=DTcategorical.
+	DataType() DataTypes         // DataType returns the type of the column.
+	Dependencies() []string      // Dependencies returns a list of columns required to calculate this column, if this is a calculated column.
+	Dialect() *Dialect           // Dialect returns the Dialect object. A Dialect object is required if there is DB interaction.
+	Name() string                // Name returns the column's name.
+	Parent() DF                  // Parent returns the DF to which the column belongs.
+	Rename(newName string) error // Rename renames the column.
 }
 
 // *********** ColCore ***********
 
-// ColCore implements the nucleus of the Column interface.
+// ColCore implements the CC interface.
 type ColCore struct {
-	name string
-	dt   DataTypes
+	name string    // column name
+	dt   DataTypes // column data type
 
-	catMap  CategoryMap
-	rawType DataTypes
+	catMap  CategoryMap // map of original value to category value.  Not nil only for dt=DTcategorical.
+	rawType DataTypes   // data type of the source column for a categorical column.
 
 	dep []string
 
 	dlct   *Dialect
-	parent DF
+	parent DF // DF to which the column belongs.
 }
 
 func NewColCore(opts ...ColOpt) (*ColCore, error) {
@@ -59,6 +74,7 @@ func NewColCore(opts ...ColOpt) (*ColCore, error) {
 
 // *********** Setters ***********
 
+// ColOpt functions are used to set ColCore options
 type ColOpt func(c CC) error
 
 func ColCatMap(cm CategoryMap) ColOpt {
@@ -221,6 +237,7 @@ func (c *ColCore) Rename(newName string) error {
 
 // *********** Category Map ***********
 
+// CategoryMap maps the raw value of a categorical column to the category level
 type CategoryMap map[any]int
 
 func (cm CategoryMap) String() string {

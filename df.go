@@ -7,48 +7,110 @@ import (
 )
 
 type DF interface {
+	// Core methods
 	DC
 
+	// AllRows iterates through the rows of the column.  It returns the row # and the values of DF that row.
 	AllRows() iter.Seq2[int, []any]
+
+	// AppendDF appends df
 	AppendDF(df DF) (DF, error)
+
+	// By creates a new DF that groups the source DF by the columns listed in groupBy and calculates fns on the groups.
 	By(groupBy string, fns ...string) (DF, error)
+
+	// Categorical creates a categorical column
+	//   colName    - name of the column to use to create the new categorical column.
+	//   catMap     - optional mapping to use.
+	//   fuzz       - if the count of a level is below fuzz, put into the "other" category.
+	//   defaultVal - optional value of the "other" category.
+	//   levels     - optional slice of category levels to use.
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
+
 	Copy() DF
+
+	// Interp interpolates the columns (xIfield,yfield) at xsField points.
+	//   iDF      - input iterator (e.g. Column or DF) that yields the points to interpolate at
+	//   xSfield  - column name of x values in source DF
+	//   xIfield  - name of x values in iDF
+	//   yfield   - column name of y values in source DF
+	//   outField - column name of interpolated y's in return DF
 	Interp(iDF HasIter, xSfield, xIfield, yfield, outField string) (DF, error)
+
+	// Join inner joins the df to the source DF on the joinOn fields
+	//   df       - DF to join
+	//   joinOn   - comma-separated list of fields to join on.
 	Join(df DF, joinOn string) (DF, error)
+
+	// RowCount returns # of rows in df
 	RowCount() int
+
+	// SetParent sets the Parent field of all the columns in the source DF
 	SetParent() error
+
+	// Sort sorts the source DF on keys
+	//   ascending - if true, sorts ascending
+	//   keys      - keys is a comma-separated list of fields on which to sort.
 	Sort(ascending bool, keys ...string) error
+
+	// String is expected to produce a summary of the source DF.
 	String() string
+
+	// Table returns a table based on cols.
+	//   cols - list of column names for the table.
+	// The return is expected to include the columns "count" and "rate"
+	// TODO: change this to a single string
 	Table(cols ...string) (DF, error)
+
+	// Where returns a DF subset according to condition.
 	Where(condition string) (DF, error)
 }
 
 type DC interface {
+	// AllColumns returns an iterator across the columns.
 	AllColumns() iter.Seq[Column]
+
+	// AppendColumns appends col to the DF.
 	AppendColumn(col Column, replace bool) error
+
+	// Column returns the column colName.  Returns nil if the column doesn't exist.
 	Column(colName string) Column
+
+	// ColNames returns the names of all the columns.
 	ColumnNames() []string
+
+	// ColumnTypes returns the types of columns.  If cols is nil, returns the types for all columns.
 	ColumnTypes(cols ...string) ([]DataTypes, error)
+
+	// Core returns itself.
 	Core() *DFcore
+
+	// Dialect returns the Dialect object for DB access.
 	Dialect() *Dialect
+
+	// DropColumns drops colNames from the DF.
 	DropColumns(colNames ...string) error
+
+	// Fns returns a slice of functions that operate on columns.
 	Fns() Fns
+
+	// HasColumns returns true if the DF has all cols.
 	HasColumns(cols ...string) bool
+
+	// KeepColumns subsets DF to colsToKeep
 	KeepColumns(colsToKeep ...string) error
+
+	// sourceDF returns the source DF for this DF if this DF is a derivative (e.g. a Table).
 	SourceDF() *DFcore
 }
 
 // *********** DFcore ***********
 
-// DFcore is the nucleus implementation of the DataFrame.  It does not implement all the required methods.  The remaining
-// methods will depend on the implementation.
+// DFcore implements DC.
 type DFcore struct {
 	head *columnList
 
 	appFuncs Fns
-
-	current *columnList
 
 	dlct *Dialect
 
@@ -102,6 +164,7 @@ func NewDFcore(cols []Column, opts ...DFopt) (df *DFcore, err error) {
 
 // *********** Setters ***********
 
+// DFopt functions are used to set DFcore options
 type DFopt func(df DC) error
 
 func DFdialect(d *Dialect) DFopt {
@@ -322,16 +385,6 @@ func (df *DFcore) KeepColumns(colNames ...string) error {
 	}
 
 	return nil
-}
-
-func (df *DFcore) NextXXX() Column {
-	if df.current.next == nil {
-		df.current = nil
-		return nil
-	}
-
-	df.current = df.current.next
-	return df.current.col
 }
 
 func (df *DFcore) SourceDF() *DFcore {

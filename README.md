@@ -85,6 +85,7 @@ Note that the df/mem and df/sql packages strongly type data.  One cannot add a f
 - parser.go. Defines the Parser func.
 - scalar.go. Implements the full Column interface for scalars.
 - skeletons/*. There is a subdirectory under skeleton for each database type that is supported -- currently, ClickHouse and Postgres. The files are skeletons (SQL with placeholders) for SQL that varies between databases, such as CREATE queries.  There is an additional file, functions.txt, provides a function mapping for the parser. It maps the function name the parser knows to the SQL equivalent, including input/output types.
+- testing/*.  Tests. 
 - vector.go. Implements an in-memory vector type. This is the return type for  a Column when accessing their contents (Column.Data()).
 
 The df/mem package files:

@@ -21,11 +21,6 @@ type HasMQdlct interface {
 	Dialect() *Dialect
 }
 
-// Can Save any DF to a table
-// Can Load any query to []any
-
-// All code interacting with a database is here
-
 var (
 	//go:embed skeletons/clickhouse/create.txt
 	chCreate string
@@ -83,18 +78,22 @@ var (
 	pgFunctions string
 )
 
+// supported databases
 const (
 	ch = "clickhouse"
 	pg = "postgres"
 )
 
+// Dialect manages interactions with DB's.
 type Dialect struct {
-	db      *sql.DB
-	dialect string
+	db      *sql.DB // DB connector
+	dialect string  // dialect name
 
-	dtTypes []string
-	dbTypes []string
+	// these form a 1-1 relation of DB types to df package types
+	dtTypes []string // df DataTypes
+	dbTypes []string // DB types
 
+	// skeletons of DB actions
 	create     string
 	createTemp string
 	insert     string
@@ -104,16 +103,16 @@ type Dialect struct {
 	existsTemp string
 	seq        string
 
-	fields string
+	fields string // skeleton for defining a field in a CREATE statement
 
-	bufSize int // in MB
+	bufSize int // size of the buffer to use for an INSERT (in MB)
 
-	functions Fmap
+	functions Fmap // functions for the parser
 
-	defaultInt    int
-	defaultFloat  float64
-	defaultString string
-	defaultDate   time.Time
+	defaultInt    int       // value of int to use if a value is null
+	defaultFloat  float64   // value of float to use if a value is null
+	defaultString string    // value of string to use if a value is null
+	defaultDate   time.Time // value of date to use if a value is null
 }
 
 func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error) {
@@ -173,6 +172,7 @@ func NewDialect(dialect string, db *sql.DB, opts ...DialectOpt) (*Dialect, error
 
 // ***************** Setters *****************
 
+// DialectOpt functions are used to set Dialect options
 type DialectOpt func(d *Dialect) error
 
 // DialectBuffSize sets the buffer size (in MB) for accumulating inserts
@@ -240,8 +240,9 @@ func (d *Dialect) BufSize() int {
 }
 
 // Case creates a CASE statement.
-// - whens slice of conditions
-// - vals slice of the value to set the result to if condition is true
+//
+//	whens - slice of conditions
+//	vals  - slice of the value to set the result to if condition is true
 func (d *Dialect) Case(whens, vals []string) (string, error) {
 	if len(whens) != len(vals) {
 		return "", fmt.Errorf("whens and vals must be same length in Dialect.Case")
@@ -288,7 +289,84 @@ func (d *Dialect) Close() error {
 	return d.db.Close()
 }
 
-// options are in key:value format and are meant to replace placeholders in create.txt
+// Convert converts val to the corresponding datatype used by df.
+// assign assigns the indx vector of v to be val
+func (d *Dialect) Convert(val any) any {
+	switch x := val.(type) {
+	case float32:
+		return float64(x)
+	case float64:
+		return x
+	case *float32:
+		return float64(*x)
+	case *float64:
+		return *x
+	case *uint:
+		return int(*x)
+	case *uint8:
+		return int(*x)
+	case *uint16:
+		return int(*x)
+	case *uint32:
+		return int(*x)
+	case *uint64:
+		return int(*x)
+
+	case uint:
+		return int(x)
+	case uint8:
+		return int(x)
+	case uint16:
+		return int(x)
+	case uint32:
+		return int(x)
+	case uint64:
+		return int(x)
+
+	case *int:
+		return int(*x)
+	case *int8:
+		return int(*x)
+	case *int16:
+		return int(*x)
+	case *int32:
+		return int(*x)
+	case *int64:
+		return int(*x)
+
+	case int:
+		return int(x)
+	case int8:
+		return int(x)
+	case int16:
+		return int(x)
+	case int32:
+		return int(x)
+	case int64:
+		return int(x)
+
+	case string:
+		return x
+	case *string:
+		return *x
+	case time.Time:
+		return x
+	case *time.Time:
+		return *x
+	default:
+		panic(fmt.Errorf("unsupported data type in dialect.Load"))
+	}
+}
+
+// Create creates a table.
+//
+//	tableName  - name of the table to create
+//	orderBy    - comma-separated list of fields to form the key (order)
+//	fields     - field names
+//	types      - field types
+//	overwrite  - if true, overwrite existing table
+//	temporary  - create a temp table
+//	options    - are in key:value format and are meant to replace placeholders in create.txt
 func (d *Dialect) Create(tableName, orderBy string, fields []string, types []DataTypes, overwrite, temporary bool, options ...string) error {
 	if d.Exists(tableName) && !overwrite {
 		return fmt.Errorf("table %s exists", tableName)
@@ -306,8 +384,9 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	create = strings.ReplaceAll(create, "?TableName", tableName)
 	create = strings.Replace(create, "?OrderBy", orderBy, 1)
 
-	// for pg
-	create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
+	if d.DialectName() == pg {
+		create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
+	}
 
 	var flds []string
 	for ind := range len(fields) {
@@ -409,11 +488,12 @@ func (d *Dialect) Functions() Fmap {
 }
 
 // Global takes SQL that normally is a scalar return (e.g. count(*), avg(x)) and surrounds it with SQL to return
-// that value for every row of a query
+// that value for every row of a query.
 func (d *Dialect) Global(sourceSQL, colSQL string) string {
 	return fmt.Sprintf("(WITH global AS (%s) SELECT (%s) FROM global)", sourceSQL, colSQL)
 }
 
+// Insert executes an insert query
 func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	qry := strings.Replace(d.insert, "?TableName", tableName, 1)
 	qry = strings.Replace(qry, "?MakeQuery", makeQuery, 1)
@@ -424,6 +504,7 @@ func (d *Dialect) Insert(tableName, makeQuery, fields string) error {
 	return e
 }
 
+// InsertValues inserts values into tableName
 func (d *Dialect) InsertValues(tableName string, values []byte) error {
 	qry := fmt.Sprintf("INSERT INTO %s VALUES ", tableName) + string(values)
 	_, e := d.db.Exec(qry)
@@ -431,6 +512,7 @@ func (d *Dialect) InsertValues(tableName string, values []byte) error {
 	return e
 }
 
+// Interp executes a query to interpolate values
 func (d *Dialect) Interp(sourceSQL, interpSQL, xSfield, xIfield, yField, outField string) string {
 	qry := strings.ReplaceAll(d.interp, "?Source", sourceSQL)
 	qry = strings.ReplaceAll(qry, "?Interp", interpSQL)
@@ -442,6 +524,7 @@ func (d *Dialect) Interp(sourceSQL, interpSQL, xSfield, xIfield, yField, outFiel
 	return qry
 }
 
+// IterSave saves the data represented by df into tableName
 func (d *Dialect) IterSave(tableName string, df HasIter) error {
 	const (
 		bSep   = byte(',')
@@ -527,16 +610,21 @@ func (d *Dialect) Join(leftSQL, rightSQL string, leftFields, rightFields, joinFi
 	return qry
 }
 
-func (d *Dialect) Load(qry string) ([]*Vector, []string, []DataTypes, error) {
-	fieldNames, fieldTypes, row2read, e1 := d.Types(qry)
-	if e1 != nil {
-		return nil, nil, nil, e1
+// Load loads qry from a DB into a slice of *Vector.
+//
+//	memData    - returned data
+//	fieldNames - field names of columns
+//	fieldTypes - field types
+func (d *Dialect) Load(qry string) (memData []*Vector, fieldNames []string, fieldTypes []DataTypes, e error) {
+	var row2read []any
+	fieldNames, fieldTypes, row2read, e = d.Types(qry)
+	if e != nil {
+		return nil, nil, nil, e
 	}
 
 	var (
-		n       int
-		e2      error
-		memData []*Vector
+		n  int
+		e2 error
 	)
 	if n, e2 = d.RowCount(qry); e2 != nil {
 		return nil, nil, nil, e2
@@ -625,9 +713,12 @@ func (d *Dialect) RowCount(qry string) (int, error) {
 	return n, nil
 }
 
-func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, err error) {
-	var e error
-
+// Rows returns a row reader for qry.
+//
+//	rows       - row reader
+//	row2Read   - a slice with the appropriate types to read the rows.
+//	fieldNames - names of the columns
+func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames []string, e error) {
 	if fieldNames, _, row2Read, e = d.Types(qry); e != nil {
 		return nil, nil, nil, e
 	}
@@ -639,6 +730,14 @@ func (d *Dialect) Rows(qry string) (rows *sql.Rows, row2Read []any, fieldNames [
 	return rows, row2Read, fieldNames, nil
 }
 
+// Save saves an Iter object to a database.
+//
+//	tableName - name of table to create.
+//	orderBy   - comma-separated list of fields to use as key (order).
+//	overwrite - if true, replace any existing table.
+//	temp      - if true, create a temp table.
+//	toSave    - data to save.
+//	options   - options for CREATE.
 func (d *Dialect) Save(tableName, orderBy string, overwrite, temp bool, toSave HasIter, options ...string) error {
 	var (
 		fieldNames []string
@@ -687,6 +786,7 @@ func (d *Dialect) Save(tableName, orderBy string, overwrite, temp bool, toSave H
 	return d.IterSave(tableName, toSave)
 }
 
+// Seq returns a query that creates a table with column "seq" whose int values run from 0 to n-1.
 func (d *Dialect) Seq(n int) string {
 	if n <= 0 {
 		return ""
@@ -725,6 +825,11 @@ func (d *Dialect) ToString(val any) string {
 	return x
 }
 
+// Types returns info needed to read the data generated by qry.
+//
+//	fieldNames - names of columns qry returns.
+//	fieldTypes - column types returned by qry.
+//	row2Read   - correctly typed row to read for Scan.
 func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes, row2read []any, err error) {
 	const skeleton = "WITH %s AS (%s) SELECT * FROM %s LIMIT 1"
 
@@ -793,6 +898,7 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 	return names, dts, ry, nil
 }
 
+// Union returns a union query between two tables (queries).
 func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, error) {
 	e := fmt.Errorf("no implemention of Union for %s", d.DialectName())
 	var sqlx string
@@ -811,6 +917,7 @@ func (d *Dialect) Union(table1, table2 string, colNames ...string) (string, erro
 	return sqlx, e
 }
 
+// WithName returns a random name for use as WITH names, etc.
 func (d *Dialect) WithName() string {
 	const wLen = 4
 	return RandomLetters(wLen)
@@ -856,73 +963,5 @@ func utc(v *Vector) {
 
 	for rx := 0; rx < v.Len(); rx++ {
 		col[rx] = time.Date(col[rx].Year(), col[rx].Month(), col[rx].Day(), 0, 0, 0, 0, time.UTC)
-	}
-}
-
-// assign assigns the indx vector of v to be val
-func (d *Dialect) Convert(val any) any {
-	switch x := val.(type) {
-	case float32:
-		return float64(x)
-	case float64:
-		return x
-	case *float32:
-		return float64(*x)
-	case *float64:
-		return *x
-	case *uint:
-		return int(*x)
-	case *uint8:
-		return int(*x)
-	case *uint16:
-		return int(*x)
-	case *uint32:
-		return int(*x)
-	case *uint64:
-		return int(*x)
-
-	case uint:
-		return int(x)
-	case uint8:
-		return int(x)
-	case uint16:
-		return int(x)
-	case uint32:
-		return int(x)
-	case uint64:
-		return int(x)
-
-	case *int:
-		return int(*x)
-	case *int8:
-		return int(*x)
-	case *int16:
-		return int(*x)
-	case *int32:
-		return int(*x)
-	case *int64:
-		return int(*x)
-
-	case int:
-		return int(x)
-	case int8:
-		return int(x)
-	case int16:
-		return int(x)
-	case int32:
-		return int(x)
-	case int64:
-		return int(x)
-
-	case string:
-		return x
-	case *string:
-		return *x
-	case time.Time:
-		return x
-	case *time.Time:
-		return *x
-	default:
-		panic(fmt.Errorf("unsupported data type in dialect.Load"))
 	}
 }

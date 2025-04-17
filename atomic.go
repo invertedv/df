@@ -5,7 +5,7 @@ import "fmt"
 // DataTypes are the types of data that the package supports for Column elements
 type DataTypes uint8
 
-// values of DataTypes
+// Values of DataTypes
 const (
 	DTfloat DataTypes = 0 + iota
 	DTint
