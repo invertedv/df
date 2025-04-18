@@ -5,12 +5,12 @@ import (
 	"iter"
 )
 
+// Scalar implements Column for scalars.
 type Scalar struct {
 	atomic any
 	*ColCore
 }
 
-// *********** Methods ***********
 func (s *Scalar) AllRows() iter.Seq2[int, []any] {
 	return s.Data().AllRows()
 }

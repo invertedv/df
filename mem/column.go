@@ -7,12 +7,14 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// Col implements Column for in-memory data.
 type Col struct {
 	*d.Vector
 
 	*d.ColCore
 }
 
+// NewCol creates a new mem.Column from data.
 func NewCol(data any, opts ...d.ColOpt) (*Col, error) {
 	var col *Col
 	if v, ok := data.(*d.Vector); ok {
@@ -51,7 +53,6 @@ func NewCol(data any, opts ...d.ColOpt) (*Col, error) {
 	return col, nil
 }
 
-// ***************** Methods *****************
 func (c *Col) 	AllRows() iter.Seq2[int, []any] {
 	return c.Data().AllRows()
 }

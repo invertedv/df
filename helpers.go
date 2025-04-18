@@ -28,6 +28,8 @@ func Position[C comparable](needle C, haystack []C) int {
 	return -1
 }
 
+// PrettyPrint returns a string where the elements of cols are aligned under the header.
+// cols are expected to be a slice of either float64, int, string or time.Time
 func PrettyPrint(header []string, cols ...any) string {
 	var colsS [][]string
 
@@ -46,6 +48,8 @@ func PrettyPrint(header []string, cols ...any) string {
 	return out
 }
 
+// StringSlice converts inVal to a slice of strings, the first element is the header.
+// inVal is expected to be a slice of float64, int, string or time.Time
 func StringSlice(header string, inVal any) []string {
 	const pad = 3
 	c := []string{header}
@@ -105,7 +109,7 @@ func StringSlice(header string, inVal any) []string {
 	return c
 }
 
-// randomLetters generates a string of length "length" by randomly choosing from a-z
+// RandomLetters generates a string of length "length" by randomly choosing from a-z
 func RandomLetters(length int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz"
 
@@ -118,6 +122,7 @@ func RandomLetters(length int) string {
 	return name
 }
 
+// ToDataType converts x to the dt data type.
 func ToDataType(x any, dt DataTypes) (any, bool) {
 	switch dt {
 	case DTfloat:
@@ -143,6 +148,7 @@ func ToDataType(x any, dt DataTypes) (any, bool) {
 	return nil, false
 }
 
+// WhatAmI returns the type of val.
 func WhatAmI(val any) DataTypes {
 	switch val.(type) {
 	case float64, []float64:

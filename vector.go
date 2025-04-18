@@ -6,12 +6,14 @@ import (
 	"time"
 )
 
+// Vector is the return type for Column data.
 type Vector struct {
 	dt DataTypes
 
 	data any
 }
 
+// NewVector creates a new *Vector from data, checking/converting that it is of type dt.
 func NewVector(data any, dt DataTypes) (*Vector, error) {
 	var (
 		v  any
@@ -24,6 +26,7 @@ func NewVector(data any, dt DataTypes) (*Vector, error) {
 	return &Vector{dt: dt, data: v}, nil
 }
 
+// MakeVector returns a *Vector with data of type dt and length n.
 func MakeVector(dt DataTypes, n int) *Vector {
 	switch dt {
 	case DTfloat:
@@ -40,6 +43,7 @@ func MakeVector(dt DataTypes, n int) *Vector {
 }
 
 // *********** Methods ***********
+
 // AllRows returns an iterator that move through the data.  It returns a slice rather than a row so that
 // it's compatible with the DF iterator
 func (v *Vector) AllRows() iter.Seq2[int, []any] {
@@ -55,6 +59,7 @@ func (v *Vector) AllRows() iter.Seq2[int, []any] {
 	}
 }
 
+// Append appends data (as a slice) to the vector.
 func (v *Vector) Append(data ...any) error {
 	vAdd, ok := toSlc(data, v.VectorType())
 	if !ok {
@@ -77,6 +82,7 @@ func (v *Vector) Append(data ...any) error {
 	return nil
 }
 
+// AppendVector appends a vector.
 func (v *Vector) AppendVector(vAdd *Vector) error {
 	if v.VectorType() != vAdd.VectorType() {
 		return fmt.Errorf("appending different vector types")
@@ -98,10 +104,12 @@ func (v *Vector) AppendVector(vAdd *Vector) error {
 	return nil
 }
 
+// AsAny returns the data as an any variable.
 func (v *Vector) AsAny() any {
 	return v.data
 }
 
+// AsDate returns the data as a time.Time slice.  It converts to date, if needed & possible.
 func (v *Vector) AsDate() ([]time.Time, error) {
 	if xOut, ok := toSlc(v.data, DTdate); ok {
 		return xOut.([]time.Time), nil
@@ -110,6 +118,7 @@ func (v *Vector) AsDate() ([]time.Time, error) {
 	return nil, fmt.Errorf("cannot convert to Vector to []Date")
 }
 
+// AsFloat returns the data as a []float64 slice.  It converts to float64, if needed & possible.
 func (v *Vector) AsFloat() ([]float64, error) {
 	if xOut, ok := toSlc(v.data, DTfloat); ok {
 		return xOut.([]float64), nil
@@ -118,6 +127,7 @@ func (v *Vector) AsFloat() ([]float64, error) {
 	return nil, fmt.Errorf("cannot convert to Vector to []Float")
 }
 
+// AsInt returns the data as a []int slice.  It converts to int, if needed & possible.
 func (v *Vector) AsInt() ([]int, error) {
 	if xOut, ok := toSlc(v.data, DTint); ok {
 		return xOut.([]int), nil
@@ -126,6 +136,7 @@ func (v *Vector) AsInt() ([]int, error) {
 	return nil, fmt.Errorf("cannot convert to Vector to []Int")
 }
 
+// AsString returns the data as a string, converting if needed.
 func (v *Vector) AsString() ([]string, error) {
 	if xOut, ok := toSlc(v.data, DTstring); ok {
 		return xOut.([]string), nil
@@ -134,55 +145,7 @@ func (v *Vector) AsString() ([]string, error) {
 	return nil, fmt.Errorf("cannot convert to Vector to []String")
 }
 
-func (v *Vector) Coerce(to DataTypes) (*Vector, error) {
-	for range v.Len() {
-		switch to {
-		case DTfloat:
-			var (
-				x []float64
-				e error
-			)
-			if x, e = v.AsFloat(); e != nil {
-				return nil, e
-			}
-
-			return NewVector(x, DTfloat)
-		case DTint:
-			var (
-				x []int
-				e error
-			)
-			if x, e = v.AsInt(); e != nil {
-				return nil, e
-			}
-
-			return NewVector(x, DTint)
-		case DTstring:
-			var (
-				x []string
-				e error
-			)
-			if x, e = v.AsString(); e != nil {
-				return nil, e
-			}
-
-			return NewVector(x, DTstring)
-		case DTdate:
-			var (
-				x []time.Time
-				e error
-			)
-			if x, e = v.AsDate(); e != nil {
-				return nil, e
-			}
-
-			return NewVector(x, DTdate)
-		}
-	}
-
-	return nil, fmt.Errorf("cannot Coerce")
-}
-
+// Copy copies the *Vector
 func (v *Vector) Copy() *Vector {
 	vCopy := &Vector{dt: v.dt}
 	switch v.dt {
@@ -209,12 +172,17 @@ func (v *Vector) Copy() *Vector {
 	return vCopy
 }
 
+// TODO: see if I can delete this
 func (v *Vector) Data() *Vector {
 	return v
 }
 
+// Element returns the indx'th element of Vector.  It returns nil if indx is out of bounds
+// if v.Len() > 1.  If v.Len() = 1, then returns the 0th element.
+// This is needed for the parser when we have an op like "x/2" and we don't want to
+// append a vector of 2's.
 func (v *Vector) Element(indx int) any {
-	// handles ops like x/2 where x is a vector
+	// if length of the vector is 1, just return the value.
 	if v.Len() == 1 {
 		indx = 0
 	}
@@ -237,6 +205,7 @@ func (v *Vector) Element(indx int) any {
 	}
 }
 
+// ElementDate returns the indx'th element as a date, converting the value, if needed & possible.
 func (v *Vector) ElementDate(indx int) (*time.Time, error) {
 	if val, ok := toDate(v.Element(indx)); ok {
 		date := val.(time.Time)
@@ -246,6 +215,7 @@ func (v *Vector) ElementDate(indx int) (*time.Time, error) {
 	return nil, fmt.Errorf("element is not date-able")
 }
 
+// ElementFloat returns the indx'th element as a float64, converting the value, if needed & possible.
 func (v *Vector) ElementFloat(indx int) (*float64, error) {
 	if val, ok := toFloat(v.Element(indx)); ok {
 		x := val.(float64)
@@ -255,6 +225,7 @@ func (v *Vector) ElementFloat(indx int) (*float64, error) {
 	return nil, fmt.Errorf("element is not float-able")
 }
 
+// ElementInt returns the indx'th element as a int, converting the value, if needed & possible.
 func (v *Vector) ElementInt(indx int) (*int, error) {
 	if val, ok := toInt(v.Element(indx)); ok {
 		x := val.(int)
@@ -264,6 +235,7 @@ func (v *Vector) ElementInt(indx int) (*int, error) {
 	return nil, fmt.Errorf("element is not int-able")
 }
 
+// ElementString returns the indx'th element as a string.
 func (v *Vector) ElementString(indx int) (*string, error) {
 	if x, ok := toString(v.Element(indx)); ok {
 		s := x.(string)
@@ -273,6 +245,7 @@ func (v *Vector) ElementString(indx int) (*string, error) {
 	return nil, fmt.Errorf("element is not string-able")
 }
 
+// Len is the length of the *Vector
 func (v *Vector) Len() int {
 	switch v.dt {
 	case DTfloat:
@@ -288,6 +261,7 @@ func (v *Vector) Len() int {
 	}
 }
 
+// Less returns true if element i < element j
 func (v *Vector) Less(i, j int) bool {
 	switch v.dt {
 	case DTfloat:
@@ -303,19 +277,21 @@ func (v *Vector) Less(i, j int) bool {
 	}
 }
 
-func (v *Vector) SetAny(val any, ind int) {
+// SetAny sets the indx'th element to val.  Does no error checking.
+func (v *Vector) SetAny(val any, indx int) {
 	switch x := val.(type) {
 	case float64:
-		v.data.([]float64)[ind] = x
+		v.data.([]float64)[indx] = x
 	case int:
-		v.data.([]int)[ind] = x
+		v.data.([]int)[indx] = x
 	case string:
-		v.data.([]string)[ind] = x
+		v.data.([]string)[indx] = x
 	case time.Time:
-		v.data.([]time.Time)[ind] = x
+		v.data.([]time.Time)[indx] = x
 	}
 }
 
+// SetDate sets the indx'th element to val.  Does not attempt conversion.
 func (v *Vector) SetDate(val time.Time, indx int) error {
 	if v.VectorType() != DTdate {
 		return fmt.Errorf("vector isn't DTdate")
@@ -330,6 +306,7 @@ func (v *Vector) SetDate(val time.Time, indx int) error {
 	return nil
 }
 
+// SetFloat sets the indx'th element to val.  Does not attempt conversion.
 func (v *Vector) SetFloat(val float64, indx int) error {
 	if v.VectorType() != DTfloat {
 		return fmt.Errorf("vector isn't DTfloat")
@@ -344,6 +321,7 @@ func (v *Vector) SetFloat(val float64, indx int) error {
 	return nil
 }
 
+// SetInt sets the indx'th element to val.  Does not attempt conversion.
 func (v *Vector) SetInt(val, indx int) error {
 	if v.VectorType() != DTint {
 		return fmt.Errorf("vector isn't DTint")
@@ -358,6 +336,7 @@ func (v *Vector) SetInt(val, indx int) error {
 	return nil
 }
 
+// SetString sets the indx'th element to val.  Does not attempt conversion.
 func (v *Vector) SetString(val string, indx int) error {
 	if v.VectorType() != DTstring {
 		return fmt.Errorf("vector isn't DTstring")
@@ -382,6 +361,7 @@ func (v *Vector) String() string {
 	return s
 }
 
+// Swap swaps the ith and jth element of *Vector
 func (v *Vector) Swap(i, j int) {
 	switch v.dt {
 	case DTfloat:
@@ -401,11 +381,17 @@ func (v *Vector) VectorType() DataTypes {
 	return v.dt
 }
 
+// Where creates a new *Vector with elements from the original *Vector in which
+// indic is greater than 0. indic must be type DTint.
 func (v *Vector) Where(indic *Vector) *Vector {
+	if indic.VectorType() != DTint {
+		return nil
+	}
+
+	inds := indic.Data().AsAny().([]int)
 	outVec := MakeVector(v.VectorType(), 0)
 	for ind := range v.Len() {
-		i, _ := indic.ElementInt(ind)
-		if *i > 0 {
+		if inds[ind] > 0 {
 			_ = outVec.Append(v.Element(ind))
 		}
 	}

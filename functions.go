@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+// Fn is the function signature for functions called by the parser.
+//
+//	info    - if info == true, then the function is not run but returns *FnReturn with info fields filled in (Name, Output, Inputs, Varying, IsScalar)
+//	df     - DF providing data for function (required only if info=false).
+//	inputs - inputs to the function (required only if info=false).
 type Fn func(info bool, df DF, inputs ...Column) *FnReturn
 
 type Fns []Fn
@@ -19,20 +24,33 @@ func (fs Fns) Get(fnName string) Fn {
 	return nil
 }
 
+// FnReturn is the return type for parser functions
 type FnReturn struct {
-	Value Column
+	Value Column // return value of function
 
-	Name   string
-	Output []DataTypes
+	Name string // name of function
+	// An element of Inputs is a slice of data types that the function takes as inputs.  For instance,
+	//   {DTfloat,DTint}
+	// means that the function takes 2 inputs - the first float, the second int.  And
+	//   {DTfloat,DTint},{DTfloat,DTfloat}
+	// means that the function takes 2 inputs - either float,int or float,float.
 	Inputs [][]DataTypes
 
-	Varying bool
+	// Output types corresponding to the input slices.
+	Output []DataTypes
 
-	IsScalar bool
+	Varying bool // if true, the number of inputs varies.
+
+	IsScalar bool // if true, the function reduces a column to a scalar (e.g. sum, mean)
 
 	Err error
 }
 
+// RunDFfn runs a parser function
+//
+//	fn     - function to run
+//	df     - data frame providing data
+//	inputs - inputs to fn. If the inputs belong to a DF.
 func RunDFfn(fn Fn, df DF, inputs []Column) (Column, error) {
 	info := fn(true, nil)
 	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {

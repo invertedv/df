@@ -14,6 +14,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// DF implements DF for in-memory data.
 type DF struct {
 	sourceQuery string
 	orderBy     []*Col
@@ -21,8 +22,6 @@ type DF struct {
 	row         int
 
 	*d.DFcore
-
-	//	groupBy groups
 }
 
 type groups map[uint64]*groupVal
@@ -33,6 +32,7 @@ type groupVal struct {
 	row []any // values of the grouping fields
 }
 
+// StandardFunctions returns the built-in functions for in-memory data to be used by Parser.
 func StandardFunctions() d.Fns {
 	fns := d.Fns{toCat, applyCat, global}
 	fns = append(fns, vectorFunctions()...)
@@ -40,6 +40,15 @@ func StandardFunctions() d.Fns {
 	return fns
 }
 
+// NewDF creates a DF from input.
+//
+//	input - can be (in order of what's tried)
+//	  - *DF. This is copied.
+//	  - *Col. This is copied.
+//	  - d.Column.
+//	  - *Vector.
+//	  - HasMQdlct. The query is run to fetch the data.
+//	  - d.DF. The data is pulled to construct the output.
 func NewDF(input any, opts ...d.DFopt) (*DF, error) {
 	var df *DF
 	switch inp := input.(type) {
@@ -108,6 +117,7 @@ func NewDF(input any, opts ...d.DFopt) (*DF, error) {
 	return df, nil
 }
 
+// NewDFcol creates a DF from *mem.Col.
 func NewDFcol(cols []*Col, opts ...d.DFopt) (*DF, error) {
 	rowCount := cols[0].Len()
 	var cc []d.Column
@@ -147,6 +157,8 @@ func NewDFcol(cols []*Col, opts ...d.DFopt) (*DF, error) {
 	return outDF, nil
 }
 
+// NewDFseq creates a *DF with a single column, "seq". That column is a DTint sequence
+// from 0 to n-1.
 func NewDFseq(n int, opts ...d.DFopt) (*DF, error) {
 	if n <= 0 {
 		return nil, fmt.Errorf("n must be positive in NewDFseq")
@@ -164,6 +176,7 @@ func NewDFseq(n int, opts ...d.DFopt) (*DF, error) {
 	return df, nil
 }
 
+// DBload loads a *DF from a query.
 func DBload(qry string, dlct *d.Dialect, opts ...d.DFopt) (*DF, error) {
 	var (
 		columnNames []string
@@ -203,6 +216,7 @@ func DBload(qry string, dlct *d.Dialect, opts ...d.DFopt) (*DF, error) {
 	return memDF, nil
 }
 
+// *FileLoad loads a *DF from a *d.Files struct.
 func FileLoad(f *d.Files, opts ...d.DFopt) (*DF, error) {
 	var (
 		memData []*d.Vector
@@ -318,6 +332,10 @@ func (f *DF) AppendDF(df d.DF) (d.DF, error) {
 	return outDF, nil
 }
 
+// By creates a new *DF with function fns calculated within the groups defined by groupBy.
+//
+//	groupBy - comma-separated list of fields to group on.  If groupBy is empty, then the output will have 1 row.
+//	fns     - functions to calculate on the By groups.
 func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	if fns == nil {
 		return nil, fmt.Errorf("must have at least on function in By")
@@ -329,9 +347,10 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	}
 
 	var (
-		gCol    []*Col
-		outVecs []*d.Vector
+		gCol    []*Col      // By-columns in source data.
+		outVecs []*d.Vector // By-columns in output.
 	)
+	// Create By-group vectors.
 	for ind := range len(flds) {
 		var col d.Column
 		cName := strings.ReplaceAll(flds[ind], " ", "")
@@ -344,7 +363,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	}
 
 	var (
-		grp groups
+		grp groups // groups are *DF created for each unique set of the groupBy values.
 		e   error
 	)
 	if groupBy != "" {
@@ -352,6 +371,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 			return nil, e
 		}
 	} else {
+		// no groups
 		grp = make(groups)
 		grp[0] = &groupVal{groupDF: f}
 	}
@@ -362,9 +382,11 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 		left = append(left, strings.ReplaceAll(lr[0], " ", ""))
 	}
 
+	// run through the groups
 	for _, v := range grp {
+		// run through the functions to calculate
 		for ind := range len(fns) {
-			// create group columns on first pass
+			// populate group column values on first iteration
 			if ind == 0 {
 				for ind1 := range len(gCol) {
 					if e5 := outVecs[ind1].Append(v.row[ind1]); e5 != nil {
@@ -373,16 +395,20 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 				}
 			}
 
+			// run function
 			if e1 := d.Parse(v.groupDF, fns[ind]); e1 != nil {
 				return nil, e1
 			}
 
+			// pull result
 			col := v.groupDF.Column(left[ind])
 
+			// add the column to the output, if needed
 			if len(outVecs) < len(gCol)+ind+1 {
 				outVecs = append(outVecs, d.MakeVector(col.DataType(), 0))
 			}
 
+			// append the result. Just need the first element.
 			if e2 := outVecs[ind+len(gCol)].Append(col.Data().Element(0)); e2 != nil {
 				return nil, e2
 			}
@@ -418,6 +444,13 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	return outDF, nil
 }
 
+// Categorical produces a categorical column from a source column.
+//
+//	colName    - name of the source column
+//	catMap     - optionally supply a category map of source value -> category level
+//	fuzz       - if a source column value has counts < fuzz, then it is put in the 'other' category.
+//	defaultVal - optional source column value for the 'other' category.
+//	levels     - slice of source values to make categories from
 func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
 	var col d.Column
 	if col = f.Column(colName); col == nil {
@@ -429,19 +462,20 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	}
 
 	var (
-		tab d.DF
+		tab d.DF // table of source column levels & counts
 		e2  error
 	)
 	if tab, e2 = f.Table(colName); e2 != nil {
 		return nil, e2
 	}
 
+	// sort this by levels so the results will be consistent between runs and consistent with sql
 	if e3 := tab.Sort(true, colName); e3 != nil {
 		return nil, e3
 	}
 
-	// check incoming map is of the correct types
-	nextInt := 0
+	nextInt := 0 // next category level
+	// find nextInt and make sure map keys are of the correct type.
 	for k, v := range catMap {
 		if k != nil && d.WhatAmI(k) != col.DataType() {
 			return nil, fmt.Errorf("map and column not same data types")
@@ -456,6 +490,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	toMap := make(d.CategoryMap)
 	maps.Copy(toMap, catMap)
 
+	// add default value if it's not there
 	if _, ok := toMap[defaultVal]; !ok {
 		toMap[defaultVal] = -1
 	}
@@ -463,11 +498,11 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	// cnts will count the frequencies of each level of toMap
 	cnts := make(d.CategoryMap)
 
-	lvls := tab.Column(colName)
-	cs := tab.Column("count")
+	lvls := tab.Column(colName).(*Col)
+	cs := tab.Column("count").(*Col)
 	for ind := range tab.RowCount() {
-		lvl := lvls.(*Col).Element(ind)
-		cnt, _ := cs.(*Col).ElementInt(ind)
+		lvl := lvls.Element(ind)
+		cnt, _ := cs.ElementInt(ind)
 		if levels != nil && !d.Has(lvl, levels) {
 			lvl = defaultVal
 		}
@@ -481,13 +516,15 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 			toMap[lvl] = nextInt
 			nextInt++
 		}
-		cnts[lvl] += *cnt
+
+		cnts[lvl] += *cnt // accumulate necessary for defaultVal level
 	}
 
-	vec := d.MakeVector(d.DTint, 0)
+	vec := d.MakeVector(d.DTint, 0) // output vector
 
+	data := col.(*Col).Data()
 	for ind := range col.Len() {
-		inVal := col.(*Col).Element(ind)
+		inVal := data.Element(ind)
 
 		var (
 			ok     bool
@@ -534,6 +571,7 @@ func (f *DF) Copy() d.DF {
 	return mNew
 }
 
+// AllRows iterates through the rows of the column.  It returns the row # and the values of f that row.
 func (f *DF) AllRows() iter.Seq2[int, []any] {
 	return func(yield func(int, []any) bool) {
 		for ind := 0; ind < f.RowCount(); ind++ {
@@ -549,30 +587,15 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 	}
 }
 
-// allow for repeats in x?
-func findIndx(x []float64, xLoc float64, indStart int) int {
-	if indStart >= len(x) {
-		return len(x)
-	}
-
-	indStart = max(0, indStart)
-	if xLoc < x[indStart] {
-		return -1
-	}
-
-	if xLoc > x[len(x)-1] {
-		return len(x)
-	}
-
-	for ind := indStart; ind < len(x)-1; ind++ {
-		if xLoc >= x[ind] && xLoc <= x[ind+1] {
-			return ind
-		}
-	}
-
-	return len(x) - 1
-}
-
+// Interp interpolates the columns (xIfield,yfield) at xsField points.
+//
+//	points   - input iterator (e.g. Column or DF) that yields the points to interpolate at
+//	xSfield  - column name of x values in source DF
+//	xIfield  - name of x values in iDF
+//	yfield   - column name of y values in source DF
+//	outField - column name of interpolated y's in return DF
+//
+// The output DF has two columns: xIfield, outField.
 func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string) (d.DF, error) {
 	var (
 		idf *DF
@@ -1223,4 +1246,27 @@ func doCols(outCols []*Col, df d.DF, exclude, dups []string) []*Col {
 	}
 
 	return outCols
+}
+
+func findIndx(x []float64, xLoc float64, indStart int) int {
+	if indStart >= len(x) {
+		return len(x)
+	}
+
+	indStart = max(0, indStart)
+	if xLoc < x[indStart] {
+		return -1
+	}
+
+	if xLoc > x[len(x)-1] {
+		return len(x)
+	}
+
+	for ind := indStart; ind < len(x)-1; ind++ {
+		if xLoc >= x[ind] && xLoc <= x[ind+1] {
+			return ind
+		}
+	}
+
+	return len(x) - 1
 }

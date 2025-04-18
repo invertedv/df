@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+// Parse parses the expression expr and appends the result to df.
+// Expressions have the form:
+//
+//	<result> := <expression>.
+//
+// A list of functions available is in the documentation.
 func Parse(df DF, expr string) error {
 	var (
 		left string
@@ -56,6 +62,7 @@ func Parse(df DF, expr string) error {
 	return df.AppendColumn(ot.value, false)
 }
 
+// doOp runs a function
 func doOp(df DF, opName string, inputs ...Column) (Column, error) {
 	var fn Fn
 
@@ -66,26 +73,31 @@ func doOp(df DF, opName string, inputs ...Column) (Column, error) {
 	return RunDFfn(fn, df, inputs)
 }
 
+// opTree parses expressions.  The process has two steps:
+//   1. Build - create a binary tree representation of the expression.
+//   2. Evaluate - evaluate the expression.
 type opTree struct {
 	value Column
 
 	expr string
 
-	op    string
-	left  *opTree
-	right *opTree
+	op    string  // op is the operation that joins the left & right pieces of the expression
+	left  *opTree // left expression
+	right *opTree // right expression
 
-	fnName string
-	inputs []*opTree
+	fnName string // function to run
+	inputs []*opTree // inputs to the function
 
-	funcs   Fns
-	fnNames []string
+	funcs   Fns // available functions
+	fnNames []string // names of available functions
 
-	ops operations
+	ops operations // available operations (e.g. +, -, ...)
 
-	dependencies []string
+	dependencies []string // columns required to evaluate this node.
 }
 
+// operations is a list of operations available.  It is in order of
+// precedence.  Each string slice lists operations that are of equal standing.
 type operations [][]string
 
 func newParsed(value any, dependencies ...string) Column {
@@ -135,6 +147,7 @@ func newOperations() operations {
 
 // build creates the tree representation of the expression
 func (ot *opTree) build() error {
+	// check parens match
 	if ex := ot.parenError(); ex != nil {
 		return ex
 	}
@@ -144,6 +157,7 @@ func (ot *opTree) build() error {
 		err  error
 	)
 
+	// scan breaks the expression into left & right, if possible
 	if l, r, ot.op, err = ot.scan(); err != nil {
 		return err
 	}
@@ -153,6 +167,7 @@ func (ot *opTree) build() error {
 		return nil
 	}
 
+	// recurse on left and right
 	if l != "" {
 		ot.left = &opTree{
 			expr:    l,
@@ -256,6 +271,7 @@ func (ot *opTree) eval(df DF) error {
 		ot.dependencies = nodupAppend(ot.dependencies, ot.right.dependencies...)
 	}
 
+	// run op on left/right
 	if c, ex = doOp(df, mapOp(ot.op), vl, vr); ex != nil {
 		return ex
 	}
@@ -264,8 +280,6 @@ func (ot *opTree) eval(df DF) error {
 
 	return nil
 }
-
-// //////// Unexported opTree methods
 
 // constant handles the leaf of the opTree when it is a constant.
 // strings are surrounded by single quotes
@@ -286,10 +300,11 @@ func (ot *opTree) constant(xIn string) (Column, error) {
 		e  error
 	)
 	if v, dt, e = bestType(xIn, false); e != nil || dt == DTunknown || dt == DTstring {
-		return nil, fmt.Errorf("cannot interpret %v as a constant", xIn)
+		return nil, fmt.Errorf("cannot interpret %v as a constant...missing function?", xIn)
 	}
 
 	c, _ := NewScalar(v)
+
 	return newParsed(c), nil
 }
 
@@ -432,6 +447,7 @@ func (ot *opTree) makeFn(fnName string) error {
 	return nil
 }
 
+// parenError checks for matching parentheses.
 func (ot *opTree) parenError() error {
 	haveQuote, count := false, 0
 	for ind := range len(ot.expr) {
@@ -460,7 +476,7 @@ func (ot *opTree) parenError() error {
 	return nil
 }
 
-// /////// operations methods
+// ************** operations methods **************
 
 // trailingOp checks whether the end of expr is an operation
 func (oper operations) trailingOp(expr string) bool {
@@ -567,6 +583,7 @@ func mapOp(op string) string {
 	}
 }
 
+// nodupAppend appends xadd if it's not already in x
 func nodupAppend(x []string, xadd ...string) []string {
 	for _, xa := range xadd {
 		if !Has(xa, x) {

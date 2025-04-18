@@ -409,13 +409,21 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	return dfOut, nil
 }
 
+// Categorical creates a categorical column
+//
+//	colName    - name of the source column
+//	catMap     - optionally supply a category map of source value -> category level
+//	fuzz       - if a source column value has counts < fuzz, then it is put in the 'other' category.
+//	defaultVal - optional source column value for the 'other' category.
+//	levels     - slice of source values to make categories from
 func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, defaultVal any, levels []any) (d.Column, error) {
 	var col d.Column
 	if col = f.Column(colName); col == nil {
 		return nil, fmt.Errorf("column %s not found", col)
 	}
 
-	nextInt := 0
+	nextInt := 0 // next category level
+	// find nextInt and make sure map keys are of the correct type.
 	for k, v := range catMap {
 		if k != nil && d.WhatAmI(k) != col.DataType() {
 			return nil, fmt.Errorf("map and column not same data types")
@@ -426,9 +434,11 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		}
 	}
 
+	// toMap is the output map
 	toMap := make(d.CategoryMap)
 	maps.Copy(toMap, catMap)
 
+	// add default value if it's not there
 	if _, ok := toMap[defaultVal]; !ok {
 		toMap[defaultVal] = -1
 

@@ -20,11 +20,11 @@ type DF interface {
 	By(groupBy string, fns ...string) (DF, error)
 
 	// Categorical creates a categorical column
-	//   colName    - name of the column to use to create the new categorical column.
-	//   catMap     - optional mapping to use.
-	//   fuzz       - if the count of a level is below fuzz, put into the "other" category.
-	//   defaultVal - optional value of the "other" category.
-	//   levels     - optional slice of category levels to use.
+	//	colName    - name of the source column
+	//	catMap     - optionally supply a category map of source value -> category level
+	//	fuzz       - if a source column value has counts < fuzz, then it is put in the 'other' category.
+	//	defaultVal - optional source column value for the 'other' category.
+	//	levels     - slice of source values to make categories from
 	Categorical(colName string, catMap CategoryMap, fuzz int, defaultVal any, levels []any) (Column, error)
 
 	Copy() DF
@@ -35,6 +35,8 @@ type DF interface {
 	//   xIfield  - name of x values in iDF
 	//   yfield   - column name of y values in source DF
 	//   outField - column name of interpolated y's in return DF
+	//
+	// The output DF has two columns: xIfield, outField.
 	Interp(iDF HasIter, xSfield, xIfield, yfield, outField string) (DF, error)
 
 	// Join inner joins the df to the source DF on the joinOn fields
