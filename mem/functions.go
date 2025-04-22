@@ -20,16 +20,18 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// Data types supported in frames
 type frameTypes interface {
 	float64 | int | string | time.Time
 }
 
+// function definitions
 var (
 	//go:embed data/functions.txt
 	functions string
 )
 
-// each function here must have an entry in functions.txt
+// rawFuncs returns a slice of functions to operate on vectors. Each function here must have an entry in functions.txt.
 func rawFuncs() []any {
 	fns := []any{rowNumberFn,
 		isInfFn, isNaNfn,
@@ -81,6 +83,9 @@ func rawFuncs() []any {
 	return fns
 }
 
+// varying creates a d.Fn with a varying number of inputs from *.FnSpec. For the most part,
+// this is used to create summary functions across columns (e.g. colSum, colMean).  It restricts the inputs to
+// all having the same type.
 func varying(spec *d.FnSpec) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
@@ -102,6 +107,7 @@ func varying(spec *d.FnSpec) d.Fn {
 			}
 		}
 
+		// pull the correct function to run
 		var (
 			ind   int
 			fnUse any
@@ -115,6 +121,7 @@ func varying(spec *d.FnSpec) d.Fn {
 			fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
 		}
 
+		// run down the rows to populate the output
 		row := d.MakeVector(cols[0].DataType(), len(cols))
 		inCol, _ := NewCol(row)
 		outData := d.MakeVector(spec.Outputs[ind], df.RowCount())

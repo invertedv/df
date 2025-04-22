@@ -24,10 +24,12 @@ var (
 
 func TestStuff(t *testing.T) {
 	for _, which := range pkgs("d1") {
+		if !strings.Contains(which, "mem"){
+			continue
+		}
 		dfx := loadData(which)
-		e := d.Parse(dfx, "xNorm := abs(x) / global(sum(abs(x)))")
+		e := d.Parse(dfx, "m := colMean(y,yy)")
 		assert.Nil(t, e)
-		fmt.Println(dfx.Column("xNorm").Data().AsAny())
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()
 		}
@@ -504,9 +506,6 @@ func TestIf(t *testing.T) {
 func TestParser(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		if !strings.Contains(which, "click") {
-			continue
-		}
 		tests := strings.Split(parserTests, "\n")
 		for _, test := range tests {
 			//			fmt.Println(test, which)

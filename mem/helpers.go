@@ -61,6 +61,7 @@ func returnCol(data any) *d.FnReturn {
 func signature(target [][]d.DataTypes, cols []d.Column) int {
 	for j := range len(target) {
 		ind := j
+		// key off the length of target -- if cols has extra elements, that's OK.
 		for k := range len(target[j]) {
 			trg := cols[k].DataType()
 

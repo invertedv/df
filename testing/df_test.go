@@ -385,7 +385,7 @@ func TestBy_Global(t *testing.T) {
 	}
 }
 
-func TestParse_Table(t *testing.T) {
+func Test_Table(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		outDF, e := dfx.Table("y,yy")
@@ -410,7 +410,7 @@ func TestParse_Table(t *testing.T) {
 	}
 }
 
-func TestParse_Sort(t *testing.T) {
+func Test_Sort(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		e := dfx.Sort(true, "y,x")
