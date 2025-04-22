@@ -388,7 +388,7 @@ func TestBy_Global(t *testing.T) {
 func TestParse_Table(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		outDF, e := dfx.Table("y", "yy")
+		outDF, e := dfx.Table("y,yy")
 		assert.Nil(t, e)
 
 		//cx := dfx.Column("x")
@@ -413,13 +413,13 @@ func TestParse_Table(t *testing.T) {
 func TestParse_Sort(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
-		e := dfx.Sort(true, "y", "x")
+		e := dfx.Sort(true, "y,x")
 		assert.Nil(t, e)
 
 		assert.Equal(t, []int{-5, 1, 1, 4, 5, 6}, dfx.Column("y").Data().AsAny())
 		assert.Equal(t, []int{-15, 1, 1, 15, 14, 16}, dfx.Column("yy").Data().AsAny())
 
-		e1 := dfx.Sort(false, "y", "x")
+		e1 := dfx.Sort(false, "y,x")
 		assert.Nil(t, e1)
 		fmt.Println(dfx.Column("y").Data().AsAny())
 		assert.Equal(t, []int{6, 5, 4, 1, 1, -5}, dfx.Column("y").Data().AsAny())

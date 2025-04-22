@@ -42,7 +42,7 @@ type DF interface {
 	// Join inner joins the df to the source DF on the joinOn fields
 	//   df       - DF to join
 	//   joinOn   - comma-separated list of fields to join on.
-	Join(df DF, joinOn string) (DF, error)
+	Join(df HasIter, joinOn string) (DF, error)
 
 	// RowCount returns # of rows in df
 	RowCount() int
@@ -50,19 +50,19 @@ type DF interface {
 	// SetParent sets the Parent field of all the columns in the source DF
 	SetParent() error
 
-	// Sort sorts the source DF on keys
+	// Sort sorts the source DF on sortCols
 	//   ascending - if true, sorts ascending
-	//   keys      - keys is a comma-separated list of fields on which to sort.
-	Sort(ascending bool, keys ...string) error
+	//   sortCols      - sortCols is a comma-separated list of fields on which to sort.
+	Sort(ascending bool, sortCols string) error
 
 	// String is expected to produce a summary of the source DF.
 	String() string
 
 	// Table returns a table based on cols.
-	//   cols - list of column names for the table.
+	//   cols - comma-separated list of column names for the table.
 	// The return is expected to include the columns "count" and "rate"
 	// TODO: change this to a single string
-	Table(cols ...string) (DF, error)
+	Table(cols string) (DF, error)
 
 	// Where returns a DF subset according to condition.
 	Where(condition string) (DF, error)

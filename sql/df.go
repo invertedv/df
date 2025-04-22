@@ -12,6 +12,7 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
+// StandardFunctions returns the built-in functions for in-memory data to be used by Parser.
 func StandardFunctions(dlct *d.Dialect) d.Fns {
 	fns := d.Fns{applyCat, global, toCat} //, varying("greatest", "greatest")}
 	fns = append(fns, fnDefs(dlct)...)
@@ -32,6 +33,15 @@ type DF struct {
 
 // ***************** DF - Create *****************
 
+// NewDF creates a *DF from input.
+//
+//	input - can be (in order of what's tried)
+//	  - *DF. This is copied.
+//	  - *Col. This is copied.
+//	  - d.Column.
+//	  - *Vector.
+//	  - HasMQdlct. The query is run to fetch the data.
+//	  - d.DF. The data is pulled to construct the output.
 func NewDF(dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
 	switch inp := input.(type) {
 	case *DF:
@@ -108,6 +118,8 @@ func NewDFcolXXX(cols []*Col, opts ...d.DFopt) (*DF, error) {
 	return df, nil
 }
 
+// NewDFseq creates a *DF with a single column, "seq". That column is a DTint sequence
+// from 0 to n-1.
 func NewDFseq(dlct *d.Dialect, n int, opts ...d.DFopt) (*DF, error) {
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
 
@@ -156,6 +168,7 @@ func NewDFseq(dlct *d.Dialect, n int, opts ...d.DFopt) (*DF, error) {
 	return df, nil
 }
 
+// DBload creates a *DF from a query. Note: the data is not loaded to memory.
 func DBload(query string, dlct *d.Dialect, opts ...d.DFopt) (*DF, error) {
 	var (
 		e        error
@@ -255,70 +268,8 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 	}
 }
 
-func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
-	var (
-		dfRight *DF
-		e       error
-	)
-
-	if dfRight, e = NewDF(f.Dialect(), df, d.DFsetFns(f.Fns())); e != nil {
-		return nil, fmt.Errorf("invalid input to Join")
-	}
-
-	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
-	if !f.HasColumns(jCols...) || !dfRight.HasColumns(jCols...) {
-		return nil, fmt.Errorf("missing some join columns")
-	}
-
-	leftNames, rightNames := f.ColumnNames(), df.ColumnNames()
-
-	var rNames []string
-	for ind := range len(rightNames) {
-		rn := rightNames[ind]
-		// don't keep join columns for right
-		if d.Has(rn, jCols) {
-			continue
-		}
-
-		// rename any field names in right that are also in left
-		if d.Has(rn, leftNames) {
-			col := dfRight.Column(rn)
-			rn += "DUP"
-			_ = col.Rename(rn)
-		}
-
-		rNames = append(rNames, rn)
-	}
-
-	qry := f.Dialect().Join(f.MakeQuery(), dfRight.MakeQuery(), leftNames, rNames, jCols)
-
-	var (
-		outDF *DF
-		e1    error
-	)
-	if outDF, e1 = DBload(qry, f.Dialect(), d.DFsetFns(f.Fns())); e1 != nil {
-		return nil, e1
-	}
-
-	return outDF, nil
-}
-
-func (f *DF) Column(colName string) d.Column {
-	if colName == "" {
-		return nil
-	}
-
-	if c := f.Core().Column(colName); c != nil {
-		return c
-	}
-
-	if f.SourceDF() != nil {
-		return f.SourceDF().Column(colName)
-	}
-
-	return nil
-}
-
+// AppendColumn makses the DFcore version to check that f and col
+// come from the same source.
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	// toCol allows us to append constants
 	colx := toCol(f, col)
@@ -377,6 +328,10 @@ func (f *DF) AppendDF(dfNew d.DF) (d.DF, error) {
 	return dfOut, nil
 }
 
+// By creates a new *DF with function fns calculated within the groups defined by groupBy.
+//
+//	groupBy - comma-separated list of fields to group on.  If groupBy is empty, then the output will have 1 row.
+//	fns     - functions to calculate on the By groups.
 func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 	dfOut := f.Copy().(*DF)
 
@@ -408,7 +363,6 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 
 	return dfOut, nil
 }
-
 // Categorical creates a categorical column
 //
 //	colName    - name of the source column
@@ -534,6 +488,22 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 	return outCol, nil
 }
 
+func (f *DF) Column(colName string) d.Column {
+	if colName == "" {
+		return nil
+	}
+
+	if c := f.Core().Column(colName); c != nil {
+		return c
+	}
+
+	if f.SourceDF() != nil {
+		return f.SourceDF().Column(colName)
+	}
+
+	return nil
+}
+
 func (f *DF) Copy() d.DF {
 	dfCore := f.Core().Copy()
 	dfNew := &DF{
@@ -554,10 +524,23 @@ func (f *DF) DropColumns(colNames ...string) error {
 	return f.Core().DropColumns(colNames...)
 }
 
+// TODO: add to mem?
 func (f *DF) GroupBy() string {
 	return f.groupBy
 }
 
+// Interp interpolates the columns (xIfield,yfield) at xsField points.
+//
+//	points   - input iterator (e.g. Column or DF) that yields the points to interpolate at
+//	xSfield  - column name of x values in source DF
+//	xIfield  - name of x values in iDF
+//	yfield   - column name of y values in source DF
+//	outField - column name of interpolated y's in return DF
+//
+// The output DF is restricted to interpolated points that lie within the data.  It has columns:
+//
+//	xIfield  - points at which to interpolate. This may be a subset of the input "points".
+//	outField - interpolated values.
 func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string) (d.DF, error) {
 	var (
 		idf *DF
@@ -625,6 +608,58 @@ func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string)
 	return df, nil
 }
 
+// Join joins f and df on the columns of joinOn. This is an inner join.
+//
+//	df - data to join.
+//	joinOn - comma-separated list of fields to join on.  These fields must have the same name in both data sets.
+func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
+	var (
+		dfRight *DF
+		e       error
+	)
+
+	if dfRight, e = NewDF(f.Dialect(), df, d.DFsetFns(f.Fns())); e != nil {
+		return nil, fmt.Errorf("invalid input to Join")
+	}
+
+	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
+	if !f.HasColumns(jCols...) || !dfRight.HasColumns(jCols...) {
+		return nil, fmt.Errorf("missing some join columns")
+	}
+
+	leftNames, rightNames := f.ColumnNames(), dfRight.ColumnNames()
+
+	var rNames []string
+	for ind := range len(rightNames) {
+		rn := rightNames[ind]
+		// don't keep join columns for right
+		if d.Has(rn, jCols) {
+			continue
+		}
+
+		// rename any field names in right that are also in left
+		if d.Has(rn, leftNames) {
+			col := dfRight.Column(rn)
+			rn += "DUP"
+			_ = col.Rename(rn)
+		}
+
+		rNames = append(rNames, rn)
+	}
+
+	qry := f.Dialect().Join(f.MakeQuery(), dfRight.MakeQuery(), leftNames, rNames, jCols)
+
+	var (
+		outDF *DF
+		e1    error
+	)
+	if outDF, e1 = DBload(qry, f.Dialect(), d.DFsetFns(f.Fns())); e1 != nil {
+		return nil, e1
+	}
+
+	return outDF, nil
+}
+
 func (f *DF) MakeQuery(colNames ...string) string {
 	var fields []string
 
@@ -664,6 +699,7 @@ func (f *DF) MakeQuery(colNames ...string) string {
 	return qry
 }
 
+// RowCount returns # of rows in f
 func (f *DF) RowCount() int {
 	var (
 		rowCount int
@@ -676,6 +712,7 @@ func (f *DF) RowCount() int {
 	return rowCount
 }
 
+// SetParent sets the parent to f for all the columns in f.
 func (f *DF) SetParent() error {
 	for c := range f.AllColumns() {
 		if e := d.ColParent(f)(c); e != nil {
@@ -688,7 +725,11 @@ func (f *DF) SetParent() error {
 	return nil
 }
 
-func (f *DF) Sort(ascending bool, keys ...string) error {
+// Sort sorts f according to sortCols.
+// ascending - true = sort ascending
+// sortCols - comma-separated list of columns to sort on.
+func (f *DF) Sort(ascending bool, sortCols string) error {
+	keys := strings.Split(strings.ReplaceAll(sortCols, " ", ""), ",")
 	for _, k := range keys {
 		if c := f.Column(k); c == nil {
 			return fmt.Errorf("missing column %s", k)
@@ -706,10 +747,12 @@ func (f *DF) Sort(ascending bool, keys ...string) error {
 	return nil
 }
 
+// SourceQuery returns the query used to create f.
 func (f *DF) SourceSQL() string {
 	return f.sourceSQL
 }
 
+// String produces a summary of f.
 func (f *DF) String() string {
 	const padLen = 5
 	var (
@@ -747,15 +790,20 @@ func (f *DF) String() string {
 	return out + cat
 }
 
-func (f *DF) Table(cols ...string) (d.DF, error) {
+// Table produces a table based on cols. cols is a comma-separated list of fields.
+// The metrics within each group calculated are:
+//   n    - count of rows
+//   rate - fraction of original row count.
+func (f *DF) Table(cols string) (d.DF, error) {
 	var (
 		dfOut d.DF
 		e     error
 	)
 
-	fn1 := fmt.Sprintf("count:=count(%s)", cols[0])
-	fn2 := fmt.Sprintf("rate:=float(count)/float(count(global(%s)))", cols[0])
-	if dfOut, e = f.By(strings.Join(cols, ","), fn1, fn2); e != nil {
+	c := strings.Split(strings.ReplaceAll(cols, " ", ""), ",")
+	fn1 := fmt.Sprintf("count:=count(%s)", c[0])
+	fn2 := fmt.Sprintf("rate:=float(count)/float(count(global(%s)))", c[0])
+	if dfOut, e = f.By(cols, fn1, fn2); e != nil {
 		return nil, e
 	}
 
@@ -766,6 +814,7 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 	return dfOut, nil
 }
 
+// Where subsets f to rows where condition is true.
 func (f *DF) Where(condition string) (d.DF, error) {
 	if e := d.Parse(f, "wherec:="+condition); e != nil {
 		return nil, e

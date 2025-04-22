@@ -40,7 +40,7 @@ func StandardFunctions() d.Fns {
 	return fns
 }
 
-// NewDF creates a DF from input.
+// NewDF creates a *DF from input.
 //
 //	input - can be (in order of what's tried)
 //	  - *DF. This is copied.
@@ -254,6 +254,22 @@ func FileLoad(f *d.Files, opts ...d.DFopt) (*DF, error) {
 
 // ***************** Methods *****************
 
+
+// AllRows iterates through the rows of the column.  It returns the row # and the values of f that row.
+func (f *DF) AllRows() iter.Seq2[int, []any] {
+	return func(yield func(int, []any) bool) {
+		for ind := 0; ind < f.RowCount(); ind++ {
+			var row []any
+			for c := range f.AllColumns() {
+				row = append(row, c.(*Col).Element(ind))
+			}
+
+			if !yield(ind, row) {
+				return
+			}
+		}
+	}
+}
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	if e := checkType(col); e != nil {
@@ -571,22 +587,6 @@ func (f *DF) Copy() d.DF {
 	return mNew
 }
 
-// AllRows iterates through the rows of the column.  It returns the row # and the values of f that row.
-func (f *DF) AllRows() iter.Seq2[int, []any] {
-	return func(yield func(int, []any) bool) {
-		for ind := 0; ind < f.RowCount(); ind++ {
-			var row []any
-			for c := range f.AllColumns() {
-				row = append(row, c.(*Col).Element(ind))
-			}
-
-			if !yield(ind, row) {
-				return
-			}
-		}
-	}
-}
-
 // Interp interpolates the columns (xIfield,yfield) at xsField points.
 //
 //	points   - input iterator (e.g. Column or DF) that yields the points to interpolate at
@@ -595,7 +595,10 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 //	yfield   - column name of y values in source DF
 //	outField - column name of interpolated y's in return DF
 //
-// The output DF has two columns: xIfield, outField.
+// The output DF is restricted to interpolated points that lie within the data.  It has columns:
+//
+//	xIfield  - points at which to interpolate. This may be a subset of the input "points".
+//	outField - interpolated values.
 func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string) (d.DF, error) {
 	var (
 		idf *DF
@@ -605,12 +608,13 @@ func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string)
 		return nil, e1
 	}
 
-	// if points isn't a d.DF or d.Column, then idf will have the column name "col"
+	// if points isn't a d.DF or d.Column, then idf will have the column name "col", so rename it
 	_, isDF := points.(d.DF)
 	_, isCol := points.(d.Column)
+
 	if !isDF && !isCol {
-		col := idf.Column("col")
-		if col == nil {
+		var col d.Column
+		if col = idf.Column("col"); col == nil {
 			return nil, fmt.Errorf("interp unexpected error")
 		}
 
@@ -629,6 +633,7 @@ func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string)
 		return nil, fmt.Errorf("invalid interp X in Interp")
 	}
 
+	// Group f by xSfield and average yfield.
 	var (
 		favg d.DF
 		e    error
@@ -638,18 +643,23 @@ func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string)
 		return nil, e
 	}
 
+	// sort result by xSfield
 	if e := favg.Sort(true, xSfield); e != nil {
 		return nil, e
 	}
 
+	// sort points at which to interpolate
 	if e := idf.Sort(true, xIfield); e != nil {
 		return nil, e
 	}
 
-	xI := idf.Column(xIfield).Data().AsAny().([]float64)
+	xI := idf.Column(xIfield).Data().AsAny().([]float64) // x's at which to interpolate
+	// (x,y) we're interpolatiing
 	xS := favg.Column(xSfield).Data().AsAny().([]float64)
 	yS := favg.Column(fld).Data().AsAny().([]float64)
+	// interpolated values
 	yOut := make([]float64, len(xI))
+	// iOut element k =1 if interpolation is successful for xi[k]
 	iOut := make([]int, len(xI))
 
 	indSource := 0
@@ -714,7 +724,11 @@ func (f *DF) Interp(points d.HasIter, xSfield, xIfield, yfield, outField string)
 	return dfOut, nil
 }
 
-func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
+// Join joins f and df on the columns of joinOn. This is an inner join.
+//
+//	df - data to join.
+//	joinOn - comma-separated list of fields to join on.  These fields must have the same name in both data sets.
+func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 	var (
 		fRight *DF
 		e      error
@@ -725,22 +739,22 @@ func (f *DF) Join(df d.DF, joinOn string) (d.DF, error) {
 	}
 
 	jCols := strings.Split(strings.ReplaceAll(joinOn, " ", ""), ",")
-	if !f.HasColumns(jCols...) || !df.HasColumns(jCols...) {
+	if !f.HasColumns(jCols...) || !fRight.HasColumns(jCols...) {
 		return nil, fmt.Errorf("missing some join columns")
 	}
 
-	if e := f.Sort(true, jCols...); e != nil {
+	if e := f.Sort(true, joinOn); e != nil {
 		return nil, e
 	}
 
-	if e := df.Sort(true, jCols...); e != nil {
+	if e := fRight.Sort(true, joinOn); e != nil {
 		return nil, e
 	}
 
 	leftNames := f.ColumnNames()
-	rightNames := df.ColumnNames()
+	rightNames := fRight.ColumnNames()
 	outCols := doCols(nil, f, nil, nil)
-	outCols = doCols(outCols, df, jCols, leftNames)
+	outCols = doCols(outCols, fRight, jCols, leftNames)
 
 	// location of the join fields in both dataframes
 	var colsLeft, colsRight []int
@@ -826,6 +840,7 @@ func (f *DF) Len() int {
 	return f.RowCount()
 }
 
+// Less returns true if row i < row j when sorting by the orderBy field of f
 func (f *DF) Less(i, j int) bool {
 	for ind := range len(f.orderBy) {
 		less := f.orderBy[ind].Less(i, j)
@@ -848,7 +863,7 @@ func (f *DF) Less(i, j int) bool {
 	return false
 }
 
-// TODO: consider adding to interface?
+// Row returns the rowNum row of f
 func (f *DF) Row(rowNum int) []any {
 	if rowNum < 0 || rowNum >= f.RowCount() {
 		return nil
@@ -862,10 +877,12 @@ func (f *DF) Row(rowNum int) []any {
 	return row
 }
 
+// RowCount returns # of rows in f
 func (f *DF) RowCount() int {
 	return f.Column(f.ColumnNames()[0]).Len()
 }
 
+// SetParent sets the parent to f for all the columns in f.
 func (f *DF) SetParent() error {
 	for c := range f.AllColumns() {
 		if e := d.ColParent(f)(c); e != nil {
@@ -876,7 +893,11 @@ func (f *DF) SetParent() error {
 	return nil
 }
 
-func (f *DF) Sort(ascending bool, cols ...string) error {
+// Sort sorts f according to sortCols.
+// ascending - true = sort ascending
+// sortCols - comma-separated list of columns to sort on.
+func (f *DF) Sort(ascending bool, sortCols string) error {
+	cols := strings.Split(strings.ReplaceAll(sortCols, " ", ""), ",")
 	var byCols []*Col
 
 	for ind := range len(cols) {
@@ -895,10 +916,12 @@ func (f *DF) Sort(ascending bool, cols ...string) error {
 	return nil
 }
 
+// SourceQuery returns the query used to load f, if any.
 func (f *DF) SourceQuery() string {
 	return f.sourceQuery
 }
 
+// String produces a summary of f.
 func (f *DF) String() string {
 	const padLen = 5
 	var (
@@ -936,21 +959,27 @@ func (f *DF) String() string {
 	return out + cat
 }
 
+// Swap swaps rows i and j.
 func (f *DF) Swap(i, j int) {
 	for h := range f.AllColumns() {
 		h.(*Col).Swap(i, j)
 	}
 }
 
-func (f *DF) Table(cols ...string) (d.DF, error) {
+// Table produces a table based on cols. cols is a comma-separated list of fields.
+// The metrics within each group calculated are:
+//   n    - count of rows
+//   rate - fraction of original row count.
+func (f *DF) Table(cols string) (d.DF, error) {
 	var (
 		dfOut d.DF
 		e     error
 	)
 
-	fn1 := fmt.Sprintf("count:=count(%s)", cols[0])
-	fn2 := fmt.Sprintf("rate:=float(count)/float(count(global(%s)))", cols[0])
-	if dfOut, e = f.By(strings.Join(cols, ","), fn1, fn2); e != nil {
+	c := strings.Split(strings.ReplaceAll(cols, " ", ""), ",")
+	fn1 := fmt.Sprintf("count:=count(%s)", c[0])
+	fn2 := fmt.Sprintf("rate:=float(count)/float(count(global(%s)))", c[0])
+	if dfOut, e = f.By(cols, fn1, fn2); e != nil {
 		return nil, e
 	}
 
@@ -961,6 +990,7 @@ func (f *DF) Table(cols ...string) (d.DF, error) {
 	return dfOut, nil
 }
 
+// Where subsets f to rows where condition is true.
 func (f *DF) Where(condition string) (d.DF, error) {
 	if e := d.Parse(f, "wherec:="+condition); e != nil {
 		return nil, e
