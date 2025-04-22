@@ -33,6 +33,7 @@ var (
 
 // rawFuncs returns a slice of functions to operate on vectors. Each function here must have an entry in functions.txt.
 func rawFuncs() []any {
+	// there is no ordering required here
 	fns := []any{rowNumberFn,
 		isInfFn, isNaNfn,
 		floatFn[float64], floatFn[int], floatFn[string],
@@ -147,6 +148,7 @@ func varying(spec *d.FnSpec) d.Fn {
 	return fn
 }
 
+// buildFn creates a d.Fn from *.FnSpec.
 func buildFn(spec *d.FnSpec) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
@@ -158,6 +160,7 @@ func buildFn(spec *d.FnSpec) d.Fn {
 		var ind int
 
 		n := df.RowCount()
+		// if there are inputs to the function, then we need to pick the correct one to run.
 		if spec.Inputs != nil {
 			//			n = loopDim(inputs...)  // TODO: check in on this...
 			ind = signature(spec.Inputs, inputs)
@@ -173,11 +176,11 @@ func buildFn(spec *d.FnSpec) d.Fn {
 			n = 1
 		}
 
-		var oas any
-
+		// make output
 		outVec := d.MakeVector(spec.Outputs[ind], n)
-		oas = outVec.AsAny()
+		oas := outVec.AsAny()
 
+		// level0 starts the process to run the function, returning oas loaded
 		if e := level0(oas, fnUse, inputs); e != nil {
 			return &d.FnReturn{Err: e}
 		}
@@ -188,15 +191,18 @@ func buildFn(spec *d.FnSpec) d.Fn {
 	return fn
 }
 
+// vectorFunctions returns a slice of functions that will be availble to Parse.
 func vectorFunctions() d.Fns {
 	specs := d.LoadFunctions(functions)
 	fns := rawFuncs()
 
 	for _, spec := range specs {
+		// run through the raw functions and see
 		for _, fn := range fns {
+			// get name of fn
 			fc := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
-			fnname := fc.Name()
-			if fnname != spec.FnDetail {
+			// if the names don't match, move on
+			if fc.Name() != spec.FnDetail {
 				continue
 			}
 
@@ -204,6 +210,7 @@ func vectorFunctions() d.Fns {
 		}
 	}
 
+	// with the functions loaded into .FnDetail, we can now build the slice of functions, d.Fns, for Parse.
 	var outFns d.Fns
 	for _, spec := range specs {
 		if !spec.Varying {
@@ -217,28 +224,6 @@ func vectorFunctions() d.Fns {
 	return outFns
 }
 
-func GetKind(fn reflect.Type) d.DataTypes {
-	switch fn.Kind() {
-	case reflect.Pointer:
-		return d.DTunknown
-	case reflect.Float64:
-		return d.DTfloat
-	case reflect.Int:
-		return d.DTint
-	case reflect.String:
-		return d.DTstring
-	case reflect.Struct:
-		if fn == reflect.TypeOf(time.Time{}) {
-			return d.DTdate
-		}
-
-		return d.DTunknown
-	case reflect.Slice:
-		return GetKind(fn.Elem())
-	default:
-		return d.DTunknown
-	}
-}
 
 // fnToUse chooses the element of fns (slice of functions) that matches the pattern of inputs in targetIns and
 // output of targOut.
@@ -247,13 +232,13 @@ func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 		rfn := reflect.TypeOf(fn)
 		ok := true
 		for ind := range rfn.NumIn() {
-			if GetKind(rfn.In(ind)) != targetIns[ind] {
+			if d.GetKind(rfn.In(ind)) != targetIns[ind] {
 				ok = false
 				break
 			}
 		}
 
-		if ok && rfn.NumOut() > 0 && GetKind(rfn.Out(0)) == targOut {
+		if ok && rfn.NumOut() > 0 && d.GetKind(rfn.Out(0)) == targOut {
 			return fn
 		}
 	}
@@ -261,7 +246,7 @@ func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 	return nil
 }
 
-// **************** Vector Functions ****************
+// **************** Functions ****************
 
 func elemFn[T frameTypes](x []T, ind []int) (T, error) {
 	if ind[0] < 0 || ind[0] > len(x) {

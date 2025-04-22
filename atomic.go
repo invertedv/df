@@ -1,6 +1,10 @@
 package df
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+	"time"
+)
 
 // DataTypes are the types of data that the package supports for Column elements
 type DataTypes uint8
@@ -32,4 +36,28 @@ func DTFromString(nm string) DataTypes {
 	}
 
 	return DataTypes(uint8(pos))
+}
+
+// GetKind maps reflect.Type into d.DataType
+func GetKind(fn reflect.Type) DataTypes {
+	switch fn.Kind() {
+	case reflect.Pointer:
+		return DTunknown
+	case reflect.Float64:
+		return DTfloat
+	case reflect.Int:
+		return DTint
+	case reflect.String:
+		return DTstring
+	case reflect.Struct:
+		if fn == reflect.TypeOf(time.Time{}) {
+			return DTdate
+		}
+
+		return DTunknown
+	case reflect.Slice:
+		return GetKind(fn.Elem())
+	default:
+		return DTunknown
+	}
 }
