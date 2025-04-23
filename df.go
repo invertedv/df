@@ -61,7 +61,6 @@ type DF interface {
 	// Table returns a table based on cols.
 	//   cols - comma-separated list of column names for the table.
 	// The return is expected to include the columns "count" and "rate"
-	// TODO: change this to a single string
 	Table(cols string) (DF, error)
 
 	// Where returns a DF subset according to condition.

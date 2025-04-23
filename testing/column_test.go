@@ -580,8 +580,6 @@ func TestParser(t *testing.T) {
 // TODO: are there more func parameters to get rid of?
 // TODO: convert %s to #0, #1,... in functions.txt
 
-// TODO: hats & one-hot
-
 // TODO: can I combine a file reader and an sql save to read from csv & write directly to a table
 /*
 

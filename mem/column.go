@@ -66,6 +66,10 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
+func (c *Col) Data() *d.Vector{
+	return c.Vector
+}
+
 func (c *Col) String() string {
 	if c.Name() == "" {
 		_ = d.ColName("unnamed")(c)

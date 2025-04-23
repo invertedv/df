@@ -133,7 +133,7 @@ func varying(spec *d.FnSpec) d.Fn {
 
 			out := d.MakeVector(spec.Outputs[ind], 1)
 
-			if e := level0(out.Data().AsAny(), fnUse, []d.Column{inCol}); e != nil {
+			if e := level0(out.AsAny(), fnUse, []d.Column{inCol}); e != nil {
 				return &d.FnReturn{Err: e}
 			}
 

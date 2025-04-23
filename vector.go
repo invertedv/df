@@ -172,11 +172,6 @@ func (v *Vector) Copy() *Vector {
 	return vCopy
 }
 
-// TODO: see if I can delete this
-func (v *Vector) Data() *Vector {
-	return v
-}
-
 // Element returns the indx'th element of Vector.  It returns nil if indx is out of bounds
 // if v.Len() > 1.  If v.Len() = 1, then returns the 0th element.
 // This is needed for the parser when we have an op like "x/2" and we don't want to
@@ -388,7 +383,7 @@ func (v *Vector) Where(indic *Vector) *Vector {
 		return nil
 	}
 
-	inds := indic.Data().AsAny().([]int)
+	inds := indic.AsAny().([]int)
 	outVec := MakeVector(v.VectorType(), 0)
 	for ind := range v.Len() {
 		if inds[ind] > 0 {
