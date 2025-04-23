@@ -12,15 +12,10 @@ import (
 // Col implements Column for SQL.
 type Col struct {
 	sql string // SQL to generate this column
-	// permanent signal that the column should be treated as the whole
-	// table rather than subset within a GroupBy.
-	// For instance, within a GroupBy,
-	//   mean(x)
-	// will be the mean of x within the group, but
-	//   mean(global(x))
-	// will be the mean of x using all rows.
-	global bool
-	// short term signal indicating "global" function surrounds the column
+
+	// short term signal indicating "global" function surrounds the column.
+	// This instruct the function to add SQL so that the calculation is global.
+	// In this case, all rows will have the same value.
 	gf     bool 
 
 	*d.ColCore
@@ -64,7 +59,6 @@ func (c *Col) AllRows() iter.Seq2[int, []any] {
 func (c *Col) Copy() d.Column {
 	n := &Col{
 		sql:     c.sql,
-		global:  c.global,
 		ColCore: c.Core().Copy(),
 	}
 
@@ -114,10 +108,6 @@ func (c *Col) DataLimit(limit int) *d.Vector {
 //   - the SQL if it is calculated. Note: this is not a complete query, just the snippet needed for the column.
 func (c *Col) SQL() (snippet string, isFieldName bool) {
 	if c.sql != "" {
-		if c.global {
-			return c.Dialect().Global(c.Parent().(*DF).SourceSQL(), c.sql), false
-		}
-
 		return c.sql, false
 	}
 

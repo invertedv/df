@@ -7,6 +7,7 @@ import (
 	d "github.com/invertedv/df"
 )
 
+// fnDefs loads the d.Fns for use by Parse.
 func fnDefs(dlct *d.Dialect) d.Fns {
 	var fns d.Fns
 	for _, v := range dlct.Functions() {
@@ -23,6 +24,9 @@ func fnDefs(dlct *d.Dialect) d.Fns {
 	return fns
 }
 
+// varying creates a d.Fn with a varying number of inputs from *.FnSpec. For the most part,
+// this is used to create summary functions across columns (e.g. colSum, colMean).  It restricts the inputs to
+// all having the same type.
 func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
@@ -96,6 +100,7 @@ func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 	return fn
 }
 
+// buildFn creates a d.Fn from *.FnSpec.
 func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar bool) d.Fn {
 	fn := func(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 		if info {
@@ -124,7 +129,7 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 
 		// if this returns a scalar, but there is no GROUP BY, then make a column of the global value
 		// if you want to return the global value within a GROUP BY, put it within the function "global"
-		if scalar && df.(*DF).groupBy == "" {
+		if (scalar && df.(*DF).groupBy == "") || glb {
 			sqlOut = df.Dialect().Global(df.(*DF).SourceSQL(), sqlOut)
 		}
 
@@ -151,7 +156,6 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 		}
 
 		outCol, _ := NewCol(outType, df.Dialect(), sqlOut)
-		outCol.global = glb
 
 		_ = d.ColParent(df)(outCol)
 		_ = d.ColDialect(df.Dialect())(outCol)
@@ -176,8 +180,14 @@ func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	return &d.FnReturn{Value: outCol}
 }
 
-// ***************** categorical Operations *****************
+// ***************** Categorical Operations *****************
 
+// toCat creates a categorical column -- for use in Parse. This is not a full implementation of the
+// Categorical method.
+//
+// Inputs are:
+//  1. Column to operate on
+//  2. fuzz value (optional)
 func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
@@ -221,6 +231,10 @@ func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	return &d.FnReturn{Value: outCol}
 }
 
+// applyCat is for use in Parse.
+// - vector to apply cats to
+// - existing categorical column to use as the source.
+// - default if a new level is encountered.
 func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
@@ -334,7 +348,6 @@ func getSQL(df d.DF, inputs ...d.Column) []string {
 	return sOut
 }
 
-// getDataTypes returns the d.DataTypes of the columns
 func getDataTypes(df d.DF, inputs ...d.Column) []d.DataTypes {
 	var sOut []d.DataTypes
 	for ind := range len(inputs) {
