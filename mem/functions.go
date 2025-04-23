@@ -224,7 +224,6 @@ func vectorFunctions() d.Fns {
 	return outFns
 }
 
-
 // fnToUse chooses the element of fns (slice of functions) that matches the pattern of inputs in targetIns and
 // output of targOut.
 func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
@@ -244,6 +243,291 @@ func fnToUse(fns []any, targetIns []d.DataTypes, targOut d.DataTypes) any {
 	}
 
 	return nil
+}
+
+// **************** run a function ****************
+
+// increment determines how to increment the counter given the length of a slice
+func increment(len1 int) int {
+	if len1 == 1 {
+		return 0
+	}
+
+	return 1
+}
+
+// dofn0 runs a function that takes no arguments
+func dofn0[T frameTypes | any](out []T, fn any) error {
+	switch fnx := fn.(type) {
+	// functions that, according to the definition in the .txt file, take no arguments may actually take
+	// the row number as an argument.
+	case func(int) T:
+		for ind := range len(out) {
+			out[ind] = fnx(ind)
+		}
+	case func() T:
+		out[0] = fnx()
+	default:
+		return fmt.Errorf("unsupported function signature in  dofn0")
+	}
+
+	return nil
+}
+
+// dofn1 runs a function that takes a single argument, which may be a value or a slice.
+// Functions may or may not also return an error.
+func dofn1[T frameTypes, S frameTypes | any](a []T, out []S, fn any) error {
+	indx, incr := 0, increment(len(a))
+	n := max(len(a), len(out))
+	switch fnx := fn.(type) {
+	case func(T) S:
+		for ind := range n {
+			out[ind] = fnx(a[indx])
+			indx += incr
+		}
+	case func(T) (S, error):
+		var e error
+		for ind := range n {
+			if out[ind], e = fnx(a[indx]); e != nil {
+				return e
+			}
+
+			indx += incr
+		}
+	case func([]T) S:
+		out[0] = fnx(a)
+	case func([]T) (S, error):
+		var e error
+		out[0], e = fnx(a)
+		return e
+	case func([]T):
+		fnx(a)
+	default:
+		return fmt.Errorf("unsupported function signature in  dofn1")
+	}
+
+	return nil
+}
+
+// dofn2 runs a function that takes two arguments, which may be a value or a slice.
+func dofn2[T, S frameTypes, U frameTypes | any](a []T, b []S, out []U, fn any) error {
+	indx1, incr1, indx2, incr2 := 0, increment(len(a)), 0, increment(len(b))
+	n := max(len(a), len(b), len(out))
+	switch fnx := fn.(type) {
+	case func(a T, b S) U:
+		for ind := range n {
+			out[ind] = fnx(a[indx1], b[indx2])
+			indx1 += incr1
+			indx2 += incr2
+		}
+	case func(a T, b S) (U, error):
+		var e error
+		for ind := range n {
+			if out[ind], e = fnx(a[indx1], b[indx2]); e != nil {
+				return e
+			}
+			indx1 += incr1
+			indx2 += incr2
+		}
+	case func(a []T, b []S) U:
+		out[0] = fnx(a, b)
+	case func(a []T, b []S) (U, error):
+		var e error
+		if out[0], e = fnx(a, b); e != nil {
+			return e
+		}
+	case func(a []T, b []S):
+		fnx(a, b)
+	default:
+		return fmt.Errorf("unsupported function signature in dofn2")
+	}
+
+	return nil
+}
+
+// dofn3 runs a function that takes three arguments, which may be a value or a slice. This is the greatest number of arguments allowed.
+func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V, fn any) error {
+	indx1, incr1, indx2, incr2, indx3, incr3 := 0, increment(len(a)), 0, increment(len(b)), 0, increment(len(c))
+	n := max(len(a), len(b), len(c), len(out))
+	switch fnx := fn.(type) {
+	case func(a T, b S, C U) V:
+		for ind := range n {
+			out[ind] = fnx(a[indx1], b[indx2], c[indx3])
+			indx1 += incr1
+			indx2 += incr2
+			indx3 += incr3
+		}
+	case func(a T, b S, c U) (V, error):
+		var e error
+		for ind := range n {
+			if out[ind], e = fnx(a[indx1], b[indx2], c[indx3]); e != nil {
+				return e
+			}
+			indx1 += incr1
+			indx2 += incr2
+			indx3 += incr3
+		}
+	case func(a []T, b []S):
+		fnx(a, b)
+	}
+
+	return nil
+}
+
+// splitCol peels of the first entry, returning that and the remainder. If the first entry is a *d.Scalar,
+// it is converted to a *Col.
+func splitCol(cols []d.Column) (d.Column, []d.Column) {
+	if cols == nil {
+		return nil, nil
+	}
+
+	col0 := cols[0]
+
+	if _, ok := col0.(*d.Scalar); ok {
+		col0 = toCol(col0)
+	}
+
+	if len(cols) == 1 {
+		return col0, nil
+	}
+
+	return col0, cols[1:]
+}
+
+// level0 is the entry point for determining what kind of function fn is and then running it.
+// This seems tailor-made for recursion, but don't see a good way to do the casting of the function.
+func level0(out, fn any, cols []d.Column) error {
+	// no arguments to fn
+	if cols == nil {
+		switch outx := out.(type) {
+		case []float64:
+			return dofn0(outx, fn)
+		case []int:
+			return dofn0(outx, fn)
+		case []string:
+			return dofn0(outx, fn)
+		case []time.Time:
+			return dofn0(outx, fn)
+		case nil:
+			return dofn0[any](nil, fn)
+		}
+	}
+
+	col0, colsRemain := splitCol(cols)
+
+	// go to level1, which handles functions with at least 1 argument.
+	switch v := col0.(type) {
+	case *Col:
+		switch v.DataType() {
+		case d.DTfloat:
+			return level1(v.AsAny().([]float64), out, fn, colsRemain)
+		case d.DTint:
+			return level1(v.AsAny().([]int), out, fn, colsRemain)
+		case d.DTstring:
+			return level1(v.AsAny().([]string), out, fn, colsRemain)
+		case d.DTdate:
+			return level1(v.AsAny().([]time.Time), out, fn, colsRemain)
+		}
+	}
+
+	return nil
+}
+
+// level1 handles functions with 1 or more arguments.
+func level1[T frameTypes](a []T, out, fn any, cols []d.Column) error {
+	// 1 argument
+	if cols == nil {
+		switch outx := out.(type) {
+		case []float64:
+			return dofn1(a, outx, fn)
+		case []int:
+			return dofn1(a, outx, fn)
+		case []string:
+			return dofn1(a, outx, fn)
+		case []time.Time:
+			return dofn1(a, outx, fn)
+		case nil:
+			return dofn1[T, any](a, nil, fn)
+		}
+	}
+
+	col0, colsRemain := splitCol(cols)
+
+	// go to level2, which handles functions with at least 2 arguments.
+	switch v := col0.(type) {
+	case *Col:
+		switch v.DataType() {
+		case d.DTfloat:
+			return level2(a, v.AsAny().([]float64), out, fn, colsRemain)
+		case d.DTint:
+			return level2(a, v.AsAny().([]int), out, fn, colsRemain)
+		case d.DTstring:
+			return level2(a, v.AsAny().([]string), out, fn, colsRemain)
+		case d.DTdate:
+			return level2(a, v.AsAny().([]time.Time), out, fn, colsRemain)
+		}
+	}
+
+	return nil
+}
+
+// level2 handles functions with 2 or more arguments.
+func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []d.Column) error {
+	// 2 arguments
+	if cols == nil {
+		switch outx := out.(type) {
+		case []float64:
+			return dofn2(a, b, outx, fn)
+		case []int:
+			return dofn2(a, b, outx, fn)
+		case []string:
+			return dofn2(a, b, outx, fn)
+		case []time.Time:
+			return dofn2(a, b, outx, fn)
+		case nil:
+			return dofn2[T, S, any](a, b, nil, fn)
+		}
+	}
+
+	col0, colsRemain := splitCol(cols)
+
+	// go to level3, which handles functions with 3 arguments (that's the max)
+	switch v := col0.(type) {
+	case *Col:
+		switch v.DataType() {
+		case d.DTfloat:
+			return level3(a, b, v.AsAny().([]float64), out, fn, colsRemain)
+		case d.DTint:
+			return level3(a, b, v.AsAny().([]int), out, fn, colsRemain)
+		case d.DTstring:
+			return level3(a, b, v.AsAny().([]string), out, fn, colsRemain)
+		case d.DTdate:
+			return level3(a, b, v.AsAny().([]time.Time), out, fn, colsRemain)
+		}
+	}
+
+	return nil
+}
+
+// level3 handles functions with 3 arguments.
+func level3[T, S, U frameTypes](a []T, b []S, c []U, out, fn any, cols []d.Column) error {
+	if cols == nil {
+		switch outx := out.(type) {
+		case []float64:
+			return dofn3(a, b, c, outx, fn)
+		case []int:
+			return dofn3(a, b, c, outx, fn)
+		case []string:
+			return dofn3(a, b, c, outx, fn)
+		case []time.Time:
+			return dofn3(a, b, c, outx, fn)
+		case nil:
+			return dofn3[T, S, U, any](a, b, nil, nil, fn)
+		}
+	}
+
+	return fmt.Errorf("4 argument functions aren't implemented")
+
 }
 
 // **************** Functions ****************
@@ -765,6 +1049,12 @@ func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 
 // ***************** Categorical Operations *****************
 
+// toCat creates a categorical column -- for use in Parse. This is not a full implementation of the
+// Categorical method.
+//
+// Inputs are:
+//  1. Column to operate on
+//  2. fuzz value (optional)
 func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "cat", Inputs: [][]d.DataTypes{{d.DTstring}, {d.DTint}, {d.DTdate}},
@@ -803,10 +1093,10 @@ func toCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	return outFn
 }
 
-// applyCat
+// applyCat is for use in Parse.
 // - vector to apply cats to
-// - vector with cats
-// - default if new category
+// - existing categorical column to use as the source.
+// - default if a new level is encountered.
 func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "applyCat", Inputs: [][]d.DataTypes{{d.DTint, d.DTcategorical, d.DTint},
@@ -850,267 +1140,4 @@ func applyCat(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	outFn := &d.FnReturn{Value: outCol}
 
 	return outFn
-}
-
-// **************** run a function ****************
-func increment(len1 int) int {
-	if len1 == 1 {
-		return 0
-	}
-
-	return 1
-}
-
-func dofn0[T frameTypes | any](out []T, fn any) error {
-	switch fnx := fn.(type) {
-	case func(int) T:
-		for ind := range len(out) {
-			out[ind] = fnx(ind)
-		}
-	case func() T:
-		out[0] = fnx()
-	default:
-		return fmt.Errorf("unsupported function signature in  dofn0")
-	}
-
-	return nil
-}
-
-func dofn1[T frameTypes, S frameTypes | any](a []T, out []S, fn any) error {
-	indx, incr := 0, increment(len(a))
-	n := max(len(a), len(out))
-	switch fnx := fn.(type) {
-	case func(T) S:
-		for ind := range n {
-			out[ind] = fnx(a[indx])
-			indx += incr
-		}
-	case func(T) (S, error):
-		var e error
-		for ind := range n {
-			if out[ind], e = fnx(a[indx]); e != nil {
-				return e
-			}
-
-			indx += incr
-		}
-	case func([]T) S:
-		out[0] = fnx(a)
-	case func([]T) (S, error):
-		var e error
-		out[0], e = fnx(a)
-		return e
-	case func([]T):
-		fnx(a)
-	default:
-		return fmt.Errorf("unsupported function signature in  dofn1")
-	}
-
-	return nil
-}
-
-func dofn2[T, S frameTypes, U frameTypes | any](a []T, b []S, out []U, fn any) error {
-	indx1, incr1, indx2, incr2 := 0, increment(len(a)), 0, increment(len(b))
-	n := max(len(a), len(b), len(out))
-	switch fnx := fn.(type) {
-	case func(a T, b S) U:
-		for ind := range n {
-			out[ind] = fnx(a[indx1], b[indx2])
-			indx1 += incr1
-			indx2 += incr2
-		}
-	case func(a T, b S) (U, error):
-		var e error
-		for ind := range n {
-			if out[ind], e = fnx(a[indx1], b[indx2]); e != nil {
-				return e
-			}
-			indx1 += incr1
-			indx2 += incr2
-		}
-	case func(a []T, b []S) U:
-		out[0] = fnx(a, b)
-	case func(a []T, b []S) (U, error):
-		var e error
-		if out[0], e = fnx(a, b); e != nil {
-			return e
-		}
-	case func(a []T, b []S):
-		fnx(a, b)
-	default:
-		return fmt.Errorf("unsupported function signature in dofn2")
-	}
-
-	return nil
-}
-
-func dofn3[T, S, U frameTypes, V frameTypes | any](a []T, b []S, c []U, out []V, fn any) error {
-	indx1, incr1, indx2, incr2, indx3, incr3 := 0, increment(len(a)), 0, increment(len(b)), 0, increment(len(c))
-	n := max(len(a), len(b), len(c), len(out))
-	switch fnx := fn.(type) {
-	case func(a T, b S, C U) V:
-		for ind := range n {
-			out[ind] = fnx(a[indx1], b[indx2], c[indx3])
-			indx1 += incr1
-			indx2 += incr2
-			indx3 += incr3
-		}
-	case func(a T, b S, c U) (V, error):
-		var e error
-		for ind := range n {
-			if out[ind], e = fnx(a[indx1], b[indx2], c[indx3]); e != nil {
-				return e
-			}
-			indx1 += incr1
-			indx2 += incr2
-			indx3 += incr3
-		}
-	case func(a []T, b []S):
-		fnx(a, b)
-	}
-
-	return nil
-}
-
-func splitCol(cols []d.Column) (d.Column, []d.Column) {
-	if cols == nil {
-		return nil, nil
-	}
-
-	col0 := cols[0]
-
-	if _, ok := col0.(*d.Scalar); ok {
-		col0 = toCol(col0)
-	}
-
-	if len(cols) == 1 {
-		return col0, nil
-	}
-
-	return col0, cols[1:]
-}
-
-func level0(out, fn any, cols []d.Column) error {
-	if cols == nil {
-		switch outx := out.(type) {
-		case []float64:
-			return dofn0(outx, fn)
-		case []int:
-			return dofn0(outx, fn)
-		case []string:
-			return dofn0(outx, fn)
-		case []time.Time:
-			return dofn0(outx, fn)
-		case nil:
-			return dofn0[any](nil, fn)
-		}
-	}
-
-	col0, colsRemain := splitCol(cols)
-
-	switch v := col0.(type) {
-	case *Col:
-		switch v.DataType() {
-		case d.DTfloat:
-			return level1(v.AsAny().([]float64), out, fn, colsRemain)
-		case d.DTint:
-			return level1(v.AsAny().([]int), out, fn, colsRemain)
-		case d.DTstring:
-			return level1(v.AsAny().([]string), out, fn, colsRemain)
-		case d.DTdate:
-			return level1(v.AsAny().([]time.Time), out, fn, colsRemain)
-		}
-	}
-
-	return nil
-}
-
-func level1[T frameTypes](a []T, out, fn any, cols []d.Column) error {
-	if cols == nil {
-		switch outx := out.(type) {
-		case []float64:
-			return dofn1(a, outx, fn)
-		case []int:
-			return dofn1(a, outx, fn)
-		case []string:
-			return dofn1(a, outx, fn)
-		case []time.Time:
-			return dofn1(a, outx, fn)
-		case nil:
-			return dofn1[T, any](a, nil, fn)
-		}
-	}
-
-	col0, colsRemain := splitCol(cols)
-
-	switch v := col0.(type) {
-	case *Col:
-		switch v.DataType() {
-		case d.DTfloat:
-			return level2(a, v.AsAny().([]float64), out, fn, colsRemain)
-		case d.DTint:
-			return level2(a, v.AsAny().([]int), out, fn, colsRemain)
-		case d.DTstring:
-			return level2(a, v.AsAny().([]string), out, fn, colsRemain)
-		case d.DTdate:
-			return level2(a, v.AsAny().([]time.Time), out, fn, colsRemain)
-		}
-	}
-
-	return nil
-}
-
-func level2[T, S frameTypes](a []T, b []S, out, fn any, cols []d.Column) error {
-	if cols == nil {
-		switch outx := out.(type) {
-		case []float64:
-			return dofn2(a, b, outx, fn)
-		case []int:
-			return dofn2(a, b, outx, fn)
-		case []string:
-			return dofn2(a, b, outx, fn)
-		case []time.Time:
-			return dofn2(a, b, outx, fn)
-		case nil:
-			return dofn2[T, S, any](a, b, nil, fn)
-		}
-	}
-
-	col0, colsRemain := splitCol(cols)
-
-	switch v := col0.(type) {
-	case *Col:
-		switch v.DataType() {
-		case d.DTfloat:
-			return level3(a, b, v.AsAny().([]float64), out, fn, colsRemain)
-		case d.DTint:
-			return level3(a, b, v.AsAny().([]int), out, fn, colsRemain)
-		case d.DTstring:
-			return level3(a, b, v.AsAny().([]string), out, fn, colsRemain)
-		case d.DTdate:
-			return level3(a, b, v.AsAny().([]time.Time), out, fn, colsRemain)
-		}
-	}
-
-	return nil
-}
-
-func level3[T, S, U frameTypes](a []T, b []S, c []U, out, fn any, cols []d.Column) error {
-	if cols == nil {
-		switch outx := out.(type) {
-		case []float64:
-			return dofn3(a, b, c, outx, fn)
-		case []int:
-			return dofn3(a, b, c, outx, fn)
-		case []string:
-			return dofn3(a, b, c, outx, fn)
-		case []time.Time:
-			return dofn3(a, b, c, outx, fn)
-		case nil:
-			return dofn3[T, S, U, any](a, b, nil, nil, fn)
-		}
-	}
-
-	return fmt.Errorf("4 argument functions aren't implemented")
-
 }
