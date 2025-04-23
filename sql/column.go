@@ -9,17 +9,32 @@ import (
 	m "github.com/invertedv/df/mem"
 )
 
+// Col implements Column for SQL.
 type Col struct {
-	sql    string // SQL to generate this column
-	global bool   // permanent signal that this column uses a global query
-	gf     bool   // short term signal indicating "global" function surrounds the column
+	sql string // SQL to generate this column
+	// permanent signal that the column should be treated as the whole
+	// table rather than subset within a GroupBy.
+	// For instance, within a GroupBy,
+	//   mean(x)
+	// will be the mean of x within the group, but
+	//   mean(global(x))
+	// will be the mean of x using all rows.
+	global bool
+	// short term signal indicating "global" function surrounds the column
+	gf     bool 
 
 	*d.ColCore
 }
 
 // ***************** Col - Create *****************
 
-func NewColSQL(dt d.DataTypes, dlct *d.Dialect, sqlx string, opts ...d.ColOpt) (*Col, error) {
+// NewCol creates a new *Col from SQL
+//
+//	dt   - data type of the column
+//	dlct - Dialect to use
+//	sqlx - SQL to create the column
+//	opts - Column options
+func NewCol(dt d.DataTypes, dlct *d.Dialect, sqlx string, opts ...d.ColOpt) (*Col, error) {
 	opts = append(opts, d.ColDataType(dt))
 
 	var (
@@ -60,36 +75,12 @@ func (c *Col) Core() *d.ColCore {
 	return c.ColCore
 }
 
+// Data runs the SQl to pull the data.
 func (c *Col) Data() *d.Vector {
 	return c.DataLimit(0)
-	/*
-		var (
-
-			df *m.DF
-			e  error
-
-		)
-
-		// give it a random name if it does not have one
-
-			if c.Name() == "" {
-				_ = d.ColName(d.RandomLetters(5))(c)
-			}
-
-			if df, e = m.DBLoad(c.MakeQuery(), c.Dialect()); e != nil {
-				panic(e)
-			}
-
-		var col d.Column
-
-			if col = df.Column(c.Name()); col == nil {
-				panic(fmt.Errorf("missing column?"))
-			}
-
-		return col.(*m.Col).Data()
-	*/
 }
 
+// DataLimit pulls the first limit rows of data.  Pulls all the data if limit=0.
 func (c *Col) DataLimit(limit int) *d.Vector {
 	var (
 		df *m.DF
@@ -118,6 +109,9 @@ func (c *Col) DataLimit(limit int) *d.Vector {
 	return col.(*m.Col).Data()
 }
 
+// SQL returns
+//   - the name of the column if it is not a calculated field.
+//   - the SQL if it is calculated. Note: this is not a complete query, just the snippet needed for the column.
 func (c *Col) SQL() (snippet string, isFieldName bool) {
 	if c.sql != "" {
 		if c.global {
@@ -142,7 +136,7 @@ func (c *Col) Len() int {
 	return n
 }
 
-// MakeQuery creates a stand-alone query that will pull this column
+// MakeQuery creates a stand-alone query that will pull the data for this column
 func (c *Col) MakeQuery() string {
 	if c.Parent() == nil {
 		panic("nil parent")
@@ -172,18 +166,14 @@ func (c *Col) MakeQuery() string {
 }
 
 func (c *Col) Rename(newName string) error {
-	//	if c.Parent() != nil && c.Parent().Column(newName) != nil {
-	//		return fmt.Errorf("column %s already exists cannot Rename", newName)
-	//	}
-
-	oldName := c.Dialect().ToName(c.Name())
+	currentName := c.Dialect().ToName(c.Name())
 	if e := c.Core().Rename(newName); e != nil {
 		return e
 	}
 
 	// if this is just a column pull, need to keep the source name for "AS"
 	if c.sql == "" {
-		c.sql = oldName
+		c.sql = currentName
 	}
 
 	return nil

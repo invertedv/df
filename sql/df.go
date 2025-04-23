@@ -363,6 +363,7 @@ func (f *DF) By(groupBy string, fns ...string) (d.DF, error) {
 
 	return dfOut, nil
 }
+
 // Categorical creates a categorical column
 //
 //	colName    - name of the source column
@@ -481,7 +482,7 @@ func (f *DF) Categorical(colName string, catMap d.CategoryMap, fuzz int, default
 		return nil, ex
 	}
 
-	outCol, _ := NewColSQL(d.DTcategorical, f.Dialect(), sql1)
+	outCol, _ := NewCol(d.DTcategorical, f.Dialect(), sql1)
 	_ = d.ColRawType(col.DataType())(outCol.Core())
 	_ = d.ColCatMap(toMap)(outCol.Core())
 
@@ -792,8 +793,9 @@ func (f *DF) String() string {
 
 // Table produces a table based on cols. cols is a comma-separated list of fields.
 // The metrics within each group calculated are:
-//   n    - count of rows
-//   rate - fraction of original row count.
+//
+//	n    - count of rows
+//	rate - fraction of original row count.
 func (f *DF) Table(cols string) (d.DF, error) {
 	var (
 		dfOut d.DF

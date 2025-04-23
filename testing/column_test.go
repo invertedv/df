@@ -24,11 +24,13 @@ var (
 
 func TestStuff(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "mem"){
+		if !strings.Contains(which, "click"){
 			continue
 		}
 		dfx := loadData(which)
-		e := d.Parse(dfx, "m := colMean(y,yy)")
+		dfy, e := dfx.By("y", "m := mean(global(y))")
+		fmt.Println(dfy.Column("m").Data().AsAny())
+		fmt.Println(dfy.ColumnNames())
 		assert.Nil(t, e)
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()

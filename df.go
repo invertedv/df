@@ -344,6 +344,7 @@ func (df *DFcore) DropColumns(colNames ...string) error {
 			}
 
 			df.head = df.head.next
+			df.head.prior = nil
 			continue
 		}
 

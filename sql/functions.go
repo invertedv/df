@@ -82,10 +82,10 @@ func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 
 		// we may need to explicitly cast float fields as float
 		if outType == d.DTfloat && df.Dialect().CastFloat() {
-			sqlOut, _ = df.Dialect().CastField(sqlOut,  d.DTfloat)
+			sqlOut, _ = df.Dialect().CastField(sqlOut, d.DTfloat)
 		}
 
-		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
+		outCol, _ := NewCol(outType, df.Dialect(), sqlOut)
 
 		_ = d.ColParent(df)(outCol)
 		_ = d.ColDialect(df.Dialect())(outCol)
@@ -147,10 +147,10 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 
 		// we may need to explicitly cast float fields as float
 		if outType == d.DTfloat && df.Dialect().CastFloat() {
-			sqlOut, _ = df.Dialect().CastField(sqlOut,  d.DTfloat)
+			sqlOut, _ = df.Dialect().CastField(sqlOut, d.DTfloat)
 		}
 
-		outCol, _ := NewColSQL(outType, df.Dialect(), sqlOut)
+		outCol, _ := NewCol(outType, df.Dialect(), sqlOut)
 		outCol.global = glb
 
 		_ = d.ColParent(df)(outCol)
@@ -169,7 +169,7 @@ func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 
 	sqls := getSQL(df, inputs...)
 	dts := getDataTypes(df, inputs...)
-	outCol, _ := NewColSQL(dts[0], df.Dialect(), sqls[0], d.ColParent(df))
+	outCol, _ := NewCol(dts[0], df.Dialect(), sqls[0], d.ColParent(df))
 	// sends the signal back that this is a global query
 	outCol.gf = true
 
@@ -311,10 +311,10 @@ func toCol(df d.DF, x any) *Col {
 		}
 		// we may need to explicitly cast float fields as float
 		if s.DataType() == d.DTfloat && df.Dialect().CastFloat() {
-			fld, _ = df.Dialect().CastField(fld,  d.DTfloat)
+			fld, _ = df.Dialect().CastField(fld, d.DTfloat)
 		}
 
-		c, _ = NewColSQL(s.DataType(), nil, fld, d.ColName(s.Name()),
+		c, _ = NewCol(s.DataType(), nil, fld, d.ColName(s.Name()),
 			d.ColParent(df), d.ColDialect(df.Dialect()))
 
 		return c
@@ -348,7 +348,7 @@ func getDataTypes(df d.DF, inputs ...d.Column) []d.DataTypes {
 func getGlobal(inputs ...d.Column) bool {
 	for ind := range len(inputs) {
 		if col, ok := inputs[ind].(*Col); ok && col.gf {
-			return col.gf
+			return true
 		}
 	}
 
