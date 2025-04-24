@@ -1,4 +1,4 @@
-package df
+package mem
 
 import d "github.com/invertedv/df"
 

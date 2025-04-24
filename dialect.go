@@ -189,7 +189,7 @@ func DialectBuffSize(bufMB int) DialectOpt {
 	}
 }
 
-//DialectDefaultDate sets the default date to use if a date is null.  Default is 1/1/1960.
+// DialectDefaultDate sets the default date to use if a date is null.  Default is 1/1/1960.
 func DialectDefaultDate(year, mon, day int) DialectOpt {
 	return func(d *Dialect) error {
 		if year < 1900 || year > 2200 {
@@ -272,7 +272,7 @@ func (d *Dialect) Case(whens, vals []string) (string, error) {
 	return s, e
 }
 
-// CastField casts fieldName to type toDT. 
+// CastField casts fieldName to type toDT.
 func (d *Dialect) CastField(fieldName string, toDT DataTypes) (sqlStr string, err error) {
 	var (
 		dbType string
@@ -529,7 +529,7 @@ func (d *Dialect) Interp(sourceSQL, interpSQL, xSfield, xIfield, yField, outFiel
 	qry = strings.ReplaceAll(qry, "?XSfield", xSfield)
 	qry = strings.ReplaceAll(qry, "?XIfield", xIfield)
 	qry = strings.ReplaceAll(qry, "?Yfield", yField)
-	qry = strings.ReplaceAll(qry, "?OutField", outField)
+	qry = strings.ReplaceAll(qry, "?OutField", d.ToName(outField))
 
 	return qry
 }

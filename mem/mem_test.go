@@ -1,4 +1,4 @@
-package df
+package mem
 
 import (
 	"database/sql"
@@ -79,6 +79,8 @@ func ExampleFileLoad_types() {
 }
 
 // Connect to ClickHouse and pull the data from a query.
+// Note that this code is identical to the DBload example in df/sql.
+// The mem/df package loads the data into memory, the sql/df package does not.
 func ExampleDBload() {
 	const (
 		dbProvider = "clickhouse"

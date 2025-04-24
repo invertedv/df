@@ -35,13 +35,8 @@ type DF struct {
 
 // NewDF creates a *DF from input.
 //
-//	input - can be (in order of what's tried)
-//	  - *DF. This is copied.
-//	  - *Col. This is copied.
-//	  - d.Column.
-//	  - *Vector.
-//	  - HasMQdlct. The query is run to fetch the data.
-//	  - d.DF. The data is pulled to construct the output.
+// if input is a *DF, a copy is returned.
+// Otherwise, NewDF saves the data to a temp table and returns a *DF based on that.
 func NewDF(dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
 	switch inp := input.(type) {
 	case *DF:
@@ -49,7 +44,7 @@ func NewDF(dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
 			return nil, fmt.Errorf("conflicting dialects in NewDF")
 		}
 
-		return inp, nil
+		return inp.Copy().(*DF), nil
 	case d.HasIter:
 		if dlct == nil {
 			return nil, fmt.Errorf("missing dialect sql NewDF")
@@ -65,57 +60,6 @@ func NewDF(dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
 	default:
 		return nil, fmt.Errorf("unsupported input to sql NewDF")
 	}
-}
-
-// TODO: unused...need?
-func NewDFcolXXX(cols []*Col, opts ...d.DFopt) (*DF, error) {
-	if cols == nil {
-		return nil, fmt.Errorf("no columns in NewDFcol")
-	}
-
-	for ind := 1; ind < len(cols); ind++ {
-		if !sameSource(cols[ind-1], cols[ind]) {
-			return nil, fmt.Errorf("incompatible columns in NewDFcol %s %s", cols[ind-1].Name(), cols[ind].Name())
-		}
-	}
-
-	df := &DF{
-		sourceSQL: cols[0].Parent().(*DF).MakeQuery(),
-		orderBy:   "",
-		where:     "",
-		DFcore:    nil,
-	}
-
-	dlct := cols[0].Dialect()
-
-	var (
-		tmp *d.DFcore
-		e   error
-	)
-
-	var colsx []d.Column
-	for ind := range len(cols) {
-		colsx = append(colsx, cols[ind])
-	}
-	if tmp, e = d.NewDFcore(colsx); e != nil {
-		return nil, e
-	}
-
-	df.DFcore = tmp
-
-	_ = d.DFdialect(dlct)(df)
-
-	for _, opt := range opts {
-		if ex := opt(df); ex != nil {
-			return nil, ex
-		}
-	}
-
-	if ex := df.SetParent(); ex != nil {
-		return nil, ex
-	}
-
-	return df, nil
 }
 
 // NewDFseq creates a *DF with a single column, "seq". That column is a DTint sequence
