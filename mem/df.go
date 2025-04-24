@@ -126,6 +126,10 @@ func NewDFcol(cols []*Col, opts ...d.DFopt) (*DF, error) {
 			return nil, fmt.Errorf("all MemCols must have same length")
 		}
 
+		if cols[ind].Name() == "" {
+			return nil, fmt.Errorf("columns must have names")
+		}
+
 		cc = append(cc, cols[ind])
 	}
 
@@ -305,6 +309,10 @@ func (f *DF) AppendColumn(col d.Column, replace bool) error {
 		}
 
 		colx, _ = NewCol(v, d.ColName(col.Name()))
+	}
+
+	if colx.Name() == "" {
+		return fmt.Errorf("column needs a name")
 	}
 
 	if colx == nil {

@@ -54,7 +54,7 @@ type FnReturn struct {
 func RunDFfn(fn Fn, df DF, inputs []Column) (Column, error) {
 	info := fn(true, nil)
 	if !info.Varying && info.Inputs != nil && len(inputs) != len(info.Inputs[0]) {
-		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs))
+		return nil, fmt.Errorf("got %d arguments to %s, expected %d", len(inputs), info.Name, len(info.Inputs[0]))
 	}
 
 	if info.Varying && info.Inputs != nil && len(inputs) < len(info.Inputs[0]) {
