@@ -447,6 +447,45 @@ func ExampleDF_By_oneRow() {
 	// [499500]
 }
 
+func ExampleDF_Interp() {
+	const n1 = 10
+
+	// create first dataframe.
+	x := make([]float64, n1)
+	y := make([]float64, n1)
+	for ind := range n1 {
+		x[ind] = float64(ind)
+		y[ind] = float64(ind) * 4
+	}
+
+	var (
+		cx1, cy1 *Col
+		e0       error
+	)
+	if cx1, e0 = NewCol(x, d.ColName("x")); e0 != nil {
+		panic(e0)
+	}
+	if cy1, e0 = NewCol(y, d.ColName("y")); e0 != nil {
+		panic(e0)
+	}
+
+	var (
+		df1 *DF
+		e1  error
+	)
+	if df1, e1 = NewDFcol([]*Col{cx1, cy1}); e1 != nil {
+		panic(e1)
+	}
+
+	cxi := []float64{0.5, 4.25, -1, 20, 6.8}
+	coli, _ := NewCol(cxi, d.ColName("xi"))
+
+	dfOut, _ := df1.Interp(coli, "x", "xi", "y", "yInterp")
+	fmt.Println(dfOut.Column("yInterp").Data().AsAny())
+	// Output:
+	// [2 17 27.2]
+}
+
 func ExampleDF_Join() {
 	const (
 		n1 = 10
@@ -521,6 +560,129 @@ func ExampleDF_Join() {
 	// [0 1 2 3 4 5 6 7 8 9]
 	// [0 4 8 12 16 20 24 28 32 36]
 	// [-0 -4 -8 -12 -16 -20 -24 -28 -32 -36]
+}
+
+func ExampleDF_Join_twoColumns() {
+	const (
+		n1 = 10
+		n2 = 15
+	)
+
+	// create first dataframe.
+	x := make([]int, n1)
+	s := make([]string, n1)
+	y := make([]float64, n1)
+	for ind := range n1 {
+		x[ind] = ind
+		s[ind] = []string{"a", "b", "c", "d"}[ind%4]
+		y[ind] = float64(ind) * 4
+	}
+
+	var (
+		cx1, cy1, cs1 *Col
+		e0            error
+	)
+	if cx1, e0 = NewCol(x, d.ColName("x")); e0 != nil {
+		panic(e0)
+	}
+	if cs1, e0 = NewCol(s, d.ColName("s")); e0 != nil {
+		panic(e0)
+	}
+	if cy1, e0 = NewCol(y, d.ColName("y")); e0 != nil {
+		panic(e0)
+	}
+
+	var (
+		df1 *DF
+		e1  error
+	)
+	if df1, e1 = NewDFcol([]*Col{cx1, cy1, cs1}); e1 != nil {
+		panic(e1)
+	}
+
+	// create second dataframe.
+	x = make([]int, n2)
+	s = make([]string, n2)
+	z := make([]float64, n2)
+	for ind := range n2 {
+		x[ind] = ind
+		s[ind] = []string{"a", "b", "c", "d"}[ind%4]
+		z[ind] = -float64(ind) * 4
+	}
+
+	var (
+		cx2, cz2, cs2 *Col
+		e2            error
+	)
+	if cx2, e2 = NewCol(x, d.ColName("x")); e2 != nil {
+		panic(e2)
+	}
+	if cs2, e2 = NewCol(s, d.ColName("s")); e2 != nil {
+		panic(e2)
+	}
+	if cz2, e2 = NewCol(z, d.ColName("z")); e2 != nil {
+		panic(e2)
+	}
+
+	var (
+		df2 *DF
+		e3  error
+	)
+	if df2, e3 = NewDFcol([]*Col{cx2, cs2, cz2}); e3 != nil {
+		panic(e3)
+	}
+
+	var (
+		dfJoin d.DF
+		e4     error
+	)
+	if dfJoin, e4 = df1.Join(df2, "x,s"); e4 != nil {
+		panic(e4)
+	}
+	fmt.Println(dfJoin.Column("x").Data().AsAny())
+	fmt.Println(dfJoin.Column("y").Data().AsAny())
+	fmt.Println(dfJoin.Column("z").Data().AsAny())
+	// Output:
+	// [0 1 2 3 4 5 6 7 8 9]
+	// [0 4 8 12 16 20 24 28 32 36]
+	// [-0 -4 -8 -12 -16 -20 -24 -28 -32 -36]
+}
+
+func ExampleDF_Where() {
+	const n1 = 10
+
+	// create first dataframe.
+	x := make([]int, n1)
+	y := make([]float64, n1)
+	for ind := range n1 {
+		x[ind] = ind
+		y[ind] = float64(ind) * 4
+	}
+
+	var (
+		cx1, cy1 *Col
+		e0       error
+	)
+	if cx1, e0 = NewCol(x, d.ColName("x")); e0 != nil {
+		panic(e0)
+	}
+	if cy1, e0 = NewCol(y, d.ColName("y")); e0 != nil {
+		panic(e0)
+	}
+
+	var (
+		df1 *DF
+		e1  error
+	)
+	if df1, e1 = NewDFcol([]*Col{cx1, cy1}); e1 != nil {
+		panic(e1)
+	}
+
+	// subset to where x < 4 or x > 8
+	dfOut, _ := df1.Where("x < 4 || x > 8")
+	fmt.Println(dfOut.Column("x").Data().AsAny())
+	// Output:
+	// [0 1 2 3 9]
 
 }
 

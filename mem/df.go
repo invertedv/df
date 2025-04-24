@@ -258,7 +258,6 @@ func FileLoad(f *d.Files, opts ...d.DFopt) (*DF, error) {
 
 // ***************** Methods *****************
 
-
 // AllRows iterates through the rows of the column.  It returns the row # and the values of f that row.
 func (f *DF) AllRows() iter.Seq2[int, []any] {
 	return func(yield func(int, []any) bool) {
@@ -274,6 +273,7 @@ func (f *DF) AllRows() iter.Seq2[int, []any] {
 		}
 	}
 }
+
 // AppendColumn masks the DFcore version so that we can handle appending scalars
 func (f *DF) AppendColumn(col d.Column, replace bool) error {
 	if e := checkType(col); e != nil {
@@ -976,8 +976,9 @@ func (f *DF) Swap(i, j int) {
 
 // Table produces a table based on cols. cols is a comma-separated list of fields.
 // The metrics within each group calculated are:
-//   n    - count of rows
-//   rate - fraction of original row count.
+//
+//	n    - count of rows
+//	rate - fraction of original row count.
 func (f *DF) Table(cols string) (d.DF, error) {
 	var (
 		dfOut d.DF
@@ -1178,47 +1179,70 @@ func rowCompare(rowLeft, rowRight []any, comp string) bool {
 		compFns []any
 		value   int
 	)
+
 	switch comp {
 	case "eq":
 		compFns = []any{eqFn[float64], eqFn[int], eqFn[string], eqFn[time.Time]}
 		value = 0
 	case "gt":
-		compFns = []any{ltFn[float64], ltFn[int], ltFn[string], ltFn[time.Time]}
+		compFns = []any{gtFn[float64], gtFn[int], gtFn[string], gtFn[time.Time]}
 		value = 1
 	case "lt":
-		compFns = []any{gtFn[float64], gtFn[int], gtFn[string], gtFn[time.Time]}
+		compFns = []any{ltFn[float64], ltFn[int], ltFn[string], ltFn[time.Time]}
 		value = 1
 	default:
 		panic(fmt.Errorf("unsupported comparison in rowCompare"))
 	}
 
+	// for rowLeft==rowRight, all elements must be equal
+	// fpr rowLeft < rowRight, the first element of rowLeft that is not equal to the rowRight
+	//   element must be less.
 	for ind := range len(rowLeft) {
+		// skip elements that are equal
+		// if comp=="eq", the comparison is false if eqFn returns 0
+		// if comp=="lt", the comparison is true if first non-equal element is lt
+		rt := rowRight[ind]
 		switch left := rowLeft[ind].(type) {
 		case float64:
+			if eqFn(left, rt.(float64)) == 1 {
+				continue
+			}
+
 			fn := compFns[0].(func(float64, float64) int)
-			if fn(left, rowRight[ind].(float64)) == value {
-				return false
+			if fn(left, rt.(float64)) == value {
+				return value == 1
 			}
 		case int:
+			if eqFn(left, rt.(int)) == 1 {
+				continue
+			}
+
 			fn := compFns[1].(func(int, int) int)
-			if fn(left, rowRight[ind].(int)) == value {
-				return false
+			if fn(left, rt.(int)) == value {
+				return value == 1
 			}
 		case string:
+			if eqFn(left, rt.(string)) == 1 {
+				continue
+			}
+
 			fn := compFns[2].(func(string, string) int)
-			if fn(left, rowRight[ind].(string)) == value {
-				return false
+			if fn(left, rt.(string)) == value {
+				return value == 1
 			}
 		case time.Time:
+			if eqFn(left, rt.(time.Time)) == 1 {
+				continue
+			}
+
 			fn := compFns[3].(func(time.Time, time.Time) int)
-			if fn(left, rowRight[ind].(time.Time)) == value {
-				return false
+			if fn(left, rt.(time.Time)) == value {
+				return value == 1
 			}
 		}
 	}
 
 	return true
-
 }
 
 // subset returns elements of row whose index is in cols, conceptually row[cols]
