@@ -1172,24 +1172,19 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	return grp, nil
 }
 
-// rowCompare compares the elements of rowLeft to rowRight.  It returns true if the test passes.
-// comp = "eq", "lt" or "gt"
+// rowCompare compares the elements of rowLeft to rowRight.  
+// The test returns the comparison of the first elements that are not equal.
 func rowCompare(rowLeft, rowRight []any, comp string) bool {
-	var (
+	var 
 		compFns []any
-		value   int
-	)
 
 	switch comp {
 	case "eq":
 		compFns = []any{eqFn[float64], eqFn[int], eqFn[string], eqFn[time.Time]}
-		value = 0
 	case "gt":
 		compFns = []any{gtFn[float64], gtFn[int], gtFn[string], gtFn[time.Time]}
-		value = 1
 	case "lt":
 		compFns = []any{ltFn[float64], ltFn[int], ltFn[string], ltFn[time.Time]}
-		value = 1
 	default:
 		panic(fmt.Errorf("unsupported comparison in rowCompare"))
 	}
@@ -1198,9 +1193,7 @@ func rowCompare(rowLeft, rowRight []any, comp string) bool {
 	// fpr rowLeft < rowRight, the first element of rowLeft that is not equal to the rowRight
 	//   element must be less.
 	for ind := range len(rowLeft) {
-		// skip elements that are equal
-		// if comp=="eq", the comparison is false if eqFn returns 0
-		// if comp=="lt", the comparison is true if first non-equal element is lt
+		// base comparison on first elements that aren't equal
 		rt := rowRight[ind]
 		switch left := rowLeft[ind].(type) {
 		case float64:
@@ -1209,36 +1202,32 @@ func rowCompare(rowLeft, rowRight []any, comp string) bool {
 			}
 
 			fn := compFns[0].(func(float64, float64) int)
-			if fn(left, rt.(float64)) == value {
-				return value == 1
-			}
+
+			return fn(left, rt.(float64)) == 1
 		case int:
 			if eqFn(left, rt.(int)) == 1 {
 				continue
 			}
 
 			fn := compFns[1].(func(int, int) int)
-			if fn(left, rt.(int)) == value {
-				return value == 1
-			}
+
+			return fn(left, rt.(int)) == 1
 		case string:
 			if eqFn(left, rt.(string)) == 1 {
 				continue
 			}
 
 			fn := compFns[2].(func(string, string) int)
-			if fn(left, rt.(string)) == value {
-				return value == 1
-			}
+
+			return fn(left, rt.(string)) == 1
 		case time.Time:
 			if eqFn(left, rt.(time.Time)) == 1 {
 				continue
 			}
 
 			fn := compFns[3].(func(time.Time, time.Time) int)
-			if fn(left, rt.(time.Time)) == value {
-				return value == 1
-			}
+
+			return fn(left, rt.(time.Time)) == 1
 		}
 	}
 

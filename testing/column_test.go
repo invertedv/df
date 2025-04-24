@@ -24,7 +24,7 @@ var (
 
 func TestStuff(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "click"){
+		if !strings.Contains(which, "click") {
 			continue
 		}
 		dfx := loadData(which)
@@ -130,7 +130,7 @@ func TestBernRandomGen(t *testing.T) {
 
 func TestExpRandomGen(t *testing.T) {
 	const (
-		nRep = 600000
+		nRep   = 600000
 		lambda = 3.0
 	)
 
@@ -581,6 +581,7 @@ func TestParser(t *testing.T) {
 // TODO: convert %s to #0, #1,... in functions.txt
 
 // TODO: can I combine a file reader and an sql save to read from csv & write directly to a table
+// TODO: should panics return a fmt.Errorf?
 /*
 
 date functions

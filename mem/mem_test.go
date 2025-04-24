@@ -606,7 +606,7 @@ func ExampleDF_Join_twoColumns() {
 	z := make([]float64, n2)
 	for ind := range n2 {
 		x[ind] = ind
-		s[ind] = []string{"a", "b", "c", "d"}[ind%4]
+		s[ind] = []string{"a", "b", "c", "d"}[ind%2]
 		z[ind] = -float64(ind) * 4
 	}
 
@@ -640,12 +640,14 @@ func ExampleDF_Join_twoColumns() {
 		panic(e4)
 	}
 	fmt.Println(dfJoin.Column("x").Data().AsAny())
+	fmt.Println(dfJoin.Column("s").Data().AsAny())
 	fmt.Println(dfJoin.Column("y").Data().AsAny())
 	fmt.Println(dfJoin.Column("z").Data().AsAny())
 	// Output:
-	// [0 1 2 3 4 5 6 7 8 9]
-	// [0 4 8 12 16 20 24 28 32 36]
-	// [-0 -4 -8 -12 -16 -20 -24 -28 -32 -36]
+	// [0 1 4 5 8 9]
+	// [a b a b a b]
+	// [0 4 16 20 32 36]
+	// [-0 -4 -16 -20 -32 -36]
 }
 
 func ExampleDF_Where() {
