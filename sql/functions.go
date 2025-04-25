@@ -166,6 +166,8 @@ func buildFn(name, sql string, inp [][]d.DataTypes, outp []d.DataTypes, scalar b
 	return fn
 }
 
+// handles "global" function in parser.  This is used to indicate that the argument is a global calculation.  For instance,
+// "mx := mean(global(x))" will populate every row of mx with the mean of the x based on all rows of x.
 func global(info bool, df d.DF, inputs ...d.Column) *d.FnReturn {
 	if info {
 		return &d.FnReturn{Name: "global", Inputs: [][]d.DataTypes{{d.DTunknown}}, Output: []d.DataTypes{d.DTunknown}, IsScalar: false}

@@ -14,7 +14,11 @@ import (
 
 // TODO: load & save for ch and pg
 
-// Create a dataframe from a ClickHouse table
+// Create a dataframe from a ClickHouse table.
+// On the loading side, there is no difference between Postgres and ClickHouse.
+// There is when creating tables,
+// see Dialect.Create and Dialect.Save.
+//
 // Note that this code is identical to the DBload example in df/mem.
 // The mem/df package loads the data into memory, the sql/df package does not.
 func ExampleDBload() {
@@ -54,7 +58,10 @@ func ExampleDBload() {
 	// Columns:  [k x]
 }
 
-// Create a dataframe from a Postgres table
+// Create a dataframe from a Postgres table.
+// On the loading side, there is no difference between Postgres and ClickHouse.
+// There is when creating tables,
+// see Dialect.Create and Dialect.Save.
 func ExampleDBload_postgress() {
 	const (
 		dbProvider = "postgres"
@@ -361,6 +368,180 @@ func ExampleDF_Interp() {
 	fmt.Println(dfOut.Column("yInterp").Data().AsAny())
 	// Output:
 	// [2 17 27.2]
+}
+
+func ExampleDF_Join() {
+	const (
+		nLeft=10
+		nRight = 15
+		dbProvider = "clickhouse"
+	)
+
+	// ClickHouse connection parameters.
+	user := os.Getenv("user")
+	host := os.Getenv("host")
+	password := os.Getenv("password")
+	db := newConnectCH(host, user, password)
+
+	// initialize dialect
+	var (
+		dlct *d.Dialect
+		e0   error
+	)
+	if dlct, e0 = d.NewDialect(dbProvider, db); e0 != nil {
+		panic(e0)
+	}
+
+	// create the dataframes to join
+	var (
+		dfLeft, dfRight d.DF
+		e1 error
+	)
+	if dfLeft, e1 = NewDFseq(dlct, nLeft); e1 != nil {
+		panic(e1)
+	}
+
+	if dfRight, e1 = NewDFseq(dlct, nRight); e1 != nil {
+		panic(e1)
+	}
+
+	// add a column
+	if e:=d.Parse(dfLeft, "x := exp(float(seq) / 100.0)"); e!=nil {
+		panic(e)
+	}
+
+	if e:=d.Parse(dfRight, "y := seq^2"); e!=nil {
+		panic(e)
+	}
+
+	// join
+	var(
+		dfJoin d.DF
+		e2 error
+	)
+	if dfJoin, e2 = dfLeft.Join(dfRight, "seq"); e2 != nil {
+		panic(e2)
+	}
+
+	fmt.Println(dfJoin.RowCount())
+	fmt.Println(dfJoin.Column("seq").Data().AsAny())
+	fmt.Println(dfJoin.Column("y").Data().AsAny())
+	// Output:
+	// 10
+	// [0 1 2 3 4 5 6 7 8 9]
+	// [0 1 4 9 16 25 36 49 64 81]
+}
+
+func ExampleDF_Join_twoColumns() {
+	const (
+		nLeft=10
+		nRight = 15
+		dbProvider = "clickhouse"
+	)
+
+	// ClickHouse connection parameters.
+	user := os.Getenv("user")
+	host := os.Getenv("host")
+	password := os.Getenv("password")
+	db := newConnectCH(host, user, password)
+
+	// initialize Dialect
+	var (
+		dlct *d.Dialect
+		e0   error
+	)
+	if dlct, e0 = d.NewDialect(dbProvider, db); e0 != nil {
+		panic(e0)
+	}
+
+	// Create the dataframes to join
+	var (
+		dfLeft, dfRight d.DF
+		e1 error
+	)
+	if dfLeft, e1 = NewDFseq(dlct, nLeft); e1 != nil {
+		panic(e1)
+	}
+
+	if dfRight, e1 = NewDFseq(dlct, nRight); e1 != nil {
+		panic(e1)
+	}
+
+	// second column to join on
+	if e:=d.Parse(dfLeft, "b := if(mod(seq,4) == 0, 'a', if(mod(seq,4)==1, 'b', if(mod(seq,4)==2, 'c', 'd')))"); e!=nil {
+		panic(e)
+	}
+
+	if e:=d.Parse(dfRight, "b := if(mod(seq,4) == 0, 'a', 'b')"); e!=nil {
+		panic(e)
+	}
+
+	// add another column to each
+	if e:=d.Parse(dfLeft, "x := exp(float(seq) / 100.0)"); e!=nil {
+		panic(e)
+	}
+
+	if e:=d.Parse(dfRight, "y := seq^2"); e!=nil {
+		panic(e)
+	}
+
+	// join
+	var(
+		dfJoin d.DF
+		e2 error
+	)
+	if dfJoin, e2 = dfLeft.Join(dfRight, "seq,b"); e2 != nil {
+		panic(e2)
+	}
+
+	fmt.Println(dfJoin.RowCount())
+	fmt.Println(dfJoin.Column("seq").Data().AsAny())
+	fmt.Println(dfJoin.Column("b").Data().AsAny())
+	fmt.Println(dfJoin.Column("y").Data().AsAny())
+	// Output:
+	// 6
+	// [0 1 4 5 8 9]
+	// [a b a b a b]
+	// [0 1 16 25 64 81]
+}
+
+func ExampleDF_Where() {
+	const (
+		n=10
+		dbProvider = "clickhouse"
+	)
+
+	// ClickHouse connection parameters.
+	user := os.Getenv("user")
+	host := os.Getenv("host")
+	password := os.Getenv("password")
+	db := newConnectCH(host, user, password)
+
+	var (
+		dlct *d.Dialect
+		e0   error
+	)
+	if dlct, e0 = d.NewDialect(dbProvider, db); e0 != nil {
+		panic(e0)
+	}
+
+	var (
+		df d.DF
+		e1 error
+	)
+	if df, e1 = NewDFseq(dlct, n); e1 != nil {
+		panic(e1)
+	}
+
+	if e:=d.Parse(df, "x := 4.0 * float(seq)"); e!=nil {
+		panic(e)
+	}
+
+	// subset to where x <= 12.0 or x > 32.0
+	dfOut, _ := df.Where("x <= 12.0 || x > 32.0")
+	fmt.Println(dfOut.Column("x").Data().AsAny())
+	// Output:
+	// [0 4 8 12 36]
 }
 
 // NewConnect established a new connection to ClickHouse.

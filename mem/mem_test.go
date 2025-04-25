@@ -564,98 +564,68 @@ func ExampleDF_Join() {
 	// [-0 -4 -8 -12 -16 -20 -24 -28 -32 -36]
 }
 
+// Join based on two columns.  Compare to the same example under df/sql. 
 func ExampleDF_Join_twoColumns() {
 	const (
-		n1 = 10
-		n2 = 15
+		nLeft      = 10
+		nRight     = 15
+		dbProvider = "clickhouse"
 	)
-
-	// create first dataframe.
-	x := make([]int, n1)
-	s := make([]string, n1)
-	y := make([]float64, n1)
-	for ind := range n1 {
-		x[ind] = ind
-		s[ind] = []string{"a", "b", "c", "d"}[ind%4]
-		y[ind] = float64(ind) * 4
-	}
 
 	var (
-		cx1, cy1, cs1 *Col
-		e0            error
+		dfLeft, dfRight d.DF
+		e1              error
 	)
-	if cx1, e0 = NewCol(x, d.ColName("x")); e0 != nil {
-		panic(e0)
-	}
-	if cs1, e0 = NewCol(s, d.ColName("s")); e0 != nil {
-		panic(e0)
-	}
-	if cy1, e0 = NewCol(y, d.ColName("y")); e0 != nil {
-		panic(e0)
-	}
-
-	var (
-		df1 *DF
-		e1  error
-	)
-	if df1, e1 = NewDFcol([]*Col{cx1, cy1, cs1}); e1 != nil {
+	if dfLeft, e1 = NewDFseq(nLeft); e1 != nil {
 		panic(e1)
 	}
 
-	// create second dataframe.
-	x = make([]int, n2)
-	s = make([]string, n2)
-	z := make([]float64, n2)
-	for ind := range n2 {
-		x[ind] = ind
-		s[ind] = []string{"a", "b", "c", "d"}[ind%2]
-		z[ind] = -float64(ind) * 4
+	if dfRight, e1 = NewDFseq(nRight); e1 != nil {
+		panic(e1)
 	}
 
-	var (
-		cx2, cz2, cs2 *Col
-		e2            error
-	)
-	if cx2, e2 = NewCol(x, d.ColName("x")); e2 != nil {
-		panic(e2)
-	}
-	if cs2, e2 = NewCol(s, d.ColName("s")); e2 != nil {
-		panic(e2)
-	}
-	if cz2, e2 = NewCol(z, d.ColName("z")); e2 != nil {
-		panic(e2)
+	// second column to join on
+	if e := d.Parse(dfLeft, "b := if(mod(seq,4) == 0, 'a', if(mod(seq,4)==1, 'b', if(mod(seq,4)==2, 'c', 'd')))"); e != nil {
+		panic(e)
 	}
 
-	var (
-		df2 *DF
-		e3  error
-	)
-	if df2, e3 = NewDFcol([]*Col{cx2, cs2, cz2}); e3 != nil {
-		panic(e3)
+	if e := d.Parse(dfRight, "b := if(mod(seq,4) == 0, 'a', 'b')"); e != nil {
+		panic(e)
+	}
+
+	// add another column to each
+	if e := d.Parse(dfLeft, "x := exp(float(seq) / 100.0)"); e != nil {
+		panic(e)
+	}
+
+	if e := d.Parse(dfRight, "y := seq^2"); e != nil {
+		panic(e)
 	}
 
 	var (
 		dfJoin d.DF
-		e4     error
+		e2     error
 	)
-	if dfJoin, e4 = df1.Join(df2, "x,s"); e4 != nil {
-		panic(e4)
+
+	if dfJoin, e2 = dfLeft.Join(dfRight, "seq,b"); e2 != nil {
+		panic(e2)
 	}
-	fmt.Println(dfJoin.Column("x").Data().AsAny())
-	fmt.Println(dfJoin.Column("s").Data().AsAny())
+
+	fmt.Println(dfJoin.RowCount())
+	fmt.Println(dfJoin.Column("seq").Data().AsAny())
+	fmt.Println(dfJoin.Column("b").Data().AsAny())
 	fmt.Println(dfJoin.Column("y").Data().AsAny())
-	fmt.Println(dfJoin.Column("z").Data().AsAny())
 	// Output:
+	// 6
 	// [0 1 4 5 8 9]
 	// [a b a b a b]
-	// [0 4 16 20 32 36]
-	// [-0 -4 -16 -20 -32 -36]
+	// [0 1 16 25 64 81]
 }
 
 func ExampleDF_Where() {
 	const n1 = 10
 
-	// create first dataframe.
+	// create dataframe.
 	x := make([]int, n1)
 	y := make([]float64, n1)
 	for ind := range n1 {
