@@ -1,0 +1,31 @@
+title: "df"
+description: "DataFrames"
+
+logo: "/docs/images/vee1c.png"
+
+remote_theme: pmarsceill/just-the-docs # Borrowing the theme from https://github.com/pmarsceill/just-the-docs
+github_repo_url: "https://github.com/invertedv/df"
+
+# Heading anchor links appear on hover over h1-h6 tags in page content
+# allowing users to deep link to a particular heading on a page. (true or false)
+heading_anchors: true
+
+# Activate a "Back to top" link
+back_to_top: true
+back_to_top_text: "Back to top"
+
+# Footer last edited timestamp
+last_edit_timestamp: true # show or hide edit time - page must have `last_modified_date` defined in the frontmatter
+last_edit_time_format: "%b %e %Y at %I:%M %p" # uses ruby's time format: https://ruby-doc.org/stdlib-2.7.0/libdoc/time/rdoc/Time.html
+
+aux_links:
+  "df on GitHub":
+    - "//github.com/invertedv/df"
+
+# A footer with "Edit this page on GitHub" link text
+gh_edit_link: false # show or hide edit this page link
+
+# Include plugins for relative links and a remote theme
+plugins:
+  - jekyll-relative-links
+  - jekyll-remote-theme

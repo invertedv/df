@@ -22,15 +22,19 @@ var (
 	parserTests string
 )
 
+// TODO: m := mean(global(x)) fails in mem and sql when outside of a .By
 func TestStuff(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		if !strings.Contains(which, "click") {
 			continue
 		}
 		dfx := loadData(which)
-		dfy, e := dfx.By("y", "m := mean(global(y))")
-		fmt.Println(dfy.Column("m").Data().AsAny())
-		fmt.Println(dfy.ColumnNames())
+		e := d.Parse(dfx, "m := mean(x)")
+		dfy, e1 := dfx.By("y", "rate := sum(x)/ sum(global(x))")
+		assert.Nil(t, e1)
+
+		fmt.Println(dfy.Column("y").Data().AsAny())
+		fmt.Println(dfy.Column("rate").Data().AsAny())
 		assert.Nil(t, e)
 		if dlct := dfx.Dialect(); dlct != nil {
 			_ = dlct.Close()
