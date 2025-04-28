@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// TODO: Move this somewhere else
+
 // The HasIter interface restricts to types that have an iterator through the rows of the data.
 // Save only requires an iterator to move through the rows
 type HasIter interface {

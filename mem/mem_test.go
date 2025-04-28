@@ -385,9 +385,12 @@ func ExampleDF_By_global() {
 		e2   error
 	)
 	// produce a summary
-	if dfBy, e2 = df.By("x", "cnt := count(x)", "prop := float(cnt)/float(count(global(x)))"); e2 != nil {
+	if dfBy, e2 = df.By("x", "cnt := count(x)","total := count(global(x))", "prop := 100.0 * float(cnt)/float(total)"); e2 != nil {
 		panic(e2)
 	}
+//	if dfBy, e2 = df.By("x", "cnt := count(x)", "prop := float(cnt)/float(count(global(x)))"); e2 != nil {
+//		panic(e2)
+//	}
 
 	if e := dfBy.Sort(true, "x"); e != nil {
 		panic(e)
@@ -395,12 +398,14 @@ func ExampleDF_By_global() {
 
 	fmt.Println(dfBy.Column("x").Data().AsAny())
 	fmt.Println(dfBy.Column("cnt").Data().AsAny())
+	fmt.Println(dfBy.Column("total").Data().AsAny())
 	fmt.Println(dfBy.Column("prop").Data().AsAny())
 	//
 	// Output:
 	// [0 1 2 3]
 	// [250 250 250 250]
-	// [0.25 0.25 0.25 0.25]
+	// [1000 1000 1000 1000]
+	// [25 25 25 25]
 }
 
 // Create a summary with no grouping column.

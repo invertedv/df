@@ -1,5 +1,7 @@
 package testing
 
+// TODO: test joining mem and sql
+
 import (
 	"fmt"
 	"os"
@@ -12,6 +14,8 @@ import (
 	s "github.com/invertedv/df/sql"
 	"github.com/stretchr/testify/assert"
 )
+
+// TODO: add toUpper and toLower string functions
 
 func TestNewDFmem(t *testing.T) {
 	const coln = "x"

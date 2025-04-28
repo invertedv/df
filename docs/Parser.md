@@ -15,7 +15,7 @@ nav_order: 2
 {:toc}
 ---
 
-The parser evaluates an expression that returns a Column.  The method signature is
+The parser evaluates an expression that returns a Column.  The signature of the Parse function is:
 
     Parse(df DF, equation string) error
 
@@ -32,6 +32,21 @@ with int() and float().  Any constant with a decimal point is treated as a float
 
 The parser supports these functions:
 
+**Arithmetic**
+
+    +, -, *, /, ^
+
+**Logic**
+
+    ==, !=, >, >=, <, <=
+    \|\|, &&, !
+
+- **if**. if(conditon expression, rTrue any, rFalse any). if condition evaluates true, return rTrue. rTrue and rFalse must have the same type. Example:
+
+      if(x > 4, 2, z)
+
+  if x > 4, returns 2, o.w. returns z.
+
 **Mathematical**
 
 - **abs**. abs(x float \| int) float \| int
@@ -42,24 +57,16 @@ The parser supports these functions:
 - **cos**. cos(x float) float.
 - **exp**. exp(x float) float.
 - **log**. log(x float) float.
-- **mod**. mod(a, b int) int.  a mod b.
-- **round**. round(a float) int.
-- **sign**. sign(a float \| int) int.  Returns -1, 0, or 1.
-- **sin**. sin(a float) float.
-- **sqrt**. sqrt(a float) float.
-- **tan**. tan(a float) float.
-
-**Random Numbers**
-
-- **randBern**. randBern() int. Bernouilli random numbers.
-- **randBin**. randBin() int. Binomial random numbers.  This is slow in Postgres.
-- **randExp**. randExp() float. Exponential(1) random numbers.
-- **randNorm**. randNorm() float. N(0,1) random numbers.
-- **randUnif**. randUnif() float. U(0,1) random numbers.
+- **mod**. mod(x, y int) int.  x % y.
+- **round**. round(x float) int.
+- **sign**. sign(x float \| int) int.  Returns -1, 0, or 1.
+- **sin**. sin(x float) float.
+- **sqrt**. sqrt(x float) float.
+- **tan**. tan(x float) float.
 
 **Dates**
 
-- **addMonths**. addMonths(dt date, mon int) int. Adds mon months to dt.
+- **addMonths**. addMonths(dt date, mon int) date. Adds mon months to dt.
 - **ageMonths**. ageMonths(bDay date, asOf date) int. Age in months from bDay to asOf.
 - **ageYears**. ageYears(bDay date, asOf date) int. Age in years from bDay to asOf.
 - **day**. day(dt date) int. Day of month.
@@ -83,21 +90,18 @@ The parser supports these functions:
 - **replace**. replace(a, b, c string) string. Replaces occurences of b with c.
 - **substr**. substr(a string, start, len int) string. Returns the substring of length len of a starting from the start position.
 
-**Arithmetic**
+**Random Numbers**
 
-+, -, *, /, ^
+Note, that there is not a way to set the seed for these.
 
-Logic
-  ==, !=, >, >=, <, <=
-  \|\|, &&, !
+- **randBern**. randBern() int. Bernouilli random numbers.
+- **randBin**. randBin() int. Binomial random numbers.  This is slow in Postgres.
+- **randExp**. randExp() float. Exponential(1) random numbers.
+- **randNorm**. randNorm() float. N(0,1) random numbers.
+- **randUnif**. randUnif() float. U(0,1) random numbers.
 
 **Other**
 
-- **if**. if(conditon expression, rTrue any, rFalse any). if condition evaluates true, return rTrue. rTrue and rFalse must have the same type. Example:
-
-      if(x > 4, 2, z)
-
-  if x > 4, returns 2, o.w. returns z.
 - **pi**. pi() float. Returns 3.141592654.
 - **probNorm**. probNorm(x float) float. Returns the CDF of the standard normal distribution evaluated at x.
 - **rowNumber**. rowNumber() int. Returns a column containing the number of each row, starting with 0.
@@ -121,7 +125,12 @@ repeated over the rows.  To produce a new dataframe with just one row, use by By
 
 **Column-wise Summaries**
 
-Column-wise summaries take a set of columns as inputs. They generate the summary row-by-row.
+Column-wise summaries take a set of columns as inputs. They generate the summary row-by-row.  For instance, if 
+a, b, and c are columns,
+
+    m := colMean(a,b,c)
+
+creates a column m whose i<sup>th</sup> element is the mean of the i<sup>th</sup> elements of a, b and c.
 
 - **colMax**. colMax(a ...any) any. Arguments are columns.
 - **colMean**. colMean(a ...float \| int) float. Arguments are columns.
@@ -131,7 +140,7 @@ Column-wise summaries take a set of columns as inputs. They generate the summary
 - **colSum**. colSum(a ...float \| int) float \| int. Arguments are columns.
 - **colVar**. colVar(a ...float \| int) float. Sample variance. Arguments are columns.
 
-**global function**
+**The global Function**
 
 The syntax is
 
@@ -146,6 +155,59 @@ calculates the sum of x within each level of "groupBy" divided by the sum of x a
 
 ### Adding Functions to the Parser
 
+A function to be run by the Parse must have type Fn:
+
+    type Fn func(info bool, df DF, inputs ...Column) *FnReturn
+
+The FnReturn struct is defined as:
+
+    type FnReturn struct {
+	    Value Column // return value of function
+        Name string // name of function
+	    // An element of Inputs is a slice of data types that the function takes as inputs.  For instance,
+	    //   {DTfloat,DTint}
+	    // means that the function takes 2 inputs - the first float, the second int.  And
+	    //   {DTfloat,DTint},{DTfloat,DTfloat}
+	    // means that the function takes 2 inputs - either float,int or float,float.
+	    Inputs [][]DataTypes
+
+	    // Output types corresponding to the input slices.
+	    Output []DataTypes
+
+	    Varying bool // if true, the number of inputs varies.
+
+	    IsScalar bool // if true, the function reduces a column to a scalar (e.g. sum, mean)
+
+	    Err error
+}
+
+If the function is run with info = true, then it should return these fields:
+
+- Name
+- Inputs
+- Outputs
+- Varying
+- IsScalar
+
+If the function is run with info = false, then it should actually run the function, returning the result
+as Value (or Err if there's an error).
+
+Once you have a function created -- call it newFn -- to make it available to Parse, use code something like this:
+
+    import m "github.com/invertedv/df/mem"
+
+    var (
+      dlct *Dialect
+      qry string
+    )
+
+    ... define dlct, qry
 
 
+    fns := append(m.StandardFunctions(), newFn)
+    df, e := m.DBload(qry, dlct, DFsetFns(fns))
+
+Now newFn is available to Parse when processing on df:
+
+    Parse(df, "newCol := newFn(<args>)")
 
