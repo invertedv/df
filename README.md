@@ -39,8 +39,9 @@ df/sql packages offer identical function sets.
 
 The package may be extended in several directions:
 - The user may add their own functions functions to the parser.
-- Additional database types can be added to the sql package.  This is done by adding support for the new DB type in the Dialect struct.
+- Additional database types can be added to the sql package. Currently, ClickHouse and Postgres are suppored.  Adding support for the new DB type requires modifying the Dialect struct.
 The sql package would not need to be modified.
+
 
 ### Package Details
 **df**

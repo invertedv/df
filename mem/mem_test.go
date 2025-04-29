@@ -4,13 +4,57 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	d "github.com/invertedv/df"
+	"github.com/stretchr/testify/assert"
 )
 
 // Examples
+
+func TestGet(t *testing.T) {
+	var (
+		f  *d.Files
+		e1 error
+	)
+	if f, e1 = d.NewFiles(d.FileStrict(true)); e1 != nil {
+		panic(e1)
+	}
+
+	tx := time.Now()
+	// this file is in df/data.
+	fileToOpen := os.Getenv("datapath") + "dfExample.csv"
+	if ex := f.Open(fileToOpen); ex != nil {
+		panic(ex)
+	}
+	fmt.Println("impute: ", time.Since(tx).Seconds())
+	tx = time.Now()
+	var (
+		df *DF
+		e2 error
+	)
+	if df, e2 = FileLoad(f); e2 != nil {
+		panic(e2)
+	}
+	fmt.Println("read: ", time.Since(tx).Seconds())
+
+	fmt.Println(df)
+
+	fmt.Println("# of Rows: ", df.RowCount())
+	fmt.Println("Columns: ", df.ColumnNames())
+	ct, _ := df.ColumnTypes()
+	fmt.Println("TYpes: ", ct)
+
+	dfSumm, e := df.By("age", "mb := mean(bal)", "pAge := 100.0 * sum(bal) / sum(global(bal))", "dq := 100.0 * sum(if(status=='D', bal, 0.0))/ sum(bal)")
+	assert.Nil(t, e)
+	e = dfSumm.Sort(true, "age")
+	assert.Nil(t, e)
+
+	fmt.Println(dfSumm)
+
+}
 
 // Load a CSV with a header.  Column types are determined by peeking at the data.
 func ExampleFileLoad() {
@@ -18,7 +62,7 @@ func ExampleFileLoad() {
 		f  *d.Files
 		e1 error
 	)
-	if f, e1 = d.NewFiles(); e1 != nil {
+	if f, e1 = d.NewFiles(d.FileStrict(true)); e1 != nil {
 		panic(e1)
 	}
 
@@ -385,12 +429,12 @@ func ExampleDF_By_global() {
 		e2   error
 	)
 	// produce a summary
-	if dfBy, e2 = df.By("x", "cnt := count(x)","total := count(global(x))", "prop := 100.0 * float(cnt)/float(total)"); e2 != nil {
+	if dfBy, e2 = df.By("x", "cnt := count(x)", "total := count(global(x))", "prop := 100.0 * float(cnt)/float(total)"); e2 != nil {
 		panic(e2)
 	}
-//	if dfBy, e2 = df.By("x", "cnt := count(x)", "prop := float(cnt)/float(count(global(x)))"); e2 != nil {
-//		panic(e2)
-//	}
+	//	if dfBy, e2 = df.By("x", "cnt := count(x)", "prop := float(cnt)/float(count(global(x)))"); e2 != nil {
+	//		panic(e2)
+	//	}
 
 	if e := dfBy.Sort(true, "x"); e != nil {
 		panic(e)
@@ -569,7 +613,7 @@ func ExampleDF_Join() {
 	// [-0 -4 -8 -12 -16 -20 -24 -28 -32 -36]
 }
 
-// Join based on two columns.  Compare to the same example under df/sql. 
+// Join based on two columns.  Compare to the same example under df/sql.
 func ExampleDF_Join_twoColumns() {
 	const (
 		nLeft      = 10

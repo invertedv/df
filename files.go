@@ -16,7 +16,7 @@ type Files struct {
 	eol         byte
 	sep         byte
 	stringDelim byte
-	dateFormat  string
+	dateFormat  string // For writing files. All formats in DateFormats will be tried when reading.
 	floatFormat string
 
 	header bool // file has header
@@ -329,9 +329,13 @@ func (f *Files) Open(fileName string) error {
 	}
 
 	if len(f.FieldTypes()) == 0 {
+		var keep bool
+		keep, f.strict = f.strict, false
+		f.strict = false
 		if e1 := f.detect(); e1 != nil {
 			return e1
 		}
+		f.strict = keep
 	}
 
 	if len(f.FieldTypes()) != len(f.FieldNames()) {
@@ -378,7 +382,7 @@ func (f *Files) read() (any, error) {
 		if x, ok = toDataType(v, dt); !ok {
 			switch f.strict {
 			case true:
-				return nil, fmt.Errorf("conversion failed in Files.Read")
+				return nil, fmt.Errorf("conversion failed in Files.Read,field: %s value: %v", f.fieldNames[ind], v)
 			case false:
 				x = f.defaultValue(f.FieldTypes()[ind])
 			}

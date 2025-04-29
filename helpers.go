@@ -12,7 +12,7 @@ import (
 
 // DateFormats is list of available formats for dates.
 var DateFormats = []string{"20060102", "1/2/2006", "01/02/2006", "Jan 2, 2006", "January 2, 2006",
-	"Jan 2 2006", "January 2 2006", "2006-01-02", "01/02/06"}
+	"Jan 2 2006", "January 2 2006", "2006-01-02", "01/02/06", "1/2/06"}
 
 func Has[C comparable](needle C, haystack []C) bool {
 	return Position(needle, haystack) >= 0
@@ -163,8 +163,6 @@ func WhatAmI(val any) DataTypes {
 		return DTunknown
 	}
 }
-
-
 
 // *********** Conversions ***********
 
