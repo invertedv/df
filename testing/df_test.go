@@ -131,9 +131,6 @@ func TestJoin_multiple(t *testing.T) {
 	)
 
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "mem") {
-			continue
-		}
 		dfx := loadData(which)
 		var (
 			df1 d.DF

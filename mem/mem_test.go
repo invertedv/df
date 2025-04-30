@@ -14,7 +14,7 @@ import (
 
 // Examples
 
-func TestGet(t *testing.T) {
+func TestStart1(t *testing.T) {
 	var (
 		f  *d.Files
 		e1 error
@@ -25,6 +25,8 @@ func TestGet(t *testing.T) {
 
 	// this file is in df/data.
 	fileToOpen := os.Getenv("datapath") + "dfExample.csv"
+	// Since we haven't told Open about field names and types, it will read the first row as the header
+	// and impute the data types.
 	if ex := f.Open(fileToOpen); ex != nil {
 		panic(ex)
 	}
@@ -40,41 +42,66 @@ func TestGet(t *testing.T) {
 	fmt.Println("A quick look at what we just read in:")
 	fmt.Println(df)
 
+	// using By with no grouping field produces a all-row summary
+	dfSummA, e3 := df.By("", "n := count(dt)", "avgBal := mean(bal)", "nMarch := sum(if(dt==date('20250301'),1,0))")
+	assert.Nil(t, e3)
+	fmt.Println("Summary:")
+	fmt.Println(dfSummA)
+
+	var (
+		dfSumm d.DF
+		e4     error
+	)
 	// This creates a new dataframe grouping on age. For each age & dt combination, three fields are calculated:
 	//  1. mb is the average balance within the age & dt.
 	//  2. pAge is the percentage of the total balance in the file that has this age & dt value.
 	//  3. dq is the percentage of balances at this age & dt that have status == 'D'.
-	dfSumm, e := df.By("age,dt", "mb := mean(bal)", "dq := 100.0 * sum(if(status=='D', bal, 0.0))/ sum(bal)", "balAgeDt := sum(bal)")
-	assert.Nil(t, e)
-	e = dfSumm.Sort(true, "age,dt")
-	assert.Nil(t, e)
+	if dfSumm, e4 = df.By("age,dt", "mb := mean(bal)", "dq := 100.0 * sum(if(status=='D', bal, 0.0))/ sum(bal)", "balAgeDt := sum(bal)"); e4 != nil {
+		panic(e4)
+	}
 
-	fmt.Println("A quick look at the summary")
-	fmt.Println(dfSumm)
+	if ex := dfSumm.Sort(true, "age,dt"); ex != nil {
+		panic(ex)
+	}
 
-	dfSummDt, e4 := df.By("dt", "balDt := sum(bal)")
-	assert.Nil(t, e4)
-	fmt.Println("By dt")
-	fmt.Println(dfSummDt)
+	// now calculate the total balance by date
+	var (
+		dfSummDt d.DF
+		e5       error
+	)
+	if dfSummDt, e5 = df.By("dt", "balDt := sum(bal)"); e5 != nil {
+		panic(e5)
+	}
 
-	dfJoin, e5 := dfSummDt.Join(dfSumm, "dt")
-	assert.Nil(t, e5)
+	var (
+		dfJoin d.DF
+		e6 error
+	)
+	if dfJoin, e6 = dfSummDt.Join(dfSumm, "dt"); e6!=nil {
+		panic(e6)
+	}
 
-	e6 := d.Parse(dfJoin, "pAge := 100.0 * balAgeDt / balDt")
-	assert.Nil(t, e6)
+	// pAge is the percentage of balances that are this age for this dt.
+	if ex := d.Parse(dfJoin, "pAge := 100.0 * balAgeDt / balDt"); ex!=nil {
+		panic(ex)
+	}
 
-	e7 := dfJoin.Sort(true, "age,dt")
-	assert.Nil(t, e7)
+	if ex := dfJoin.Sort(true, "age,dt"); ex!=nil{
+		panic(ex)
+	}
 
+	fmt.Println("Summary by age and date")
 	fmt.Println(dfJoin)
 
 	// OK, let's save this...
 	var (
 		fs *d.Files
-		e3 error
+		e7 error
 	)
-	if fs, e3 = d.NewFiles(d.FileDateFormat("20060102")); e3 != nil {
-		panic(e3)
+	// Create a new Files struct to do this.
+	// Write out the date, dt, in the format CCYYMMDD.
+	if fs, e7 = d.NewFiles(d.FileDateFormat("20060102")); e7 != nil {
+		panic(e7)
 	}
 
 	fileToSave := os.Getenv("datapath") + "dfSummary.csv"
