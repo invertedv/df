@@ -29,7 +29,10 @@ nav_order: 2
 2. Do something.
 3. Save the result.
 
+The approach taken here is to run through some examples so that you can get the hang of it.
+
 ### Processing a CSV.
+
 
 Suppose you have a CSV with these columns:
 
@@ -44,6 +47,9 @@ Our task:
 
 1. Read in the file.
 2. Generate some summary statistics.
-3. By age calculate (1) the average balance; (2) proportion of balances in status D
+3. By age and dt calculate: 
+   a. the average balance; 
+   b. the percentage of the total balance that falls in this age & dt
+   c. proportion of balances in status D in this age & dt.
   
 

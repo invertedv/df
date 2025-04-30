@@ -775,67 +775,82 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 	// pull first rows from both
 	leftRow := f.Row(indLeft)
 	rightRow := fRight.Row(indRight)
-	indLeft++
-	indRight++
 
 	// subset the rows to the values we're joining on
 	leftJoin := subset(leftRow, colsLeft)
 	rightJoin := subset(rightRow, colsRight)
 
-	// rh is the row number of the first row of right that matches the current row of left
-	rh := -1
+	nextLeft := f.Row(indLeft + 1)
+	nextJoinLeft := subset(nextLeft, colsLeft)
 
-	for len(leftRow) > 0 && len(rightRow) > 0 {
+	nextRight := fRight.Row(indRight + 1)
+	nextJoinRight := subset(nextRight, colsRight)
+	lh := -1  // start index of a block of left df that have same join keys
+
+	for {
 		if rowCompare(leftJoin, rightJoin, "eq") {
-			// append
-			if rh == -1 {
-				rh = indRight - 1
-			}
-
 			if e := appendRow(outCols, leftRow, rightRow, colsRight); e != nil {
 				return nil, e
 			}
 
-			// get next row from right side
-			if rightRow = fRight.Row(indRight); rightRow == nil {
+			// Is the next left the same on Join keys??
+			if nextJoinLeft != nil && rowCompare(leftJoin, nextJoinLeft, "eq") {
+				if lh == -1 {
+					lh = indLeft
+				}
+				indLeft++
+				leftRow = nextLeft
+				leftJoin = nextJoinLeft
+				nextLeft = f.Row(indLeft+1)
+				nextJoinLeft = subset(nextLeft, colsLeft)
 				continue
 			}
+
+			// Is the next right the same on Join keys?
+			if nextRight != nil && rowCompare(rightJoin, nextJoinRight, "eq") {
+				indRight++
+				rightRow = nextRight
+				rightJoin = nextJoinRight
+				nextRight = fRight.Row(indRight+1)
+				nextJoinRight = subset(nextRight, colsRight)
+
+				if lh >= 0 {
+					indLeft = lh
+					leftRow = nextLeft
+					leftJoin = nextJoinLeft
+					nextLeft = f.Row(indLeft+1)
+					nextJoinLeft = subset(nextLeft, colsLeft)
+				}
+
+				continue
+			}
+		}
+
+		// is left <= right on Join keys?
+		if !rowCompare(leftJoin, rightJoin, "gt") {
+			if nextLeft != nil {
+				indLeft++
+				leftRow = nextLeft
+				leftJoin = nextJoinLeft
+				nextLeft = f.Row(indLeft+1)
+				nextJoinLeft = subset(nextLeft, colsLeft)
+				lh = -1
+				continue
+			}
+		}
+
+		// ok, so left > right on Join keys
+		if nextRight != nil {
 			indRight++
-
-			rightJoin = subset(rightRow, colsRight)
+			rightRow = nextRight
+			rightJoin = nextJoinRight
+			nextRight = fRight.Row(indRight+1)
+			nextJoinRight = subset(nextRight, colsRight)
 			continue
+
 		}
 
-		// if left is less than right, increment left
-		if rowCompare(leftJoin, rightJoin, "lt") {
-			leftJoinHold := leftJoin
-			if leftRow = f.Row(indLeft); leftRow == nil {
-				continue
-			}
-
-			indLeft++
-			leftJoin = subset(leftRow, colsLeft)
-
-			// if the next row of left is identical on the join fields, then back up to start of matching df rows on right
-			if rh >= 0 && rowCompare(leftJoin, leftJoinHold, "eq") {
-				indRight = rh
-				rightRow = fRight.Row(indRight)
-				rightJoin = subset(rightRow, colsRight)
-			}
-
-			rh = -1
-			continue
-		}
-
-		// if left is greater than right, increment right
-		if rowCompare(leftJoin, rightJoin, "gt") {
-			if rightRow = fRight.Row(indRight); rightRow == nil {
-				continue
-			}
-
-			rightJoin = subset(rightRow, colsRight)
-			indRight++
-		}
+		break
 	}
 
 	outDF, e1 := NewDFcol(outCols, d.DFsetFns(f.Fns()))
@@ -1172,11 +1187,10 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 	return grp, nil
 }
 
-// rowCompare compares the elements of rowLeft to rowRight.  
+// rowCompare compares the elements of rowLeft to rowRight.
 // The test returns the comparison of the first elements that are not equal.
 func rowCompare(rowLeft, rowRight []any, comp string) bool {
-	var 
-		compFns []any
+	var compFns []any
 
 	switch comp {
 	case "eq":
@@ -1236,6 +1250,10 @@ func rowCompare(rowLeft, rowRight []any, comp string) bool {
 
 // subset returns elements of row whose index is in cols, conceptually row[cols]
 func subset(row []any, cols []int) []any {
+	if row == nil {
+		return nil
+	}
+
 	var out []any
 	for ind := range len(cols) {
 		out = append(out, row[cols[ind]])

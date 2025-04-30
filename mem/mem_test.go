@@ -19,18 +19,16 @@ func TestGet(t *testing.T) {
 		f  *d.Files
 		e1 error
 	)
-	if f, e1 = d.NewFiles(d.FileStrict(true)); e1 != nil {
+	if f, e1 = d.NewFiles(d.FileStrict(true), d.FilePeek(500)); e1 != nil {
 		panic(e1)
 	}
 
-	tx := time.Now()
 	// this file is in df/data.
 	fileToOpen := os.Getenv("datapath") + "dfExample.csv"
 	if ex := f.Open(fileToOpen); ex != nil {
 		panic(ex)
 	}
-	fmt.Println("impute: ", time.Since(tx).Seconds())
-	tx = time.Now()
+
 	var (
 		df *DF
 		e2 error
@@ -38,22 +36,53 @@ func TestGet(t *testing.T) {
 	if df, e2 = FileLoad(f); e2 != nil {
 		panic(e2)
 	}
-	fmt.Println("read: ", time.Since(tx).Seconds())
 
+	fmt.Println("A quick look at what we just read in:")
 	fmt.Println(df)
 
-	fmt.Println("# of Rows: ", df.RowCount())
-	fmt.Println("Columns: ", df.ColumnNames())
-	ct, _ := df.ColumnTypes()
-	fmt.Println("TYpes: ", ct)
-
-	dfSumm, e := df.By("age", "mb := mean(bal)", "pAge := 100.0 * sum(bal) / sum(global(bal))", "dq := 100.0 * sum(if(status=='D', bal, 0.0))/ sum(bal)")
+	// This creates a new dataframe grouping on age. For each age & dt combination, three fields are calculated:
+	//  1. mb is the average balance within the age & dt.
+	//  2. pAge is the percentage of the total balance in the file that has this age & dt value.
+	//  3. dq is the percentage of balances at this age & dt that have status == 'D'.
+	dfSumm, e := df.By("age,dt", "mb := mean(bal)", "dq := 100.0 * sum(if(status=='D', bal, 0.0))/ sum(bal)", "balAgeDt := sum(bal)")
 	assert.Nil(t, e)
-	e = dfSumm.Sort(true, "age")
+	e = dfSumm.Sort(true, "age,dt")
 	assert.Nil(t, e)
 
+	fmt.Println("A quick look at the summary")
 	fmt.Println(dfSumm)
 
+	dfSummDt, e4 := df.By("dt", "balDt := sum(bal)")
+	assert.Nil(t, e4)
+	fmt.Println("By dt")
+	fmt.Println(dfSummDt)
+
+	dfJoin, e5 := dfSumm.Join(dfSummDt, "dt")
+	assert.Nil(t, e5)
+
+	e6 := d.Parse(dfJoin, "pAge := 100.0 * balAgeDt / balDt")
+	assert.Nil(t, e6)
+
+	e7 := dfJoin.Sort(true, "age,dt")
+	assert.Nil(t, e7)
+
+	fmt.Println(dfJoin)
+
+	// OK, let's save this...
+	var (
+		fs *d.Files
+		e3 error
+	)
+	if fs, e3 = d.NewFiles(d.FileDateFormat("20060102")); e3 != nil {
+		panic(e3)
+	}
+
+	fileToSave := os.Getenv("datapath") + "dfSummary.csv"
+	if ex := fs.Save(fileToSave, dfJoin); ex != nil {
+		panic(ex)
+	}
+
+	fmt.Println(dfSumm.RowCount(), dfJoin.RowCount())
 }
 
 // Load a CSV with a header.  Column types are determined by peeking at the data.
