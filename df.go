@@ -402,3 +402,17 @@ func (df *DFcore) node(colName string) (node *columnList, err error) {
 
 	return nil, fmt.Errorf("column %s not found", colName)
 }
+
+// ******** Additional Interfaces ********
+
+// The HasIter interface restricts to types that have an iterator through the rows of the data.
+// Save only requires an iterator to move through the rows
+type HasIter interface {
+	AllRows() iter.Seq2[int, []any]
+}
+
+// type HasDQdlct restricts to types that can access a DB
+type HasMQdlct interface {
+	MakeQuery(colNames ...string) string
+	Dialect() *Dialect
+}

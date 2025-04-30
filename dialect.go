@@ -4,24 +4,10 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"iter"
 	"math"
 	"strings"
 	"time"
 )
-
-// TODO: Move this somewhere else
-
-// The HasIter interface restricts to types that have an iterator through the rows of the data.
-// Save only requires an iterator to move through the rows
-type HasIter interface {
-	AllRows() iter.Seq2[int, []any]
-}
-
-type HasMQdlct interface {
-	MakeQuery(colNames ...string) string
-	Dialect() *Dialect
-}
 
 var (
 	//go:embed skeletons/clickhouse/create.txt

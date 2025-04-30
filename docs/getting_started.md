@@ -25,13 +25,16 @@ nav_order: 2
 
 ### General Approach
 
-1. Create a dataframe.
-2. Do something.
+We'll walk through an example that:
+
+1. Creates a dataframe.
+2. Creates a summary, calculating values.
+3. Create a derivative dataframe.
 3. Save the result.
 
-The approach taken here is to run through some examples so that you can get the hang of it.
+This should provide a general orientation to how df works. The Examples section has examples of specifc methods.
 
-### Processing a CSV.
+### Here We Go
 
 
 Suppose you have a CSV with these columns:
@@ -238,3 +241,5 @@ Now let's save the summary out to a CSV.
 	}
 
 And we're done!
+
+The Examples section will show you how to read/save to a DB table.

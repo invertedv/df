@@ -285,8 +285,6 @@ func (f *Files) Load() ([]*Vector, error) {
 	return memData, nil
 }
 
-// TODO: what happens if I write to this?
-
 // Open opens fileName for reading/writing.  It examines the file for consistency with the parameters (e.g has header).
 // If needed, it determines and sets field names and types.
 func (f *Files) Open(fileName string) error {
