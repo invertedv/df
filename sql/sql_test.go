@@ -12,8 +12,6 @@ import (
 	_ "github.com/jackc/pgx/stdlib"
 )
 
-// TODO: load & save for ch and pg
-
 // Create a dataframe from a ClickHouse table.
 // On the loading side, there is no difference between Postgres and ClickHouse.
 // There is when creating tables,

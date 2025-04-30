@@ -216,6 +216,12 @@ The code below joins df1 and df2 on "x".  Th
 If df1 and df2 have columns with the same name (other than the join columns), 
 the overlapping names in df2 have "DUP" appending to their name.
 
+**Note:**
+
+- a df/mem dataframe can be joined to df/sql dataframe, and coversely!
+- if the result is a df/sql dataframe, the df/mem dataframe is saved as a temporary table
+
+
 ### Example 9: The Where Method.
 
 The signature of the Where method is:

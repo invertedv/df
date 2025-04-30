@@ -49,7 +49,6 @@ func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 			}
 		}
 
-		// TODO: create a global signature check
 		var i []d.DataTypes
 		for ind := range len(inp) {
 			i = append(i, inp[ind][0])
@@ -61,6 +60,7 @@ func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 		if ind < 0 {
 			return &d.FnReturn{Err: fmt.Errorf("incompatable type to function %s", fnName)}
 		}
+
 		outType := outp[ind]
 
 		var sqlOut string
@@ -81,7 +81,6 @@ func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 			}
 		default:
 			sqlOut = fmt.Sprintf("%s(%s)", sql, strings.Join(sqls, ","))
-
 		}
 
 		// we may need to explicitly cast float fields as float

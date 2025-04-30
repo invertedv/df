@@ -1,3 +1,5 @@
+lower('AbCd') | 0 | string | abcd
+upper('AbCd') | 0 | string | ABCD
 probNorm(1.96) | 0 | float | 0.975
 probNorm(2.58) | 0 | float | 0.995
 position(z,'12') | 0 | int | 4

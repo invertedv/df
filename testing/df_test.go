@@ -1,7 +1,5 @@
 package testing
 
-// TODO: test joining mem and sql
-
 import (
 	"fmt"
 	"os"
@@ -14,8 +12,6 @@ import (
 	s "github.com/invertedv/df/sql"
 	"github.com/stretchr/testify/assert"
 )
-
-// TODO: add toUpper and toLower string functions
 
 func TestNewDFmem(t *testing.T) {
 	const coln = "x"
@@ -121,6 +117,16 @@ func TestJoin(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestJoin_sqlmem(t *testing.T) {
+	dfm := loadData("mem,d1").(*m.DF)
+	dfs := loadData("clickhouse,d1").(*s.DF)
+
+	dfJ, e := dfs.Join(dfm, "k")
+	assert.Nil(t, e)
+
+	fmt.Println(dfJ)
 }
 
 func TestJoin_multiple(t *testing.T) {
@@ -242,10 +248,8 @@ func TestInterp(t *testing.T) {
 			}
 		}
 	}
-
 }
 
-// TODO: add clickhouse..?
 func TestNull(t *testing.T) {
 	defInt := 100
 	dfy := loadFile("d2.csv", d.FileDefaultInt(defInt))

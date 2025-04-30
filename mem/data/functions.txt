@@ -26,6 +26,8 @@ dayOfWeek:github.com/invertedv/df/mem.dayOfWeekFn:{date}:string:C:N
 makeDate:github.com/invertedv/df/mem.makeDateFn[...]:{string,string,string},{int,int,int}:date,date:C:N
 replace:github.com/invertedv/df/mem.replaceFn:{string,string,string}:string:C:N
 position:github.com/invertedv/df/mem.positionFn:{string,string}:int:C:N
+upper:strings.ToUpper:{string}:string:C:N
+lower:strings.ToLower:{string}:string:C:N
 
 randUnif:github.com/invertedv/df/mem.randUnifFn[...]:{float},{int}:float,float:C:N
 randNorm:github.com/invertedv/df/mem.randNormFn[...]:{float},{int}:float,float:C:N

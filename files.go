@@ -456,19 +456,35 @@ func (f *Files) Create(fileName string) error {
 	return e
 }
 
-// TODO: change df to HasIter
 // Save saves df out to fileName.  The file must be created first.
-func (f *Files) Save(fileName string, df DF) error {
+func (f *Files) Save(fileName string, df HasIter) error {
 	defer func() { _ = f.Close() }()
-	f.fieldNames = df.ColumnNames()
-	f.fieldTypes, _ = df.ColumnTypes()
+
+	var (
+		fieldNames []string
+		fieldTypes []DataTypes
+	)
+	switch val := df.(type) {
+	case DF:
+		fieldNames = val.ColumnNames()
+		fieldTypes, _ = val.ColumnTypes()
+	case Column:
+		fieldNames = []string{"Column"}
+		fieldTypes = []DataTypes{val.DataType()}
+	case *Vector:
+		fieldNames = []string{"Column"}
+		fieldTypes = []DataTypes{val.VectorType()}
+	}
+
+	f.fieldNames = fieldNames
+	f.fieldTypes = fieldTypes
 
 	var e error
 	if f.file, e = os.Create(fileName); e != nil {
 		return e
 	}
 
-	if ex := f.writeHeader(df.ColumnNames()); ex != nil {
+	if ex := f.writeHeader(fieldNames); ex != nil {
 		return ex
 	}
 

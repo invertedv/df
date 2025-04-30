@@ -1,8 +1,7 @@
 title: "df"
 description: "DataFrames"
 
-logo: "/docs/images/vee1c.png"
-
+ 
 remote_theme: pmarsceill/just-the-docs # Borrowing the theme from https://github.com/pmarsceill/just-the-docs
 github_repo_url: "https://github.com/invertedv/df"
 

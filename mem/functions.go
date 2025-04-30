@@ -75,7 +75,7 @@ func rawFuncs() []any {
 		countFn[float64], countFn[int], countFn[string], countFn[time.Time],
 		substrFn, pi, concatFn, ageMonthsFn, ageYearsFn,
 		toLastDayFn, addMonthsFn, yearFn, monthFn, dayFn, dayOfWeekFn, makeDateFn[int], makeDateFn[string],
-		replaceFn, positionFn,
+		replaceFn, positionFn, strings.ToUpper, strings.ToLower,
 		randUnifFn[float64], randUnifFn[int], randNormFn[float64], randNormFn[int], randBinFn[float64], randBinFn[int],
 		randBern[float64], randBern[int], randExp[float64], randExp[int],
 		probNormFn,
@@ -162,7 +162,6 @@ func buildFn(spec *d.FnSpec) d.Fn {
 		n := df.RowCount()
 		// if there are inputs to the function, then we need to pick the correct one to run.
 		if spec.Inputs != nil {
-			//			n = loopDim(inputs...)  // TODO: check in on this...
 			ind = signature(spec.Inputs, inputs)
 			if ind < 0 {
 				panic("no signature")

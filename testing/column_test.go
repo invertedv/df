@@ -22,13 +22,13 @@ var (
 	parserTests string
 )
 
-// TODO: m := mean(global(x)) fails in mem and sql when outside of a .By
 func TestStuff(t *testing.T) {
 	for _, which := range pkgs("d1") {
-		if !strings.Contains(which, "click") {
+		if !strings.Contains(which, "mem") {
 			continue
 		}
 		dfx := loadData(which)
+
 		e := d.Parse(dfx, "m := mean(x)")
 		dfy, e1 := dfx.By("y", "rate := sum(x)/ sum(global(x))")
 		assert.Nil(t, e1)
@@ -557,24 +557,6 @@ func TestParser(t *testing.T) {
 	}
 }
 
-//			{"quantile(y,1.0)", 0, 6.0},
-//			{"quantile(y,0.0)", 0, -5.0},
-//			{"max(dt)", 0, time.Date(2023, 9, 15, 0, 0, 0, 0, time.UTC)},
-//			{"min(dt)", 0, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
-//			{"min(z)", 0, "20000101"},
-//			{"max(z)", 0, "20230915"},
-//			{"min(y)", 0, -5},
-//			{"max(y)", 0, 6},
-//			{"min(x)", 0, -2.0},
-//			{"max(x)", 0, 3.5},
-//			{"quantile(y,0.5)", 0, 1.0},
-//			{"quantile(x,0.5)", 0, 1.0},
-//			{"median(y)", 0, 1.0},
-//			{"median(x)", 0, 1.0},
-//			{"sdev(y)", 0, 4.0},
-//			{"sdev(x)", 0, 2.043},
-//			{"var(y)", 0, 16.0},
-//			{"var(x)", 0, 4.175},
 
 // TODO: check for referencing elements directly not through method
 // TODO: revisit sourceDF relative to mem/By
@@ -588,49 +570,12 @@ func TestParser(t *testing.T) {
 // TODO: should panics return a fmt.Errorf?
 /*
 
-date functions
-  ageDays(begDate, endDate)
-XX  ageMonths(begDate, endDate)
-XX  ageYears(begDate, endDate)
-  addDays(begDate, days)
-XX  addMonths(begDate, months)
-X  addYears(begDate, years)
-XX  toEndOfMonth()
-  today()
-XX  month()
-XX  day()
-XX  year()
-XX  dayOfWeek()
-XX  makeDate()
-
-string functions:
-XX  position
-XX  replace
-XX  substring
 
 
 math:
   isNan
   isInf
   isNull
-
-statistical
-  pdf,cdf
-  empirical quantile, cdf?
-  random numbers
-     uniform
-	 N(0,1)
-	 Exp(1)
-	 Binomial(n,p)
-
-vector
-  diff
-  lag
-  lead
-
-OneHot(col,baseName) - add to df
-Hat(col,knots,baseName) - add to df
-
 
 */
 

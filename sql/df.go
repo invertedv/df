@@ -469,7 +469,6 @@ func (f *DF) DropColumns(colNames ...string) error {
 	return f.Core().DropColumns(colNames...)
 }
 
-// TODO: add to mem?
 func (f *DF) GroupBy() string {
 	return f.groupBy
 }

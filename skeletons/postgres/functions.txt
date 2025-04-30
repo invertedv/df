@@ -26,6 +26,8 @@ dayOfWeek:REPLACE(to_char(#0, 'Day'), ' ', ''):{date}:string:C:N
 makeDate:make_date(cast(#0 AS integer),cast(#1 AS integer), cast(#2 AS integer)):{string,string,string},{int,int,int}:date,date:C:N
 replace:replace(#0,#1,#2):{string,string,string}:string:C:N
 position:strpos(#0,#1)-1:{string,string}:int:C:N
+upper:upper(#0):{string}:string:C:N
+lower:lower(#0):{string}:string:C:N
 randUnif:random()+#0-#0:{float},{int}:float,float:C:N
 randNorm:random_normal()+#0-#0:{float},{int}:float,float:C:N
 randBin:(SELECT sum(ab) FROM unnest((SELECT array_agg(cast(r+#2-#2<#1 AS integer)) FROM (select random() AS r, generate_series(1,#0) as indx))) as ab):{int,float,float},{int,float,int}:float,float:C:N
