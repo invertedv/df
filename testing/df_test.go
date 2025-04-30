@@ -123,6 +123,61 @@ func TestJoin(t *testing.T) {
 	}
 }
 
+func TestJoin_multiple(t *testing.T) {
+	const (
+		n       = 100
+		gLevel1 = 2
+		gLevel2 = 13
+	)
+
+	for _, which := range pkgs("d1") {
+		if !strings.Contains(which, "mem") {
+			continue
+		}
+		dfx := loadData(which)
+		var (
+			df1 d.DF
+			e   error
+		)
+		if strings.Contains(which, "mem") {
+			df1, e = m.NewDFseq(n)
+		} else {
+			df1, e = s.NewDFseq(dfx.Dialect(), n)
+		}
+
+		assert.Nil(t, e)
+		df2 := df1.Copy()
+
+		e1 := d.Parse(df1, fmt.Sprintf("grp := mod(rowNumber(), %d)", gLevel1))
+		assert.Nil(t, e1)
+
+		e2 := d.Parse(df2, fmt.Sprintf("grp := mod(rowNumber(), %d)", gLevel2))
+		assert.Nil(t, e2)
+
+		dfJ, e3 := df1.Join(df2, "grp")
+		assert.Nil(t, e3)
+		expRow := 0
+		for g := range min(gLevel1, gLevel2) {
+			num1 := n / gLevel1
+			if g < n%gLevel1 {
+				num1++
+			}
+			num2 := n / gLevel2
+			if g < n%gLevel2 {
+				num2++
+			}
+
+			expRow += num1 * num2
+
+		}
+		assert.Equal(t, expRow, dfJ.RowCount())
+
+		dfJ, e3 = df2.Join(df1, "grp")
+		assert.Nil(t, e3)
+		assert.Equal(t, expRow, dfJ.RowCount())
+	}
+}
+
 func TestInterp(t *testing.T) {
 	for _, which := range pkgs("d1") {
 		for choice := range 5 {

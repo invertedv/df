@@ -816,8 +816,9 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 
 				if lh >= 0 {
 					indLeft = lh
-					leftRow = nextLeft
-					leftJoin = nextJoinLeft
+					lh = -1
+					leftRow = f.Row(indLeft)
+					leftJoin = subset(leftRow, colsLeft)
 					nextLeft = f.Row(indLeft+1)
 					nextJoinLeft = subset(nextLeft, colsLeft)
 				}

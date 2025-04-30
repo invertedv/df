@@ -134,7 +134,7 @@ func TestBernRandomGen(t *testing.T) {
 
 func TestExpRandomGen(t *testing.T) {
 	const (
-		nRep   = 600000
+		nRep   = 800000
 		lambda = 3.0
 	)
 

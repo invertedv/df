@@ -57,7 +57,7 @@ func TestGet(t *testing.T) {
 	fmt.Println("By dt")
 	fmt.Println(dfSummDt)
 
-	dfJoin, e5 := dfSumm.Join(dfSummDt, "dt")
+	dfJoin, e5 := dfSummDt.Join(dfSumm, "dt")
 	assert.Nil(t, e5)
 
 	e6 := d.Parse(dfJoin, "pAge := 100.0 * balAgeDt / balDt")
