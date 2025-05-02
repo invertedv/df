@@ -116,7 +116,7 @@ func varying(spec *d.FnSpec) d.Fn {
 		if spec.Inputs != nil {
 			ind = signature(spec.Inputs, inputs)
 			if ind < 0 {
-				panic("no signature")
+				panic(fmt.Errorf("no signature"))
 			}
 
 			fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])
@@ -164,7 +164,7 @@ func buildFn(spec *d.FnSpec) d.Fn {
 		if spec.Inputs != nil {
 			ind = signature(spec.Inputs, inputs)
 			if ind < 0 {
-				panic("no signature")
+				panic(fmt.Errorf("no signature"))
 			}
 
 			fnUse = fnToUse(spec.Fns, spec.Inputs[ind], spec.Outputs[ind])

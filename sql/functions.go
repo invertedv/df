@@ -335,7 +335,7 @@ func toCol(df d.DF, x any) *Col {
 		return c
 	}
 
-	panic("can't make column")
+	panic(fmt.Errorf("can't make column"))
 }
 
 func getSQL(df d.DF, inputs ...d.Column) []string {

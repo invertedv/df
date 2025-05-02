@@ -19,12 +19,14 @@ func TestStart1(t *testing.T) {
 		f  *d.Files
 		e1 error
 	)
+	// FilesStrict(true) instructs *Files to return an error if any value can't be coerced into the correct data type.
+	// FilePeek(500) instructs *Files to examine the first 500 rows to determine data types.
 	if f, e1 = d.NewFiles(d.FileStrict(true), d.FilePeek(500)); e1 != nil {
 		panic(e1)
 	}
 
 	// this file is in df/data.
-	fileToOpen := os.Getenv("datapath") + "dfExample.csv"
+	fileToOpen := os.Getenv("datapath") + "getting_started.csv"
 	// Since we haven't told Open about field names and types, it will read the first row as the header
 	// and impute the data types.
 	if ex := f.Open(fileToOpen); ex != nil {
@@ -53,9 +55,9 @@ func TestStart1(t *testing.T) {
 		e4     error
 	)
 	// This creates a new dataframe grouping on age. For each age & dt combination, three fields are calculated:
-	//  1. mb is the average balance within the age & dt.
-	//  2. pAge is the percentage of the total balance in the file that has this age & dt value.
-	//  3. dq is the percentage of balances at this age & dt that have status == 'D'.
+	//  - mb is the average balance within the age & dt.
+	//  - dq is the percentage of balances at this age & dt that have status == 'D'.
+	//  - balAgeDt is the total balance at each age and dt value.
 	if dfSumm, e4 = df.By("age,dt", "mb := mean(bal)", "dq := 100.0 * sum(if(status=='D', bal, 0.0))/ sum(bal)", "balAgeDt := sum(bal)"); e4 != nil {
 		panic(e4)
 	}
@@ -75,18 +77,21 @@ func TestStart1(t *testing.T) {
 
 	var (
 		dfJoin d.DF
-		e6 error
+		e6     error
 	)
-	if dfJoin, e6 = dfSummDt.Join(dfSumm, "dt"); e6!=nil {
+	// Now join the two by dt.
+	// Now join the two by dt.  We could also do
+	//    dfSumm.Join(dfSummdt, "dt")
+	if dfJoin, e6 = dfSummDt.Join(dfSumm, "dt"); e6 != nil {
 		panic(e6)
 	}
 
-	// pAge is the percentage of balances that are this age for this dt.
-	if ex := d.Parse(dfJoin, "pAge := 100.0 * balAgeDt / balDt"); ex!=nil {
+	// pAge is the percentage of balances that month that are this age.
+	if ex := d.Parse(dfJoin, "pAge := 100.0 * balAgeDt / balDt"); ex != nil {
 		panic(ex)
 	}
 
-	if ex := dfJoin.Sort(true, "age,dt"); ex!=nil{
+	if ex := dfJoin.Sort(true, "age,dt"); ex != nil {
 		panic(ex)
 	}
 
@@ -104,7 +109,7 @@ func TestStart1(t *testing.T) {
 		panic(e7)
 	}
 
-	fileToSave := os.Getenv("datapath") + "dfSummary.csv"
+	fileToSave := os.Getenv("datapath") + "getting_started_summary.csv"
 	if ex := fs.Save(fileToSave, dfJoin); ex != nil {
 		panic(ex)
 	}

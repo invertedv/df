@@ -26,7 +26,7 @@ The Files struct handles all file IO.
 - Files works with delimited files and fixed record-length files.
 - The user can specify field types or files can impute them.
 - The user can replace missing values with defaults or generate an error.
-- Is flexible about field separators, date formats, string delimiters and EOL character.
+- Files is flexible about field separators, date formats, string delimiters and the EOL character.
 
 The code below defines a file and reads it into an *m.DF.
 
@@ -45,9 +45,9 @@ The code below defines a file and reads it into an *m.DF.
 	    	panic(e1)
 	    }
 
-    	if ex := f.Open("YourFile"); ex != nil {
-	    	panic(ex)
-	    }
+        if ex := f.Open("YourFile"); ex != nil {
+        	panic(ex)
+        }
 
         // Load mem *DF dataframe from file
 	    var (
@@ -75,15 +75,14 @@ The code below defines a file and reads it into an *m.DF.
 	    )
 
         // db is a connector to a ClickHouse DB
-    	if dialect, e = d.NewDialect("clickhouse", db); e != nil {
-	    	panic(e)
-	    }
+        if dialect, e = d.NewDialect("clickhouse", db); e != nil {
+            panic(e)
+        }
 
         var (
             df d.DF
             e1 error
 	    )
-
         // df is a *s.DF.  Note that the data is not in memory.
     	if df, e1 = s.DBload(table, dialect); e1 != nil {
             panic(e1)
@@ -107,15 +106,14 @@ package rather than df/sql.
 	    )
 
         // db is a connector to a ClickHouse DB
-    	if dialect, e = d.NewDialect("clickhouse", db); e != nil {
-	    	panic(e)
-	    }
+        if dialect, e = d.NewDialect("clickhouse", db); e != nil {
+            panic(e)
+        }
 
         var (
             df d.DF
             e1 error
 	    )
-
         // df is a *m.DF.  Note that the data is in memory.
         if df, e1 = m.DBload(table, dialect); e1 != nil {
             panic(e1)
@@ -133,7 +131,7 @@ Suppose we have a dataframe, df, and we wish to save it as a Postgres table.
         table         // name of table
     )
     
-	opt1 := "IndexName:i111"
+	opt1 := "IndexName:myIndex"
 	opt2 := fmt.Sprintf("TableSpace:%s", os.Getenv("tablespace"))
 	opt3 := fmt.Sprintf("Owner:%s", os.Getenv("user"))
 	opts = []string{opt1, opt2, opt3}
@@ -168,13 +166,13 @@ Suppose we have a dataframe, df, and we wish to save it as a temporary table.
 
 ### Example 7: The By Method
 
-The By method creates a new DF by aggregating along the values of column(s) and running
-a user-defined set of functions. The SQL analogue is "GROUP BY". The signature for the By method is:
+The By method creates a new DF by grouping along the values of column(s) and running
+a user-specified set of functions within each group. The SQL analogue is "GROUP BY". The signature for the By method is:
 
 	By(groupBy string, fns ...string) (DF, error)
 
-The groupBy string is a comma-separated list of columns on which to group.  The fns variadic are functions
-to pass to Parse, where the calculations are performed on each group.  The code below calculates the mean and
+The groupBy string is a comma-separated list of column names on which to group.  The fns variadic are functions
+to pass to Parse, where the calculations are performed within each group.  The code below calculates the mean and
 sum of for each value of x. The output df, dfBy, has 3 columns: x, my and sy.
 
 	dfBy, e := df.By("x", "my := mean(y)", "sy := sum(y)")
@@ -219,7 +217,7 @@ the overlapping names in df2 have "DUP" appending to their name.
 **Note:**
 
 - a df/mem dataframe can be joined to df/sql dataframe, and coversely!
-- if the result is a df/sql dataframe, the df/mem dataframe is saved as a temporary table
+- if the result is a df/sql dataframe, the df/mem dataframe is saved as a temporary table.
 
 
 ### Example 9: The Where Method.
@@ -232,7 +230,7 @@ The condition argument is a logical expression that can be evaluated by Parse. F
 
     dfSubset, e := df.Where(x > 3.0 || a == 'yes')
 
-subsets df to rows where x > 3.0 or a == 'yes'.
+subsets df to rows where x is greater than 3.0 or a is 'yes'.
 
 ### Example 10: The Parse Function.
 

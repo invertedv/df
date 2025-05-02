@@ -28,36 +28,36 @@ nav_order: 2
 We'll walk through an example that:
 
 1. Creates a dataframe.
-2. Creates a summary, calculating values.
+2. Finds some summary statistics.
 3. Create a derivative dataframe.
-3. Save the result.
+3. Saves the result.
 
 This should provide a general orientation to how df works. The Examples section has examples of specifc methods.
 
-### Here We Go
+### Here We Go!
 
 
 Suppose you have a CSV with these columns:
 
-- dt. date. Type: date, date format: mm/dd/ccyy.
+- dt. date. Type: date.
 - status. Status at dt. Type: string. Values: C, D.
 - age. Age (in months) at dt. Type: integer.
 - bal. Balance at dt. Type: float.
 
-The file we'll use, accts.csv, is in the data directory of the package.
+The file we'll use, getting_started.csv, is in the data directory of the df package.
 
 Our task:
 
 1. Read in the file.
 2. Generate a few summary statistics:
-   a. Number of accounts
-   b. Average balance
-   c. Number of accounts in March
+	- Number of accounts
+	- Average balance
+	- Number of accounts in March
 3. By age and dt calculate: 
-   a. the average balance
-   b. the percentage of balances that are in status D
-   c. the percentage of balances that are this age at this dt
-   d. save the output to a CSV
+   - the average balance
+   - the percentage of balances that are in status D
+   - the percentage of balances that are this age at this dt
+4. Save the output to a CSV
   
 This code is implemented in the function TestStart1 in mem/mem_test.go.
 The setup code looks like:
@@ -67,18 +67,20 @@ The setup code looks like:
         m "github.com/invertedv/df/mem"
     )
 
-To read in the file, we use:
+This code reads the file into df. 
 
 	var (
 		f  *d.Files
 		e1 error
 	)
+	// FilesStrict(true) instructs *Files to return an error if any value can't be coerced into the correct data type.
+	// FilePeek(500) instructs *Files to examine the first 500 rows to determine data types.
 	if f, e1 = d.NewFiles(d.FileStrict(true), d.FilePeek(500)); e1 != nil {
 		panic(e1)
 	}
 
 	// this file is in df/data.
-	fileToOpen := os.Getenv("datapath") + "dfExample.csv"
+	fileToOpen := os.Getenv("datapath") + "getting_started.csv"
 	// Since we haven't told Open about field names and types, it will read the first row as the header
 	// and impute the data types.
 	if ex := f.Open(fileToOpen); ex != nil {
@@ -140,17 +142,17 @@ The summary output is:
     length 1           length 1              length 1
     2000               499.501               1000
 
-To produce the next set of values, we must group by age and dt and--to calculate item 3c--also just by dt (to get the monthly
-total balance) to calculate item 3c.
+To produce the next set of values in item 3, we must group by age and dt. To calculate the last value of item 3, we must also group by dt only. Grouping by dt
+will give us the total balance by month.
 
 	var (
 		dfSumm d.DF
 		e4     error
 	)
 	// This creates a new dataframe grouping on age. For each age & dt combination, three fields are calculated:
-	//  1. mb is the average balance within the age & dt.
-	//  2. pAge is the percentage of the total balance in the file that has this age & dt value.
-	//  3. dq is the percentage of balances at this age & dt that have status == 'D'.
+	//  - mb is the average balance within the age & dt.
+	//  - dq is the percentage of balances at this age & dt that have status == 'D'.
+	//  - balAgeDt is the total balance at each age and dt value.
 	if dfSumm, e4 = df.By("age,dt", "mb := mean(bal)", "dq := 100.0 * sum(if(status=='D', bal, 0.0))/ sum(bal)", "balAgeDt := sum(bal)"); e4 != nil {
 		panic(e4)
 	}
@@ -172,11 +174,13 @@ total balance) to calculate item 3c.
 		dfJoin d.DF
 		e6 error
 	)
+	// Now join the two by dt.  We could also do
+	//    dfSumm.Join(dfSummdt, "dt")
 	if dfJoin, e6 = dfSummDt.Join(dfSumm, "dt"); e6!=nil {
 		panic(e6)
 	}
 
-	// pAge is the percentage of balances that are this age for this dt.
+	// pAge is the percentage of balances that month that are this age.
 	if ex := d.Parse(dfJoin, "pAge := 100.0 * balAgeDt / balDt"); ex!=nil {
 		panic(ex)
 	}
@@ -235,7 +239,7 @@ Now let's save the summary out to a CSV.
 		panic(e7)
 	}
 
-	fileToSave := os.Getenv("datapath") + "dfSummary.csv"
+	fileToSave := os.Getenv("datapath") + "getting_started_summary.csv"
 	if ex := fs.Save(fileToSave, dfJoin); ex != nil {
 		panic(ex)
 	}

@@ -129,7 +129,7 @@ func (c *Col) Len() int {
 // MakeQuery creates a stand-alone query that will pull the data for this column
 func (c *Col) MakeQuery() string {
 	if c.Parent() == nil {
-		panic("nil parent")
+		panic(fmt.Errorf("nil parent"))
 	}
 
 	df := c.Parent().(*DF)

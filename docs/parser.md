@@ -15,6 +15,8 @@ nav_order: 3
 {:toc}
 ---
 
+### Introduction
+
 The parser evaluates an expression that returns a Column.  The signature of the Parse function is:
 
     Parse(df DF, equation string) error
@@ -34,12 +36,11 @@ The parser supports these functions:
 
 **Arithmetic**
 
-    +, -, *, /, ^
+    + - * / ^
 
 **Logic**
 
-    ==, !=, >, >=, <, <=
-    \|\|, &&, !
+    == != > >= < <= || && !
 
 - **if**. if(conditon expression, rTrue any, rFalse any). if condition evaluates true, return rTrue. rTrue and rFalse must have the same type. Example:
 
@@ -70,7 +71,7 @@ The parser supports these functions:
 - **ageMonths**. ageMonths(bDay date, asOf date) int. Age in months from bDay to asOf.
 - **ageYears**. ageYears(bDay date, asOf date) int. Age in years from bDay to asOf.
 - **day**. day(dt date) int. Day of month.
-- **dayOfWeek**. dayOfWeek(dt date) string. Day of week. Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday.
+- **dayOfWeek**. dayOfWeek(dt date) string. Day of week. Values are: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday.
 - **makeDate**. makeDate(year int \| string, month int \| string, day int \| string) date. Make a date.
 - **month**. month(dt date) int. Month of year.
 - **toEndOfMonth**. toEndOfMonth(dt date) date. Moves a date to the last day of the month.
@@ -110,7 +111,7 @@ Note, that there is not a way to set the seed for these.
 
 **Row-wise Summaries**
 
-Row-wise summaries produce a single valued summary of a column. If used with Parse directly, this produces a column with a single value
+Row-wise summaries produce a single-valued summary of a column. If used with Parse directly, this produces a column with a that value
 repeated over the rows.  To produce a new dataframe with just one row, use by By method with an empty string as the groupBy parameter.
 
 - **count**. count(x any) int. Counts the number of rows. Outside of the By method, this populates all rows with the length of x.
@@ -127,7 +128,7 @@ repeated over the rows.  To produce a new dataframe with just one row, use by By
 
 **Column-wise Summaries**
 
-Column-wise summaries take a set of columns as inputs. They generate the summary row-by-row.  For instance, if 
+Column-wise summaries take a set of columns as inputs. They generate a summary row-by-row.  For instance, if 
 a, b, and c are columns,
 
     m := colMean(a,b,c)

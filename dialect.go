@@ -380,6 +380,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	create = strings.ReplaceAll(create, "?TableName", tableName)
 	create = strings.Replace(create, "?OrderBy", orderBy, 1)
 
+	// TODO: move to an opt
 	if d.DialectName() == pg {
 		create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
 	}
@@ -887,7 +888,7 @@ func (d *Dialect) Types(qry string) (fieldNames []string, fieldTypes []DataTypes
 		case time.Time, *time.Time:
 			dt = DTdate
 		default:
-			panic("OH NO bad datatype")
+			panic(fmt.Errorf("OH NO bad datatype"))
 		}
 
 		dts = append(dts, dt)

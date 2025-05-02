@@ -557,17 +557,9 @@ func TestParser(t *testing.T) {
 	}
 }
 
-
-// TODO: check for referencing elements directly not through method
-// TODO: revisit sourceDF relative to mem/By
-
 // TODO: optional name to DFSeq for the column
+//TODO: move functions.txt in mem up a level
 
-// TODO: are there more func parameters to get rid of?
-// TODO: convert %s to #0, #1,... in functions.txt
-
-// TODO: can I combine a file reader and an sql save to read from csv & write directly to a table
-// TODO: should panics return a fmt.Errorf?
 /*
 
 
@@ -665,6 +657,3 @@ func TestApplyCat(t *testing.T) {
 		}
 	}
 }
-
-// TODO: think about float -> string
-// TODO: think about date formats

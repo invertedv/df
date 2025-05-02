@@ -1,6 +1,8 @@
 package mem
 
-import d "github.com/invertedv/df"
+import (
+	"fmt"
+	d "github.com/invertedv/df")
 
 func toCol(x any) *Col {
 	if c, ok := x.(*Col); ok {
@@ -19,7 +21,7 @@ func toCol(x any) *Col {
 		return c
 	}
 
-	panic("can't make column")
+	panic(fmt.Errorf("can't make column"))
 }
 
 func returnCol(data any) *d.FnReturn {

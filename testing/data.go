@@ -141,7 +141,7 @@ func loadData(which string) d.DF {
 		dialectName = pg
 		tableName = sName
 	default:
-		panic("unsupported data source")
+		panic(fmt.Errorf("unsupported data source"))
 	}
 
 	table := "SELECT * FROM " + tableName
