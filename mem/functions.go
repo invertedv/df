@@ -27,7 +27,7 @@ type frameTypes interface {
 
 // function definitions
 var (
-	//go:embed data/functions.txt
+	//go:embed functions.txt
 	functions string
 )
 

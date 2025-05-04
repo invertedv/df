@@ -1,3 +1,21 @@
+/*
+The package df is an implementation of dataframes.  The central idea here is that the dataframes are defined as an interface which is
+independent of the implementation of the data-handling details.
+
+The package df defines:
+  - The dataframe and column interfaces (DF, Column).
+  - Implements core aspects of these.
+  - Provides a parser to handle Column-valued expressions.
+  - Provides for file and database IO.
+
+Along with df, there are two sub-packages implementing DF and Column:
+  - df/mem. In-memory dataframes,
+  - df/sql.  SQL-database dataframes.  The current implementation covers ClickHouse and Postgres databases.
+
+See the 
+[documentation]: https://invertedv.github.io/df
+for details.
+*/
 package df
 
 import (

@@ -28,7 +28,7 @@ An implementation of DF and Column for in-memory objects.
 - column.go. Defines a type that satisfies the full Column interface.
 - df.go. Defines a type that satisfies the full DF interface.
 - functions.go. Defines functions used by the parser.
-- data/functions.txt. This file provides a mapping for the parser. It maps the function name the parser knows to the Go function, including input/output types.
+- functions.txt. This file provides a mapping for the parser. It maps the function name the parser knows to the Go function, including input/output types.
 - mem_test.go
 
 #### sql
@@ -90,7 +90,7 @@ There is an additional file, functions.txt, provides a function mapping for the 
 These tests run through dataframes using df/mem and df/sql (both ClickHouse and Postgres).
 
 
-**Functions.txt Files**
+### Functions.txt Files
 
 All functions.txt files are read by LoadFunctions() and have the same format.  These are read by LoadFunctions().
 
