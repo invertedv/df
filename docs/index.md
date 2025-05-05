@@ -38,11 +38,12 @@ between df/mem and df/sql is not the source of the data. Package mem/DF datafram
 
 What do you need to be able to do with a dataframe? Well, you'll want to
 
-- Create and save them.  With df you can read/write files (such as CSV) and SQL tables.
+- Create and save them.  
 - Manipulate the columns such as creating new columns based on the existing ones.
 - Subset, sort, summarize and join the data. 
 
 To this end,
+  - With df you can read/write files (such as CSV) and SQL tables.
   - df has a parser for evaluating expressions to create new columns. The parser allows flexible specification of expressions that return a column result.  The parser will work on any type that satisfies the DF interface*.
 
         Parse(df, "y := exp(yhat) / (1.0 + exp(yhat))")
@@ -58,7 +59,7 @@ df/sql packages offer identical function sets.  See the Parse section of a list 
 
 **Extensible**
 
-The package may be extended in several directions:
+The package may be extended in several directions. One can
 - Add new functions to the parser.
 - Add additional database types can be added to the sql package. Currently, ClickHouse and Postgres are supported.  Adding support for the new DB type requires modifying the Dialect struct.
 The sql package would not need to be modified.
@@ -69,6 +70,7 @@ The sql package would not need to be modified.
 
 The df package defines the DF and Column interfaces in two steps: a core (DC, CC, respectively) and full interface (DF, Column).  The core interface defines those methods which are independent of the details of the data architecture (*e.g.* DropColumns() from DF, Name() method for a Column). The df package provides structs that implement the core DF and Column interfaces (DFcore, ColCore).
 
+The package also provides a parser, procedures for accessing files and tables, and additional structures required by the package.
 
 **df/mem**
 
