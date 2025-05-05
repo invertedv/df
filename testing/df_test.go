@@ -143,9 +143,9 @@ func TestJoin_multiple(t *testing.T) {
 			e   error
 		)
 		if strings.Contains(which, "mem") {
-			df1, e = m.NewDFseq(n)
+			df1, e = m.NewDFseq(n, "seq")
 		} else {
-			df1, e = s.NewDFseq(dfx.Dialect(), n)
+			df1, e = s.NewDFseq(dfx.Dialect(), n, "seq")
 		}
 
 		assert.Nil(t, e)
@@ -190,14 +190,14 @@ func TestInterp(t *testing.T) {
 			switch choice {
 			case 0:
 				var tmp d.DF
-				tmp, e := s.NewDFseq(dfx.Dialect(), 15)
+				tmp, e := s.NewDFseq(dfx.Dialect(), 15, "seq")
 				assert.Nil(t, e)
 				e = d.Parse(tmp, "kx := float(seq) ")
 				assert.Nil(t, e)
 				points = tmp
 			case 1:
 				var tmp d.DF
-				tmp, e := m.NewDFseq(15)
+				tmp, e := m.NewDFseq(15, "seq")
 				assert.Nil(t, e)
 				e = d.Parse(tmp, "kx := float(seq) ")
 				assert.Nil(t, e)
@@ -213,14 +213,14 @@ func TestInterp(t *testing.T) {
 				assert.Nil(t, e)
 			case 3:
 				var tmp d.DF
-				tmp, e := m.NewDFseq(15)
+				tmp, e := m.NewDFseq(15, "seq")
 				assert.Nil(t, e)
 				e = d.Parse(tmp, "kx := float(seq) ")
 				assert.Nil(t, e)
 				points = tmp.Column("kx")
 			case 4:
 				var tmp d.DF
-				tmp, e := s.NewDFseq(dfx.Dialect(), 15)
+				tmp, e := s.NewDFseq(dfx.Dialect(), 15, "seq")
 				assert.Nil(t, e)
 				e = d.Parse(tmp, "kx := float(seq) ")
 				assert.Nil(t, e)
@@ -296,10 +296,10 @@ func TestSeq(t *testing.T) {
 
 		switch which {
 		case mem:
-			df, e = m.NewDFseq(5)
+			df, e = m.NewDFseq(5, "seq")
 			assert.Nil(t, e)
 		default:
-			df, e = s.NewDFseq(dfx.Dialect(), 5)
+			df, e = s.NewDFseq(dfx.Dialect(), 5, "seq")
 			assert.Nil(t, e)
 		}
 
@@ -328,7 +328,8 @@ func TestPermSave(t *testing.T) {
 			opt1 := "IndexName:i111"
 			opt2 := fmt.Sprintf("TableSpace:%s", os.Getenv("tablespace"))
 			opt3 := fmt.Sprintf("Owner:%s", os.Getenv("user"))
-			opts = []string{opt1, opt2, opt3}
+			opt4 := "?IndexName:indx1"
+			opts = []string{opt1, opt2, opt3, opt4}
 			table = "dd"
 		}
 

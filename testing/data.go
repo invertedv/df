@@ -168,6 +168,7 @@ func loadData(which string) d.DF {
 			opts = append(opts, "Owner:"+user)
 			ts := os.Getenv("tablespace")
 			opts = append(opts, "TableSpace:"+ts)
+			opts = append(opts, "?IndexName:indx1")
 		}
 
 		if e := dialect.Save(tableName, "k", true, false, dfl, opts...); e != nil {

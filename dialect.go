@@ -380,11 +380,6 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 	create = strings.ReplaceAll(create, "?TableName", tableName)
 	create = strings.Replace(create, "?OrderBy", orderBy, 1)
 
-	// TODO: move to an opt
-	if d.DialectName() == pg {
-		create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
-	}
-
 	var flds []string
 	for ind := range len(fields) {
 		var (
@@ -408,6 +403,11 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 		}
 
 		create = strings.ReplaceAll(create, "?"+kv[0], kv[1])
+	}
+
+	// A bit of a cluge -- if this isn't specified, make up a random name. 
+	if strings.Contains(create, "?IndexName") {
+		create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
 	}
 
 	if strings.Contains(create, "?") {

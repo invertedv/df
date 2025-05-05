@@ -161,9 +161,9 @@ func NewDFcol(cols []*Col, opts ...d.DFopt) (*DF, error) {
 	return outDF, nil
 }
 
-// NewDFseq creates a *DF with a single column, "seq". That column is a DTint sequence
+// NewDFseq creates a *DF with a single column, name. That column is a DTint sequence
 // from 0 to n-1.
-func NewDFseq(n int, opts ...d.DFopt) (*DF, error) {
+func NewDFseq(n int, name string, opts ...d.DFopt) (*DF, error) {
 	if n <= 0 {
 		return nil, fmt.Errorf("n must be positive in NewDFseq")
 	}
@@ -173,7 +173,7 @@ func NewDFseq(n int, opts ...d.DFopt) (*DF, error) {
 		data[ind] = ind
 	}
 
-	col, _ := NewCol(data, d.ColName("seq"))
+	col, _ := NewCol(data, d.ColName(name))
 
 	df, _ := NewDFcol([]*Col{col}, opts...)
 

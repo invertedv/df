@@ -68,9 +68,9 @@ func TestBinRandomGen(t *testing.T) {
 		)
 
 		if strings.Contains(which, "mem") {
-			dfy, e = m.NewDFseq(nRep)
+			dfy, e = m.NewDFseq(nRep, "seq")
 		} else {
-			dfy, e = s.NewDFseq(dfx.Dialect(), nRep)
+			dfy, e = s.NewDFseq(dfx.Dialect(), nRep, "seq")
 		}
 		assert.Nil(t, e)
 
@@ -107,9 +107,9 @@ func TestBernRandomGen(t *testing.T) {
 		)
 
 		if strings.Contains(which, "mem") {
-			dfy, e = m.NewDFseq(nRep)
+			dfy, e = m.NewDFseq(nRep, "seq")
 		} else {
-			dfy, e = s.NewDFseq(dfx.Dialect(), nRep)
+			dfy, e = s.NewDFseq(dfx.Dialect(), nRep, "seq")
 		}
 		assert.Nil(t, e)
 
@@ -146,9 +146,9 @@ func TestExpRandomGen(t *testing.T) {
 		)
 
 		if strings.Contains(which, "mem") {
-			dfy, e = m.NewDFseq(nRep)
+			dfy, e = m.NewDFseq(nRep, "seq")
 		} else {
-			dfy, e = s.NewDFseq(dfx.Dialect(), nRep)
+			dfy, e = s.NewDFseq(dfx.Dialect(), nRep, "seq")
 		}
 		assert.Nil(t, e)
 
@@ -181,9 +181,9 @@ func TestUnifRandomGen(t *testing.T) {
 		)
 
 		if strings.Contains(which, "mem") {
-			dfy, e = m.NewDFseq(n)
+			dfy, e = m.NewDFseq(n, "seq")
 		} else {
-			dfy, e = s.NewDFseq(dfx.Dialect(), n)
+			dfy, e = s.NewDFseq(dfx.Dialect(), n, "seq")
 		}
 		assert.Nil(t, e)
 
@@ -206,7 +206,7 @@ func TestUnifRandomGen(t *testing.T) {
 }
 
 func TestNormRandomGen(t *testing.T) {
-	const n = 100000
+	const n = 200000
 	for _, which := range pkgs("d1") {
 		dfx := loadData(which)
 		var (
@@ -215,9 +215,9 @@ func TestNormRandomGen(t *testing.T) {
 		)
 
 		if strings.Contains(which, "mem") {
-			dfy, e = m.NewDFseq(n)
+			dfy, e = m.NewDFseq(n, "seq")
 		} else {
-			dfy, e = s.NewDFseq(dfx.Dialect(), n)
+			dfy, e = s.NewDFseq(dfx.Dialect(), n, "seq")
 		}
 		assert.Nil(t, e)
 		e = d.Parse(dfy, "k := int(seq/10)")
@@ -558,7 +558,6 @@ func TestParser(t *testing.T) {
 }
 
 // TODO: optional name to DFSeq for the column
-//TODO: move functions.txt in mem up a level
 
 /*
 

@@ -314,7 +314,7 @@ func ExampleDF_AppendColumn() {
 		df *DF
 		e1 error
 	)
-	if df, e1 = NewDFseq(n); e1 != nil {
+	if df, e1 = NewDFseq(n, "seq"); e1 != nil {
 		panic(e1)
 	}
 
@@ -686,11 +686,11 @@ func ExampleDF_Join_twoColumns() {
 		dfLeft, dfRight d.DF
 		e1              error
 	)
-	if dfLeft, e1 = NewDFseq(nLeft); e1 != nil {
+	if dfLeft, e1 = NewDFseq(nLeft, "seq"); e1 != nil {
 		panic(e1)
 	}
 
-	if dfRight, e1 = NewDFseq(nRight); e1 != nil {
+	if dfRight, e1 = NewDFseq(nRight, "seq"); e1 != nil {
 		panic(e1)
 	}
 

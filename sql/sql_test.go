@@ -125,7 +125,7 @@ func ExampleDF_By() {
 		df *DF
 		e1 error
 	)
-	if df, e1 = NewDFseq(dlct, n); e1 != nil {
+	if df, e1 = NewDFseq(dlct, n, "seq"); e1 != nil {
 		panic(e1)
 	}
 
@@ -189,7 +189,7 @@ func ExampleDF_By_global() {
 		df *DF
 		e1 error
 	)
-	if df, e1 = NewDFseq(dlct, n); e1 != nil {
+	if df, e1 = NewDFseq(dlct, n, "seq"); e1 != nil {
 		panic(e1)
 	}
 
@@ -253,7 +253,7 @@ func ExampleDF_By_oneRow() {
 		df *DF
 		e1 error
 	)
-	if df, e1 = NewDFseq(dlct, n); e1 != nil {
+	if df, e1 = NewDFseq(dlct, n, "seq"); e1 != nil {
 		panic(e1)
 	}
 
@@ -395,11 +395,11 @@ func ExampleDF_Join() {
 		dfLeft, dfRight d.DF
 		e1 error
 	)
-	if dfLeft, e1 = NewDFseq(dlct, nLeft); e1 != nil {
+	if dfLeft, e1 = NewDFseq(dlct, nLeft, "seq"); e1 != nil {
 		panic(e1)
 	}
 
-	if dfRight, e1 = NewDFseq(dlct, nRight); e1 != nil {
+	if dfRight, e1 = NewDFseq(dlct, nRight, "seq"); e1 != nil {
 		panic(e1)
 	}
 
@@ -457,11 +457,11 @@ func ExampleDF_Join_twoColumns() {
 		dfLeft, dfRight d.DF
 		e1 error
 	)
-	if dfLeft, e1 = NewDFseq(dlct, nLeft); e1 != nil {
+	if dfLeft, e1 = NewDFseq(dlct, nLeft, "seq"); e1 != nil {
 		panic(e1)
 	}
 
-	if dfRight, e1 = NewDFseq(dlct, nRight); e1 != nil {
+	if dfRight, e1 = NewDFseq(dlct, nRight, "seq"); e1 != nil {
 		panic(e1)
 	}
 
@@ -527,7 +527,7 @@ func ExampleDF_Where() {
 		df d.DF
 		e1 error
 	)
-	if df, e1 = NewDFseq(dlct, n); e1 != nil {
+	if df, e1 = NewDFseq(dlct, n, "seq"); e1 != nil {
 		panic(e1)
 	}
 

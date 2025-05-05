@@ -134,7 +134,8 @@ Suppose we have a dataframe, df, and we wish to save it as a Postgres table.
 	opt1 := "IndexName:myIndex"
 	opt2 := fmt.Sprintf("TableSpace:%s", os.Getenv("tablespace"))
 	opt3 := fmt.Sprintf("Owner:%s", os.Getenv("user"))
-	opts = []string{opt1, opt2, opt3}
+    opt4 := "?IndexName:indx1"
+	opts = []string{opt1, opt2, opt3,opt4}
 
 	e := dlct.Save(table, key, true, false, df, opts...)
 
