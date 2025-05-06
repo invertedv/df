@@ -785,7 +785,7 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 
 	nextRight := fRight.Row(indRight + 1)
 	nextJoinRight := subset(nextRight, colsRight)
-	lh := -1  // start index of a block of left df that have same join keys
+	lh := -1 // start index of a block of left df that have same join keys
 
 	for {
 		if rowCompare(leftJoin, rightJoin, "eq") {
@@ -801,7 +801,7 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 				indLeft++
 				leftRow = nextLeft
 				leftJoin = nextJoinLeft
-				nextLeft = f.Row(indLeft+1)
+				nextLeft = f.Row(indLeft + 1)
 				nextJoinLeft = subset(nextLeft, colsLeft)
 				continue
 			}
@@ -811,7 +811,7 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 				indRight++
 				rightRow = nextRight
 				rightJoin = nextJoinRight
-				nextRight = fRight.Row(indRight+1)
+				nextRight = fRight.Row(indRight + 1)
 				nextJoinRight = subset(nextRight, colsRight)
 
 				if lh >= 0 {
@@ -819,7 +819,7 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 					lh = -1
 					leftRow = f.Row(indLeft)
 					leftJoin = subset(leftRow, colsLeft)
-					nextLeft = f.Row(indLeft+1)
+					nextLeft = f.Row(indLeft + 1)
 					nextJoinLeft = subset(nextLeft, colsLeft)
 				}
 
@@ -833,7 +833,7 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 				indLeft++
 				leftRow = nextLeft
 				leftJoin = nextJoinLeft
-				nextLeft = f.Row(indLeft+1)
+				nextLeft = f.Row(indLeft + 1)
 				nextJoinLeft = subset(nextLeft, colsLeft)
 				lh = -1
 				continue
@@ -845,7 +845,7 @@ func (f *DF) Join(df d.HasIter, joinOn string) (d.DF, error) {
 			indRight++
 			rightRow = nextRight
 			rightJoin = nextJoinRight
-			nextRight = fRight.Row(indRight+1)
+			nextRight = fRight.Row(indRight + 1)
 			nextJoinRight = subset(nextRight, colsRight)
 			continue
 
@@ -1085,7 +1085,7 @@ func buildGroups(df *DF, gbCol []*Col) (groups, error) {
 		mps = append(mps, make(oneD))
 	}
 
-	// tabMap is the map represenation of the table. The key is the hash value.
+	// tabMap is the map representation of the table. The key is the hash value.
 	tabMap := make(map[uint64]*entry)
 
 	// buf is the 8 byte representation of the index number for a level of a column

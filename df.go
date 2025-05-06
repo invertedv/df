@@ -12,7 +12,7 @@ Along with df, there are two sub-packages implementing DF and Column:
   - df/mem. In-memory dataframes,
   - df/sql.  SQL-database dataframes.  The current implementation covers ClickHouse and Postgres databases.
 
-See the 
+See the
 [documentation]: https://invertedv.github.io/df
 for details.
 */

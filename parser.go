@@ -12,19 +12,13 @@ import (
 //
 // A list of functions available is in the documentation.
 func Parse(df DF, expr string) error {
-	var (
-		left string
-		indx int
-	)
+	var indx int
 
-	right := expr
 	if indx = strings.Index(expr, ":="); indx < 0 {
 		return fmt.Errorf("expression has no assignment")
 	}
 
-	left = expr[:indx]
-	right = expr[indx+2:]
-	left = strings.ReplaceAll(left, " ", "")
+	left, right := strings.ReplaceAll(expr[:indx], " ", ""), expr[indx+2:]
 
 	ot := newOpTree(right, df.Fns())
 
@@ -74,8 +68,8 @@ func doOp(df DF, opName string, inputs ...Column) (Column, error) {
 }
 
 // opTree parses expressions.  The process has two steps:
-//   1. Build - create a binary tree representation of the expression.
-//   2. Evaluate - evaluate the expression.
+//  1. Build - create a binary tree representation of the expression.
+//  2. Evaluate - evaluate the expression.
 type opTree struct {
 	value Column
 
@@ -85,10 +79,10 @@ type opTree struct {
 	left  *opTree // left expression
 	right *opTree // right expression
 
-	fnName string // function to run
+	fnName string    // function to run
 	inputs []*opTree // inputs to the function
 
-	funcs   Fns // available functions
+	funcs   Fns      // available functions
 	fnNames []string // names of available functions
 
 	ops operations // available operations (e.g. +, -, ...)

@@ -405,7 +405,7 @@ func (d *Dialect) Create(tableName, orderBy string, fields []string, types []Dat
 		create = strings.ReplaceAll(create, "?"+kv[0], kv[1])
 	}
 
-	// A bit of a cluge -- if this isn't specified, make up a random name. 
+	// A bit of a cluge -- if this isn't specified, make up a random name.
 	if strings.Contains(create, "?IndexName") {
 		create = strings.ReplaceAll(create, "?IndexName", RandomLetters(4))
 	}

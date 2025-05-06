@@ -16,7 +16,7 @@ type Col struct {
 	// short term signal indicating "global" function surrounds the column.
 	// This instruct the function to add SQL so that the calculation is global.
 	// In this case, all rows will have the same value.
-	gf     bool 
+	gf bool
 
 	*d.ColCore
 }

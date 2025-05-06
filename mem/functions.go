@@ -190,7 +190,7 @@ func buildFn(spec *d.FnSpec) d.Fn {
 	return fn
 }
 
-// vectorFunctions returns a slice of functions that will be availble to Parse.
+// vectorFunctions returns a slice of functions that will be available to Parse.
 func vectorFunctions() d.Fns {
 	specs := d.LoadFunctions(functions)
 	fns := rawFuncs()

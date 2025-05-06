@@ -53,7 +53,7 @@ func NewCol(data any, opts ...d.ColOpt) (*Col, error) {
 	return col, nil
 }
 
-func (c *Col) 	AllRows() iter.Seq2[int, []any] {
+func (c *Col) AllRows() iter.Seq2[int, []any] {
 	return c.Data().AllRows()
 }
 
@@ -66,7 +66,7 @@ func (c *Col) Copy() d.Column {
 	return col
 }
 
-func (c *Col) Data() *d.Vector{
+func (c *Col) Data() *d.Vector {
 	return c.Vector
 }
 

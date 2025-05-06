@@ -370,8 +370,8 @@ func ExampleDF_Interp() {
 
 func ExampleDF_Join() {
 	const (
-		nLeft=10
-		nRight = 15
+		nLeft      = 10
+		nRight     = 15
 		dbProvider = "clickhouse"
 	)
 
@@ -393,7 +393,7 @@ func ExampleDF_Join() {
 	// create the dataframes to join
 	var (
 		dfLeft, dfRight d.DF
-		e1 error
+		e1              error
 	)
 	if dfLeft, e1 = NewDFseq(dlct, nLeft, "seq"); e1 != nil {
 		panic(e1)
@@ -404,18 +404,18 @@ func ExampleDF_Join() {
 	}
 
 	// add a column
-	if e:=d.Parse(dfLeft, "x := exp(float(seq) / 100.0)"); e!=nil {
+	if e := d.Parse(dfLeft, "x := exp(float(seq) / 100.0)"); e != nil {
 		panic(e)
 	}
 
-	if e:=d.Parse(dfRight, "y := seq^2"); e!=nil {
+	if e := d.Parse(dfRight, "y := seq^2"); e != nil {
 		panic(e)
 	}
 
 	// join
-	var(
+	var (
 		dfJoin d.DF
-		e2 error
+		e2     error
 	)
 	if dfJoin, e2 = dfLeft.Join(dfRight, "seq"); e2 != nil {
 		panic(e2)
@@ -432,8 +432,8 @@ func ExampleDF_Join() {
 
 func ExampleDF_Join_twoColumns() {
 	const (
-		nLeft=10
-		nRight = 15
+		nLeft      = 10
+		nRight     = 15
 		dbProvider = "clickhouse"
 	)
 
@@ -455,7 +455,7 @@ func ExampleDF_Join_twoColumns() {
 	// Create the dataframes to join
 	var (
 		dfLeft, dfRight d.DF
-		e1 error
+		e1              error
 	)
 	if dfLeft, e1 = NewDFseq(dlct, nLeft, "seq"); e1 != nil {
 		panic(e1)
@@ -466,27 +466,27 @@ func ExampleDF_Join_twoColumns() {
 	}
 
 	// second column to join on
-	if e:=d.Parse(dfLeft, "b := if(mod(seq,4) == 0, 'a', if(mod(seq,4)==1, 'b', if(mod(seq,4)==2, 'c', 'd')))"); e!=nil {
+	if e := d.Parse(dfLeft, "b := if(mod(seq,4) == 0, 'a', if(mod(seq,4)==1, 'b', if(mod(seq,4)==2, 'c', 'd')))"); e != nil {
 		panic(e)
 	}
 
-	if e:=d.Parse(dfRight, "b := if(mod(seq,4) == 0, 'a', 'b')"); e!=nil {
+	if e := d.Parse(dfRight, "b := if(mod(seq,4) == 0, 'a', 'b')"); e != nil {
 		panic(e)
 	}
 
 	// add another column to each
-	if e:=d.Parse(dfLeft, "x := exp(float(seq) / 100.0)"); e!=nil {
+	if e := d.Parse(dfLeft, "x := exp(float(seq) / 100.0)"); e != nil {
 		panic(e)
 	}
 
-	if e:=d.Parse(dfRight, "y := seq^2"); e!=nil {
+	if e := d.Parse(dfRight, "y := seq^2"); e != nil {
 		panic(e)
 	}
 
 	// join
-	var(
+	var (
 		dfJoin d.DF
-		e2 error
+		e2     error
 	)
 	if dfJoin, e2 = dfLeft.Join(dfRight, "seq,b"); e2 != nil {
 		panic(e2)
@@ -505,7 +505,7 @@ func ExampleDF_Join_twoColumns() {
 
 func ExampleDF_Where() {
 	const (
-		n=10
+		n          = 10
 		dbProvider = "clickhouse"
 	)
 
@@ -531,7 +531,7 @@ func ExampleDF_Where() {
 		panic(e1)
 	}
 
-	if e:=d.Parse(df, "x := 4.0 * float(seq)"); e!=nil {
+	if e := d.Parse(df, "x := 4.0 * float(seq)"); e != nil {
 		panic(e)
 	}
 

@@ -2,7 +2,8 @@ package mem
 
 import (
 	"fmt"
-	d "github.com/invertedv/df")
+	d "github.com/invertedv/df"
+)
 
 func toCol(x any) *Col {
 	if c, ok := x.(*Col); ok {

@@ -64,7 +64,7 @@ func NewDF(dlct *d.Dialect, input d.HasIter, opts ...d.DFopt) (*DF, error) {
 
 // NewDFseq creates a *DF with a single column, "seq". That column is a DTint sequence
 // from 0 to n-1.
-func NewDFseq(dlct *d.Dialect, n int,name string, opts ...d.DFopt) (*DF, error) {
+func NewDFseq(dlct *d.Dialect, n int, name string, opts ...d.DFopt) (*DF, error) {
 	seqSQL := fmt.Sprintf("SELECT %s AS seq", dlct.Seq(n))
 
 	var (

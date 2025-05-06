@@ -58,7 +58,7 @@ func varying(fnName, sql string, inp [][]d.DataTypes, outp []d.DataTypes) d.Fn {
 
 		ind := d.Position(cols[0].DataType(), i)
 		if ind < 0 {
-			return &d.FnReturn{Err: fmt.Errorf("incompatable type to function %s", fnName)}
+			return &d.FnReturn{Err: fmt.Errorf("incompatible type to function %s", fnName)}
 		}
 
 		outType := outp[ind]
