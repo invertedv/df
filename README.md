@@ -1,4 +1,4 @@
-## df - A Dataframe Package - V1
+## df - A Dataframe Package - V1.0
 [![Go Report Card](https://goreportcard.com/badge/github.com/invertedv/df)](https://goreportcard.com/report/github.com/invertedv/df)
 [![godoc](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/mod/github.com/invertedv/df?tab=overview)
 
