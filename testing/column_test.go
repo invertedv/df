@@ -50,9 +50,9 @@ func TestBinRandomGen(t *testing.T) {
 		  - postgres any numeric column that's in the original table
 	*/
 	const (
-		nRep = 400000
+		nReps = 400000
 		n    = 100
-		p    = 0.25
+		p    = 0.3
 	)
 
 	for _, which := range pkgs("d1") {
@@ -68,9 +68,9 @@ func TestBinRandomGen(t *testing.T) {
 		)
 
 		if strings.Contains(which, "mem") {
-			dfy, e = m.NewDFseq(nRep, "seq")
+			dfy, e = m.NewDFseq(nReps, "seq")
 		} else {
-			dfy, e = s.NewDFseq(dfx.Dialect(), nRep, "seq")
+			dfy, e = s.NewDFseq(dfx.Dialect(), nReps, "seq")
 		}
 		assert.Nil(t, e)
 
@@ -83,7 +83,7 @@ func TestBinRandomGen(t *testing.T) {
 		v := dfz.Column("v").Data().Element(0).(float64)
 		c := dfz.Column("c").Data().Element(0).(int)
 		fmt.Println(c, m, v)
-		assert.Equal(t, nRep, c)
+		assert.Equal(t, nReps, c)
 		assert.InEpsilon(t, n*p*(1-p), v, 0.01)
 		assert.InEpsilon(t, n*p, m, 0.01)
 
